@@ -9,7 +9,8 @@ public partial class InventoryPanel : Control
 	private const float SlotSize = 90.0f;
 	private const float IconSize = 70.0f;
 
-	[Export] public NodePath ItemsContainerPath = default!;
+	[Export] public NodePath PotionsContainerPath = default!;
+	[Export] public NodePath IngredientsContainerPath = default!;
 	[Export] public NodePath CloseButtonPath = default!;
 	[Export] public NodePath ItemDetailPanelPath = default!;
 	[Export] public NodePath ItemDetailImagePath = default!;
@@ -18,7 +19,8 @@ public partial class InventoryPanel : Control
 	[Export] public NodePath ItemDetailDescriptionPath = default!;
 	[Export] public NodePath ItemDetailCloseButtonPath = default!;
 
-	private GridContainer _items = default!;
+	private GridContainer _potions = default!;
+	private GridContainer _ingredients = default!;
 	private Button _closeButton = default!;
 	private Control _itemDetailPanel = default!;
 	private TextureRect _itemDetailImage = default!;
@@ -29,7 +31,8 @@ public partial class InventoryPanel : Control
 
 	public override void _Ready()
 	{
-		_items = GetNode<GridContainer>(ItemsContainerPath);
+		_potions = GetNode<GridContainer>(PotionsContainerPath);
+		_ingredients = GetNode<GridContainer>(IngredientsContainerPath);
 		_closeButton = GetNode<Button>(CloseButtonPath);
 		_itemDetailPanel = GetNode<Control>(ItemDetailPanelPath);
 		_itemDetailImage = GetNode<TextureRect>(ItemDetailImagePath);
@@ -68,21 +71,30 @@ public partial class InventoryPanel : Control
 
 	private void Refresh()
 	{
-		if (_items is null)
+		if (_potions is null || _ingredients is null)
 			return;
 
-		foreach (var child in _items.GetChildren())
+		foreach (var child in _potions.GetChildren())
+			child.QueueFree();
+		foreach (var child in _ingredients.GetChildren())
 			child.QueueFree();
 
 		if (GameState.Inventory.Count == 0)
 		{
-			_items.AddChild(new Label { Text = "Empty" });
+			_ingredients.AddChild(new Label { Text = "Empty" });
 			return;
 		}
 
 		foreach (var stack in GameState.Inventory.OrderBy(x => ItemName(x.Key)))
 		{
-			_items.AddChild(CreateSlot(stack.Key, stack.Value));
+			if (IsPotion(stack.Key))
+			{
+				_potions.AddChild(CreateSlot(stack.Key, stack.Value));
+			}
+			else
+			{
+				_ingredients.AddChild(CreateSlot(stack.Key, stack.Value));
+			}
 		}
 	}
 
@@ -161,6 +173,14 @@ public partial class InventoryPanel : Control
 	private static string ItemName(string itemId)
 	{
 		return DataDb.Items.TryGetValue(itemId, out var item) ? item.Name : itemId;
+	}
+
+	private static bool IsPotion(string itemId)
+	{
+		if (!DataDb.Items.TryGetValue(itemId, out var item))
+			return false;
+
+		return item.Tags.Any(tag => string.Equals(tag, "potion", System.StringComparison.OrdinalIgnoreCase));
 	}
 
 	private static DataDb DataDb => (DataDb)((SceneTree)Engine.GetMainLoop()).Root.GetNode("/root/DataDb");

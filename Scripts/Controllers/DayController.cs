@@ -12,6 +12,7 @@ public partial class DayController : Node
 	[Export] public NodePath InventoryPanelPath = default!;
 	[Export] public NodePath CustomerPanelPath = default!;
 	[Export] public NodePath BrewPanelPath = default!;
+	[Export] public NodePath RecipeBookPanelPath = default!;
 
 	private UI.EventModal _eventModal = default!;
 	private EventController _eventController = default!;
@@ -19,6 +20,7 @@ public partial class DayController : Node
 	private UI.InventoryPanel _inventoryPanel = default!;
 	private UI.CustomerPanel _customerPanel = default!;
 	private UI.BrewPanel _brewPanel = default!;
+	private UI.RecipeBookPanel _recipeBookPanel = default!;
 
 	public override void _Ready()
 	{
@@ -28,6 +30,7 @@ public partial class DayController : Node
 		_inventoryPanel = GetNode<UI.InventoryPanel>(InventoryPanelPath);
 		_customerPanel = GetNode<UI.CustomerPanel>(CustomerPanelPath);
 		_brewPanel = GetNode<UI.BrewPanel>(BrewPanelPath);
+		_recipeBookPanel = GetNode<UI.RecipeBookPanel>(RecipeBookPanelPath);
 	}
 
 	public void ServeCustomer()
@@ -46,6 +49,7 @@ public partial class DayController : Node
 	{
 		_customerPanel.HidePanel();
 		_brewPanel.HidePanel();
+		_recipeBookPanel.HidePanel();
 
 		// Example of an escalating rule that modifies events.
 		if (GameState.ActiveRules.Contains("thin_veil"))

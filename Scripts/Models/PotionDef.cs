@@ -7,6 +7,7 @@ public sealed class PotionDef
     public string Id { get; set; } = "";
     public string Name { get; set; } = "";
     public string Description { get; set; } = "";
+    public bool Known { get; set; } = true;
     public int Cost { get; set; }
     public string OutputItemId { get; set; } = "";
     public int OutputQty { get; set; } = 1;
