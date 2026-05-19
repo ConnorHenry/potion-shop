@@ -1,0 +1,418 @@
+[gd_scene load_steps=11 format=3 uid="uid://crbtbyayy4wq1"]
+
+[ext_resource type="Script" uid="uid://cpdo7gyxh2gvl" path="res://Scripts/UI/Hud.cs" id="1_khu2m"]
+[ext_resource type="Script" uid="uid://hkjdjmtp1abw" path="res://Scripts/UI/EventModal.cs" id="2_8y3f6"]
+[ext_resource type="Script" uid="uid://cmifnnvj2qr85" path="res://Scripts/Controllers/DayController.cs" id="3_1k1a3"]
+[ext_resource type="Script" uid="uid://c3ghssq14vnvq" path="res://Scripts/Controllers/EventController.cs" id="4_7w4xk"]
+[ext_resource type="Script" uid="uid://ciyicbkwp6f08" path="res://Scripts/UI/InventoryPanel.cs" id="5_5bh8f"]
+[ext_resource type="Script" uid="uid://d0i82ek5gng47" path="res://Scripts/UI/CustomerPanel.cs" id="6_h1r0d"]
+[ext_resource type="Script" uid="uid://bad57hhje5lgo" path="res://Scripts/Controllers/CustomerEventController.cs" id="7_07l3o"]
+[ext_resource type="Script" uid="uid://co7ips8h5sgbl" path="res://Scripts/UI/CustomerSellDropBox.cs" id="8_74p2s"]
+[ext_resource type="Script" uid="uid://bygqfctik8rwk" path="res://Scripts/UI/BrewPanel.cs" id="9_em5ve"]
+[ext_resource type="Script" uid="uid://bqfhng15wnpg8" path="res://Scripts/UI/BrewDropBox.cs" id="10_odm4o"]
+
+[node name="Main" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="EventController" type="Node" parent="."]
+script = ExtResource("4_7w4xk")
+
+[node name="CustomerEventController" type="Node" parent="."]
+script = ExtResource("7_07l3o")
+
+[node name="DayController" type="Node" parent="."]
+script = ExtResource("3_1k1a3")
+EventModalPath = NodePath("../CanvasLayer/EventModal")
+EventControllerPath = NodePath("../EventController")
+CustomerEventControllerPath = NodePath("../CustomerEventController")
+InventoryPanelPath = NodePath("../CanvasLayer/InventoryPanel")
+CustomerPanelPath = NodePath("../CanvasLayer/CustomerPanel")
+BrewPanelPath = NodePath("../CanvasLayer/BrewPanel")
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="Hud" type="Control" parent="CanvasLayer"]
+layout_mode = 3
+anchor_left = 0.2
+anchor_right = 1.0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = 96.0
+script = ExtResource("1_khu2m")
+GoldLabelPath = NodePath("Gold")
+DreadLabelPath = NodePath("Dread")
+DayLabelPath = NodePath("Day")
+
+[node name="Gold" type="Label" parent="CanvasLayer/Hud"]
+layout_mode = 0
+offset_right = 156.0
+offset_bottom = 24.0
+text = "Gold:"
+
+[node name="Dread" type="Label" parent="CanvasLayer/Hud"]
+layout_mode = 0
+offset_top = 26.0
+offset_right = 156.0
+offset_bottom = 50.0
+text = "Dread:"
+
+[node name="Day" type="Label" parent="CanvasLayer/Hud"]
+layout_mode = 0
+offset_top = 52.0
+offset_right = 156.0
+offset_bottom = 76.0
+text = "Day:"
+
+[node name="EndDay" type="Button" parent="CanvasLayer/Hud"]
+layout_mode = 0
+offset_left = 460.0
+offset_right = 570.0
+offset_bottom = 40.0
+text = "End Day"
+
+[node name="Inventory" type="Button" parent="CanvasLayer/Hud"]
+layout_mode = 0
+offset_left = 580.0
+offset_right = 690.0
+offset_bottom = 40.0
+text = "Inventory"
+
+[node name="ServeCustomer" type="Button" parent="CanvasLayer/Hud"]
+layout_mode = 0
+offset_left = 700.0
+offset_right = 830.0
+offset_bottom = 40.0
+text = "Serve Customer"
+
+[node name="BrewPotion" type="Button" parent="CanvasLayer/Hud"]
+layout_mode = 0
+offset_left = 840.0
+offset_right = 960.0
+offset_bottom = 40.0
+text = "Brew Potion"
+
+[node name="InventoryPanel" type="Control" parent="CanvasLayer"]
+layout_mode = 3
+anchor_right = 0.2
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("5_5bh8f")
+ItemsContainerPath = NodePath("Panel/Margin/VBox/Items")
+CloseButtonPath = NodePath("Panel/Margin/VBox/Header/Close")
+ItemDetailPanelPath = NodePath("../InventoryItemDetail")
+ItemDetailImagePath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/Image")
+ItemDetailNamePath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/Name")
+ItemDetailPricePath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/Price")
+ItemDetailDescriptionPath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/Description")
+ItemDetailCloseButtonPath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/Close")
+
+[node name="Panel" type="PanelContainer" parent="CanvasLayer/InventoryPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Margin" type="MarginContainer" parent="CanvasLayer/InventoryPanel/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 96
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 14
+
+[node name="VBox" type="VBoxContainer" parent="CanvasLayer/InventoryPanel/Panel/Margin"]
+layout_mode = 2
+
+[node name="Header" type="HBoxContainer" parent="CanvasLayer/InventoryPanel/Panel/Margin/VBox"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="CanvasLayer/InventoryPanel/Panel/Margin/VBox/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Inventory"
+
+[node name="Close" type="Button" parent="CanvasLayer/InventoryPanel/Panel/Margin/VBox/Header"]
+layout_mode = 2
+text = "Close"
+
+[node name="Items" type="GridContainer" parent="CanvasLayer/InventoryPanel/Panel/Margin/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/h_separation = 10
+theme_override_constants/v_separation = 10
+columns = 4
+
+[node name="InventoryItemDetail" type="Control" parent="CanvasLayer"]
+layout_mode = 3
+anchor_left = 0.2
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 11.0
+offset_right = -642.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Panel" type="PanelContainer" parent="CanvasLayer/InventoryItemDetail"]
+layout_mode = 0
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -180.0
+offset_top = -210.0
+offset_right = 180.0
+offset_bottom = 210.0
+
+[node name="Margin" type="MarginContainer" parent="CanvasLayer/InventoryItemDetail/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 14
+
+[node name="VBox" type="VBoxContainer" parent="CanvasLayer/InventoryItemDetail/Panel/Margin"]
+layout_mode = 2
+
+[node name="Image" type="TextureRect" parent="CanvasLayer/InventoryItemDetail/Panel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 150)
+layout_mode = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Name" type="Label" parent="CanvasLayer/InventoryItemDetail/Panel/Margin/VBox"]
+layout_mode = 2
+text = "Item Name"
+
+[node name="Price" type="Label" parent="CanvasLayer/InventoryItemDetail/Panel/Margin/VBox"]
+layout_mode = 2
+text = "Sale Price"
+
+[node name="Description" type="RichTextLabel" parent="CanvasLayer/InventoryItemDetail/Panel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 120)
+layout_mode = 2
+text = "Description"
+fit_content = true
+
+[node name="Close" type="Button" parent="CanvasLayer/InventoryItemDetail/Panel/Margin/VBox"]
+layout_mode = 2
+text = "Close"
+
+[node name="CustomerPanel" type="Control" parent="CanvasLayer"]
+layout_mode = 3
+anchor_left = 0.2
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 446.0
+offset_top = -1.0
+offset_right = 446.0
+offset_bottom = -1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("6_h1r0d")
+TitlePath = NodePath("Panel/Margin/VBox/Header/Title")
+PortraitPath = NodePath("Panel/Margin/VBox/Portrait")
+DialoguePath = NodePath("Panel/Margin/VBox/Dialogue")
+SellDropBoxPath = NodePath("Panel/Margin/VBox/SellDropBox")
+RefuseButtonPath = NodePath("Panel/Margin/VBox/Refuse")
+ConfirmDialogPath = NodePath("ConfirmDialog")
+ConfirmDialogLabelPath = NodePath("ConfirmDialog/Margin/Label")
+CloseButtonPath = NodePath("Panel/Margin/VBox/Header/Close")
+
+[node name="Panel" type="PanelContainer" parent="CanvasLayer/CustomerPanel"]
+layout_mode = 0
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -220.0
+offset_top = -250.0
+offset_right = 220.0
+offset_bottom = 250.0
+
+[node name="Margin" type="MarginContainer" parent="CanvasLayer/CustomerPanel/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 14
+
+[node name="VBox" type="VBoxContainer" parent="CanvasLayer/CustomerPanel/Panel/Margin"]
+layout_mode = 2
+
+[node name="Header" type="HBoxContainer" parent="CanvasLayer/CustomerPanel/Panel/Margin/VBox"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="CanvasLayer/CustomerPanel/Panel/Margin/VBox/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Customer"
+
+[node name="Close" type="Button" parent="CanvasLayer/CustomerPanel/Panel/Margin/VBox/Header"]
+layout_mode = 2
+text = "Close"
+
+[node name="Portrait" type="TextureRect" parent="CanvasLayer/CustomerPanel/Panel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 180)
+layout_mode = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Dialogue" type="RichTextLabel" parent="CanvasLayer/CustomerPanel/Panel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 96)
+layout_mode = 2
+
+[node name="SellDropBox" type="PanelContainer" parent="CanvasLayer/CustomerPanel/Panel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 90)
+layout_mode = 2
+script = ExtResource("8_74p2s")
+
+[node name="DropMargin" type="MarginContainer" parent="CanvasLayer/CustomerPanel/Panel/Margin/VBox/SellDropBox"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="DropLabel" type="Label" parent="CanvasLayer/CustomerPanel/Panel/Margin/VBox/SellDropBox/DropMargin"]
+layout_mode = 2
+text = "Drop item here"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Refuse" type="Button" parent="CanvasLayer/CustomerPanel/Panel/Margin/VBox"]
+layout_mode = 2
+text = "Refuse"
+
+[node name="ConfirmDialog" type="ConfirmationDialog" parent="CanvasLayer/CustomerPanel"]
+title = "Confirm Sale"
+initial_position = 1
+ok_button_text = "Confirm"
+
+[node name="Margin" type="MarginContainer" parent="CanvasLayer/CustomerPanel/ConfirmDialog"]
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 14
+
+[node name="Label" type="Label" parent="CanvasLayer/CustomerPanel/ConfirmDialog/Margin"]
+layout_mode = 2
+text = "Confirm sale?"
+
+[node name="BrewPanel" type="Control" parent="CanvasLayer"]
+layout_mode = 3
+anchor_left = 0.2
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("9_em5ve")
+CloseButtonPath = NodePath("Panel/Margin/VBox/Header/Close")
+BrewBoxPath = NodePath("Panel/Margin/VBox/BrewBox")
+
+[node name="Panel" type="PanelContainer" parent="CanvasLayer/BrewPanel"]
+layout_mode = 0
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -210.0
+offset_top = -190.0
+offset_right = 210.0
+offset_bottom = 190.0
+
+[node name="Margin" type="MarginContainer" parent="CanvasLayer/BrewPanel/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 14
+
+[node name="VBox" type="VBoxContainer" parent="CanvasLayer/BrewPanel/Panel/Margin"]
+layout_mode = 2
+
+[node name="Header" type="HBoxContainer" parent="CanvasLayer/BrewPanel/Panel/Margin/VBox"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="CanvasLayer/BrewPanel/Panel/Margin/VBox/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Brew Potion"
+
+[node name="Close" type="Button" parent="CanvasLayer/BrewPanel/Panel/Margin/VBox/Header"]
+layout_mode = 2
+text = "Close"
+
+[node name="BrewBox" type="PanelContainer" parent="CanvasLayer/BrewPanel/Panel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 220)
+layout_mode = 2
+script = ExtResource("10_odm4o")
+
+[node name="EventModal" type="Control" parent="CanvasLayer"]
+layout_mode = 3
+anchor_left = 0.2
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 272.0
+offset_top = 211.0
+offset_right = -230.0
+offset_bottom = -161.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("2_8y3f6")
+TitleLabelPath = NodePath("Panel/Margin/VBox/Title")
+BodyLabelPath = NodePath("Panel/Margin/VBox/Body")
+ChoicesContainerPath = NodePath("Panel/Margin/VBox/Choices")
+CharacterImagePath = NodePath("Panel/Margin/VBox/Portrait")
+
+[node name="Panel" type="PanelContainer" parent="CanvasLayer/EventModal"]
+layout_mode = 0
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -260.0
+offset_top = -160.0
+offset_right = 260.0
+offset_bottom = 160.0
+
+[node name="Margin" type="MarginContainer" parent="CanvasLayer/EventModal/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 14
+
+[node name="VBox" type="VBoxContainer" parent="CanvasLayer/EventModal/Panel/Margin"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="CanvasLayer/EventModal/Panel/Margin/VBox"]
+layout_mode = 2
+text = "Night Event"
+
+[node name="Portrait" type="TextureRect" parent="CanvasLayer/EventModal/Panel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 160)
+layout_mode = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Body" type="RichTextLabel" parent="CanvasLayer/EventModal/Panel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 90)
+layout_mode = 2
+text = "..."
+fit_content = true
+
+[node name="Choices" type="VBoxContainer" parent="CanvasLayer/EventModal/Panel/Margin/VBox"]
+layout_mode = 2
+
+[connection signal="pressed" from="CanvasLayer/Hud/EndDay" to="DayController" method="EndDayAndRunNight"]
+[connection signal="pressed" from="CanvasLayer/Hud/Inventory" to="CanvasLayer/InventoryPanel" method="Toggle"]
+[connection signal="pressed" from="CanvasLayer/Hud/ServeCustomer" to="DayController" method="ServeCustomer"]
+[connection signal="pressed" from="CanvasLayer/Hud/BrewPotion" to="CanvasLayer/BrewPanel" method="Toggle"]

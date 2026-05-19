@@ -1,0 +1,30 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="Occult Shop (Menu-Driven)"
+run/main_scene="res://Main.tscn"
+config/features=PackedStringArray("4.4", "C#")
+
+[autoload]
+
+DataDb="*res://Scripts/Autoload/DataDb.cs"
+GameState="*res://Scripts/Autoload/GameState.cs"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/size/mode=2
+
+[dotnet]
+
+project/assembly_name="OccultShop"

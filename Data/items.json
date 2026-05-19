@@ -1,0 +1,9 @@
+[
+  { "id": "salt", "name": "Blessed Salt", "iconPath": "res://Assets/Items/blessed_salt.svg", "description": "A coarse white salt used to mark thresholds, circles, and other small protections against unwanted visitors.", "tags": ["ward"], "basePrice": 10 },
+  { "id": "black_candle", "name": "Black Candle", "iconPath": "res://Assets/Items/black_candle.svg", "description": "A ritual candle burned for endings, bindings, and long nights spent asking better questions than the dead can answer.", "tags": ["ritual"], "basePrice": 25 },
+  { "id": "bone_charm", "name": "Bone Charm", "iconPath": "res://Assets/Items/bone_charm.svg", "description": "A carved token worn for luck and bargaining. It unsettles ordinary customers and attracts the wrong kind of attention.", "tags": ["trinket", "ward"], "basePrice": 40 },
+  { "id": "eye_of_newt", "name": "Eye of Newt", "iconPath": "res://Assets/Items/bone_charm.svg", "description": "A small, dark eye used in potions and rituals.", "tags": ["ingredient"], "basePrice": 30 },
+  { "id": "broken_heart", "name": "Broken Heart", "iconPath": "res://Assets/Items/bone_charm.svg", "description": "A shattered heart, symbolizing loss and longing.", "tags": ["trinket"], "basePrice": 50 },
+  { "id": "warding_draught", "name": "Warding Draught", "iconPath": "res://Assets/Items/blessed_salt.svg", "description": "A stabilizing potion brewed for protection and stamina against supernatural stress.", "tags": ["potion"], "basePrice": 65 },
+  { "id": "sight_tonic", "name": "Sight Tonic", "iconPath": "res://Assets/Items/black_candle.svg", "description": "A perception-enhancing tonic favored by diviners and night-watchers.", "tags": ["potion"], "basePrice": 80 }
+]

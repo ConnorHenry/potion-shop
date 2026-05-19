@@ -1,0 +1,29 @@
+[
+  {
+    "id": "traveler_asks_for_wards",
+    "title": "Customer",
+    "text": "A traveler leans on the counter and asks in a low voice: 'What do you keep in stock for the things that follow people home?'",
+    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "requires": { "dreadMin": 0 },
+    "weight": 10,
+    "choices": [
+      {
+        "label": "Sell blessed salt",
+        "itemId": "salt",
+        "requires": { "hasItemId": "salt", "hasItemQty": 1 },
+        "effects": [ { "consumeItemId": "salt", "consumeItemQty": 1 }, { "addGold": 12 } ]
+      },
+      {
+        "label": "Sell black candle",
+        "itemId": "black_candle",
+        "requires": { "hasItemId": "black_candle", "hasItemQty": 1 },
+        "effects": [ { "consumeItemId": "black_candle", "consumeItemQty": 1 }, { "addGold": 28 }, { "addDread": 2 } ]
+      },
+      {
+        "label": "Refuse",
+        "isRefuse": true,
+        "effects": [ { "addDread": 3 } ]
+      }
+    ]
+  }
+]

@@ -1,0 +1,54 @@
+using Godot;
+
+namespace OccultShop.UI;
+
+public partial class InventoryItemSlot : Button
+{
+	[Signal]
+	public delegate void SlotActivatedEventHandler(string itemId);
+
+	public string ItemId { get; set; } = "";
+	public string ItemName { get; set; } = "";
+	public string? IconPath { get; set; }
+	public int Quantity { get; set; }
+
+	private bool _dragStarted;
+
+	public override Variant _GetDragData(Vector2 atPosition)
+	{
+		if (string.IsNullOrWhiteSpace(IconPath))
+			return Variant.CreateFrom(ItemId);
+
+		var preview = new TextureRect
+		{
+			CustomMinimumSize = new Vector2(70, 70),
+			ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+			StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+			MouseFilter = MouseFilterEnum.Ignore
+		};
+		preview.Texture = ResourceLoader.Load<Texture2D>(IconPath);
+		SetDragPreview(preview);
+		_dragStarted = true;
+		ReleaseFocus();
+		return Variant.CreateFrom(ItemId);
+	}
+
+	public override void _GuiInput(InputEvent @event)
+	{
+		if (@event is InputEventMouseButton mouseButton && mouseButton.ButtonIndex == MouseButton.Left && !mouseButton.Pressed)
+		{
+			if (_dragStarted)
+			{
+				_dragStarted = false;
+				AcceptEvent();
+				return;
+			}
+
+			EmitSignal(SignalName.SlotActivated, ItemId);
+			AcceptEvent();
+			return;
+		}
+
+		base._GuiInput(@event);
+	}
+}

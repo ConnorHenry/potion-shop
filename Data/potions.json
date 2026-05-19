@@ -1,0 +1,26 @@
+[
+  {
+    "id": "warding_draught",
+    "name": "Warding Draught",
+    "description": "A chalky tonic that steadies the hands and hardens spiritual boundaries.",
+    "cost": 10,
+    "outputItemId": "warding_draught",
+    "outputQty": 1,
+    "ingredients": [
+      { "itemId": "salt", "qty": 1 },
+      { "itemId": "black_candle", "qty": 1 }
+    ]
+  },
+  {
+    "id": "sight_tonic",
+    "name": "Sight Tonic",
+    "description": "A bitter concentrate that sharpens perception at the edge of dusk.",
+    "cost": 15,
+    "outputItemId": "sight_tonic",
+    "outputQty": 1,
+    "ingredients": [
+      { "itemId": "eye_of_newt", "qty": 1 },
+      { "itemId": "salt", "qty": 1 }
+    ]
+  }
+]
