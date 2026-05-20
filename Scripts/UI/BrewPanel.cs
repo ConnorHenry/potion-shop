@@ -48,18 +48,23 @@ public partial class BrewPanel : Control
 
     public void HidePanel()
     {
+        ReturnQueuedIngredients();
         Visible = false;
-        _queuedIngredients.Clear();
         _resultLabel.Text = "";
         RefreshIngredientsLabel();
     }
 
     private void QueueIngredient(string itemId)
     {
-        var qtyQueued = _queuedIngredients.Count(x => x == itemId);
-        if (!GameState.HasItem(itemId, qtyQueued + 1))
+        if (!GameState.HasItem(itemId, 1))
         {
             _resultLabel.Text = "Not enough stock for that ingredient.";
+            return;
+        }
+
+        if (!GameState.ConsumeItem(itemId, 1))
+        {
+            _resultLabel.Text = "Could not take that ingredient.";
             return;
         }
 
@@ -70,6 +75,7 @@ public partial class BrewPanel : Control
 
     private void ClearQueue()
     {
+        ReturnQueuedIngredients();
         _queuedIngredients.Clear();
         _resultLabel.Text = "";
         RefreshIngredientsLabel();
@@ -90,23 +96,18 @@ public partial class BrewPanel : Control
             return;
         }
 
-        foreach (var ingredient in potion.Ingredients)
-        {
-            if (!GameState.HasItem(ingredient.ItemId, ingredient.Qty))
-            {
-                _resultLabel.Text = "Missing required ingredients.";
-                return;
-            }
-        }
-
-        foreach (var ingredient in potion.Ingredients)
-            GameState.ConsumeItem(ingredient.ItemId, ingredient.Qty);
-
         GameState.AddGold(-potion.Cost);
         GameState.AddItem(potion.OutputItemId, potion.OutputQty);
+        GameState.LearnPotion(potion.Id);
         _queuedIngredients.Clear();
         RefreshIngredientsLabel();
         _resultLabel.Text = $"Brewed: {potion.Name}";
+    }
+
+    private void ReturnQueuedIngredients()
+    {
+        foreach (var itemId in _queuedIngredients)
+            GameState.AddItem(itemId, 1);
     }
 
     private PotionDef? FindMatchingPotion()

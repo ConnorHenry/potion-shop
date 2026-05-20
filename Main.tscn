@@ -249,7 +249,6 @@ TitlePath = NodePath("Panel/Margin/VBox/Header/Title")
 PortraitPath = NodePath("Panel/Margin/VBox/Portrait")
 DialoguePath = NodePath("Panel/Margin/VBox/Dialogue")
 SellDropBoxPath = NodePath("Panel/Margin/VBox/SellDropBox")
-RefuseButtonPath = NodePath("Panel/Margin/VBox/Refuse")
 ConfirmDialogPath = NodePath("ConfirmDialog")
 ConfirmDialogLabelPath = NodePath("ConfirmDialog/Margin/Label")
 CloseButtonPath = NodePath("Panel/Margin/VBox/Header/Close")
@@ -316,10 +315,6 @@ layout_mode = 2
 text = "Drop item here"
 horizontal_alignment = 1
 vertical_alignment = 1
-
-[node name="Refuse" type="Button" parent="CanvasLayer/CustomerPanel/Panel/Margin/VBox"]
-layout_mode = 2
-text = "Refuse"
 
 [node name="ConfirmDialog" type="ConfirmationDialog" parent="CanvasLayer/CustomerPanel"]
 title = "Confirm Sale"

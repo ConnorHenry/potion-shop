@@ -17,6 +17,7 @@ public sealed class CustomerChoiceDef
 {
     public string Label { get; set; } = "";
     public string? ItemId { get; set; }
+    public bool IsFallback { get; set; }
     public bool IsRefuse { get; set; }
     public RequirementsDef? Requires { get; set; }
     public List<EffectDef> Effects { get; set; } = new();

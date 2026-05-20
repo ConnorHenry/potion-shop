@@ -13,17 +13,18 @@ public partial class GameState : Node
 	// itemId -> qty
 	public Dictionary<string, int> Inventory { get; } = new();
 	public HashSet<string> ActiveRules { get; } = new();
+	public HashSet<string> KnownPotions { get; } = new();
 
 	public event Action? Changed;
 
 	public override void _Ready()
 	{
 		// Tiny starting kit
-		AddItem("salt", 2);
-		AddItem("black_candle", 1);
-		AddItem("bone_charm", 1);
-		AddItem("eye_of_newt", 1);
-		AddItem("broken_heart", 1);
+		AddItem("salt", 10);
+		AddItem("black_candle", 10);
+		AddItem("bone_charm", 10);
+		AddItem("eye_of_newt", 10);
+		AddItem("broken_heart", 10);
 		EmitChanged();
 	}
 
@@ -71,6 +72,15 @@ public partial class GameState : Node
 		EmitChanged();
 		return true;
 	}
+
+	public void LearnPotion(string potionId)
+	{
+		if (string.IsNullOrWhiteSpace(potionId)) return;
+		if (KnownPotions.Add(potionId))
+			EmitChanged();
+	}
+
+	public bool KnowsPotion(string potionId) => KnownPotions.Contains(potionId);
 
 	private void EmitChanged() => Changed?.Invoke();
 }

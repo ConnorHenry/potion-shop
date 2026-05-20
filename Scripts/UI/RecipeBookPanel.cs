@@ -49,7 +49,7 @@ public partial class RecipeBookPanel : Control
         foreach (var child in _recipes.GetChildren())
             child.QueueFree();
 
-        var knownPotions = DataDb.Potions.Where(p => p.Known).ToList();
+        var knownPotions = DataDb.Potions.Where(p => GameState.KnowsPotion(p.Id)).ToList();
 
         if (knownPotions.Count == 0)
         {

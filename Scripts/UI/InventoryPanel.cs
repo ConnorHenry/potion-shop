@@ -28,6 +28,7 @@ public partial class InventoryPanel : Control
 	private Label _itemDetailPrice = default!;
 	private RichTextLabel _itemDetailDescription = default!;
 	private Button _itemDetailCloseButton = default!;
+	private string? _currentItemId;
 
 	public override void _Ready()
 	{
@@ -42,6 +43,7 @@ public partial class InventoryPanel : Control
 		_itemDetailCloseButton = GetNode<Button>(ItemDetailCloseButtonPath);
 
 		MouseFilter = MouseFilterEnum.Ignore;
+		_itemDetailPanel.MouseFilter = MouseFilterEnum.Ignore;
 		_closeButton.Pressed += HidePanel;
 		_itemDetailCloseButton.Pressed += HideItemDetail;
 		GameState.Changed += Refresh;
@@ -146,9 +148,16 @@ public partial class InventoryPanel : Control
 
 	private void ShowItemDetail(string itemId)
 	{
+		if (_itemDetailPanel.Visible && string.Equals(_currentItemId, itemId, System.StringComparison.OrdinalIgnoreCase))
+		{
+			HideItemDetail();
+			return;
+		}
+
 		if (!DataDb.Items.TryGetValue(itemId, out var item))
 			return;
 
+		_currentItemId = itemId;
 		_itemDetailImage.Texture = LoadIcon(item.IconPath);
 		_itemDetailName.Text = item.Name;
 		_itemDetailPrice.Text = $"Sale Price: {item.BasePrice} gold";
@@ -158,6 +167,7 @@ public partial class InventoryPanel : Control
 
 	private void HideItemDetail()
 	{
+		_currentItemId = null;
 		_itemDetailImage.Texture = null;
 		_itemDetailPanel.Visible = false;
 	}

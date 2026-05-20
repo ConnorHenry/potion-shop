@@ -12,7 +12,6 @@ public partial class CustomerPanel : Control
 	[Export] public NodePath PortraitPath = default!;
 	[Export] public NodePath DialoguePath = default!;
 	[Export] public NodePath SellDropBoxPath = default!;
-	[Export] public NodePath RefuseButtonPath = default!;
 	[Export] public NodePath ConfirmDialogPath = default!;
 	[Export] public NodePath ConfirmDialogLabelPath = default!;
 	[Export] public NodePath CloseButtonPath = default!;
@@ -21,12 +20,10 @@ public partial class CustomerPanel : Control
 	private TextureRect _portrait = default!;
 	private RichTextLabel _dialogue = default!;
 	private CustomerSellDropBox _sellDropBox = default!;
-	private Button _refuseButton = default!;
 	private ConfirmationDialog _confirmDialog = default!;
 	private Label _confirmDialogLabel = default!;
 	private Button _closeButton = default!;
 	private CustomerInteractionDef? _interaction;
-	private CustomerChoiceDef? _pendingChoice;
 	private string? _pendingItemId;
 
 	public override void _Ready()
@@ -35,7 +32,6 @@ public partial class CustomerPanel : Control
 		_portrait = GetNode<TextureRect>(PortraitPath);
 		_dialogue = GetNode<RichTextLabel>(DialoguePath);
 		_sellDropBox = GetNode<CustomerSellDropBox>(SellDropBoxPath);
-		_refuseButton = GetNode<Button>(RefuseButtonPath);
 		_confirmDialog = GetNode<ConfirmationDialog>(ConfirmDialogPath);
 		_confirmDialogLabel = GetNode<Label>(ConfirmDialogLabelPath);
 		_closeButton = GetNode<Button>(CloseButtonPath);
@@ -43,7 +39,6 @@ public partial class CustomerPanel : Control
 		MouseFilter = MouseFilterEnum.Ignore;
 		_closeButton.Pressed += HidePanel;
 		_sellDropBox.Connect("ItemDropped", new Callable(this, nameof(OnItemDropped)));
-		_refuseButton.Pressed += OnRefusePressed;
 		_confirmDialog.Confirmed += ConfirmPendingSale;
 		_portrait.Visible = false;
 		Visible = false;
@@ -56,14 +51,11 @@ public partial class CustomerPanel : Control
 		_title.Text = interaction.Title;
 		_dialogue.Text = interaction.Text;
 		SetPortrait(interaction.CharacterImagePath);
-		_refuseButton.Visible = interaction.Choices.Any(x => x.IsRefuse);
-		_refuseButton.Disabled = !interaction.Choices.Any(x => x.IsRefuse && Requirements.Met(GameState, x.Requires));
 	}
 
 	public void HidePanel()
 	{
 		_interaction = null;
-		_pendingChoice = null;
 		_pendingItemId = null;
 		_portrait.Texture = null;
 		_portrait.Visible = false;
@@ -71,32 +63,20 @@ public partial class CustomerPanel : Control
 		Visible = false;
 	}
 
-	private void OnRefusePressed()
-	{
-		if (_interaction is null)
-			return;
-
-		var choice = _interaction.Choices.FirstOrDefault(x => x.IsRefuse);
-		if (choice is null || !Requirements.Met(GameState, choice.Requires))
-			return;
-
-		ApplyChoice(choice);
-	}
-
 	private void OnItemDropped(string itemId)
 	{
 		if (_interaction is null)
 			return;
 
-		var choice = _interaction.Choices.FirstOrDefault(x =>
-			!x.IsRefuse &&
-			string.Equals(x.ItemId, itemId, System.StringComparison.OrdinalIgnoreCase));
-
-		if (choice is null || !Requirements.Met(GameState, choice.Requires))
+		var choice = ResolveChoice(itemId);
+		if (choice is null)
+		{
+			_confirmDialogLabel.Text = "No valid customer response for that item.";
+			_confirmDialog.PopupCentered();
 			return;
+		}
 
 		var itemName = DataDb.Items.TryGetValue(itemId, out var item) ? item.Name : itemId;
-		_pendingChoice = choice;
 		_pendingItemId = itemId;
 		_confirmDialogLabel.Text = $"Sell {itemName} to this customer?";
 		_confirmDialog.PopupCentered();
@@ -104,18 +84,38 @@ public partial class CustomerPanel : Control
 
 	private void ConfirmPendingSale()
 	{
-		if (_pendingChoice is null)
+		if (string.IsNullOrWhiteSpace(_pendingItemId))
 			return;
 
-		ApplyChoice(_pendingChoice);
+		var choice = ResolveChoice(_pendingItemId);
+		if (choice is null)
+			return;
+
+		ApplySale(_pendingItemId, choice);
 	}
 
-	private void ApplyChoice(CustomerChoiceDef choice)
+	private CustomerChoiceDef? ResolveChoice(string itemId)
+	{
+		if (_interaction is null)
+			return null;
+
+		var exact = _interaction.Choices.FirstOrDefault(x =>
+			!x.IsRefuse &&
+			!x.IsFallback &&
+			string.Equals(x.ItemId, itemId, System.StringComparison.OrdinalIgnoreCase));
+
+		if (exact is not null)
+			return exact;
+
+		return _interaction.Choices.FirstOrDefault(x => x.IsFallback);
+	}
+
+	private void ApplySale(string itemId, CustomerChoiceDef choice)
 	{
 		foreach (var effect in choice.Effects)
 			EffectApplier.Apply(GameState, effect);
+		GameState.ConsumeItem(itemId, 1);
 
-		_pendingChoice = null;
 		_pendingItemId = null;
 		HidePanel();
 	}
