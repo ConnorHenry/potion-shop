@@ -1,9 +1,71 @@
 [
-  { "id": "salt", "name": "Blessed Salt", "iconPath": "res://Assets/Items/blessed_salt.svg", "description": "A coarse white salt used to mark thresholds, circles, and other small protections against unwanted visitors.", "tags": ["ward"], "basePrice": 10 },
-  { "id": "black_candle", "name": "Black Candle", "iconPath": "res://Assets/Items/black_candle.svg", "description": "A ritual candle burned for endings, bindings, and long nights spent asking better questions than the dead can answer.", "tags": ["ritual"], "basePrice": 25 },
-  { "id": "bone_charm", "name": "Bone Charm", "iconPath": "res://Assets/Items/bone_charm.svg", "description": "A carved token worn for luck and bargaining. It unsettles ordinary customers and attracts the wrong kind of attention.", "tags": ["trinket", "ward"], "basePrice": 40 },
-  { "id": "eye_of_newt", "name": "Eye of Newt", "iconPath": "res://Assets/Items/bone_charm.svg", "description": "A small, dark eye used in potions and rituals.", "tags": ["ingredient"], "basePrice": 30 },
-  { "id": "broken_heart", "name": "Broken Heart", "iconPath": "res://Assets/Items/bone_charm.svg", "description": "A shattered heart, symbolizing loss and longing.", "tags": ["trinket"], "basePrice": 50 },
-  { "id": "warding_draught", "name": "Warding Draught", "iconPath": "res://Assets/Items/blessed_salt.svg", "description": "A stabilizing potion brewed for protection and stamina against supernatural stress.", "tags": ["potion"], "basePrice": 65 },
-  { "id": "sight_tonic", "name": "Sight Tonic", "iconPath": "res://Assets/Items/black_candle.svg", "description": "A perception-enhancing tonic favored by diviners and night-watchers.", "tags": ["potion"], "basePrice": 80 }
+  { "id": "salt", "name": "Blessed Salt", "iconPath": "res://Assets/Items/blessed_salt.svg", "description": "A coarse white salt used to mark thresholds, circles, and other small protections against unwanted visitors.", "tags": ["ingredient"], "traits": { "calm": 4, "death": 3, "memory": 2}, "risks": {"melancholy": 2, "necrotic": 1}, "basePrice": 10 },
+  { "id": "black_candle", "name": "Black Candle", "iconPath": "res://Assets/Items/black_candle.svg", "description": "A ritual candle burned for endings, bindings, and long nights spent asking better questions than the dead can answer.", "tags": ["ingredient"], "basePrice": 25 },
+  {
+	"id": "mooncap_mushroom",
+	"name": "Mooncap Mushroom",
+	"iconPath": "res://Assets/Items/blessed_salt.svg",
+	"description": "A rare mushroom that only grows in the light of a full moon. Said to have mild sedative properties and a faintly luminescent quality.",
+	"quality": 85,
+	"traits": {
+	  "sleep": 4,
+	  "dream": 3,
+	  "cold": 2
+	},
+	"risks": {
+	  "hallucination": 1
+	},
+	"tags": ["ingredient"]
+  },
+  {
+	"id": "grave_mint",
+	"name": "Grave Mint",
+	"iconPath": "res://Assets/Items/blessed_salt.svg",
+	"description": "A hardy mint that grows in graveyards and other places touched by death. It has a refreshing aroma and a bitter, earthy flavor.",
+	"quality": 70,
+	"traits": {
+	  "calm": 4,
+	  "memory": 2,
+	  "death": 2
+	},
+	"risks": {
+	  "melancholy": 1
+	},
+	"tags": ["ingredient"]
+  },
+  {
+	"id": "black_ichor",
+	"name": "Black Ichor",
+	"iconPath": "res://Assets/Items/blessed_salt.svg",
+	"description": "A viscous, tar-like substance that seeps from the wounds of certain cursed creatures. It is highly toxic and has a corrupting influence on those who handle it.",
+	"quality": 95,
+	"traits": {
+	  "power": 5,
+	  "corruption": 5,
+	  "mutation": 3
+	},
+	"risks": {
+	  "mutation": 4,
+	  "addiction": 2
+	},
+	"tags": ["ingredient"]
+  },
+  {
+	"id": "lavender_ash",
+	"name": "Lavender Ash",
+	"iconPath": "res://Assets/Items/blessed_salt.svg",
+	"description": "A fine ash made from burned lavender flowers. It has a soothing scent and is often used in calming rituals and sleep aids.",
+	"quality": 80,
+	"traits": {
+	  "calm": 3,
+	  "gentle": 3,
+	  "smoke": 1
+	},
+	"risks": {},
+	"tags": ["ingredient"]
+  },
+  { "id": "warding_draught", "name": "Warding Draught", "iconPath": "res://Assets/Items/warding_draught.svg", "description": "A stabilizing potion brewed for protection and stamina against supernatural stress.", "tags": ["potion"], "basePrice": 65 },
+  { "id": "sight_tonic", "name": "Sight Tonic", "iconPath": "res://Assets/Items/sight_tonic.svg", "description": "A perception-enhancing tonic favored by diviners and night-watchers.", "tags": ["potion"], "basePrice": 80 }
+
+
 ]

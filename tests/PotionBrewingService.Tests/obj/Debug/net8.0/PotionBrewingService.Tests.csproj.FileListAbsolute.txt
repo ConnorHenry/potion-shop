@@ -1,0 +1,15 @@
+C:\Users\user\Documents\shop\tests\PotionBrewingService.Tests\bin\Debug\net8.0\PotionBrewingService.Tests.exe
+C:\Users\user\Documents\shop\tests\PotionBrewingService.Tests\bin\Debug\net8.0\PotionBrewingService.Tests.deps.json
+C:\Users\user\Documents\shop\tests\PotionBrewingService.Tests\bin\Debug\net8.0\PotionBrewingService.Tests.runtimeconfig.json
+C:\Users\user\Documents\shop\tests\PotionBrewingService.Tests\bin\Debug\net8.0\PotionBrewingService.Tests.dll
+C:\Users\user\Documents\shop\tests\PotionBrewingService.Tests\bin\Debug\net8.0\PotionBrewingService.Tests.pdb
+C:\Users\user\Documents\shop\tests\PotionBrewingService.Tests\obj\Debug\net8.0\PotionBrewingService.Tests.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\user\Documents\shop\tests\PotionBrewingService.Tests\obj\Debug\net8.0\PotionBrewingService.Tests.AssemblyInfoInputs.cache
+C:\Users\user\Documents\shop\tests\PotionBrewingService.Tests\obj\Debug\net8.0\PotionBrewingService.Tests.AssemblyInfo.cs
+C:\Users\user\Documents\shop\tests\PotionBrewingService.Tests\obj\Debug\net8.0\PotionBrewingService.Tests.csproj.CoreCompileInputs.cache
+C:\Users\user\Documents\shop\tests\PotionBrewingService.Tests\obj\Debug\net8.0\PotionBrewingService.Tests.sourcelink.json
+C:\Users\user\Documents\shop\tests\PotionBrewingService.Tests\obj\Debug\net8.0\PotionBrewingService.Tests.dll
+C:\Users\user\Documents\shop\tests\PotionBrewingService.Tests\obj\Debug\net8.0\refint\PotionBrewingService.Tests.dll
+C:\Users\user\Documents\shop\tests\PotionBrewingService.Tests\obj\Debug\net8.0\PotionBrewingService.Tests.pdb
+C:\Users\user\Documents\shop\tests\PotionBrewingService.Tests\obj\Debug\net8.0\PotionBrewingService.Tests.genruntimeconfig.cache
+C:\Users\user\Documents\shop\tests\PotionBrewingService.Tests\obj\Debug\net8.0\ref\PotionBrewingService.Tests.dll

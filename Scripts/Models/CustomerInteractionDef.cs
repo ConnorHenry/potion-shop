@@ -10,15 +10,31 @@ public sealed class CustomerInteractionDef
     public string? CharacterImagePath { get; set; }
     public RequirementsDef? Requires { get; set; }
     public int Weight { get; set; } = 1;
-    public List<CustomerChoiceDef> Choices { get; set; } = new();
+    public Dictionary<string, int> DesiredTraits { get; set; } = new();
+    public Dictionary<string, int> BadTraits { get; set; } = new();
+
+    public CustomerRequestDef BuildRequest()
+    {
+        return new CustomerRequestDef
+        {
+            Id = Id,
+            Description = Text,
+            DesiredTraits = new Dictionary<string, int>(DesiredTraits),
+            BadTraits = new Dictionary<string, int>(BadTraits)
+        };
+    }
 }
 
-public sealed class CustomerChoiceDef
+public sealed class CustomerRequestDef
 {
-    public string Label { get; set; } = "";
-    public string? ItemId { get; set; }
-    public bool IsFallback { get; set; }
-    public bool IsRefuse { get; set; }
-    public RequirementsDef? Requires { get; set; }
-    public List<EffectDef> Effects { get; set; } = new();
+    public string Id { get; set; } = "";
+    public string Description { get; set; } = "";
+
+    // Desired effect traits
+    // Example: "sleep": 5, "calm": 3
+    public Dictionary<string, int> DesiredTraits { get; set; } = new();
+
+    // Traits/risks that are bad for this request
+    // Example: "addiction": 5, "rage": 4
+    public Dictionary<string, int> BadTraits { get; set; } = new();
 }

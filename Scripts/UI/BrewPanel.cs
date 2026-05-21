@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using OccultShop.Autoload;
 using OccultShop.Models;
+using OccultShop.Systems;
 
 namespace OccultShop.UI;
 
@@ -22,6 +23,7 @@ public partial class BrewPanel : Control
     private Button _brewButton = default!;
     private Button _clearButton = default!;
     private readonly List<string> _queuedIngredients = new();
+    private readonly PotionBrewingService _brewingService = new();
 
     public override void _Ready()
     {
@@ -56,6 +58,26 @@ public partial class BrewPanel : Control
 
     private void QueueIngredient(string itemId)
     {
+        if (!DataDb.TryGetItem(itemId, out var item))
+        {
+            _resultLabel.Text = "That item is not recognized.";
+            return;
+        }
+
+        if (!IsIngredient(item))
+        {
+            _resultLabel.Text = IsPotion(itemId)
+                ? "Brewing only accepts ingredients, not potions."
+                : "Brewing only accepts ingredients.";
+            return;
+        }
+
+        if (_queuedIngredients.Count >= 3)
+        {
+            _resultLabel.Text = "Brewing requires exactly 3 ingredients.";
+            return;
+        }
+
         if (!GameState.HasItem(itemId, 1))
         {
             _resultLabel.Text = "Not enough stock for that ingredient.";
@@ -81,14 +103,34 @@ public partial class BrewPanel : Control
         RefreshIngredientsLabel();
     }
 
-    private void TryBrew()
-    {
-        var potion = FindMatchingPotion();
-        if (potion is null)
-        {
-            _resultLabel.Text = "No known recipe matches these ingredients.";
-            return;
-        }
+	private void TryBrew()
+	{
+		if (_queuedIngredients.Count != 3)
+		{
+			_resultLabel.Text = "Brewing requires exactly 3 ingredients.";
+			return;
+		}
+
+		if (!TryBuildIngredientDefs(_queuedIngredients, out var ingredientDefs, out var ingredientError))
+		{
+			_resultLabel.Text = ingredientError;
+			return;
+		}
+
+		var brewResult = _brewingService.BrewPotion(
+			ingredientDefs,
+			null,
+			DataDb.Synergies.ToList());
+
+		var potion = SelectPotionToBrew();
+		if (potion is null)
+		{
+			ReturnQueuedIngredients();
+			_queuedIngredients.Clear();
+			RefreshIngredientsLabel();
+			_resultLabel.Text = "No potion recipes are loaded.";
+			return;
+		}
 
         if (GameState.Gold < potion.Cost)
         {
@@ -96,12 +138,38 @@ public partial class BrewPanel : Control
             return;
         }
 
-        GameState.AddGold(-potion.Cost);
-        GameState.AddItem(potion.OutputItemId, potion.OutputQty);
-        GameState.LearnPotion(potion.Id);
-        _queuedIngredients.Clear();
-        RefreshIngredientsLabel();
-        _resultLabel.Text = $"Brewed: {potion.Name}";
+		GameState.AddGold(-potion.Cost);
+
+		var combinationKey = BuildCombinationKey(_queuedIngredients);
+		var isNewCombination = !GameState.TryGetPotionForCombination(combinationKey, out var potionItemId);
+		if (isNewCombination)
+		{
+			var randomName = GeneratePotionName();
+			potionItemId = $"brew_{GameState.PotionDisplayNames.Count + 1}";
+			var iconPath = ResolvePotionIconPath(potion);
+			var description = $"A brewed potion discovered from: {string.Join(", ", _queuedIngredients.Select(ItemName))}.";
+			var basePrice = System.Math.Max(1, potion.Cost * 2);
+
+			DataDb.RegisterRuntimePotionItem(
+				potionItemId,
+				randomName,
+				description,
+				iconPath,
+				basePrice,
+				brewResult.IngredientQualityScore,
+				new Dictionary<string, int>(brewResult.Traits),
+				new Dictionary<string, int>(brewResult.Risks));
+
+			GameState.SetPotionForCombination(combinationKey, potionItemId);
+			GameState.SetPotionDisplayName(potionItemId, randomName);
+		}
+
+		GameState.RecordPotionRecipe(potionItemId, _queuedIngredients);
+		GameState.AddItem(potionItemId, potion.OutputQty);
+		GameState.RecordPotionBatch(potionItemId, _queuedIngredients);
+		_queuedIngredients.Clear();
+		RefreshIngredientsLabel();
+		_resultLabel.Text = BuildBrewResultText(potionItemId, brewResult);
     }
 
     private void ReturnQueuedIngredients()
@@ -110,32 +178,54 @@ public partial class BrewPanel : Control
             GameState.AddItem(itemId, 1);
     }
 
-    private PotionDef? FindMatchingPotion()
+    private PotionDef? SelectPotionToBrew()
     {
+        if (DataDb.Potions.Count == 0)
+            return null;
+
         var queueCount = _queuedIngredients
             .GroupBy(x => x)
             .ToDictionary(g => g.Key, g => g.Count());
 
+        PotionDef? bestPotion = null;
+        var bestScore = int.MinValue;
+
         foreach (var potion in DataDb.Potions)
         {
-            if (potion.Ingredients.Count != queueCount.Count)
-                continue;
+            var recipeCount = potion.Ingredients
+                .GroupBy(x => x.ItemId)
+                .ToDictionary(g => g.Key, g => g.Sum(x => x.Qty));
 
-            var allMatch = true;
-            foreach (var ingredient in potion.Ingredients)
+            var score = 0;
+
+            foreach (var recipeIngredient in recipeCount)
             {
-                if (!queueCount.TryGetValue(ingredient.ItemId, out var qty) || qty != ingredient.Qty)
-                {
-                    allMatch = false;
-                    break;
-                }
+                queueCount.TryGetValue(recipeIngredient.Key, out var queuedQty);
+                var shared = System.Math.Min(queuedQty, recipeIngredient.Value);
+                var missing = System.Math.Max(0, recipeIngredient.Value - queuedQty);
+                var extra = System.Math.Max(0, queuedQty - recipeIngredient.Value);
+
+                score += shared * 20;
+                score -= missing * 8;
+                score -= extra * 2;
             }
 
-            if (allMatch)
-                return potion;
+            foreach (var queuedIngredient in queueCount)
+            {
+                if (recipeCount.ContainsKey(queuedIngredient.Key))
+                    continue;
+
+                score -= queuedIngredient.Value * 2;
+            }
+
+            if (score > bestScore)
+            {
+                bestScore = score;
+                bestPotion = potion;
+            }
         }
 
-        return null;
+        return bestPotion;
     }
 
     private void RefreshIngredientsLabel()
@@ -156,8 +246,145 @@ public partial class BrewPanel : Control
 
     private string ItemName(string itemId)
     {
-        return DataDb.Items.TryGetValue(itemId, out var item) ? item.Name : itemId;
+        return PotionDisplayName(itemId, DefaultItemName(itemId));
     }
+
+	private string PotionDisplayName(string itemId, string fallbackName)
+	{
+		if (IsPotion(itemId))
+		{
+			var customName = GameState.GetPotionDisplayName(itemId);
+			if (!string.IsNullOrWhiteSpace(customName))
+				return customName;
+		}
+
+		return fallbackName;
+	}
+
+	private string DefaultItemName(string itemId)
+	{
+		return DataDb.TryGetItem(itemId, out var item) ? item.Name : itemId;
+	}
+
+	private bool IsPotion(string itemId)
+	{
+		if (!DataDb.TryGetItem(itemId, out var item))
+			return false;
+
+		return item.Tags.Any(tag => string.Equals(tag, "potion", System.StringComparison.OrdinalIgnoreCase));
+	}
+
+	private static bool IsIngredient(ItemDef item)
+	{
+		return item.Tags.Any(tag => string.Equals(tag, "ingredient", System.StringComparison.OrdinalIgnoreCase));
+	}
+
+	private string GeneratePotionName()
+	{
+		var prefixes = new[]
+		{
+			"Moon", "Velvet", "Ashen", "Gilded", "Silent", "Waking", "Hollow", "Duskwind", "Ivory", "Sable",
+            "Grave", "Blood", "Fever", "Widow", "Saint", "Witch", "Mournful", "Whispering", "Buried", "Forgotten",
+            "Crimson", "Silver", "Pale", "Black", "Honeyed", "Thorn", "Lantern", "Raven", "Serpent", "Spider",
+            "Cursed", "Hallowed", "Profane", "Restless", "Lucid", "Delirious", "Withered", "Blooming", "Frozen", "Burning",
+            "Marrow", "Salt", "Iron", "Mercury", "Obsidian", "Amber", "Violet", "Opal", "Spectral", "Haunted"
+		};
+
+		var suffixes = new[]
+		{
+			"Draught", "Tonic", "Elixir", "Brew", "Vial", "Concoction", "Essence", "Infusion", "Philter",
+            "Serum", "Mixture", "Distillate", "Extract", "Syrup", "Remedy", "Cordial", "Tincture", "Decoction",
+            "Salve", "Balm", "Oil", "Poultice", "Powder", "Salt", "Ash", "Dust", "Resin", "Venom", "Ichor",
+            "Phial", "Ampoule", "Flask", "Mist", "Vapour", "Smoke", "Fume", "Charm", "Hex", "Curse",
+            "Blessing", "Rite", "Offering", "Relic", "Memory", "Dream", "Vision", "Whisper", "Lullaby",
+            "Confession", "Mercy", "Fever", "Shiver", "Rot", "Binding", "Release", "Awakening"
+		};
+
+		for (var i = 0; i < 12; i++)
+		{
+			var prefix = prefixes[Random.Shared.Next(prefixes.Length)];
+			var suffix = suffixes[Random.Shared.Next(suffixes.Length)];
+			var candidate = $"{prefix} {suffix}";
+
+			if (!GameState.PotionDisplayNames.Values.Any(x => string.Equals(x, candidate, System.StringComparison.OrdinalIgnoreCase)))
+				return candidate;
+		}
+
+		return $"{prefixes[Random.Shared.Next(prefixes.Length)]} {suffixes[Random.Shared.Next(suffixes.Length)]}";
+	}
+
+	private string BuildCombinationKey(IReadOnlyList<string> ingredientIds)
+	{
+		return string.Join("|", ingredientIds.OrderBy(x => x, System.StringComparer.OrdinalIgnoreCase));
+	}
+
+	private string BuildBrewResultText(string potionItemId, PotionResult brewResult)
+	{
+		var lines = new List<string>
+		{
+			$"Brewed: {PotionDisplayName(potionItemId, DefaultItemName(potionItemId))}"
+		};
+
+		if (brewResult.TriggeredSynergyDetails.Count == 0)
+			return string.Join("\n", lines);
+
+		foreach (var synergy in brewResult.TriggeredSynergyDetails)
+		{
+			lines.Add($"Synergy triggered: {synergy.Id}");
+
+			var contributingTraits = synergy.ContributingTraits.Count == 0
+				? "None"
+				: string.Join(", ", synergy.ContributingTraits
+					.OrderBy(x => x.Key)
+					.Select(x => $"{x.Key} {x.Value}"));
+
+			lines.Add($"Traits: {contributingTraits}");
+
+			if (!string.IsNullOrWhiteSpace(synergy.Description))
+				lines.Add(synergy.Description);
+		}
+
+		return string.Join("\n", lines);
+	}
+
+	private string? ResolvePotionIconPath(PotionDef potion)
+	{
+		return DataDb.TryGetItem(potion.OutputItemId, out var outputItem)
+			? outputItem.IconPath
+			: null;
+	}
+
+	private bool TryBuildIngredientDefs(
+		List<string> ingredientIds,
+		out List<IngredientDef> ingredients,
+		out string error)
+	{
+		ingredients = new List<IngredientDef>();
+
+		foreach (var itemId in ingredientIds)
+		{
+			if (!DataDb.Items.TryGetValue(itemId, out var item))
+			{
+				error = $"Unknown ingredient: {itemId}";
+				return false;
+			}
+
+			var ingredient = new IngredientDef
+			{
+				Id = item.Id,
+				Name = item.Name,
+				Quality = item.Quality,
+				Traits = new Dictionary<string, int>(item.Traits),
+				Risks = new Dictionary<string, int>(item.Risks),
+				Tags = new List<string>(item.Tags)
+			};
+
+			ingredients.Add(ingredient);
+		}
+
+		error = string.Empty;
+		return true;
+	}
 
     private DataDb DataDb => GetTree().Root.GetNode<DataDb>("/root/DataDb");
     private GameState GameState => GetTree().Root.GetNode<GameState>("/root/GameState");

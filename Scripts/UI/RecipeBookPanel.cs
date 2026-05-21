@@ -1,29 +1,34 @@
+using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using Godot;
 using OccultShop.Autoload;
-using OccultShop.Models;
 
 namespace OccultShop.UI;
 
 public partial class RecipeBookPanel : Control
 {
     [Export] public NodePath CloseButtonPath = default!;
+    [Export] public NodePath SortButtonPath = default!;
     [Export] public NodePath RecipesContainerPath = default!;
 
     private Button _closeButton = default!;
+    private Button _sortButton = default!;
     private VBoxContainer _recipes = default!;
+    private bool _ascending = true;
 
     public override void _Ready()
     {
         _closeButton = GetNode<Button>(CloseButtonPath);
+        _sortButton = GetNode<Button>(SortButtonPath);
         _recipes = GetNode<VBoxContainer>(RecipesContainerPath);
 
         MouseFilter = MouseFilterEnum.Ignore;
         _closeButton.Pressed += HidePanel;
+        _sortButton.Pressed += ToggleSortOrder;
         GameState.Changed += Refresh;
 
         Visible = false;
+        UpdateSortButtonLabel();
         Refresh();
     }
 
@@ -44,47 +49,191 @@ public partial class RecipeBookPanel : Control
         Visible = false;
     }
 
+    private void ToggleSortOrder()
+    {
+        _ascending = !_ascending;
+        UpdateSortButtonLabel();
+        Refresh();
+    }
+
     private void Refresh()
     {
         foreach (var child in _recipes.GetChildren())
             child.QueueFree();
 
-        var knownPotions = DataDb.Potions.Where(p => GameState.KnowsPotion(p.Id)).ToList();
+        var learnedPotionIds = GameState.KnownPotions
+            .Where(IsKnownBrewedPotion)
+            .Select(id => new
+            {
+                PotionId = id,
+                Name = DisplayName(id, ItemName(id))
+            })
+            .ToList();
 
-        if (knownPotions.Count == 0)
+        learnedPotionIds = _ascending
+            ? learnedPotionIds.OrderBy(x => x.Name).ThenBy(x => x.PotionId).ToList()
+            : learnedPotionIds.OrderByDescending(x => x.Name).ThenByDescending(x => x.PotionId).ToList();
+
+        if (learnedPotionIds.Count == 0)
         {
-            _recipes.AddChild(new Label { Text = "No known recipes" });
+            _recipes.AddChild(new Label { Text = "No brewed recipes yet." });
             return;
         }
 
-        foreach (var potion in knownPotions.OrderBy(p => p.Name))
-        {
-            var card = new PanelContainer();
-            var vbox = new VBoxContainer();
-            var title = new Label { Text = potion.Name };
-            var desc = new RichTextLabel { Text = potion.Description, FitContent = true };
-            var ingredients = new Label { Text = $"Ingredients: {string.Join(", ", potion.Ingredients.Select(i => $"{ItemName(i.ItemId)} x{i.Qty}"))}" };
-            var effects = new Label { Text = $"Effects: {PotionEffects(potion)}" };
-            var cost = new Label { Text = $"Cost: {potion.Cost} gold" };
-
-            vbox.AddChild(title);
-            vbox.AddChild(ingredients);
-            vbox.AddChild(effects);
-            vbox.AddChild(cost);
-            vbox.AddChild(desc);
-            card.AddChild(vbox);
-            _recipes.AddChild(card);
-        }
+        foreach (var entry in learnedPotionIds)
+            _recipes.AddChild(CreateRecipeCard(entry.PotionId));
     }
 
-    private static string PotionEffects(PotionDef potion)
+    private void UpdateSortButtonLabel()
     {
-        return $"{potion.OutputQty}x {potion.OutputItemId}";
+        _sortButton.Text = _ascending ? "A-Z" : "Z-A";
+    }
+
+    private Control CreateRecipeCard(string potionId)
+    {
+        if (!DataDb.Items.TryGetValue(potionId, out var item))
+            return new Label { Text = potionId };
+
+        var card = new PanelContainer
+        {
+            CustomMinimumSize = new Vector2(0, 0)
+        };
+
+        var margin = new MarginContainer();
+        margin.AddThemeConstantOverride("margin_left", 12);
+        margin.AddThemeConstantOverride("margin_top", 12);
+        margin.AddThemeConstantOverride("margin_right", 12);
+        margin.AddThemeConstantOverride("margin_bottom", 12);
+
+        var row = new HBoxContainer
+        {
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
+        };
+
+        var icon = new TextureRect
+        {
+            CustomMinimumSize = new Vector2(72, 72),
+            ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+            StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+            MouseFilter = MouseFilterEnum.Ignore
+        };
+        icon.Texture = LoadIcon(item.IconPath);
+
+        var textColumn = new VBoxContainer
+        {
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
+        };
+
+        var title = new Label
+        {
+            Text = DisplayName(potionId, item.Name)
+        };
+
+        var ingredients = new Label
+        {
+            Text = $"Ingredients: {FormatIngredients(potionId)}",
+            AutowrapMode = TextServer.AutowrapMode.Arbitrary,
+            ClipText = true
+        };
+
+        var effects = new Label
+        {
+            Text = $"Effects: {FormatTopTraits(item.Traits, 3)}",
+            AutowrapMode = TextServer.AutowrapMode.Arbitrary,
+            ClipText = true
+        };
+
+        var risks = new Label
+        {
+            Text = $"Risks: {FormatDictionary(item.Risks)}",
+            AutowrapMode = TextServer.AutowrapMode.Arbitrary,
+            ClipText = true
+        };
+
+        var description = new RichTextLabel
+        {
+            Text = item.Description,
+            FitContent = true,
+            AutowrapMode = TextServer.AutowrapMode.Arbitrary
+        };
+
+        textColumn.AddChild(title);
+        textColumn.AddChild(ingredients);
+        textColumn.AddChild(effects);
+        textColumn.AddChild(risks);
+        textColumn.AddChild(description);
+
+        row.AddChild(icon);
+        row.AddChild(textColumn);
+        margin.AddChild(row);
+        card.AddChild(margin);
+        return card;
+    }
+
+    private string FormatIngredients(string potionId)
+    {
+        if (!GameState.TryGetPotionRecipe(potionId, out var ingredientIds) || ingredientIds.Count == 0)
+            return "Unknown";
+
+        var grouped = ingredientIds
+            .GroupBy(id => id)
+            .Select(group => new
+            {
+                Name = ItemName(group.Key),
+                Qty = group.Count()
+            })
+            .OrderBy(x => x.Name);
+
+        return string.Join(", ", grouped.Select(x => $"{x.Name} x{x.Qty}"));
+    }
+
+    private static string FormatDictionary(Dictionary<string, int> values)
+    {
+        if (values is null || values.Count == 0)
+            return "None";
+
+        return string.Join(", ",
+            values
+                .OrderBy(x => x.Key)
+                .Select(x => $"{x.Key}: {x.Value}"));
+    }
+
+    private static string FormatTopTraits(Dictionary<string, int> values, int maxCount)
+    {
+        if (values is null || values.Count == 0)
+            return "None";
+
+        return string.Join(", ",
+            values
+                .OrderByDescending(x => x.Value)
+                .ThenBy(x => x.Key)
+                .Take(maxCount)
+                .Select(x => $"{x.Key}: {x.Value}"));
+    }
+
+    private static bool IsKnownBrewedPotion(string potionId)
+    {
+        return DataDb.Items.TryGetValue(potionId, out var item) &&
+               item.Tags.Any(tag => string.Equals(tag, "potion", System.StringComparison.OrdinalIgnoreCase));
     }
 
     private static string ItemName(string itemId)
     {
         return DataDb.Items.TryGetValue(itemId, out var item) ? item.Name : itemId;
+    }
+
+    private static string DisplayName(string itemId, string fallbackName)
+    {
+        var customName = GameState.GetPotionDisplayName(itemId);
+        return string.IsNullOrWhiteSpace(customName) ? fallbackName : customName;
+    }
+
+    private static Texture2D? LoadIcon(string? iconPath)
+    {
+        if (string.IsNullOrWhiteSpace(iconPath))
+            return null;
+
+        return ResourceLoader.Load<Texture2D>(iconPath);
     }
 
     private static DataDb DataDb => (DataDb)((SceneTree)Engine.GetMainLoop()).Root.GetNode("/root/DataDb");

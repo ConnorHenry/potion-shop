@@ -14,12 +14,14 @@ public partial class DataDb : Node
 	public IReadOnlyList<EventCardDef> Events => _events;
 	public IReadOnlyList<CustomerInteractionDef> CustomerInteractions => _customerInteractions;
 	public IReadOnlyList<PotionDef> Potions => _potions;
+	public IReadOnlyList<SynergyRule> Synergies => _synergies;
 
 	private Dictionary<string, ItemDef> _items = new();
 	private Dictionary<string, RuleDef> _rules = new();
 	private List<EventCardDef> _events = new();
 	private List<CustomerInteractionDef> _customerInteractions = new();
 	private List<PotionDef> _potions = new();
+	private List<SynergyRule> _synergies = new();
 
 	private static readonly JsonSerializerOptions JsonOpts = new()
 	{
@@ -38,6 +40,42 @@ public partial class DataDb : Node
 		_events = LoadArray<EventCardDef>("res://Data/events.json");
 		_customerInteractions = LoadArray<CustomerInteractionDef>("res://Data/customers.json");
 		_potions = LoadArray<PotionDef>("res://Data/potions.json");
+		_synergies = LoadArray<SynergyRule>("res://Data/synergies.json");
+	}
+
+	public bool TryGetItem(string itemId, out ItemDef item)
+	{
+		return _items.TryGetValue(itemId, out item!);
+	}
+
+	public ItemDef RegisterRuntimePotionItem(
+		string itemId,
+		string name,
+		string description,
+		string? iconPath,
+		int basePrice,
+		int quality,
+		Dictionary<string, int> traits,
+		Dictionary<string, int> risks)
+	{
+		if (_items.TryGetValue(itemId, out var existing))
+			return existing;
+
+		var item = new ItemDef
+		{
+			Id = itemId,
+			Name = name,
+			Description = description,
+			IconPath = iconPath,
+			BasePrice = basePrice,
+			Quality = quality,
+			Tags = new List<string> { "potion" },
+			Traits = traits,
+			Risks = risks
+		};
+
+		_items[itemId] = item;
+		return item;
 	}
 
 	private static List<T> LoadArray<T>(string path)

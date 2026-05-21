@@ -9,5 +9,8 @@ public sealed class ItemDef
     public string? IconPath { get; set; }
     public string Description { get; set; } = "";
     public List<string> Tags { get; set; } = new();
+    public int Quality { get; set; } = 50;
+    public Dictionary<string, int> Traits { get; set; } = new();
+    public Dictionary<string, int> Risks { get; set; } = new();
     public int BasePrice { get; set; }
 }
