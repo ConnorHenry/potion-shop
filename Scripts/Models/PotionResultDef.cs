@@ -22,7 +22,9 @@ public sealed class TriggeredSynergyDef
 {
     public string Id { get; set; } = "";
     public List<string> RequiredTraits { get; set; } = new();
+    public List<string> RequiredRisks { get; set; } = new();
     public Dictionary<string, int> ContributingTraits { get; set; } = new();
+    public Dictionary<string, int> ContributingRisks { get; set; } = new();
     public int Modifier { get; set; }
     public string Description { get; set; } = "";
 }

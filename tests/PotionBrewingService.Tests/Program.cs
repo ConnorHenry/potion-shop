@@ -11,7 +11,9 @@ static class Program
     {
         Run("Rejects empty ingredient lists", TestRejectsEmptyIngredients);
         Run("Combines ingredient traits", TestCombinesIngredientTraits);
-        Run("Combines ingredient risks", TestCombinesIngredientRisks);
+        Run("Keeps the top two ingredient risks", TestCombinesIngredientRisks);
+        Run("Applies risk and trait gated synergies", TestRiskAndTraitSynergyRequirement);
+        Run("Triggers healing_corruption from healing trait and corruption risk", TestHealingCorruptionFromTraitAndRisk);
         Run("Scores a clean positive brew", TestPositiveBrew);
         Run("Handles negative synergy and penalties", TestNegativeBrew);
 
@@ -170,7 +172,7 @@ static class Program
                 Quality = 40,
                 Risks = new Dictionary<string, int>
                 {
-                    ["nausea"] = 2,
+                    ["nausea"] = 5,
                     ["instability"] = 1
                 }
             },
@@ -181,18 +183,32 @@ static class Program
                 Quality = 40,
                 Risks = new Dictionary<string, int>
                 {
-                    ["nausea"] = 3,
+                    ["nausea"] = 1,
                     ["corrosion"] = 4
+                }
+            },
+            new()
+            {
+                Id = "spore_leaf",
+                Name = "Spore Leaf",
+                Quality = 40,
+                Risks = new Dictionary<string, int>
+                {
+                    ["rot"] = 3
                 }
             }
         };
 
         var result = service.BrewPotion(ingredients, null, new List<SynergyRule>());
 
-        AssertEqual("Risk count", 3, result.Risks.Count);
-        AssertEqual("nausea", 5, result.Risks["nausea"]);
-        AssertEqual("instability", 1, result.Risks["instability"]);
-        AssertEqual("corrosion", 4, result.Risks["corrosion"]);
+        var risks = new List<KeyValuePair<string, int>>(result.Risks);
+
+        AssertEqual("Risk count", 2, risks.Count);
+        AssertEqual("First risk name", "nausea", risks[0].Key);
+        AssertEqual("First risk strength", 6, risks[0].Value);
+        AssertEqual("Second risk name", "corrosion", risks[1].Key);
+        AssertEqual("Second risk strength", 4, risks[1].Value);
+        AssertTrue("Lower risks removed", !result.Risks.ContainsKey("rot") && !result.Risks.ContainsKey("instability"));
     }
 
     private static void TestNegativeBrew()
@@ -261,7 +277,116 @@ static class Program
         AssertEqual("FinalScore", 15.5f, result.FinalScore);
         AssertEqual("Grade", "F", result.Grade);
         AssertTrue("Triggered synergies includes healing_corruption", result.TriggeredSynergies.Contains("healing_corruption"));
-        AssertTrue("Added risk present", result.Risks.ContainsKey("mutation"));
+        AssertTrue("Mutation removed from potion details", !result.Risks.ContainsKey("mutation"));
+    }
+
+    private static void TestRiskAndTraitSynergyRequirement()
+    {
+        var service = new PotionBrewingService();
+
+        var ingredients = new List<IngredientDef>
+        {
+            new()
+            {
+                Id = "frost_mint",
+                Name = "Frost Mint",
+                Quality = 65,
+                Traits = new Dictionary<string, int>
+                {
+                    ["calm"] = 3
+                },
+                Risks = new Dictionary<string, int>
+                {
+                    ["chill"] = 2
+                }
+            },
+            new()
+            {
+                Id = "night_pollen",
+                Name = "Night Pollen",
+                Quality = 65,
+                Traits = new Dictionary<string, int>
+                {
+                    ["sleep"] = 2
+                }
+            }
+        };
+
+        var rules = new List<SynergyRule>
+        {
+            new()
+            {
+                Id = "cold_slumber",
+                RequiredTraits = new List<string> { "sleep", "calm" },
+                RequiredRisks = new List<string> { "chill" },
+                Modifier = 8,
+                ResultTrait = "deep_rest"
+            },
+            new()
+            {
+                Id = "missing_risk_gate",
+                RequiredTraits = new List<string> { "sleep" },
+                RequiredRisks = new List<string> { "burn" },
+                Modifier = 20,
+                ResultTrait = "should_not_trigger"
+            }
+        };
+
+        var result = service.BrewPotion(ingredients, null, rules);
+
+        AssertEqual("SynergyScore", 8, result.SynergyScore);
+        AssertTrue("Triggered includes risk-gated synergy", result.TriggeredSynergies.Contains("cold_slumber"));
+        AssertTrue("Missing-risk rule does not trigger", !result.TriggeredSynergies.Contains("missing_risk_gate"));
+        AssertTrue("Result trait added", result.Traits.ContainsKey("deep_rest"));
+    }
+
+    private static void TestHealingCorruptionFromTraitAndRisk()
+    {
+        var service = new PotionBrewingService();
+
+        var ingredients = new List<IngredientDef>
+        {
+            new()
+            {
+                Id = "mooncap_mushroom",
+                Name = "Mooncap Mushroom",
+                Quality = 85,
+                Traits = new Dictionary<string, int>
+                {
+                    ["healing"] = 2
+                }
+            },
+            new()
+            {
+                Id = "lavender_ash",
+                Name = "Lavender Ash",
+                Quality = 80,
+                Risks = new Dictionary<string, int>
+                {
+                    ["corruption"] = 1
+                }
+            }
+        };
+
+        var rules = new List<SynergyRule>
+        {
+            new()
+            {
+                Id = "healing_corruption",
+                RequiredTraits = new List<string> { "healing" },
+                RequiredRisks = new List<string> { "corruption" },
+                Modifier = -20,
+                ResultTrait = "unstable_regeneration",
+                AddedRisk = "mutation",
+                AddedRiskStrength = 4
+            }
+        };
+
+        var result = service.BrewPotion(ingredients, null, rules);
+
+        AssertTrue("healing_corruption triggered", result.TriggeredSynergies.Contains("healing_corruption"));
+        AssertTrue("Mutation removed from potion details", !result.Risks.ContainsKey("mutation"));
+        AssertTrue("synergy details include risk contribution", result.TriggeredSynergyDetails[0].ContributingRisks.ContainsKey("corruption"));
     }
 
     private static void AssertEqual<T>(string name, T expected, T actual) where T : IEquatable<T>

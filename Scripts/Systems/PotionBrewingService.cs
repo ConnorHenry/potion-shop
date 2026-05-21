@@ -38,7 +38,7 @@ public sealed class PotionBrewingService
 
         // 3) Combine ingredient risks
         var combinedRisks = CombineRisks(validIngredients);
-        result.Risks = combinedRisks;
+        result.Risks = SelectTopEntriesByValue(combinedRisks, 2);
 
         // 4) Calculate ingredient quality (Q)
         result.IngredientQualityScore = CalculateIngredientQuality(validIngredients);
@@ -139,6 +139,25 @@ public sealed class PotionBrewingService
         return combined;
     }
 
+    private static Dictionary<string, int> SelectTopEntriesByValue(
+        Dictionary<string, int> values,
+        int maxCount)
+    {
+        var selected = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        if (values is null || values.Count == 0 || maxCount <= 0)
+            return selected;
+
+        foreach (var pair in values
+            .OrderByDescending(x => x.Value)
+            .ThenBy(x => x.Key)
+            .Take(maxCount))
+        {
+            selected[pair.Key] = pair.Value;
+        }
+
+        return selected;
+    }
+
     private static Dictionary<string, int> CombineMaps(
         List<IngredientDef> ingredients,
         Func<IngredientDef, Dictionary<string, int>> selector)
@@ -190,10 +209,16 @@ public sealed class PotionBrewingService
 
         foreach (var rule in synergyRules)
         {
-            if (rule is null || rule.RequiredTraits.Count == 0)
+            if (rule is null)
                 continue;
 
-            if (!HasAllRequiredTraits(traits, rule.RequiredTraits))
+            if (rule.RequiredTraits.Count == 0 && rule.RequiredRisks.Count == 0)
+                continue;
+
+            if (!HasAllRequiredValues(traits, rule.RequiredTraits))
+                continue;
+
+            if (!HasAllRequiredValues(risks, rule.RequiredRisks))
                 continue;
 
             result.TriggeredSynergies.Add(rule.Id);
@@ -201,7 +226,9 @@ public sealed class PotionBrewingService
             {
                 Id = rule.Id,
                 RequiredTraits = new List<string>(rule.RequiredTraits),
+                RequiredRisks = new List<string>(rule.RequiredRisks),
                 ContributingTraits = BuildContributingTraits(traits, rule.RequiredTraits),
+                ContributingRisks = BuildContributingTraits(risks, rule.RequiredRisks),
                 Modifier = rule.Modifier,
                 Description = rule.Description
             });
@@ -246,14 +273,14 @@ public sealed class PotionBrewingService
         return contributing;
     }
 
-    private static bool HasAllRequiredTraits(Dictionary<string, int> traits, List<string> requiredTraits)
+    private static bool HasAllRequiredValues(Dictionary<string, int> values, List<string> requiredKeys)
     {
-        foreach (var trait in requiredTraits)
+        foreach (var key in requiredKeys)
         {
-            if (string.IsNullOrWhiteSpace(trait))
+            if (string.IsNullOrWhiteSpace(key))
                 return false;
 
-            if (!traits.TryGetValue(trait, out var strength) || strength <= 0)
+            if (!values.TryGetValue(key, out var strength) || strength <= 0)
                 return false;
         }
 

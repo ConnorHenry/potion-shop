@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("PotionBrewingService.Tests")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+51941487dfb44af7b4b589ee02b32fd21757f271")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+c3ad1fdba547a6e06d2609c77ab81429933f57cd")]
 [assembly: System.Reflection.AssemblyProductAttribute("PotionBrewingService.Tests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("PotionBrewingService.Tests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using OccultShop.Autoload;
+using OccultShop.Systems;
 
 namespace OccultShop.UI;
 
@@ -11,10 +12,11 @@ public partial class RecipeBookPanel : Control
     [Export] public NodePath SortButtonPath = default!;
     [Export] public NodePath RecipesContainerPath = default!;
 
-    private Button _closeButton = default!;
-    private Button _sortButton = default!;
-    private VBoxContainer _recipes = default!;
-    private bool _ascending = true;
+	private Button _closeButton = default!;
+	private Button _sortButton = default!;
+	private VBoxContainer _recipes = default!;
+	private readonly PotionInventoryBrewService _brewService = new();
+	private bool _ascending = true;
 
     public override void _Ready()
     {
@@ -129,11 +131,12 @@ public partial class RecipeBookPanel : Control
             Text = DisplayName(potionId, item.Name)
         };
 
-        var ingredients = new Label
+        var ingredients = new RichTextLabel
         {
-            Text = $"Ingredients: {FormatIngredients(potionId)}",
-            AutowrapMode = TextServer.AutowrapMode.Arbitrary,
-            ClipText = true
+            BbcodeEnabled = true,
+            Text = _brewService.BuildIngredientAvailabilityText(potionId, includeHeading: true),
+            FitContent = true,
+            AutowrapMode = TextServer.AutowrapMode.Arbitrary
         };
 
         var effects = new Label
@@ -150,25 +153,57 @@ public partial class RecipeBookPanel : Control
             ClipText = true
         };
 
-        var description = new RichTextLabel
-        {
-            Text = item.Description,
-            FitContent = true,
-            AutowrapMode = TextServer.AutowrapMode.Arbitrary
-        };
+		var description = new RichTextLabel
+		{
+			Text = item.Description,
+			FitContent = true,
+			AutowrapMode = TextServer.AutowrapMode.Arbitrary
+		};
 
-        textColumn.AddChild(title);
-        textColumn.AddChild(ingredients);
-        textColumn.AddChild(effects);
-        textColumn.AddChild(risks);
-        textColumn.AddChild(description);
+		var brewButton = new Button
+		{
+			Text = "Brew"
+		};
+		brewButton.Pressed += () => TryBrewPotion(potionId);
+		UpdateBrewButtonState(potionId, brewButton);
+
+		textColumn.AddChild(title);
+		textColumn.AddChild(ingredients);
+		textColumn.AddChild(effects);
+		textColumn.AddChild(risks);
+		textColumn.AddChild(description);
+		textColumn.AddChild(brewButton);
 
         row.AddChild(icon);
         row.AddChild(textColumn);
-        margin.AddChild(row);
-        card.AddChild(margin);
-        return card;
-    }
+		margin.AddChild(row);
+		card.AddChild(margin);
+		return card;
+	}
+
+	private void TryBrewPotion(string potionId)
+	{
+		if (_brewService.TryBrewPotion(potionId, out var error))
+			return;
+
+		GD.PushError(error);
+	}
+
+	private void UpdateBrewButtonState(string potionId, Button brewButton)
+	{
+		if (!_brewService.TryGetRequiredIngredients(potionId, out var requiredIngredients, out var error))
+		{
+			brewButton.Disabled = true;
+			brewButton.TooltipText = error;
+			return;
+		}
+
+		var hasIngredients = _brewService.HasRequiredIngredients(requiredIngredients);
+		brewButton.Disabled = !hasIngredients;
+		brewButton.TooltipText = hasIngredients
+			? "Brew this potion from discovered ingredients."
+			: _brewService.BuildMissingIngredientsText(requiredIngredients);
+	}
 
     private string FormatIngredients(string potionId)
     {
@@ -194,7 +229,8 @@ public partial class RecipeBookPanel : Control
 
         return string.Join(", ",
             values
-                .OrderBy(x => x.Key)
+                .OrderByDescending(x => x.Value)
+                .ThenBy(x => x.Key)
                 .Select(x => $"{x.Key}: {x.Value}"));
     }
 

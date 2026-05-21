@@ -7,7 +7,8 @@
 },
 {
   "id": "healing_corruption",
-  "requiredTraits": ["healing", "corruption"],
+  "requiredTraits": ["healing"],
+  "requiredRisks": ["corruption"],
   "modifier": -20,
   "resultTrait": "unstable_regeneration",
   "addedRisk": "mutation",

@@ -30,7 +30,15 @@ public partial class GameState : Node
 		AddItem("grave_mint", 10);
 		AddItem("lavender_ash", 10);
 		AddItem("black_ichor", 10);
-		EmitChanged();
+		AddItem("obsidian_resin", 10);
+		AddItem("obsidian_resin", 10);
+		AddItem("amber_nightshade", 10);
+		AddItem("silver_thorn_bloom", 10);
+		AddItem("moonwhisper_orchid", 10);
+		AddItem("raven_ash_peony", 10);
+		AddItem("iron_lullaby_root", 10);
+		AddItem("mercury_vision_resin", 10);
+		AddItem("hallowed_balm_leaf", 10);
 	}
 
 	public void NextDay()

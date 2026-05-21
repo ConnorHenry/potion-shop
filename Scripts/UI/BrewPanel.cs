@@ -1,6 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
 using OccultShop.Autoload;
 using OccultShop.Models;
 using OccultShop.Systems;
@@ -9,6 +10,10 @@ namespace OccultShop.UI;
 
 public partial class BrewPanel : Control
 {
+    private const string DefaultPotionIconPath = "res://Assets/Items/sight_tonic.svg";
+    private const string PotionIconsDirectoryPath = "res://Assets/Potions";
+    private const int BrewedPotionOutputQuantity = 1;
+
     [Export] public NodePath CloseButtonPath = default!;
     [Export] public NodePath BrewBoxPath = default!;
     [Export] public NodePath IngredientsLabelPath = default!;
@@ -122,23 +127,14 @@ public partial class BrewPanel : Control
 			null,
 			DataDb.Synergies.ToList());
 
-		var potion = SelectPotionToBrew();
-		if (potion is null)
-		{
-			ReturnQueuedIngredients();
-			_queuedIngredients.Clear();
-			RefreshIngredientsLabel();
-			_resultLabel.Text = "No potion recipes are loaded.";
-			return;
-		}
-
-        if (GameState.Gold < potion.Cost)
+		var brewCost = CalculateBrewCost(_queuedIngredients, brewResult);
+        if (GameState.Gold < brewCost)
         {
-            _resultLabel.Text = $"Need {potion.Cost} gold to brew {potion.Name}.";
+            _resultLabel.Text = $"Need {brewCost} gold to brew this potion.";
             return;
         }
 
-		GameState.AddGold(-potion.Cost);
+		GameState.AddGold(-brewCost);
 
 		var combinationKey = BuildCombinationKey(_queuedIngredients);
 		var isNewCombination = !GameState.TryGetPotionForCombination(combinationKey, out var potionItemId);
@@ -146,9 +142,9 @@ public partial class BrewPanel : Control
 		{
 			var randomName = GeneratePotionName();
 			potionItemId = $"brew_{GameState.PotionDisplayNames.Count + 1}";
-			var iconPath = ResolvePotionIconPath(potion);
-			var description = $"A brewed potion discovered from: {string.Join(", ", _queuedIngredients.Select(ItemName))}.";
-			var basePrice = System.Math.Max(1, potion.Cost * 2);
+			var iconPath = ResolvePotionIconPath();
+			var description = BuildPotionDescription(_queuedIngredients, brewResult);
+			var basePrice = CalculatePotionBasePrice(brewCost, brewResult);
 
 			DataDb.RegisterRuntimePotionItem(
 				potionItemId,
@@ -165,7 +161,7 @@ public partial class BrewPanel : Control
 		}
 
 		GameState.RecordPotionRecipe(potionItemId, _queuedIngredients);
-		GameState.AddItem(potionItemId, potion.OutputQty);
+		GameState.AddItem(potionItemId, BrewedPotionOutputQuantity);
 		GameState.RecordPotionBatch(potionItemId, _queuedIngredients);
 		_queuedIngredients.Clear();
 		RefreshIngredientsLabel();
@@ -176,56 +172,6 @@ public partial class BrewPanel : Control
     {
         foreach (var itemId in _queuedIngredients)
             GameState.AddItem(itemId, 1);
-    }
-
-    private PotionDef? SelectPotionToBrew()
-    {
-        if (DataDb.Potions.Count == 0)
-            return null;
-
-        var queueCount = _queuedIngredients
-            .GroupBy(x => x)
-            .ToDictionary(g => g.Key, g => g.Count());
-
-        PotionDef? bestPotion = null;
-        var bestScore = int.MinValue;
-
-        foreach (var potion in DataDb.Potions)
-        {
-            var recipeCount = potion.Ingredients
-                .GroupBy(x => x.ItemId)
-                .ToDictionary(g => g.Key, g => g.Sum(x => x.Qty));
-
-            var score = 0;
-
-            foreach (var recipeIngredient in recipeCount)
-            {
-                queueCount.TryGetValue(recipeIngredient.Key, out var queuedQty);
-                var shared = System.Math.Min(queuedQty, recipeIngredient.Value);
-                var missing = System.Math.Max(0, recipeIngredient.Value - queuedQty);
-                var extra = System.Math.Max(0, queuedQty - recipeIngredient.Value);
-
-                score += shared * 20;
-                score -= missing * 8;
-                score -= extra * 2;
-            }
-
-            foreach (var queuedIngredient in queueCount)
-            {
-                if (recipeCount.ContainsKey(queuedIngredient.Key))
-                    continue;
-
-                score -= queuedIngredient.Value * 2;
-            }
-
-            if (score > bestScore)
-            {
-                bestScore = score;
-                bestPotion = potion;
-            }
-        }
-
-        return bestPotion;
     }
 
     private void RefreshIngredientsLabel()
@@ -243,6 +189,16 @@ public partial class BrewPanel : Control
 
         _ingredientsLabel.Text = $"Ingredients: {string.Join(", ", grouped)}";
     }
+
+	private string FormatIngredientSummary(IEnumerable<string> ingredientIds)
+	{
+		var grouped = ingredientIds
+			.GroupBy(x => x)
+			.OrderBy(g => ItemName(g.Key))
+			.Select(g => $"{ItemName(g.Key)} x{g.Count()}");
+
+		return string.Join("\n", grouped);
+	}
 
     private string ItemName(string itemId)
     {
@@ -338,7 +294,13 @@ public partial class BrewPanel : Control
 					.OrderBy(x => x.Key)
 					.Select(x => $"{x.Key} {x.Value}"));
 
-			lines.Add($"Traits: {contributingTraits}");
+			var contributingRisks = synergy.ContributingRisks.Count == 0
+				? "None"
+				: string.Join(", ", synergy.ContributingRisks
+					.OrderBy(x => x.Key)
+					.Select(x => $"{x.Key} {x.Value}"));
+
+			lines.Add($"Risks: {contributingRisks}");
 
 			if (!string.IsNullOrWhiteSpace(synergy.Description))
 				lines.Add(synergy.Description);
@@ -347,11 +309,62 @@ public partial class BrewPanel : Control
 		return string.Join("\n", lines);
 	}
 
-	private string? ResolvePotionIconPath(PotionDef potion)
+	private int CalculateBrewCost(IReadOnlyList<string> ingredientIds, PotionResult brewResult)
 	{
-		return DataDb.TryGetItem(potion.OutputItemId, out var outputItem)
-			? outputItem.IconPath
-			: null;
+		var totalBasePrice = 0;
+
+		foreach (var itemId in ingredientIds)
+		{
+			if (!DataDb.TryGetItem(itemId, out var item))
+				continue;
+
+			totalBasePrice += Math.Max(1, item.BasePrice);
+		}
+
+		var qualityBonus = Math.Max(0, brewResult.IngredientQualityScore - 50) / 10;
+		var rawCost = (int)MathF.Round((totalBasePrice * 0.30f) + qualityBonus);
+		return Math.Max(5, rawCost);
+	}
+
+	private static int CalculatePotionBasePrice(int brewCost, PotionResult brewResult)
+	{
+		var qualityBonus = Math.Max(0, brewResult.IngredientQualityScore - 50);
+		return Math.Max(1, (brewCost * 2) + qualityBonus);
+	}
+
+	private string BuildPotionDescription(IReadOnlyList<string> ingredientIds, PotionResult brewResult)
+	{
+		return "A brewed potion discovered from:";
+	}
+
+	private string ResolvePotionIconPath()
+	{
+		var iconPaths = GetPotionIconPaths();
+		if (iconPaths.Count == 0)
+			return DefaultPotionIconPath;
+
+		return iconPaths[Random.Shared.Next(iconPaths.Count)];
+	}
+
+	private static List<string> GetPotionIconPaths()
+	{
+		var absoluteDirectoryPath = ProjectSettings.GlobalizePath(PotionIconsDirectoryPath);
+		if (!Directory.Exists(absoluteDirectoryPath))
+			return new List<string>();
+
+		var files = Directory.GetFiles(absoluteDirectoryPath, "*.svg");
+		var iconPaths = new List<string>(files.Length);
+
+		foreach (var filePath in files)
+		{
+			var fileName = Path.GetFileName(filePath);
+			if (string.IsNullOrWhiteSpace(fileName))
+				continue;
+
+			iconPaths.Add($"{PotionIconsDirectoryPath}/{fileName}");
+		}
+
+		return iconPaths;
 	}
 
 	private bool TryBuildIngredientDefs(
@@ -376,8 +389,8 @@ public partial class BrewPanel : Control
 				Quality = item.Quality,
 				Traits = new Dictionary<string, int>(item.Traits),
 				Risks = new Dictionary<string, int>(item.Risks),
-				Tags = new List<string>(item.Tags)
-			};
+				Tags = [.. item.Tags]
+            };
 
 			ingredients.Add(ingredient);
 		}

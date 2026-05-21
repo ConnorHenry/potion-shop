@@ -13,14 +13,12 @@ public partial class DataDb : Node
 	public IReadOnlyDictionary<string, RuleDef> Rules => _rules;
 	public IReadOnlyList<EventCardDef> Events => _events;
 	public IReadOnlyList<CustomerInteractionDef> CustomerInteractions => _customerInteractions;
-	public IReadOnlyList<PotionDef> Potions => _potions;
 	public IReadOnlyList<SynergyRule> Synergies => _synergies;
 
 	private Dictionary<string, ItemDef> _items = new();
 	private Dictionary<string, RuleDef> _rules = new();
 	private List<EventCardDef> _events = new();
 	private List<CustomerInteractionDef> _customerInteractions = new();
-	private List<PotionDef> _potions = new();
 	private List<SynergyRule> _synergies = new();
 
 	private static readonly JsonSerializerOptions JsonOpts = new()
@@ -39,7 +37,6 @@ public partial class DataDb : Node
 		_rules = LoadArray<RuleDef>("res://Data/rules.json").ToDictionary(x => x.Id, x => x);
 		_events = LoadArray<EventCardDef>("res://Data/events.json");
 		_customerInteractions = LoadArray<CustomerInteractionDef>("res://Data/customers.json");
-		_potions = LoadArray<PotionDef>("res://Data/potions.json");
 		_synergies = LoadArray<SynergyRule>("res://Data/synergies.json");
 	}
 

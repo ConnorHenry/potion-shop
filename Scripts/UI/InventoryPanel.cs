@@ -1,6 +1,7 @@
 using System.Linq;
 using Godot;
 using OccultShop.Autoload;
+using OccultShop.Systems;
 
 namespace OccultShop.UI;
 
@@ -21,6 +22,7 @@ public partial class InventoryPanel : Control
 	[Export] public NodePath ItemDetailRisksHeaderPath = default!;
 	[Export] public NodePath ItemDetailRisksPath = default!;
 	[Export] public NodePath ItemDetailDescriptionPath = default!;
+	[Export] public NodePath ItemDetailBrewButtonPath = default!;
 	[Export] public NodePath ItemDetailCloseButtonPath = default!;
 
 	private GridContainer _potions = default!;
@@ -35,10 +37,12 @@ public partial class InventoryPanel : Control
 	private Label _itemDetailRisksHeader = default!;
 	private RichTextLabel _itemDetailRisks = default!;
 	private RichTextLabel _itemDetailDescription = default!;
+	private Button _itemDetailBrewButton = default!;
 	private Button _itemDetailCloseButton = default!;
 	private string? _currentItemId;
 	private bool _potionsAscending = true;
 	private bool _ingredientsAscending = true;
+	private readonly PotionInventoryBrewService _brewService = new();
 
 	public override void _Ready()
 	{
@@ -54,12 +58,15 @@ public partial class InventoryPanel : Control
 		_itemDetailRisksHeader = GetNode<Label>(ItemDetailRisksHeaderPath);
 		_itemDetailRisks = GetNode<RichTextLabel>(ItemDetailRisksPath);
 		_itemDetailDescription = GetNode<RichTextLabel>(ItemDetailDescriptionPath);
+		_itemDetailDescription.BbcodeEnabled = true;
+		_itemDetailBrewButton = GetNode<Button>(ItemDetailBrewButtonPath);
 		_itemDetailCloseButton = GetNode<Button>(ItemDetailCloseButtonPath);
 
 		MouseFilter = MouseFilterEnum.Ignore;
 		_itemDetailPanel.MouseFilter = MouseFilterEnum.Ignore;
 		_potionsSortButton.Pressed += TogglePotionsSort;
 		_ingredientsSortButton.Pressed += ToggleIngredientsSort;
+		_itemDetailBrewButton.Pressed += TryBrewSelectedPotion;
 		_itemDetailCloseButton.Pressed += HideItemDetail;
 		GameState.Changed += Refresh;
 
@@ -99,10 +106,7 @@ public partial class InventoryPanel : Control
 			child.QueueFree();
 
 		if (GameState.Inventory.Count == 0)
-		{
 			_ingredients.AddChild(new Label { Text = "Empty" });
-			return;
-		}
 
 		var potionStacks = GameState.Inventory.Where(x => IsPotion(x.Key));
 		var ingredientStacks = GameState.Inventory.Where(x => !IsPotion(x.Key));
@@ -128,6 +132,9 @@ public partial class InventoryPanel : Control
 			foreach (var stack in ingredientStacks.OrderByDescending(x => ItemName(x.Key)).ThenByDescending(x => x.Key))
 				_ingredients.AddChild(CreateSlot(stack.Key, stack.Value));
 		}
+
+		RefreshCurrentItemDetail();
+		UpdateBrewButtonState();
 	}
 
 	private void UpdateSortButtonLabels()
@@ -180,18 +187,47 @@ public partial class InventoryPanel : Control
 		var name = new Label
 		{
 			Text = itemName,
-			Position = new Vector2(4, 80),
-			CustomMinimumSize = new Vector2(SlotSize - 8, 26),
 			MouseFilter = MouseFilterEnum.Ignore,
 			HorizontalAlignment = HorizontalAlignment.Center,
 			VerticalAlignment = VerticalAlignment.Center,
-			AutowrapMode = TextServer.AutowrapMode.Arbitrary,
-			ClipText = true
+			AutowrapMode = TextServer.AutowrapMode.Off,
+			ClipText = false
 		};
+
+		var nameBlock = new Control
+		{
+			Position = new Vector2(4, 70),
+			CustomMinimumSize = new Vector2(SlotSize - 8, 34),
+			MouseFilter = MouseFilterEnum.Ignore
+		};
+
+		SplitInventoryName(itemName, out var firstLine, out var secondLine);
+		name.Text = firstLine;
+		name.Position = new Vector2(0, 0);
+		name.CustomMinimumSize = new Vector2(SlotSize - 8, 0);
+
+		nameBlock.AddChild(name);
+
+		if (!string.IsNullOrWhiteSpace(secondLine))
+		{
+			var secondName = new Label
+			{
+				Text = secondLine,
+				Position = new Vector2(0, 15),
+				CustomMinimumSize = new Vector2(SlotSize - 8, 0),
+				MouseFilter = MouseFilterEnum.Ignore,
+				HorizontalAlignment = HorizontalAlignment.Center,
+				VerticalAlignment = VerticalAlignment.Center,
+				AutowrapMode = TextServer.AutowrapMode.Off,
+				ClipText = false
+			};
+
+			nameBlock.AddChild(secondName);
+		}
 
 		content.AddChild(icon);
 		content.AddChild(qty);
-		content.AddChild(name);
+		content.AddChild(nameBlock);
 		slot.AddChild(content);
 		return slot;
 	}
@@ -208,12 +244,9 @@ public partial class InventoryPanel : Control
 			return;
 
 		_currentItemId = itemId;
-		_itemDetailImage.Texture = LoadIcon(item.IconPath);
-		_itemDetailName.Text = DisplayName(itemId, item.Name);
-		_itemDetailDescription.Text = item.Description;
-		_itemDetailTraits.Text = FormatTopTraits(item.Traits, 3);
-		_itemDetailRisks.Text = FormatDictionary(item.Risks);
+		RefreshCurrentItemDetail();
 		_itemDetailPanel.Visible = true;
+		UpdateBrewButtonState();
 	}
 
 	private void HideItemDetail()
@@ -223,7 +256,69 @@ public partial class InventoryPanel : Control
 		_itemDetailTraits.Text = "";
 		_itemDetailRisks.Text = "";
 		_itemDetailDescription.Text = "";
+		_itemDetailBrewButton.Visible = false;
+		_itemDetailBrewButton.Disabled = true;
 		_itemDetailPanel.Visible = false;
+	}
+
+	private void RefreshCurrentItemDetail()
+	{
+		if (string.IsNullOrWhiteSpace(_currentItemId))
+			return;
+
+		if (!DataDb.Items.TryGetValue(_currentItemId, out var item))
+			return;
+
+		_itemDetailImage.Texture = LoadIcon(item.IconPath);
+		_itemDetailName.Text = DisplayName(_currentItemId, item.Name);
+		_itemDetailTraits.Text = FormatTopTraits(item.Traits, 3);
+		_itemDetailRisks.Text = FormatDictionary(item.Risks);
+		_itemDetailDescription.Text = IsPotion(_currentItemId)
+			? _brewService.BuildPotionDescriptionText(_currentItemId, item.Description)
+			: item.Description;
+	}
+
+	private void TryBrewSelectedPotion()
+	{
+		if (string.IsNullOrWhiteSpace(_currentItemId))
+			return;
+
+		if (!IsPotion(_currentItemId))
+			return;
+
+		if (!_brewService.TryBrewPotion(_currentItemId, out var error))
+			GD.PushError(error);
+
+		UpdateBrewButtonState();
+	}
+
+	private void UpdateBrewButtonState()
+	{
+		if (_itemDetailBrewButton is null)
+			return;
+
+		if (string.IsNullOrWhiteSpace(_currentItemId) || !IsPotion(_currentItemId))
+		{
+			_itemDetailBrewButton.Visible = false;
+			_itemDetailBrewButton.Disabled = true;
+			_itemDetailBrewButton.TooltipText = "";
+			return;
+		}
+
+		_itemDetailBrewButton.Visible = true;
+
+		if (!_brewService.TryGetRequiredIngredients(_currentItemId, out var requiredIngredients, out var error))
+		{
+			_itemDetailBrewButton.Disabled = true;
+			_itemDetailBrewButton.TooltipText = error;
+			return;
+		}
+
+		var hasIngredients = _brewService.HasRequiredIngredients(requiredIngredients);
+		_itemDetailBrewButton.Disabled = !hasIngredients;
+		_itemDetailBrewButton.TooltipText = hasIngredients
+			? "Brew this potion from discovered ingredients."
+			: _brewService.BuildMissingIngredientsText(requiredIngredients);
 	}
 
 	private static Texture2D? LoadIcon(string? iconPath)
@@ -253,6 +348,27 @@ public partial class InventoryPanel : Control
 		return fallbackName;
 	}
 
+	private static void SplitInventoryName(string itemName, out string firstLine, out string secondLine)
+	{
+		if (string.IsNullOrWhiteSpace(itemName))
+		{
+			firstLine = itemName;
+			secondLine = string.Empty;
+			return;
+		}
+
+		var firstSpaceIndex = itemName.IndexOf(' ');
+		if (firstSpaceIndex <= 0 || firstSpaceIndex >= itemName.Length - 1)
+		{
+			firstLine = itemName;
+			secondLine = string.Empty;
+			return;
+		}
+
+		firstLine = itemName[..firstSpaceIndex];
+		secondLine = itemName[(firstSpaceIndex + 1)..];
+	}
+
 	private static bool IsPotion(string itemId)
 	{
 		if (!DataDb.Items.TryGetValue(itemId, out var item))
@@ -268,7 +384,8 @@ public partial class InventoryPanel : Control
 
 		return string.Join("\n",
 			values
-				.OrderBy(x => x.Key)
+				.OrderByDescending(x => x.Value)
+				.ThenBy(x => x.Key)
 				.Select(x => $"{x.Key}: {x.Value}"));
 	}
 

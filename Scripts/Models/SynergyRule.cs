@@ -5,6 +5,9 @@ public sealed class SynergyRule
     // Traits required for this synergy to trigger
     public List<string> RequiredTraits { get; set; } = new();
 
+    // Risks required for this synergy to trigger
+    public List<string> RequiredRisks { get; set; } = new();
+
     // Positive or negative modifier
     // Example: +10 for good synergy, -20 for dangerous conflict
     public int Modifier { get; set; }
