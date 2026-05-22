@@ -1,11 +1,17 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Runtime.Loader;
 using OccultShop.Models;
 using OccultShop.Systems;
 
 static class Program
 {
     private static int _failures;
+    private static readonly Lazy<Assembly> UiAssembly = new(LoadUiAssembly);
+    private static bool _resolverRegistered;
 
     public static int Main()
     {
@@ -16,6 +22,15 @@ static class Program
         Run("Triggers healing_corruption from healing trait and corruption risk", TestHealingCorruptionFromTraitAndRisk);
         Run("Scores a clean positive brew", TestPositiveBrew);
         Run("Handles negative synergy and penalties", TestNegativeBrew);
+        Run("UI classes exist and keep expected base types", TestUiClassPresenceAndBaseTypes);
+        Run("InventoryPanel splits inventory labels predictably", TestInventoryPanelSplitInventoryName);
+        Run("InventoryPanel dictionary formatting is stable", TestInventoryPanelFormatDictionary);
+        Run("InventoryPanel top-traits formatting is stable", TestInventoryPanelFormatTopTraits);
+        Run("RecipeBookPanel dictionary formatting is stable", TestRecipeBookPanelFormatDictionary);
+        Run("RecipeBookPanel top-traits formatting is stable", TestRecipeBookPanelFormatTopTraits);
+        Run("BrewPanel ingredient tag detection is case-insensitive", TestBrewPanelIsIngredient);
+        Run("BrewPanel base price calculation is stable", TestBrewPanelCalculatePotionBasePrice);
+        Run("CustomerPanel creates detached ingredient snapshots", TestCustomerPanelBuildPotionIngredientDef);
 
         if (_failures > 0)
         {
@@ -387,6 +402,307 @@ static class Program
         AssertTrue("healing_corruption triggered", result.TriggeredSynergies.Contains("healing_corruption"));
         AssertTrue("Mutation removed from potion details", !result.Risks.ContainsKey("mutation"));
         AssertTrue("synergy details include risk contribution", result.TriggeredSynergyDetails[0].ContributingRisks.ContainsKey("corruption"));
+    }
+
+    private static void TestUiClassPresenceAndBaseTypes()
+    {
+        var expectedClasses = new Dictionary<string, string>
+        {
+            ["OccultShop.UI.BrewPanel"] = "Control",
+            ["OccultShop.UI.BrewDropBox"] = "PanelContainer",
+            ["OccultShop.UI.CustomerPanel"] = "Control",
+            ["OccultShop.UI.CustomerSellDropBox"] = "PanelContainer",
+            ["OccultShop.UI.DraggablePanel"] = "PanelContainer",
+            ["OccultShop.UI.EventModal"] = "Control",
+            ["OccultShop.UI.Hud"] = "Control",
+            ["OccultShop.UI.InventoryItemSlot"] = "Button",
+            ["OccultShop.UI.InventoryPanel"] = "Control",
+            ["OccultShop.UI.RecipeBookPanel"] = "Control",
+            ["MainMenu"] = "Control"
+        };
+
+        foreach (var expected in expectedClasses)
+        {
+            var type = GetTypeFromUiAssembly(expected.Key);
+            var baseTypeName = type.BaseType?.Name ?? string.Empty;
+            AssertEqual($"{expected.Key} base type", expected.Value, baseTypeName);
+        }
+    }
+
+    private static void TestInventoryPanelSplitInventoryName()
+    {
+        var type = GetTypeFromUiAssembly("OccultShop.UI.InventoryPanel");
+        var method = type.GetMethod("SplitInventoryName", BindingFlags.NonPublic | BindingFlags.Static)
+            ?? throw new InvalidOperationException("Missing method InventoryPanel.SplitInventoryName.");
+
+        var splitArgs = new object?[] { "Moon Dust", null, null };
+        method.Invoke(null, splitArgs);
+        AssertEqual("Split first line", "Moon", splitArgs[1] as string ?? string.Empty);
+        AssertEqual("Split second line", "Dust", splitArgs[2] as string ?? string.Empty);
+
+        var singleWordArgs = new object?[] { "Elixir", null, null };
+        method.Invoke(null, singleWordArgs);
+        AssertEqual("Single word first line", "Elixir", singleWordArgs[1] as string ?? string.Empty);
+        AssertEqual("Single word second line", string.Empty, singleWordArgs[2] as string ?? string.Empty);
+
+        var emptyArgs = new object?[] { string.Empty, null, null };
+        method.Invoke(null, emptyArgs);
+        AssertEqual("Empty first line", string.Empty, emptyArgs[1] as string ?? string.Empty);
+        AssertEqual("Empty second line", string.Empty, emptyArgs[2] as string ?? string.Empty);
+    }
+
+    private static void TestInventoryPanelFormatDictionary()
+    {
+        var values = new Dictionary<string, int>
+        {
+            ["zeta"] = 2,
+            ["beta"] = 4,
+            ["alpha"] = 4
+        };
+
+        var formatted = InvokePrivateStatic<string>("OccultShop.UI.InventoryPanel", "FormatDictionary", values);
+        AssertEqual("Inventory dictionary order", "alpha: 4\nbeta: 4\nzeta: 2", formatted);
+
+        var empty = InvokePrivateStatic<string>("OccultShop.UI.InventoryPanel", "FormatDictionary", new Dictionary<string, int>());
+        AssertEqual("Inventory dictionary empty", "None", empty);
+
+        var nullValue = InvokePrivateStatic<string>("OccultShop.UI.InventoryPanel", "FormatDictionary", (object?)null);
+        AssertEqual("Inventory dictionary null", "None", nullValue);
+    }
+
+    private static void TestInventoryPanelFormatTopTraits()
+    {
+        var values = new Dictionary<string, int>
+        {
+            ["chaos"] = 1,
+            ["sleep"] = 5,
+            ["focus"] = 5,
+            ["calm"] = 2
+        };
+
+        var formatted = InvokePrivateStatic<string>("OccultShop.UI.InventoryPanel", "FormatTopTraits", values, 2);
+        AssertEqual("Inventory top traits order", "focus: 5\nsleep: 5", formatted);
+
+        var empty = InvokePrivateStatic<string>("OccultShop.UI.InventoryPanel", "FormatTopTraits", new Dictionary<string, int>(), 3);
+        AssertEqual("Inventory top traits empty", "None", empty);
+    }
+
+    private static void TestRecipeBookPanelFormatDictionary()
+    {
+        var values = new Dictionary<string, int>
+        {
+            ["zeta"] = 2,
+            ["beta"] = 4,
+            ["alpha"] = 4
+        };
+
+        var formatted = InvokePrivateStatic<string>("OccultShop.UI.RecipeBookPanel", "FormatDictionary", values);
+        AssertEqual("Recipe dictionary order", "alpha: 4, beta: 4, zeta: 2", formatted);
+
+        var empty = InvokePrivateStatic<string>("OccultShop.UI.RecipeBookPanel", "FormatDictionary", new Dictionary<string, int>());
+        AssertEqual("Recipe dictionary empty", "None", empty);
+    }
+
+    private static void TestRecipeBookPanelFormatTopTraits()
+    {
+        var values = new Dictionary<string, int>
+        {
+            ["chaos"] = 1,
+            ["sleep"] = 5,
+            ["focus"] = 5,
+            ["calm"] = 2
+        };
+
+        var formatted = InvokePrivateStatic<string>("OccultShop.UI.RecipeBookPanel", "FormatTopTraits", values, 2);
+        AssertEqual("Recipe top traits order", "focus: 5, sleep: 5", formatted);
+
+        var empty = InvokePrivateStatic<string>("OccultShop.UI.RecipeBookPanel", "FormatTopTraits", new Dictionary<string, int>(), 3);
+        AssertEqual("Recipe top traits empty", "None", empty);
+    }
+
+    private static void TestBrewPanelIsIngredient()
+    {
+        var itemDefType = GetTypeFromUiAssembly("OccultShop.Models.ItemDef");
+        var ingredientItem = Activator.CreateInstance(itemDefType)
+            ?? throw new InvalidOperationException("Failed to create ItemDef instance.");
+        var nonIngredientItem = Activator.CreateInstance(itemDefType)
+            ?? throw new InvalidOperationException("Failed to create ItemDef instance.");
+
+        SetProperty(ingredientItem, "Tags", new List<string> { "ingredient", "rare" });
+        SetProperty(nonIngredientItem, "Tags", new List<string> { "potion" });
+
+        var ingredientResult = InvokePrivateStatic<bool>("OccultShop.UI.BrewPanel", "IsIngredient", ingredientItem);
+        var nonIngredientResult = InvokePrivateStatic<bool>("OccultShop.UI.BrewPanel", "IsIngredient", nonIngredientItem);
+
+        AssertTrue("Ingredient tag recognized", ingredientResult);
+        AssertTrue("Non-ingredient rejected", !nonIngredientResult);
+    }
+
+    private static void TestBrewPanelCalculatePotionBasePrice()
+    {
+        var potionResultType = GetTypeFromUiAssembly("PotionResult");
+
+        var highQualityResult = Activator.CreateInstance(potionResultType)
+            ?? throw new InvalidOperationException("Failed to create PotionResult instance.");
+        SetProperty(highQualityResult, "IngredientQualityScore", 80);
+
+        var lowQualityResult = Activator.CreateInstance(potionResultType)
+            ?? throw new InvalidOperationException("Failed to create PotionResult instance.");
+        SetProperty(lowQualityResult, "IngredientQualityScore", 10);
+
+        var highQualityPrice = InvokePrivateStatic<int>("OccultShop.UI.BrewPanel", "CalculatePotionBasePrice", 10, highQualityResult);
+        var minimumPrice = InvokePrivateStatic<int>("OccultShop.UI.BrewPanel", "CalculatePotionBasePrice", 0, lowQualityResult);
+
+        AssertEqual("High quality base price", 50, highQualityPrice);
+        AssertEqual("Minimum base price", 1, minimumPrice);
+    }
+
+    private static void TestCustomerPanelBuildPotionIngredientDef()
+    {
+        var itemDefType = GetTypeFromUiAssembly("OccultShop.Models.ItemDef");
+        var ingredientDefType = GetTypeFromUiAssembly("IngredientDef");
+        var item = Activator.CreateInstance(itemDefType)
+            ?? throw new InvalidOperationException("Failed to create ItemDef instance.");
+
+        var sourceTraits = new Dictionary<string, int> { ["sleep"] = 3 };
+        var sourceRisks = new Dictionary<string, int> { ["nausea"] = 2 };
+        var sourceTags = new List<string> { "ingredient", "night" };
+
+        SetProperty(item, "Id", "moon_leaf");
+        SetProperty(item, "Name", "Moon Leaf");
+        SetProperty(item, "Quality", 77);
+        SetProperty(item, "Traits", sourceTraits);
+        SetProperty(item, "Risks", sourceRisks);
+        SetProperty(item, "Tags", sourceTags);
+
+        var result = InvokePrivateStatic("OccultShop.UI.CustomerPanel", "BuildPotionIngredientDef", item)
+            ?? throw new InvalidOperationException("BuildPotionIngredientDef returned null.");
+
+        AssertEqual("Returned type", ingredientDefType.FullName ?? "IngredientDef", result.GetType().FullName ?? string.Empty);
+        AssertEqual("Ingredient id", "moon_leaf", GetProperty<string>(result, "Id"));
+        AssertEqual("Ingredient name", "Moon Leaf", GetProperty<string>(result, "Name"));
+        AssertEqual("Ingredient quality", 77, GetProperty<int>(result, "Quality"));
+
+        var traits = GetProperty<Dictionary<string, int>>(result, "Traits");
+        var risks = GetProperty<Dictionary<string, int>>(result, "Risks");
+        var tags = GetProperty<List<string>>(result, "Tags");
+
+        AssertEqual("Trait value copied", 3, traits["sleep"]);
+        AssertEqual("Risk value copied", 2, risks["nausea"]);
+        AssertEqual("Tag count copied", 2, tags.Count);
+        AssertTrue("Traits dictionary cloned", !ReferenceEquals(sourceTraits, traits));
+        AssertTrue("Risks dictionary cloned", !ReferenceEquals(sourceRisks, risks));
+        AssertTrue("Tags list cloned", !ReferenceEquals(sourceTags, tags));
+    }
+
+    private static Type GetTypeFromUiAssembly(string typeName)
+    {
+        var assembly = UiAssembly.Value;
+        var type = assembly.GetType(typeName)
+            ?? assembly.GetTypes().FirstOrDefault(x => string.Equals(x.Name, typeName, StringComparison.Ordinal));
+
+        if (type is null)
+            throw new InvalidOperationException($"Type '{typeName}' not found in OccultShop assembly.");
+
+        return type;
+    }
+
+    private static T InvokePrivateStatic<T>(string typeName, string methodName, params object?[] args)
+    {
+        var result = InvokePrivateStatic(typeName, methodName, args);
+        if (result is T typed)
+            return typed;
+
+        throw new InvalidOperationException($"Method {typeName}.{methodName} did not return {typeof(T).Name}.");
+    }
+
+    private static object? InvokePrivateStatic(string typeName, string methodName, params object?[] args)
+    {
+        var type = GetTypeFromUiAssembly(typeName);
+        var method = type.GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static)
+            ?? throw new InvalidOperationException($"Missing method {typeName}.{methodName}.");
+
+        return method.Invoke(null, args);
+    }
+
+    private static void SetProperty(object target, string propertyName, object? value)
+    {
+        var property = target.GetType().GetProperty(propertyName)
+            ?? throw new InvalidOperationException($"Property '{propertyName}' not found on {target.GetType().Name}.");
+        property.SetValue(target, value);
+    }
+
+    private static T GetProperty<T>(object target, string propertyName)
+    {
+        var property = target.GetType().GetProperty(propertyName)
+            ?? throw new InvalidOperationException($"Property '{propertyName}' not found on {target.GetType().Name}.");
+        var value = property.GetValue(target);
+
+        if (value is T typed)
+            return typed;
+
+        throw new InvalidOperationException($"Property '{propertyName}' on {target.GetType().Name} is not {typeof(T).Name}.");
+    }
+
+    private static Assembly LoadUiAssembly()
+    {
+        RegisterAssemblyResolver();
+
+        var projectRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+        var assemblyPath = Path.Combine(projectRoot, ".godot", "mono", "temp", "bin", "Debug", "OccultShop.dll");
+
+        if (!File.Exists(assemblyPath))
+            throw new InvalidOperationException($"OccultShop assembly not found at '{assemblyPath}'. Build OccultShop first.");
+
+        return Assembly.LoadFrom(assemblyPath);
+    }
+
+    private static void RegisterAssemblyResolver()
+    {
+        if (_resolverRegistered)
+            return;
+
+        AssemblyLoadContext.Default.Resolving += ResolveFromNuGetPackages;
+        _resolverRegistered = true;
+    }
+
+    private static Assembly? ResolveFromNuGetPackages(AssemblyLoadContext context, AssemblyName assemblyName)
+    {
+        if (string.IsNullOrWhiteSpace(assemblyName.Name))
+            return null;
+
+        var assemblyFileName = $"{assemblyName.Name}.dll";
+        foreach (var packageRoot in GetNuGetPackageRoots())
+        {
+            var packageDirectory = Path.Combine(packageRoot, assemblyName.Name.ToLowerInvariant());
+            if (!Directory.Exists(packageDirectory))
+                continue;
+
+            foreach (var versionDirectory in Directory.GetDirectories(packageDirectory).OrderByDescending(x => x, StringComparer.Ordinal))
+            {
+                var candidatePath = Path.Combine(versionDirectory, "lib", "net8.0", assemblyFileName);
+                if (File.Exists(candidatePath))
+                    return context.LoadFromAssemblyPath(candidatePath);
+            }
+        }
+
+        return null;
+    }
+
+    private static IEnumerable<string> GetNuGetPackageRoots()
+    {
+        var roots = new List<string>();
+        var configuredRoot = Environment.GetEnvironmentVariable("NUGET_PACKAGES");
+        if (!string.IsNullOrWhiteSpace(configuredRoot))
+            roots.Add(configuredRoot);
+
+        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (!string.IsNullOrWhiteSpace(userProfile))
+            roots.Add(Path.Combine(userProfile, ".nuget", "packages"));
+
+        return roots
+            .Where(Directory.Exists)
+            .Distinct(StringComparer.OrdinalIgnoreCase);
     }
 
     private static void AssertEqual<T>(string name, T expected, T actual) where T : IEquatable<T>

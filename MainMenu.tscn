@@ -1,6 +1,6 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=2 format=3 uid="uid://cmwprm7l6ju1i"]
 
-[ext_resource type="Script" path="res://Scripts/UI/MainMenu.cs" id="1_7ivci"]
+[ext_resource type="Script" uid="uid://cimefhgyfykx8" path="res://Scripts/UI/MainMenu.cs" id="1_7ivci"]
 
 [node name="MainMenu" type="Control"]
 layout_mode = 3
@@ -26,8 +26,8 @@ theme_override_constants/separation = 16
 
 [node name="Title" type="Label" parent="CenterContainer/VBox"]
 layout_mode = 2
-horizontal_alignment = 1
 text = "Potion Seller"
+horizontal_alignment = 1
 
 [node name="StartButton" type="Button" parent="CenterContainer/VBox"]
 layout_mode = 2
