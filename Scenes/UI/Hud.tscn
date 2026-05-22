@@ -1,0 +1,64 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" uid="uid://cpdo7gyxh2gvl" path="res://Scripts/UI/Hud.cs" id="1_khu2m"]
+
+[node name="Hud" type="Control"]
+layout_mode = 3
+anchor_left = 0.2
+anchor_right = 1.0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = 96.0
+script = ExtResource("1_khu2m")
+GoldLabelPath = NodePath("Gold")
+DreadLabelPath = NodePath("Dread")
+DayLabelPath = NodePath("Day")
+
+[node name="Gold" type="Label" parent="."]
+layout_mode = 0
+offset_right = 156.0
+offset_bottom = 24.0
+text = "Gold:"
+
+[node name="Dread" type="Label" parent="."]
+layout_mode = 0
+offset_top = 26.0
+offset_right = 156.0
+offset_bottom = 50.0
+text = "Dread:"
+
+[node name="Day" type="Label" parent="."]
+layout_mode = 0
+offset_top = 52.0
+offset_right = 156.0
+offset_bottom = 76.0
+text = "Day:"
+
+[node name="EndDay" type="Button" parent="."]
+layout_mode = 0
+offset_left = 460.0
+offset_right = 570.0
+offset_bottom = 40.0
+text = "End Day"
+
+[node name="ServeCustomer" type="Button" parent="."]
+layout_mode = 0
+offset_left = 580.0
+offset_right = 710.0
+offset_bottom = 40.0
+text = "Serve Customer"
+
+[node name="BrewPotion" type="Button" parent="."]
+layout_mode = 0
+offset_left = 720.0
+offset_right = 840.0
+offset_bottom = 40.0
+text = "Brew Potion"
+
+[node name="RecipeBook" type="Button" parent="."]
+layout_mode = 0
+offset_left = 850.0
+offset_right = 980.0
+offset_bottom = 40.0
+text = "Reciep Book"

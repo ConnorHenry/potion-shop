@@ -1,0 +1,98 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" uid="uid://ciyicbkwp6f08" path="res://Scripts/UI/InventoryPanel.cs" id="1_5bh8f"]
+[ext_resource type="Script" uid="uid://cdkl4a6bue2us" path="res://Scripts/UI/DraggablePanel.cs" id="2_6x1m8"]
+
+[node name="InventoryPanel" type="Control"]
+layout_mode = 3
+anchor_right = 0.2
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_right = 8.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_5bh8f")
+PotionsContainerPath = NodePath("Panel/Margin/VBox/Potions")
+IngredientsContainerPath = NodePath("Panel/Margin/VBox/Ingredients")
+PotionsSortButtonPath = NodePath("Panel/Margin/VBox/PotionsHeaderRow/Sort")
+IngredientsSortButtonPath = NodePath("Panel/Margin/VBox/IngredientsHeaderRow/Sort")
+ItemDetailPanelPath = NodePath("../InventoryItemDetail")
+ItemDetailImagePath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/Image")
+ItemDetailNamePath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/Name")
+ItemDetailTraitsHeaderPath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/TraitsHeader")
+ItemDetailTraitsPath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/Traits")
+ItemDetailRisksHeaderPath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/RisksHeader")
+ItemDetailRisksPath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/Risks")
+ItemDetailDescriptionPath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/Description")
+ItemDetailBrewButtonPath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/Brew")
+ItemDetailCloseButtonPath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/Close")
+
+[node name="Panel" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Margin" type="MarginContainer" parent="Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 18
+
+[node name="VBox" type="VBoxContainer" parent="Panel/Margin"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="Header" type="HBoxContainer" parent="Panel/Margin/VBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Title" type="Label" parent="Panel/Margin/VBox/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Inventory"
+
+[node name="PotionsHeaderRow" type="HBoxContainer" parent="Panel/Margin/VBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="PotionsHeader" type="Label" parent="Panel/Margin/VBox/PotionsHeaderRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Potions"
+
+[node name="Sort" type="Button" parent="Panel/Margin/VBox/PotionsHeaderRow"]
+layout_mode = 2
+text = "A-Z"
+
+[node name="Potions" type="GridContainer" parent="Panel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 100)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/h_separation = 10
+theme_override_constants/v_separation = 10
+columns = 3
+
+[node name="IngredientsHeaderRow" type="HBoxContainer" parent="Panel/Margin/VBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="IngredientsHeader" type="Label" parent="Panel/Margin/VBox/IngredientsHeaderRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Ingredients"
+
+[node name="Sort" type="Button" parent="Panel/Margin/VBox/IngredientsHeaderRow"]
+layout_mode = 2
+text = "A-Z"
+
+[node name="Ingredients" type="GridContainer" parent="Panel/Margin/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/h_separation = 10
+theme_override_constants/v_separation = 10
+columns = 3
