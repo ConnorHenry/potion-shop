@@ -1,4 +1,4 @@
-[gd_scene load_steps=5 format=3 uid="uid://crbtbyayy4wq1"]
+[gd_scene load_steps=5 format=3 uid="uid://dcy7kc8w8kugi"]
 
 [ext_resource type="Script" uid="uid://cmifnnvj2qr85" path="res://Scripts/Controllers/DayController.cs" id="3_1k1a3"]
 [ext_resource type="Script" uid="uid://c3ghssq14vnvq" path="res://Scripts/Controllers/EventController.cs" id="4_7w4xk"]

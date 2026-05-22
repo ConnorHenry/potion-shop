@@ -93,7 +93,7 @@ public partial class CustomerPanel : Control
 		if (_interaction is null)
 			return;
 
-		if (!DataDb.Items.ContainsKey(itemId))
+		if (!ItemCatalog.TryGetItem(itemId, out _))
 		{
 			_confirmDialogLabel.Text = "That item is not recognized.";
 			_confirmDialog.PopupCentered();
@@ -107,7 +107,7 @@ public partial class CustomerPanel : Control
 			return;
 		}
 
-		var itemName = DataDb.Items.TryGetValue(itemId, out var item) ? item.Name : itemId;
+		var itemName = ItemCatalog.GetItemName(itemId);
 		itemName = DisplayName(itemId, itemName);
 		_pendingItemId = itemId;
 		_confirmDialogLabel.Text = $"Sell {itemName} to this customer?";
@@ -143,7 +143,7 @@ public partial class CustomerPanel : Control
 		if (_interaction is null)
 			return false;
 
-		if (!DataDb.Items.TryGetValue(itemId, out var item))
+		if (!ItemCatalog.TryGetItem(itemId, out var item))
 			return false;
 
 		var request = _interaction.BuildRequest();
@@ -164,7 +164,7 @@ public partial class CustomerPanel : Control
 		var ingredients = new List<IngredientDef>();
 		foreach (var ingredientId in batchIngredientIds)
 		{
-			if (!DataDb.Items.TryGetValue(ingredientId, out var ingredientItem))
+			if (!ItemCatalog.TryGetItem(ingredientId, out var ingredientItem))
 				continue;
 
 			ingredients.Add(BuildPotionIngredientDef(ingredientItem));
@@ -225,7 +225,7 @@ public partial class CustomerPanel : Control
 	private string BuildOutcomeText(string itemId, PotionResult brewResult)
 	{
 		var lines = new List<string>();
-		var itemName = DataDb.Items.TryGetValue(itemId, out var item) ? item.Name : itemId;
+		var itemName = ItemCatalog.GetItemName(itemId);
 		itemName = DisplayName(itemId, itemName);
 		lines.Add($"Sold: {itemName}");
 		lines.Add($"Q={brewResult.IngredientQualityScore}, F={brewResult.EffectFitScore}, Y={brewResult.SynergyScore}, T={brewResult.StabilityScore}, P={brewResult.PenaltyScore}");
@@ -261,10 +261,7 @@ public partial class CustomerPanel : Control
 
 	private bool IsPotionItem(string itemId)
 	{
-		if (!DataDb.Items.TryGetValue(itemId, out var item))
-			return false;
-
-		return item.Tags.Any(tag => string.Equals(tag, "potion", System.StringComparison.OrdinalIgnoreCase));
+		return ItemCatalog.IsPotion(itemId);
 	}
 
 	private string DisplayName(string itemId, string fallbackName)

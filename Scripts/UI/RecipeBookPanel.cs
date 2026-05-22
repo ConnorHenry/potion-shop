@@ -93,7 +93,7 @@ public partial class RecipeBookPanel : Control
 
     private Control CreateRecipeCard(string potionId)
     {
-        if (!DataDb.Items.TryGetValue(potionId, out var item))
+        if (!ItemCatalog.TryGetItem(potionId, out var item))
             return new Label { Text = potionId };
 
         var card = new PanelContainer
@@ -249,13 +249,13 @@ public partial class RecipeBookPanel : Control
 
     private static bool IsKnownBrewedPotion(string potionId)
     {
-        return DataDb.Items.TryGetValue(potionId, out var item) &&
+        return ItemCatalog.TryGetItem(potionId, out var item) &&
                item.Tags.Any(tag => string.Equals(tag, "potion", System.StringComparison.OrdinalIgnoreCase));
     }
 
     private static string ItemName(string itemId)
     {
-        return DataDb.Items.TryGetValue(itemId, out var item) ? item.Name : itemId;
+        return ItemCatalog.GetItemName(itemId);
     }
 
     private static string DisplayName(string itemId, string fallbackName)
@@ -272,6 +272,5 @@ public partial class RecipeBookPanel : Control
         return ResourceLoader.Load<Texture2D>(iconPath);
     }
 
-    private static DataDb DataDb => (DataDb)((SceneTree)Engine.GetMainLoop()).Root.GetNode("/root/DataDb");
     private static GameState GameState => (GameState)((SceneTree)Engine.GetMainLoop()).Root.GetNode("/root/GameState");
 }

@@ -1,0 +1,62 @@
+[gd_scene load_steps=2 format=3 uid="uid://q7h5n3d1p804"]
+
+[ext_resource type="Script" uid="uid://m4j8t6v2c9n1" path="res://Scripts/UI/LoadGameMenu.cs" id="1_lgmenu"]
+
+[node name="LoadGameMenu" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_lgmenu")
+SaveListPath = NodePath("CenterContainer/Panel/Margin/VBox/Scroll/SaveList")
+EmptyStateLabelPath = NodePath("CenterContainer/Panel/Margin/VBox/EmptyState")
+BackButtonPath = NodePath("CenterContainer/Panel/Margin/VBox/BackButton")
+
+[node name="CenterContainer" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Panel" type="PanelContainer" parent="CenterContainer"]
+layout_mode = 2
+custom_minimum_size = Vector2(680, 540)
+
+[node name="Margin" type="MarginContainer" parent="CenterContainer/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 18
+
+[node name="VBox" type="VBoxContainer" parent="CenterContainer/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Title" type="Label" parent="CenterContainer/Panel/Margin/VBox"]
+layout_mode = 2
+text = "Load Game"
+horizontal_alignment = 1
+
+[node name="EmptyState" type="Label" parent="CenterContainer/Panel/Margin/VBox"]
+layout_mode = 2
+text = "No saved games found."
+horizontal_alignment = 1
+
+[node name="Scroll" type="ScrollContainer" parent="CenterContainer/Panel/Margin/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="SaveList" type="VBoxContainer" parent="CenterContainer/Panel/Margin/VBox/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 0
+theme_override_constants/separation = 10
+
+[node name="BackButton" type="Button" parent="CenterContainer/Panel/Margin/VBox"]
+layout_mode = 2
+text = "Back"

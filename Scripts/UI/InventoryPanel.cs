@@ -145,7 +145,7 @@ public partial class InventoryPanel : Control
 
 	private Control CreateSlot(string itemId, int quantity)
 	{
-		var item = DataDb.Items.TryGetValue(itemId, out var def) ? def : null;
+		var item = ItemCatalog.TryGetItem(itemId, out var def) ? def : null;
 		var itemName = DisplayName(itemId, item?.Name ?? itemId);
 
 		var slot = new InventoryItemSlot
@@ -240,7 +240,7 @@ public partial class InventoryPanel : Control
 			return;
 		}
 
-		if (!DataDb.Items.TryGetValue(itemId, out var item))
+		if (!ItemCatalog.TryGetItem(itemId, out var item))
 			return;
 
 		_currentItemId = itemId;
@@ -266,7 +266,7 @@ public partial class InventoryPanel : Control
 		if (string.IsNullOrWhiteSpace(_currentItemId))
 			return;
 
-		if (!DataDb.Items.TryGetValue(_currentItemId, out var item))
+		if (!ItemCatalog.TryGetItem(_currentItemId, out var item))
 			return;
 
 		_itemDetailImage.Texture = LoadIcon(item.IconPath);
@@ -331,9 +331,7 @@ public partial class InventoryPanel : Control
 
 	private static string ItemName(string itemId)
 	{
-		return DataDb.Items.TryGetValue(itemId, out var item)
-			? DisplayName(itemId, item.Name)
-			: itemId;
+		return ItemCatalog.GetItemName(itemId);
 	}
 
 	private static string DisplayName(string itemId, string fallbackName)
@@ -371,7 +369,7 @@ public partial class InventoryPanel : Control
 
 	private static bool IsPotion(string itemId)
 	{
-		if (!DataDb.Items.TryGetValue(itemId, out var item))
+		if (!ItemCatalog.TryGetItem(itemId, out var item))
 			return false;
 
 		return item.Tags.Any(tag => string.Equals(tag, "potion", System.StringComparison.OrdinalIgnoreCase));
@@ -402,6 +400,5 @@ public partial class InventoryPanel : Control
 				.Select(x => $"{x.Key}: {x.Value}"));
 	}
 
-	private static DataDb DataDb => (DataDb)((SceneTree)Engine.GetMainLoop()).Root.GetNode("/root/DataDb");
 	private static GameState GameState => (GameState)((SceneTree)Engine.GetMainLoop()).Root.GetNode("/root/GameState");
 }

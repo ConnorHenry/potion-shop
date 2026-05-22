@@ -1,4 +1,4 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=2 format=3 uid="uid://cikvfbes8y0kf"]
 
 [ext_resource type="Script" uid="uid://cpdo7gyxh2gvl" path="res://Scripts/UI/Hud.cs" id="1_khu2m"]
 
@@ -62,3 +62,88 @@ offset_left = 850.0
 offset_right = 980.0
 offset_bottom = 40.0
 text = "Reciep Book"
+
+[node name="MainMenu" type="Button" parent="."]
+layout_mode = 0
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -54.0
+offset_right = -16.0
+offset_bottom = 40.0
+grow_horizontal = 0
+grow_vertical = 0
+text = "⚙"
+
+[node name="SettingsPanel" type="PanelContainer" parent="."]
+visible = false
+layout_mode = 0
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -250.0
+offset_top = 44.0
+offset_right = -16.0
+offset_bottom = 164.0
+grow_horizontal = 0
+grow_vertical = 0
+
+[node name="Margin" type="MarginContainer" parent="SettingsPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="VBox" type="VBoxContainer" parent="SettingsPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="ReturnToMainMenu" type="Button" parent="SettingsPanel/Margin/VBox"]
+layout_mode = 2
+text = "Return to Main Menu"
+
+[node name="SaveGame" type="Button" parent="SettingsPanel/Margin/VBox"]
+layout_mode = 2
+text = "Save Game"
+
+[node name="SaveConfirmationPanel" type="Control" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -380.0
+offset_top = 344.0
+offset_bottom = 524.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Panel" type="PanelContainer" parent="SaveConfirmationPanel"]
+layout_mode = 0
+offset_right = 380.0
+offset_bottom = 180.0
+
+[node name="Margin" type="MarginContainer" parent="SaveConfirmationPanel/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 14
+
+[node name="VBox" type="VBoxContainer" parent="SaveConfirmationPanel/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="SaveConfirmationPanel/Panel/Margin/VBox"]
+layout_mode = 2
+text = "Save Complete"
+
+[node name="Message" type="Label" parent="SaveConfirmationPanel/Panel/Margin/VBox"]
+layout_mode = 2
+text = "Game saved successfully."
+horizontal_alignment = 1
+
+[node name="Close" type="Button" parent="SaveConfirmationPanel/Panel/Margin/VBox"]
+layout_mode = 2
+text = "Close"
