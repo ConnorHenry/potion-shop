@@ -1,4 +1,4 @@
-[gd_scene load_steps=2 format=3 uid="uid://cmwprm7l6ju1i"]
+[gd_scene load_steps=2 format=3 uid="uid://boigrb01slkht"]
 
 [ext_resource type="Script" uid="uid://cimefhgyfykx8" path="res://Scripts/UI/MainMenu.cs" id="1_7ivci"]
 
@@ -11,6 +11,8 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_7ivci")
 StartButtonPath = NodePath("CenterContainer/VBox/StartButton")
+NewGameButtonPath = NodePath("CenterContainer/VBox/NewGameButton")
+LoadButtonPath = NodePath("CenterContainer/VBox/LoadButton")
 
 [node name="CenterContainer" type="CenterContainer" parent="."]
 layout_mode = 1
@@ -31,4 +33,12 @@ horizontal_alignment = 1
 
 [node name="StartButton" type="Button" parent="CenterContainer/VBox"]
 layout_mode = 2
-text = "Start Game"
+text = "Continue"
+
+[node name="NewGameButton" type="Button" parent="CenterContainer/VBox"]
+layout_mode = 2
+text = "New Game"
+
+[node name="LoadButton" type="Button" parent="CenterContainer/VBox"]
+layout_mode = 2
+text = "Load Game"

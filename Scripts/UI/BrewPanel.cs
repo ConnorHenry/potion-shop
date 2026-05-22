@@ -63,7 +63,7 @@ public partial class BrewPanel : Control
 
     private void QueueIngredient(string itemId)
     {
-        if (!DataDb.TryGetItem(itemId, out var item))
+        if (!ItemCatalog.TryGetItem(itemId, out var item))
         {
             _resultLabel.Text = "That item is not recognized.";
             return;
@@ -146,7 +146,7 @@ public partial class BrewPanel : Control
 			var description = BuildPotionDescription(_queuedIngredients, brewResult);
 			var basePrice = CalculatePotionBasePrice(brewCost, brewResult);
 
-			DataDb.RegisterRuntimePotionItem(
+			RuntimeContentDb.RegisterRuntimePotionItem(
 				potionItemId,
 				randomName,
 				description,
@@ -219,15 +219,12 @@ public partial class BrewPanel : Control
 
 	private string DefaultItemName(string itemId)
 	{
-		return DataDb.TryGetItem(itemId, out var item) ? item.Name : itemId;
+		return ItemCatalog.GetItemName(itemId);
 	}
 
 	private bool IsPotion(string itemId)
 	{
-		if (!DataDb.TryGetItem(itemId, out var item))
-			return false;
-
-		return item.Tags.Any(tag => string.Equals(tag, "potion", System.StringComparison.OrdinalIgnoreCase));
+		return ItemCatalog.IsPotion(itemId);
 	}
 
 	private static bool IsIngredient(ItemDef item)
@@ -315,7 +312,7 @@ public partial class BrewPanel : Control
 
 		foreach (var itemId in ingredientIds)
 		{
-			if (!DataDb.TryGetItem(itemId, out var item))
+			if (!ItemCatalog.TryGetItem(itemId, out var item))
 				continue;
 
 			totalBasePrice += Math.Max(1, item.BasePrice);
@@ -376,7 +373,7 @@ public partial class BrewPanel : Control
 
 		foreach (var itemId in ingredientIds)
 		{
-			if (!DataDb.Items.TryGetValue(itemId, out var item))
+			if (!ItemCatalog.TryGetItem(itemId, out var item))
 			{
 				error = $"Unknown ingredient: {itemId}";
 				return false;
@@ -399,6 +396,7 @@ public partial class BrewPanel : Control
 		return true;
 	}
 
+    private RuntimeContentDb RuntimeContentDb => GetTree().Root.GetNode<RuntimeContentDb>("/root/RuntimeContentDb");
     private DataDb DataDb => GetTree().Root.GetNode<DataDb>("/root/DataDb");
     private GameState GameState => GetTree().Root.GetNode<GameState>("/root/GameState");
 }

@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 using OccultShop.Models;
+using OccultShop.Persistence;
 
 namespace OccultShop.Autoload;
 
@@ -25,20 +27,151 @@ public partial class GameState : Node
 
 	public override void _Ready()
 	{
-		// Tiny starting kit
-		AddItem("mooncap_mushroom", 10);
-		AddItem("grave_mint", 10);
-		AddItem("lavender_ash", 10);
-		AddItem("black_ichor", 10);
-		AddItem("obsidian_resin", 10);
-		AddItem("obsidian_resin", 10);
-		AddItem("amber_nightshade", 10);
-		AddItem("silver_thorn_bloom", 10);
-		AddItem("moonwhisper_orchid", 10);
-		AddItem("raven_ash_peony", 10);
-		AddItem("iron_lullaby_root", 10);
-		AddItem("mercury_vision_resin", 10);
-		AddItem("hallowed_balm_leaf", 10);
+		ResetForNewGame();
+	}
+
+	public void ResetForNewGame()
+	{
+		Day = 1;
+		Gold = 50000;
+		Dread = 0;
+		Inventory.Clear();
+		ActiveRules.Clear();
+		KnownPotions.Clear();
+		PotionDisplayNames.Clear();
+		_potionRecipes.Clear();
+		_combinationPotionItems.Clear();
+		_potionBatches.Clear();
+		ActiveCustomerRequest = null;
+
+		SeedStartingInventory();
+		EmitChanged();
+	}
+
+	public GameStateSnapshot BuildSnapshot()
+	{
+		var snapshot = new GameStateSnapshot
+		{
+			Day = Day,
+			Gold = Gold,
+			Dread = Dread,
+			Inventory = new Dictionary<string, int>(Inventory),
+			ActiveRules = ActiveRules.ToList(),
+			KnownPotions = KnownPotions.ToList(),
+			PotionDisplayNames = new Dictionary<string, string>(PotionDisplayNames, StringComparer.OrdinalIgnoreCase),
+			PotionRecipes = ClonePotionRecipes(),
+			CombinationPotionItems = new Dictionary<string, string>(_combinationPotionItems, StringComparer.OrdinalIgnoreCase),
+			PotionBatches = ClonePotionBatches(),
+			ActiveCustomerRequest = CloneCustomerRequest(ActiveCustomerRequest)
+		};
+
+		return snapshot;
+	}
+
+	public void ApplySnapshot(GameStateSnapshot? snapshot)
+	{
+		if (snapshot is null)
+		{
+			GD.PushError("GameState: Cannot apply a null snapshot.");
+			return;
+		}
+
+		Day = Math.Max(1, snapshot.Day);
+		Gold = Math.Max(0, snapshot.Gold);
+		Dread = Math.Clamp(snapshot.Dread, 0, 100);
+
+		Inventory.Clear();
+		if (snapshot.Inventory is not null)
+		{
+			foreach (var pair in snapshot.Inventory)
+			{
+				if (string.IsNullOrWhiteSpace(pair.Key) || pair.Value <= 0)
+					continue;
+
+				Inventory[pair.Key] = pair.Value;
+			}
+		}
+
+		ActiveRules.Clear();
+		if (snapshot.ActiveRules is not null)
+		{
+			foreach (var ruleId in snapshot.ActiveRules)
+			{
+				if (!string.IsNullOrWhiteSpace(ruleId))
+					ActiveRules.Add(ruleId);
+			}
+		}
+
+		KnownPotions.Clear();
+		if (snapshot.KnownPotions is not null)
+		{
+			foreach (var potionId in snapshot.KnownPotions)
+			{
+				if (!string.IsNullOrWhiteSpace(potionId))
+					KnownPotions.Add(potionId);
+			}
+		}
+
+		PotionDisplayNames.Clear();
+		if (snapshot.PotionDisplayNames is not null)
+		{
+			foreach (var pair in snapshot.PotionDisplayNames)
+			{
+				if (string.IsNullOrWhiteSpace(pair.Key) || string.IsNullOrWhiteSpace(pair.Value))
+					continue;
+
+				PotionDisplayNames[pair.Key] = pair.Value;
+			}
+		}
+
+		_potionRecipes.Clear();
+		if (snapshot.PotionRecipes is not null)
+		{
+			foreach (var pair in snapshot.PotionRecipes)
+			{
+				if (string.IsNullOrWhiteSpace(pair.Key) || pair.Value is null || pair.Value.Count == 0)
+					continue;
+
+				_potionRecipes[pair.Key] = new List<string>(pair.Value);
+			}
+		}
+
+		_combinationPotionItems.Clear();
+		if (snapshot.CombinationPotionItems is not null)
+		{
+			foreach (var pair in snapshot.CombinationPotionItems)
+			{
+				if (string.IsNullOrWhiteSpace(pair.Key) || string.IsNullOrWhiteSpace(pair.Value))
+					continue;
+
+				_combinationPotionItems[pair.Key] = pair.Value;
+			}
+		}
+
+		_potionBatches.Clear();
+		if (snapshot.PotionBatches is not null)
+		{
+			foreach (var pair in snapshot.PotionBatches)
+			{
+				if (string.IsNullOrWhiteSpace(pair.Key) || pair.Value is null || pair.Value.Count == 0)
+					continue;
+
+				var queue = new Queue<List<string>>();
+				foreach (var batch in pair.Value)
+				{
+					if (batch is null || batch.Count == 0)
+						continue;
+
+					queue.Enqueue(new List<string>(batch));
+				}
+
+				if (queue.Count > 0)
+					_potionBatches[pair.Key] = queue;
+			}
+		}
+
+		ActiveCustomerRequest = CloneCustomerRequest(snapshot.ActiveCustomerRequest);
+		EmitChanged();
 	}
 
 	public void NextDay()
@@ -184,6 +317,63 @@ public partial class GameState : Node
 	}
 
 	private void EmitChanged() => Changed?.Invoke();
+
+	private void SeedStartingInventory()
+	{
+		AddStartingStack("mooncap_mushroom", 10);
+		AddStartingStack("grave_mint", 10);
+		AddStartingStack("lavender_ash", 10);
+		AddStartingStack("black_ichor", 10);
+		AddStartingStack("obsidian_resin", 10);
+		AddStartingStack("obsidian_resin", 10);
+		AddStartingStack("amber_nightshade", 10);
+		AddStartingStack("silver_thorn_bloom", 10);
+		AddStartingStack("moonwhisper_orchid", 10);
+		AddStartingStack("raven_ash_peony", 10);
+		AddStartingStack("iron_lullaby_root", 10);
+		AddStartingStack("mercury_vision_resin", 10);
+		AddStartingStack("hallowed_balm_leaf", 10);
+	}
+
+	private void AddStartingStack(string itemId, int qty)
+	{
+		if (qty <= 0 || string.IsNullOrWhiteSpace(itemId))
+			return;
+
+		Inventory[itemId] = Inventory.GetValueOrDefault(itemId) + qty;
+	}
+
+	private Dictionary<string, List<string>> ClonePotionRecipes()
+	{
+		var copy = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+		foreach (var pair in _potionRecipes)
+			copy[pair.Key] = new List<string>(pair.Value);
+
+		return copy;
+	}
+
+	private Dictionary<string, List<List<string>>> ClonePotionBatches()
+	{
+		var copy = new Dictionary<string, List<List<string>>>(StringComparer.OrdinalIgnoreCase);
+		foreach (var pair in _potionBatches)
+			copy[pair.Key] = pair.Value.Select(batch => new List<string>(batch)).ToList();
+
+		return copy;
+	}
+
+	private static CustomerRequestDef? CloneCustomerRequest(CustomerRequestDef? request)
+	{
+		if (request is null)
+			return null;
+
+		return new CustomerRequestDef
+		{
+			Id = request.Id,
+			Description = request.Description,
+			DesiredTraits = request.DesiredTraits is null ? new Dictionary<string, int>() : new Dictionary<string, int>(request.DesiredTraits),
+			BadTraits = request.BadTraits is null ? new Dictionary<string, int>() : new Dictionary<string, int>(request.BadTraits)
+		};
+	}
 
 	private void ConsumePotionBatches(string itemId, int qty)
 	{

@@ -17,7 +17,9 @@ config/features=PackedStringArray("4.4", "C#")
 [autoload]
 
 DataDb="*res://Scripts/Autoload/DataDb.cs"
+RuntimeContentDb="*res://Scripts/Autoload/RuntimeContentDb.cs"
 GameState="*res://Scripts/Autoload/GameState.cs"
+SaveGameManager="*res://Scripts/Autoload/SaveGameManager.cs"
 
 [display]
 

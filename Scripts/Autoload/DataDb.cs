@@ -45,36 +45,6 @@ public partial class DataDb : Node
 		return _items.TryGetValue(itemId, out item!);
 	}
 
-	public ItemDef RegisterRuntimePotionItem(
-		string itemId,
-		string name,
-		string description,
-		string? iconPath,
-		int basePrice,
-		int quality,
-		Dictionary<string, int> traits,
-		Dictionary<string, int> risks)
-	{
-		if (_items.TryGetValue(itemId, out var existing))
-			return existing;
-
-		var item = new ItemDef
-		{
-			Id = itemId,
-			Name = name,
-			Description = description,
-			IconPath = iconPath,
-			BasePrice = basePrice,
-			Quality = quality,
-			Tags = new List<string> { "potion" },
-			Traits = traits,
-			Risks = risks
-		};
-
-		_items[itemId] = item;
-		return item;
-	}
-
 	private static List<T> LoadArray<T>(string path)
 	{
 		if (!Godot.FileAccess.FileExists(path))

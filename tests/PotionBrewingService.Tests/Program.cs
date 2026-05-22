@@ -31,6 +31,15 @@ static class Program
         Run("BrewPanel ingredient tag detection is case-insensitive", TestBrewPanelIsIngredient);
         Run("BrewPanel base price calculation is stable", TestBrewPanelCalculatePotionBasePrice);
         Run("CustomerPanel creates detached ingredient snapshots", TestCustomerPanelBuildPotionIngredientDef);
+        Run("RuntimeContentDb stores generated items separately", TestRuntimeContentDbSeparatesRuntimeItems);
+        Run("DataDb does not expose runtime registration", TestDataDbDoesNotExposeRuntimeRegistration);
+        Run("DataDb reloads authored JSON only", TestDataDbReloadsAuthoredJsonOnly);
+        Run("UI lookup uses the runtime-first item catalog", TestUiLookupUsesRuntimeFirstCatalog);
+        Run("Main menu exposes start and load flows", TestMainMenuLoadFlow);
+        Run("Load menu scene is wired for saved game browsing", TestLoadGameMenuScene);
+        Run("SaveGameManager stores saves in a dedicated directory", TestSaveGameManagerUsesSaveDirectory);
+        Run("Hud return-to-menu does not auto-save", TestHudReturnToMainMenuDoesNotAutoSave);
+        Run("Persistence boundary stays separated", TestPersistenceBoundaryIsDocumented);
 
         if (_failures > 0)
         {
@@ -415,6 +424,7 @@ static class Program
             ["OccultShop.UI.DraggablePanel"] = "PanelContainer",
             ["OccultShop.UI.EventModal"] = "Control",
             ["OccultShop.UI.Hud"] = "Control",
+            ["OccultShop.UI.LoadGameMenu"] = "Control",
             ["OccultShop.UI.InventoryItemSlot"] = "Button",
             ["OccultShop.UI.InventoryPanel"] = "Control",
             ["OccultShop.UI.RecipeBookPanel"] = "Control",
@@ -595,6 +605,136 @@ static class Program
         AssertTrue("Tags list cloned", !ReferenceEquals(sourceTags, tags));
     }
 
+    private static void TestRuntimeContentDbSeparatesRuntimeItems()
+    {
+        var runtimeDbType = GetTypeFromUiAssembly("OccultShop.Autoload.RuntimeContentDb");
+        var registerMethod = runtimeDbType.GetMethod("RegisterRuntimePotionItem", BindingFlags.Public | BindingFlags.Instance);
+        var clearMethod = runtimeDbType.GetMethod("ClearRuntimeItems", BindingFlags.Public | BindingFlags.Instance);
+        var itemsProperty = runtimeDbType.GetProperty("Items", BindingFlags.Public | BindingFlags.Instance);
+        var changedEvent = runtimeDbType.GetEvent("Changed", BindingFlags.Public | BindingFlags.Instance);
+
+        AssertTrue("RuntimeContentDb exposes runtime registration", registerMethod is not null);
+        AssertTrue("RuntimeContentDb exposes runtime clearing", clearMethod is not null);
+        AssertTrue("RuntimeContentDb exposes item registry", itemsProperty is not null);
+        AssertTrue("RuntimeContentDb exposes change notification", changedEvent is not null);
+
+        AssertEqual("Runtime registration return type", "OccultShop.Models.ItemDef", registerMethod!.ReturnType.FullName ?? registerMethod.ReturnType.Name);
+        AssertTrue("Runtime item registry is IReadOnlyDictionary",
+            itemsProperty!.PropertyType.IsGenericType &&
+            itemsProperty.PropertyType.GetGenericTypeDefinition() == typeof(IReadOnlyDictionary<,>));
+
+        var registryArgs = itemsProperty.PropertyType.GetGenericArguments();
+        AssertEqual("Runtime item registry key type", typeof(string).FullName ?? string.Empty, registryArgs[0].FullName ?? string.Empty);
+        AssertEqual("Runtime item registry value type", "OccultShop.Models.ItemDef", registryArgs[1].FullName ?? registryArgs[1].Name);
+    }
+
+    private static void TestDataDbDoesNotExposeRuntimeRegistration()
+    {
+        var dataDbType = GetTypeFromUiAssembly("OccultShop.Autoload.DataDb");
+        var method = dataDbType.GetMethod("RegisterRuntimePotionItem", BindingFlags.Public | BindingFlags.Instance);
+        AssertTrue("DataDb runtime registration removed", method is null);
+    }
+
+    private static void TestDataDbReloadsAuthoredJsonOnly()
+    {
+        var source = ReadProjectFile("Scripts/Autoload/DataDb.cs");
+        AssertTrue("DataDb reload entry point exists", source.Contains("public override void _Ready()"));
+        AssertTrue("DataDb reloads on ready", source.Contains("ReloadAll();"));
+        AssertTrue("DataDb loads authored items", source.Contains("LoadArray<ItemDef>(\"res://Data/items.json\")"));
+        AssertTrue("DataDb loads authored rules", source.Contains("LoadArray<RuleDef>(\"res://Data/rules.json\")"));
+        AssertTrue("DataDb loads authored events", source.Contains("LoadArray<EventCardDef>(\"res://Data/events.json\")"));
+        AssertTrue("DataDb loads authored customers", source.Contains("LoadArray<CustomerInteractionDef>(\"res://Data/customers.json\")"));
+        AssertTrue("DataDb loads authored synergies", source.Contains("LoadArray<SynergyRule>(\"res://Data/synergies.json\")"));
+        AssertTrue("DataDb does not register runtime items", !source.Contains("RegisterRuntimePotionItem"));
+        AssertTrue("DataDb does not reference runtime catalog", !source.Contains("RuntimeContentDb"));
+    }
+
+    private static void TestUiLookupUsesRuntimeFirstCatalog()
+    {
+        var itemCatalog = ReadProjectFile("Scripts/Autoload/ItemCatalog.cs");
+        AssertTrue("ItemCatalog checks runtime first", itemCatalog.Contains("RuntimeContentDb.TryGetItem(itemId, out item)"));
+        AssertTrue("ItemCatalog falls back to DataDb", itemCatalog.Contains("DataDb.TryGetItem(itemId, out item)"));
+
+        var brewPanel = ReadProjectFile("Scripts/UI/BrewPanel.cs");
+        var inventoryPanel = ReadProjectFile("Scripts/UI/InventoryPanel.cs");
+        var recipeBookPanel = ReadProjectFile("Scripts/UI/RecipeBookPanel.cs");
+        var customerPanel = ReadProjectFile("Scripts/UI/CustomerPanel.cs");
+        var brewService = ReadProjectFile("Scripts/Systems/PotionInventoryBrewService.cs");
+
+        AssertTrue("BrewPanel resolves through ItemCatalog", brewPanel.Contains("ItemCatalog.TryGetItem") && brewPanel.Contains("ItemCatalog.GetItemName"));
+        AssertTrue("InventoryPanel resolves through ItemCatalog", inventoryPanel.Contains("ItemCatalog.TryGetItem") && inventoryPanel.Contains("ItemCatalog.GetItemName"));
+        AssertTrue("RecipeBookPanel resolves through ItemCatalog", recipeBookPanel.Contains("ItemCatalog.TryGetItem") && recipeBookPanel.Contains("ItemCatalog.GetItemName"));
+        AssertTrue("CustomerPanel resolves through ItemCatalog", customerPanel.Contains("ItemCatalog.TryGetItem") && customerPanel.Contains("ItemCatalog.GetItemName"));
+        AssertTrue("PotionInventoryBrewService resolves through ItemCatalog", brewService.Contains("ItemCatalog.GetItemName"));
+        AssertTrue("BrewPanel still registers runtime potions separately", brewPanel.Contains("RuntimeContentDb.RegisterRuntimePotionItem"));
+    }
+
+    private static void TestMainMenuLoadFlow()
+    {
+        var source = ReadProjectFile("Scripts/UI/MainMenu.cs");
+        var scene = ReadProjectFile("MainMenu.tscn");
+
+        AssertTrue("MainMenu has load button path", source.Contains("LoadButtonPath"));
+        AssertTrue("MainMenu has new game button path", source.Contains("NewGameButtonPath"));
+        AssertTrue("MainMenu continues the latest save", source.Contains("LoadLatestGameIfExists()"));
+        AssertTrue("MainMenu falls back to a new game when no save exists", source.Contains("SaveGameManager.StartNewGame();"));
+        AssertTrue("MainMenu hides continue until saves exist", source.Contains("Visible = SaveGameManager.HasSavedGames()"));
+        AssertTrue("MainMenu opens load browser", source.Contains("Scenes/UI/LoadGameMenu.tscn"));
+        AssertTrue("MainMenu scene has load button", scene.Contains("LoadButton"));
+        AssertTrue("MainMenu scene has new game button", scene.Contains("NewGameButton"));
+        AssertTrue("MainMenu scene labels the new game button", scene.Contains("text = \"New Game\""));
+        AssertTrue("MainMenu scene labels the continue button", scene.Contains("text = \"Continue\""));
+        AssertTrue("MainMenu scene labels the load button", scene.Contains("text = \"Load Game\""));
+    }
+
+    private static void TestLoadGameMenuScene()
+    {
+        var source = ReadProjectFile("Scripts/UI/LoadGameMenu.cs");
+        var scene = ReadProjectFile("Scenes/UI/LoadGameMenu.tscn");
+
+        AssertTrue("LoadGameMenu reads save summaries", source.Contains("GetSavedGames()"));
+        AssertTrue("LoadGameMenu loads selected save", source.Contains("LoadGame(save.FilePath)"));
+        AssertTrue("LoadGameMenu deletes selected save", source.Contains("DeleteSaveGame(save.FilePath)"));
+        AssertTrue("LoadGameMenu returns to main menu", source.Contains("ChangeSceneToFile(\"res://MainMenu.tscn\")"));
+        AssertTrue("LoadGameMenu exposes a delete button", source.Contains("Text = \"Delete\""));
+        AssertTrue("LoadGameMenu scene exposes a save list", scene.Contains("SaveList"));
+        AssertTrue("LoadGameMenu scene exposes empty state", scene.Contains("No saved games found."));
+        AssertTrue("LoadGameMenu scene exposes back button", scene.Contains("BackButton"));
+    }
+
+    private static void TestSaveGameManagerUsesSaveDirectory()
+    {
+        var source = ReadProjectFile("Scripts/Autoload/SaveGameManager.cs");
+
+        AssertTrue("SaveGameManager uses a save directory", source.Contains("user://saves"));
+        AssertTrue("SaveGameManager can enumerate saved games", source.Contains("GetSavedGames()"));
+        AssertTrue("SaveGameManager can load an explicit save", source.Contains("LoadGame(string saveFilePath)"));
+        AssertTrue("SaveGameManager can load the latest save", source.Contains("LoadLatestGameIfExists()"));
+        AssertTrue("SaveGameManager can delete save files", source.Contains("DeleteSaveGame(string saveFilePath)"));
+        AssertTrue("SaveGameManager generates separate save files", source.Contains("BuildUniqueSaveFilePath"));
+        AssertTrue("SaveGameManager remembers the active save file", source.Contains("_activeSaveFilePath"));
+        AssertTrue("SaveGameManager overwrites the active save file", source.Contains("string.IsNullOrWhiteSpace(_activeSaveFilePath)"));
+    }
+
+    private static void TestHudReturnToMainMenuDoesNotAutoSave()
+    {
+        var source = ReadProjectFile("Scripts/UI/Hud.cs");
+
+        AssertTrue("Hud return-to-menu handler exists", source.Contains("OnReturnToMainMenuPressed"));
+        AssertTrue("Hud return-to-menu still changes scenes", source.Contains("ChangeSceneToFile(\"res://MainMenu.tscn\")"));
+        AssertTrue("Hud return-to-menu no longer auto-saves", !source.Contains("Could not save before returning to main menu"));
+    }
+
+    private static void TestPersistenceBoundaryIsDocumented()
+    {
+        var persistenceBoundary = ReadProjectFile("PERSISTENCE_BOUNDARY.md");
+        AssertTrue("Persistence boundary note exists", persistenceBoundary.Contains("runtime save/load system"));
+        AssertTrue("Persistence boundary documents save directory", persistenceBoundary.Contains("user://saves/"));
+        AssertTrue("Authored data reload rule documented", persistenceBoundary.Contains("Authored data: always reload from `res://Data/*.json`"));
+        AssertTrue("Runtime catalog save rule documented", persistenceBoundary.Contains("Runtime-generated item catalog: persist separately from authored data"));
+        AssertTrue("Player state save rule documented", persistenceBoundary.Contains("Player state: save independently"));
+    }
+
     private static Type GetTypeFromUiAssembly(string typeName)
     {
         var assembly = UiAssembly.Value;
@@ -605,6 +745,17 @@ static class Program
             throw new InvalidOperationException($"Type '{typeName}' not found in OccultShop assembly.");
 
         return type;
+    }
+
+    private static string ReadProjectFile(string relativePath)
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", relativePath);
+        path = Path.GetFullPath(path);
+
+        if (!File.Exists(path))
+            throw new InvalidOperationException($"Missing project file: {relativePath}");
+
+        return File.ReadAllText(path);
     }
 
     private static T InvokePrivateStatic<T>(string typeName, string methodName, params object?[] args)

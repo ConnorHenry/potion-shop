@@ -133,9 +133,8 @@ public sealed class PotionInventoryBrewService
 
 	private static string ItemName(string itemId)
 	{
-		return DataDb.Items.TryGetValue(itemId, out var item) ? item.Name : itemId;
+		return ItemCatalog.GetItemName(itemId);
 	}
 
-	private static DataDb DataDb => (DataDb)((SceneTree)Engine.GetMainLoop()).Root.GetNode("/root/DataDb");
 	private static GameState GameState => (GameState)((SceneTree)Engine.GetMainLoop()).Root.GetNode("/root/GameState");
 }
