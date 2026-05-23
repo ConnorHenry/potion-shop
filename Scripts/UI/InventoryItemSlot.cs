@@ -7,6 +7,9 @@ public partial class InventoryItemSlot : Button
 	[Signal]
 	public delegate void SlotActivatedEventHandler(string itemId);
 
+	[Signal]
+	public delegate void IngredientRequestedEventHandler(string itemId);
+
 	public string ItemId { get; set; } = "";
 	public string ItemName { get; set; } = "";
 	public string? IconPath { get; set; }
@@ -35,7 +38,14 @@ public partial class InventoryItemSlot : Button
 
 	public override void _GuiInput(InputEvent @event)
 	{
-		if (@event is InputEventMouseButton mouseButton && mouseButton.ButtonIndex == MouseButton.Left && !mouseButton.Pressed)
+		if (@event is InputEventMouseButton rightMouseButton && rightMouseButton.ButtonIndex == MouseButton.Right && rightMouseButton.Pressed)
+		{
+			EmitSignal(SignalName.IngredientRequested, ItemId);
+			AcceptEvent();
+			return;
+		}
+
+		if (@event is InputEventMouseButton leftMouseButton && leftMouseButton.ButtonIndex == MouseButton.Left && !leftMouseButton.Pressed)
 		{
 			if (_dragStarted)
 			{

@@ -29,6 +29,7 @@ static class Program
         Run("RecipeBookPanel dictionary formatting is stable", TestRecipeBookPanelFormatDictionary);
         Run("RecipeBookPanel top-traits formatting is stable", TestRecipeBookPanelFormatTopTraits);
         Run("BrewPanel ingredient tag detection is case-insensitive", TestBrewPanelIsIngredient);
+        Run("BrewPanel rejects duplicate queued ingredients", TestBrewPanelRejectsDuplicateQueuedIngredients);
         Run("BrewPanel base price calculation is stable", TestBrewPanelCalculatePotionBasePrice);
         Run("CustomerPanel creates detached ingredient snapshots", TestCustomerPanelBuildPotionIngredientDef);
         Run("RuntimeContentDb stores generated items separately", TestRuntimeContentDbSeparatesRuntimeItems);
@@ -546,6 +547,22 @@ static class Program
 
         AssertTrue("Ingredient tag recognized", ingredientResult);
         AssertTrue("Non-ingredient rejected", !nonIngredientResult);
+    }
+
+    private static void TestBrewPanelRejectsDuplicateQueuedIngredients()
+    {
+        var source = ReadProjectFile("Scripts/UI/BrewPanel.cs");
+
+        AssertTrue("BrewPanel prevents duplicate queue entries",
+            source.Contains("Each ingredient can only be used once per potion."));
+        AssertTrue("BrewPanel checks the current queue before consuming inventory",
+            source.Contains("_queuedIngredients.Any(x => string.Equals(x, itemId, System.StringComparison.OrdinalIgnoreCase))"));
+        AssertTrue("BrewPanel queue summary shows unique ingredients without stack counts",
+            source.Contains("string.Join(\", \", _queuedIngredients.Select(ItemName))"));
+        AssertTrue("Inventory drag/drop still routes through TryQueueIngredient",
+            ReadProjectFile("Scripts/UI/InventoryPanel.cs").Contains("_brewPanel.TryQueueIngredient(itemId);"));
+        AssertTrue("Brew drop box still emits dragged item ids",
+            ReadProjectFile("Scripts/UI/BrewDropBox.cs").Contains("EmitSignal(SignalName.ItemDropped, data.AsString());"));
     }
 
     private static void TestBrewPanelCalculatePotionBasePrice()

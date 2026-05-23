@@ -16,6 +16,8 @@ PotionsContainerPath = NodePath("Panel/Margin/VBox/Potions")
 IngredientsContainerPath = NodePath("Panel/Margin/VBox/Ingredients")
 PotionsSortButtonPath = NodePath("Panel/Margin/VBox/PotionsHeaderRow/Sort")
 IngredientsSortButtonPath = NodePath("Panel/Margin/VBox/IngredientsHeaderRow/Sort")
+IngredientsTraitFilterPath = NodePath("Panel/Margin/VBox/IngredientsHeaderRow/TraitFilter")
+IngredientsClearFilterButtonPath = NodePath("Panel/Margin/VBox/IngredientsHeaderRow/Clear")
 ItemDetailPanelPath = NodePath("../InventoryItemDetail")
 ItemDetailImagePath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/Image")
 ItemDetailNamePath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/Name")
@@ -85,6 +87,14 @@ size_flags_horizontal = 3
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Ingredients"
+
+[node name="Clear" type="Button" parent="Panel/Margin/VBox/IngredientsHeaderRow"]
+layout_mode = 2
+text = "Clear"
+
+[node name="TraitFilter" type="OptionButton" parent="Panel/Margin/VBox/IngredientsHeaderRow"]
+layout_mode = 2
+text = "Trait"
 
 [node name="Sort" type="Button" parent="Panel/Margin/VBox/IngredientsHeaderRow"]
 layout_mode = 2

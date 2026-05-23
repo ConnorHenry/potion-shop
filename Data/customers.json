@@ -13,9 +13,23 @@
     },
     "badTraits": {
       "addiction": 5,
-      "hallucination": 4,
-      "rage": 5,
-      "memory_loss": 3
+      "rage": 5
+    }
+  },
+  {
+    "id": "chapel_warden_requests_hallowed_balm",
+    "title": "Customer",
+    "text": "A chapel warden arrives with rain on their cloak and asks for a balm to bless and protect a damaged shrine.",
+    "characterImagePath": "res://Assets/Characters/chapel_warden.svg",
+    "requires": { },
+    "weight": 10,
+    "desiredTraits": {
+      "hallowed": 5,
+      "balm": 3,
+      "blessing": 2
+    },
+    "badTraits": {
+      "corruption": 5
     }
   }
 ]

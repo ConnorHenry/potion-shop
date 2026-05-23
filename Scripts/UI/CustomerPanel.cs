@@ -11,6 +11,8 @@ public partial class CustomerPanel : Control
 {
 	[Export] public NodePath TitlePath = default!;
 	[Export] public NodePath PortraitPath = default!;
+	[Export] public NodePath DesiredTraitsPath = default!;
+	[Export] public NodePath BadTraitsPath = default!;
 	[Export] public NodePath DialoguePath = default!;
 	[Export] public NodePath SellDropBoxPath = default!;
 	[Export] public NodePath ConfirmDialogPath = default!;
@@ -23,6 +25,8 @@ public partial class CustomerPanel : Control
 
 	private Label _title = default!;
 	private TextureRect _portrait = default!;
+	private RichTextLabel _desiredTraits = default!;
+	private RichTextLabel _badTraits = default!;
 	private RichTextLabel _dialogue = default!;
 	private CustomerSellDropBox _sellDropBox = default!;
 	private ConfirmationDialog _confirmDialog = default!;
@@ -45,6 +49,8 @@ public partial class CustomerPanel : Control
 	{
 		_title = GetNode<Label>(TitlePath);
 		_portrait = GetNode<TextureRect>(PortraitPath);
+		_desiredTraits = GetNode<RichTextLabel>(DesiredTraitsPath);
+		_badTraits = GetNode<RichTextLabel>(BadTraitsPath);
 		_dialogue = GetNode<RichTextLabel>(DialoguePath);
 		_sellDropBox = GetNode<CustomerSellDropBox>(SellDropBoxPath);
 		_confirmDialog = GetNode<ConfirmationDialog>(ConfirmDialogPath);
@@ -69,11 +75,13 @@ public partial class CustomerPanel : Control
 	{
 		HideSaleResult();
 		_interaction = interaction;
-		GameState.SetActiveCustomerRequest(interaction.BuildRequest());
+		var request = interaction.BuildRequest();
+		GameState.SetActiveCustomerRequest(request);
 		Visible = true;
 		_title.Text = interaction.Title;
 		_dialogue.Text = interaction.Text;
 		SetPortrait(interaction.CharacterImagePath);
+		SetRequestTraits(request);
 	}
 
 	public void HidePanel()
@@ -83,6 +91,8 @@ public partial class CustomerPanel : Control
 		GameState.ClearActiveCustomerRequest();
 		_portrait.Texture = null;
 		_portrait.Visible = false;
+		_desiredTraits.Text = "";
+		_badTraits.Text = "";
 		_confirmDialog.Hide();
 		HideSaleResult();
 		Visible = false;
@@ -245,6 +255,12 @@ public partial class CustomerPanel : Control
 		return string.Join("\n", lines);
 	}
 
+	private void SetRequestTraits(CustomerRequestDef request)
+	{
+		_desiredTraits.Text = FormatTraitList(request.DesiredTraits);
+		_badTraits.Text = FormatTraitList(request.BadTraits);
+	}
+
 	private void SetPortrait(string? portraitPath)
 	{
 		if (string.IsNullOrWhiteSpace(portraitPath))
@@ -271,6 +287,18 @@ public partial class CustomerPanel : Control
 
 		var customName = GameState.GetPotionDisplayName(itemId);
 		return string.IsNullOrWhiteSpace(customName) ? fallbackName : customName;
+	}
+
+	private static string FormatTraitList(Dictionary<string, int> values)
+	{
+		if (values is null || values.Count == 0)
+			return "None";
+
+		return string.Join("\n",
+			values
+				.OrderByDescending(x => x.Value)
+				.ThenBy(x => x.Key)
+				.Select(x => $"{x.Key}: {x.Value}"));
 	}
 
 	private GameState GameState => GetTree().Root.GetNode<GameState>("/root/GameState");

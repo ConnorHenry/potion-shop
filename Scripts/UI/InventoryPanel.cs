@@ -1,6 +1,7 @@
 using System.Linq;
 using Godot;
 using OccultShop.Autoload;
+using OccultShop.Models;
 using OccultShop.Systems;
 
 namespace OccultShop.UI;
@@ -14,6 +15,8 @@ public partial class InventoryPanel : Control
 	[Export] public NodePath IngredientsContainerPath = default!;
 	[Export] public NodePath PotionsSortButtonPath = default!;
 	[Export] public NodePath IngredientsSortButtonPath = default!;
+	[Export] public NodePath IngredientsTraitFilterPath = default!;
+	[Export] public NodePath IngredientsClearFilterButtonPath = default!;
 	[Export] public NodePath ItemDetailPanelPath = default!;
 	[Export] public NodePath ItemDetailImagePath = default!;
 	[Export] public NodePath ItemDetailNamePath = default!;
@@ -29,6 +32,8 @@ public partial class InventoryPanel : Control
 	private GridContainer _ingredients = default!;
 	private Button _potionsSortButton = default!;
 	private Button _ingredientsSortButton = default!;
+	private OptionButton _ingredientsTraitFilter = default!;
+	private Button _ingredientsClearFilterButton = default!;
 	private Control _itemDetailPanel = default!;
 	private TextureRect _itemDetailImage = default!;
 	private Label _itemDetailName = default!;
@@ -39,9 +44,11 @@ public partial class InventoryPanel : Control
 	private RichTextLabel _itemDetailDescription = default!;
 	private Button _itemDetailBrewButton = default!;
 	private Button _itemDetailCloseButton = default!;
+	private BrewPanel? _brewPanel;
 	private string? _currentItemId;
 	private bool _potionsAscending = true;
 	private bool _ingredientsAscending = true;
+	private string? _activeIngredientTraitFilter;
 	private readonly PotionInventoryBrewService _brewService = new();
 
 	public override void _Ready()
@@ -50,6 +57,8 @@ public partial class InventoryPanel : Control
 		_ingredients = GetNode<GridContainer>(IngredientsContainerPath);
 		_potionsSortButton = GetNode<Button>(PotionsSortButtonPath);
 		_ingredientsSortButton = GetNode<Button>(IngredientsSortButtonPath);
+		_ingredientsTraitFilter = GetNode<OptionButton>(IngredientsTraitFilterPath);
+		_ingredientsClearFilterButton = GetNode<Button>(IngredientsClearFilterButtonPath);
 		_itemDetailPanel = GetNode<Control>(ItemDetailPanelPath);
 		_itemDetailImage = GetNode<TextureRect>(ItemDetailImagePath);
 		_itemDetailName = GetNode<Label>(ItemDetailNamePath);
@@ -61,11 +70,14 @@ public partial class InventoryPanel : Control
 		_itemDetailDescription.BbcodeEnabled = true;
 		_itemDetailBrewButton = GetNode<Button>(ItemDetailBrewButtonPath);
 		_itemDetailCloseButton = GetNode<Button>(ItemDetailCloseButtonPath);
+		_brewPanel = GetNodeOrNull<BrewPanel>(new NodePath("../BrewPanel"));
 
 		MouseFilter = MouseFilterEnum.Ignore;
 		_itemDetailPanel.MouseFilter = MouseFilterEnum.Ignore;
 		_potionsSortButton.Pressed += TogglePotionsSort;
 		_ingredientsSortButton.Pressed += ToggleIngredientsSort;
+		_ingredientsTraitFilter.ItemSelected += OnIngredientTraitSelected;
+		_ingredientsClearFilterButton.Pressed += ClearIngredientTraitFilter;
 		_itemDetailBrewButton.Pressed += TryBrewSelectedPotion;
 		_itemDetailCloseButton.Pressed += HideItemDetail;
 		GameState.Changed += Refresh;
@@ -109,7 +121,16 @@ public partial class InventoryPanel : Control
 			_ingredients.AddChild(new Label { Text = "Empty" });
 
 		var potionStacks = GameState.Inventory.Where(x => IsPotion(x.Key));
-		var ingredientStacks = GameState.Inventory.Where(x => !IsPotion(x.Key));
+		var ingredientStacks = GameState.Inventory.Where(x => !IsPotion(x.Key)).ToList();
+		var ingredientTraitNames = BuildIngredientTraitNames(ingredientStacks);
+
+		if (!string.IsNullOrWhiteSpace(_activeIngredientTraitFilter))
+		{
+			var activeTraitExists = ingredientTraitNames.Any(trait =>
+				string.Equals(trait, _activeIngredientTraitFilter, System.StringComparison.OrdinalIgnoreCase));
+			if (!activeTraitExists)
+				_activeIngredientTraitFilter = null;
+		}
 
 		if (_potionsAscending)
 		{
@@ -122,17 +143,22 @@ public partial class InventoryPanel : Control
 				_potions.AddChild(CreateSlot(stack.Key, stack.Value));
 		}
 
+		var ingredientStacksToRender = ingredientStacks;
+		if (!string.IsNullOrWhiteSpace(_activeIngredientTraitFilter))
+			ingredientStacksToRender = ingredientStacks.Where(stack => ItemHasTrait(stack.Key, _activeIngredientTraitFilter)).ToList();
+
 		if (_ingredientsAscending)
 		{
-			foreach (var stack in ingredientStacks.OrderBy(x => ItemName(x.Key)).ThenBy(x => x.Key))
+			foreach (var stack in ingredientStacksToRender.OrderBy(x => ItemName(x.Key)).ThenBy(x => x.Key))
 				_ingredients.AddChild(CreateSlot(stack.Key, stack.Value));
 		}
 		else
 		{
-			foreach (var stack in ingredientStacks.OrderByDescending(x => ItemName(x.Key)).ThenByDescending(x => x.Key))
+			foreach (var stack in ingredientStacksToRender.OrderByDescending(x => ItemName(x.Key)).ThenByDescending(x => x.Key))
 				_ingredients.AddChild(CreateSlot(stack.Key, stack.Value));
 		}
 
+		RefreshIngredientTraitFilterOptions(ingredientTraitNames);
 		RefreshCurrentItemDetail();
 		UpdateBrewButtonState();
 	}
@@ -141,6 +167,110 @@ public partial class InventoryPanel : Control
 	{
 		_potionsSortButton.Text = _potionsAscending ? "A-Z" : "Z-A";
 		_ingredientsSortButton.Text = _ingredientsAscending ? "A-Z" : "Z-A";
+	}
+
+	private void OnIngredientTraitSelected(long selectedIndex)
+	{
+		var selectedTrait = _ingredientsTraitFilter.GetItemText((int)selectedIndex);
+		if (string.Equals(selectedTrait, "Trait", System.StringComparison.OrdinalIgnoreCase))
+		{
+			if (!string.IsNullOrWhiteSpace(_activeIngredientTraitFilter))
+			{
+				_activeIngredientTraitFilter = null;
+				Refresh();
+			}
+
+			return;
+		}
+
+		if (string.Equals(_activeIngredientTraitFilter, selectedTrait, System.StringComparison.OrdinalIgnoreCase))
+		{
+			_activeIngredientTraitFilter = null;
+		}
+		else
+		{
+			_activeIngredientTraitFilter = selectedTrait;
+		}
+
+		Refresh();
+	}
+
+	private void ClearIngredientTraitFilter()
+	{
+		if (string.IsNullOrWhiteSpace(_activeIngredientTraitFilter))
+		{
+			_ingredientsTraitFilter.Selected = 0;
+			return;
+		}
+
+		_activeIngredientTraitFilter = null;
+		Refresh();
+	}
+
+	private void RefreshIngredientTraitFilterOptions(List<string> traitNames)
+	{
+		_ingredientsTraitFilter.Clear();
+		_ingredientsTraitFilter.AddItem("Trait");
+
+		foreach (var traitName in traitNames)
+			_ingredientsTraitFilter.AddItem(traitName);
+
+		if (string.IsNullOrWhiteSpace(_activeIngredientTraitFilter))
+		{
+			_ingredientsTraitFilter.Selected = 0;
+			return;
+		}
+
+		for (var index = 1; index < _ingredientsTraitFilter.ItemCount; index++)
+		{
+			var itemText = _ingredientsTraitFilter.GetItemText(index);
+			if (!string.Equals(itemText, _activeIngredientTraitFilter, System.StringComparison.OrdinalIgnoreCase))
+				continue;
+
+			_ingredientsTraitFilter.Selected = index;
+			return;
+		}
+
+		_activeIngredientTraitFilter = null;
+		_ingredientsTraitFilter.Selected = 0;
+	}
+
+	private static List<string> BuildIngredientTraitNames(IEnumerable<KeyValuePair<string, int>> ingredientStacks)
+	{
+		var uniqueNames = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+		foreach (var stack in ingredientStacks)
+		{
+			if (!ItemCatalog.TryGetItem(stack.Key, out var item))
+				continue;
+
+			foreach (var trait in item.Traits)
+			{
+				if (string.IsNullOrWhiteSpace(trait.Key))
+					continue;
+				if (trait.Value <= 0)
+					continue;
+
+				uniqueNames.Add(trait.Key);
+			}
+		}
+
+		return uniqueNames.OrderBy(name => name).ToList();
+	}
+
+	private static bool ItemHasTrait(string itemId, string traitName)
+	{
+		if (!ItemCatalog.TryGetItem(itemId, out var item))
+			return false;
+
+		foreach (var trait in item.Traits)
+		{
+			if (!string.Equals(trait.Key, traitName, System.StringComparison.OrdinalIgnoreCase))
+				continue;
+
+			return trait.Value > 0;
+		}
+
+		return false;
 	}
 
 	private Control CreateSlot(string itemId, int quantity)
@@ -160,6 +290,7 @@ public partial class InventoryPanel : Control
 			Quantity = quantity
 		};
 		slot.SlotActivated += ShowItemDetail;
+		slot.IngredientRequested += QueueIngredientFromSlot;
 
 		var content = new Control
 		{
@@ -247,6 +378,20 @@ public partial class InventoryPanel : Control
 		RefreshCurrentItemDetail();
 		_itemDetailPanel.Visible = true;
 		UpdateBrewButtonState();
+	}
+
+	private void QueueIngredientFromSlot(string itemId)
+	{
+		if (_brewPanel is null || !_brewPanel.Visible)
+			return;
+
+		if (!ItemCatalog.TryGetItem(itemId, out var item))
+			return;
+
+		if (!IsIngredient(item))
+			return;
+
+		_brewPanel.TryQueueIngredient(itemId);
 	}
 
 	private void HideItemDetail()
@@ -373,6 +518,11 @@ public partial class InventoryPanel : Control
 			return false;
 
 		return item.Tags.Any(tag => string.Equals(tag, "potion", System.StringComparison.OrdinalIgnoreCase));
+	}
+
+	private static bool IsIngredient(ItemDef item)
+	{
+		return item.Tags.Any(tag => string.Equals(tag, "ingredient", System.StringComparison.OrdinalIgnoreCase));
 	}
 
 	private static string FormatDictionary(Dictionary<string, int> values)
