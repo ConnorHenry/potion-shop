@@ -13,9 +13,18 @@ public partial class LoadGameMenu : Control
 	private VBoxContainer _saveList = default!;
 	private Label _emptyStateLabel = default!;
 	private Button _backButton = default!;
+	private SaveGameManager _saveGameManager = default!;
 
 	public override void _Ready()
 	{
+		var saveGameManager = GetNodeOrNull<SaveGameManager>("/root/SaveGameManager");
+		if (saveGameManager is null)
+		{
+			GD.PushError("LoadGameMenu: /root/SaveGameManager was not found.");
+			return;
+		}
+		_saveGameManager = saveGameManager;
+
 		if (SaveListPath.IsEmpty)
 		{
 			GD.PushError("LoadGameMenu: SaveListPath is not assigned.");
@@ -52,7 +61,7 @@ public partial class LoadGameMenu : Control
 	{
 		ClearChildren(_saveList);
 
-		var savedGames = SaveGameManager.GetSavedGames();
+		var savedGames = _saveGameManager.GetSavedGames();
 		var hasSavedGames = savedGames.Count > 0;
 
 		_saveList.Visible = hasSavedGames;
@@ -98,7 +107,7 @@ public partial class LoadGameMenu : Control
 
 	private void OnSaveSelected(SaveGameSummary save)
 	{
-		if (!SaveGameManager.LoadGame(save.FilePath))
+		if (!_saveGameManager.LoadGame(save.FilePath))
 		{
 			GD.PushError($"LoadGameMenu: Failed to load save '{save.FileName}'.");
 			RefreshSaveList();
@@ -114,7 +123,7 @@ public partial class LoadGameMenu : Control
 
 	private void OnDeleteSaveSelected(SaveGameSummary save)
 	{
-		if (!SaveGameManager.DeleteSaveGame(save.FilePath))
+		if (!_saveGameManager.DeleteSaveGame(save.FilePath))
 		{
 			GD.PushError($"LoadGameMenu: Failed to delete save '{save.FileName}'.");
 			return;
@@ -131,8 +140,6 @@ public partial class LoadGameMenu : Control
 			GD.PushError($"LoadGameMenu: Failed to load main menu scene. Error: {error}");
 		}
 	}
-
-	private static SaveGameManager SaveGameManager => ((SceneTree)Engine.GetMainLoop()).Root.GetNode<SaveGameManager>("/root/SaveGameManager");
 
 	private static void ClearChildren(VBoxContainer container)
 	{

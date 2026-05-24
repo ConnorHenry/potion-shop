@@ -12,6 +12,13 @@ public partial class DraggablePanel : PanelContainer
 
     public override void _Ready()
     {
+        if (DragHandlePath.IsEmpty)
+        {
+            GD.PushError("DraggablePanel: DragHandlePath is not assigned.");
+            SetProcessUnhandledInput(false);
+            return;
+        }
+
         _dragHandle = GetNode<Control>(DragHandlePath);
         _dragHandle.GuiInput += OnHandleGuiInput;
 
@@ -23,6 +30,12 @@ public partial class DraggablePanel : PanelContainer
         AnchorBottom = 0.0f;
         Position = rect.Position;
         Size = rect.Size;
+    }
+
+    public override void _ExitTree()
+    {
+        if (_dragHandle is not null)
+            _dragHandle.GuiInput -= OnHandleGuiInput;
     }
 
     private void OnHandleGuiInput(InputEvent @event)

@@ -24,6 +24,8 @@ public partial class InventoryItemSlot : Button
 
 	public override Variant _GetDragData(Vector2 atPosition)
 	{
+		_dragStarted = true;
+
 		if (string.IsNullOrWhiteSpace(IconPath))
 			return Variant.CreateFrom(ItemId);
 

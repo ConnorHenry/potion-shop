@@ -8,88 +8,102 @@ namespace OccultShop.UI;
 
 public partial class RecipeBookPanel : Control
 {
-    [Export] public NodePath CloseButtonPath = default!;
-    [Export] public NodePath SortButtonPath = default!;
-    [Export] public NodePath RecipesContainerPath = default!;
+	[Export] public NodePath CloseButtonPath = default!;
+	[Export] public NodePath SortButtonPath = default!;
+	[Export] public NodePath RecipesContainerPath = default!;
 
 	private Button _closeButton = default!;
 	private Button _sortButton = default!;
 	private VBoxContainer _recipes = default!;
 	private readonly PotionInventoryBrewService _brewService = new();
 	private bool _ascending = true;
+	private GameState _gameState = default!;
 
-    public override void _Ready()
-    {
-        _closeButton = GetNode<Button>(CloseButtonPath);
-        _sortButton = GetNode<Button>(SortButtonPath);
-        _recipes = GetNode<VBoxContainer>(RecipesContainerPath);
+	public override void _Ready()
+	{
+		var gameState = GetNodeOrNull<GameState>("/root/GameState");
+		if (gameState is null)
+		{
+			GD.PushError("RecipeBookPanel: /root/GameState was not found.");
+			return;
+		}
+		_gameState = gameState;
 
-        MouseFilter = MouseFilterEnum.Ignore;
-        _closeButton.Pressed += HidePanel;
-        _sortButton.Pressed += ToggleSortOrder;
-        GameState.Changed += Refresh;
+		_closeButton = GetNode<Button>(CloseButtonPath);
+		_sortButton = GetNode<Button>(SortButtonPath);
+		_recipes = GetNode<VBoxContainer>(RecipesContainerPath);
 
-        Visible = false;
-        UpdateSortButtonLabel();
-        Refresh();
-    }
+		MouseFilter = MouseFilterEnum.Ignore;
+		_closeButton.Pressed += HidePanel;
+		_sortButton.Pressed += ToggleSortOrder;
+		_gameState.Changed += Refresh;
 
-    public override void _ExitTree()
-    {
-        GameState.Changed -= Refresh;
-    }
+		Visible = false;
+		UpdateSortButtonLabel();
+		Refresh();
+	}
 
-    public void Toggle()
-    {
-        Visible = !Visible;
-        if (Visible)
-            Refresh();
-    }
+	public override void _ExitTree()
+	{
+		if (_gameState is not null)
+			_gameState.Changed -= Refresh;
+		if (_closeButton is not null)
+			_closeButton.Pressed -= HidePanel;
+		if (_sortButton is not null)
+			_sortButton.Pressed -= ToggleSortOrder;
+	}
 
-    public void HidePanel()
-    {
-        Visible = false;
-    }
+	public void Toggle()
+	{
+		Visible = !Visible;
+		if (Visible)
+			Refresh();
+	}
 
-    private void ToggleSortOrder()
-    {
-        _ascending = !_ascending;
-        UpdateSortButtonLabel();
-        Refresh();
-    }
+	public void HidePanel()
+	{
+		Visible = false;
+	}
 
-    private void Refresh()
-    {
-        foreach (var child in _recipes.GetChildren())
-            child.QueueFree();
+	private void ToggleSortOrder()
+	{
+		_ascending = !_ascending;
+		UpdateSortButtonLabel();
+		Refresh();
+	}
 
-        var learnedPotionIds = GameState.KnownPotions
-            .Where(IsKnownBrewedPotion)
-            .Select(id => new
-            {
-                PotionId = id,
-                Name = DisplayName(id, ItemName(id))
-            })
-            .ToList();
+	private void Refresh()
+	{
+		foreach (var child in _recipes.GetChildren())
+			child.QueueFree();
 
-        learnedPotionIds = _ascending
-            ? learnedPotionIds.OrderBy(x => x.Name).ThenBy(x => x.PotionId).ToList()
-            : learnedPotionIds.OrderByDescending(x => x.Name).ThenByDescending(x => x.PotionId).ToList();
+		var learnedPotionIds = _gameState.KnownPotions
+			.Where(IsKnownBrewedPotion)
+			.Select(id => new
+			{
+				PotionId = id,
+				Name = DisplayName(id, ItemName(id))
+			})
+			.ToList();
 
-        if (learnedPotionIds.Count == 0)
-        {
-            _recipes.AddChild(new Label { Text = "No brewed recipes yet." });
-            return;
-        }
+		learnedPotionIds = _ascending
+			? learnedPotionIds.OrderBy(x => x.Name).ThenBy(x => x.PotionId).ToList()
+			: learnedPotionIds.OrderByDescending(x => x.Name).ThenByDescending(x => x.PotionId).ToList();
 
-        foreach (var entry in learnedPotionIds)
-            _recipes.AddChild(CreateRecipeCard(entry.PotionId));
-    }
+		if (learnedPotionIds.Count == 0)
+		{
+			_recipes.AddChild(new Label { Text = "No brewed recipes yet." });
+			return;
+		}
 
-    private void UpdateSortButtonLabel()
-    {
-        _sortButton.Text = _ascending ? "A-Z" : "Z-A";
-    }
+		foreach (var entry in learnedPotionIds)
+			_recipes.AddChild(CreateRecipeCard(entry.PotionId));
+	}
+
+	private void UpdateSortButtonLabel()
+	{
+		_sortButton.Text = _ascending ? "A-Z" : "Z-A";
+	}
 
     private Control CreateRecipeCard(string potionId)
     {
@@ -174,8 +188,8 @@ public partial class RecipeBookPanel : Control
 		textColumn.AddChild(description);
 		textColumn.AddChild(brewButton);
 
-        row.AddChild(icon);
-        row.AddChild(textColumn);
+		row.AddChild(icon);
+		row.AddChild(textColumn);
 		margin.AddChild(row);
 		card.AddChild(margin);
 		return card;
@@ -205,72 +219,53 @@ public partial class RecipeBookPanel : Control
 			: _brewService.BuildMissingIngredientsText(requiredIngredients);
 	}
 
-    private string FormatIngredients(string potionId)
-    {
-        if (!GameState.TryGetPotionRecipe(potionId, out var ingredientIds) || ingredientIds.Count == 0)
-            return "Unknown";
+	private static string FormatDictionary(Dictionary<string, int> values)
+	{
+		if (values is null || values.Count == 0)
+			return "None";
 
-        var grouped = ingredientIds
-            .GroupBy(id => id)
-            .Select(group => new
-            {
-                Name = ItemName(group.Key),
-                Qty = group.Count()
-            })
-            .OrderBy(x => x.Name);
+		return string.Join(", ",
+			values
+				.OrderByDescending(x => x.Value)
+				.ThenBy(x => x.Key)
+				.Select(x => $"{x.Key}: {x.Value}"));
+	}
 
-        return string.Join(", ", grouped.Select(x => $"{x.Name} x{x.Qty}"));
-    }
+	private static string FormatTopTraits(Dictionary<string, int> values, int maxCount)
+	{
+		if (values is null || values.Count == 0)
+			return "None";
 
-    private static string FormatDictionary(Dictionary<string, int> values)
-    {
-        if (values is null || values.Count == 0)
-            return "None";
+		return string.Join(", ",
+			values
+				.OrderByDescending(x => x.Value)
+				.ThenBy(x => x.Key)
+				.Take(maxCount)
+				.Select(x => $"{x.Key}: {x.Value}"));
+	}
 
-        return string.Join(", ",
-            values
-                .OrderByDescending(x => x.Value)
-                .ThenBy(x => x.Key)
-                .Select(x => $"{x.Key}: {x.Value}"));
-    }
+	private static bool IsKnownBrewedPotion(string potionId)
+	{
+		return ItemCatalog.TryGetItem(potionId, out var item) &&
+			item.Tags.Any(tag => string.Equals(tag, "potion", System.StringComparison.OrdinalIgnoreCase));
+	}
 
-    private static string FormatTopTraits(Dictionary<string, int> values, int maxCount)
-    {
-        if (values is null || values.Count == 0)
-            return "None";
+	private static string ItemName(string itemId)
+	{
+		return ItemCatalog.GetItemName(itemId);
+	}
 
-        return string.Join(", ",
-            values
-                .OrderByDescending(x => x.Value)
-                .ThenBy(x => x.Key)
-                .Take(maxCount)
-                .Select(x => $"{x.Key}: {x.Value}"));
-    }
+	private string DisplayName(string itemId, string fallbackName)
+	{
+		var customName = _gameState.GetPotionDisplayName(itemId);
+		return string.IsNullOrWhiteSpace(customName) ? fallbackName : customName;
+	}
 
-    private static bool IsKnownBrewedPotion(string potionId)
-    {
-        return ItemCatalog.TryGetItem(potionId, out var item) &&
-               item.Tags.Any(tag => string.Equals(tag, "potion", System.StringComparison.OrdinalIgnoreCase));
-    }
+	private static Texture2D? LoadIcon(string? iconPath)
+	{
+		if (string.IsNullOrWhiteSpace(iconPath))
+			return null;
 
-    private static string ItemName(string itemId)
-    {
-        return ItemCatalog.GetItemName(itemId);
-    }
-
-    private static string DisplayName(string itemId, string fallbackName)
-    {
-        var customName = GameState.GetPotionDisplayName(itemId);
-        return string.IsNullOrWhiteSpace(customName) ? fallbackName : customName;
-    }
-
-    private static Texture2D? LoadIcon(string? iconPath)
-    {
-        if (string.IsNullOrWhiteSpace(iconPath))
-            return null;
-
-        return ResourceLoader.Load<Texture2D>(iconPath);
-    }
-
-    private static GameState GameState => (GameState)((SceneTree)Engine.GetMainLoop()).Root.GetNode("/root/GameState");
+		return ResourceLoader.Load<Texture2D>(iconPath);
+	}
 }

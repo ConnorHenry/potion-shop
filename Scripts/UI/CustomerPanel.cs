@@ -44,14 +44,33 @@ public partial class CustomerPanel : Control
 	private CustomerInteractionDef? _interaction;
 	private string? _pendingItemId;
 	private readonly PotionBrewingService _brewingService = new();
+	private GameState _gameState = default!;
+	private DataDb _dataDb = default!;
 	private const float SuccessScoreThreshold = 60.0f;
-    private const int SuccessGoldGain = 45;
-    private const int SuccessDreadChange = -2;
-    private const int FailureGoldGain = 15;
-    private const int FailureDreadChange = 4;
+	private const int SuccessGoldGain = 45;
+	private const int SuccessDreadChange = -2;
+	private const int FailureGoldGain = 15;
+	private const int FailureDreadChange = 4;
 
 	public override void _Ready()
 	{
+		var gameState = GetNodeOrNull<GameState>("/root/GameState");
+		if (gameState is null)
+		{
+			GD.PushError("CustomerPanel: /root/GameState was not found.");
+			return;
+		}
+
+		var dataDb = GetNodeOrNull<DataDb>("/root/DataDb");
+		if (dataDb is null)
+		{
+			GD.PushError("CustomerPanel: /root/DataDb was not found.");
+			return;
+		}
+
+		_gameState = gameState;
+		_dataDb = dataDb;
+
 		_title = GetNode<Label>(TitlePath);
 		_portrait = GetNode<TextureRect>(PortraitPath);
 		_desiredTraits = GetNode<RichTextLabel>(DesiredTraitsPath);
@@ -69,11 +88,23 @@ public partial class CustomerPanel : Control
 		MouseFilter = MouseFilterEnum.Ignore;
 		_closeButton.Pressed += HidePanel;
 		_saleResultCloseButton.Pressed += HideSaleResult;
-		_sellDropBox.Connect("ItemDropped", new Callable(this, nameof(OnItemDropped)));
+		_sellDropBox.ItemDropped += OnItemDropped;
 		_confirmDialog.Confirmed += ConfirmPendingSale;
 		_portrait.Visible = false;
 		_saleResultPanel.Visible = false;
 		Visible = false;
+	}
+
+	public override void _ExitTree()
+	{
+		if (_closeButton is not null)
+			_closeButton.Pressed -= HidePanel;
+		if (_saleResultCloseButton is not null)
+			_saleResultCloseButton.Pressed -= HideSaleResult;
+		if (_sellDropBox is not null)
+			_sellDropBox.ItemDropped -= OnItemDropped;
+		if (_confirmDialog is not null)
+			_confirmDialog.Confirmed -= ConfirmPendingSale;
 	}
 
 	public void ShowInteraction(CustomerInteractionDef interaction)
@@ -81,7 +112,7 @@ public partial class CustomerPanel : Control
 		HideSaleResult();
 		_interaction = interaction;
 		var request = interaction.BuildRequest();
-		GameState.SetActiveCustomerRequest(request);
+		_gameState.SetActiveCustomerRequest(request);
 		Visible = true;
 		_title.Text = interaction.Title;
 		_dialogue.Text = interaction.Text;
@@ -93,7 +124,7 @@ public partial class CustomerPanel : Control
 	{
 		_interaction = null;
 		_pendingItemId = null;
-		GameState.ClearActiveCustomerRequest();
+		_gameState.ClearActiveCustomerRequest();
 		_portrait.Texture = null;
 		_portrait.Visible = false;
 		_desiredTraits.Text = "";
@@ -153,7 +184,7 @@ public partial class CustomerPanel : Control
 		{
 			_interaction = null;
 			Visible = false;
-			GameState.ClearActiveCustomerRequest();
+			_gameState.ClearActiveCustomerRequest();
 			HideSaleResult();
 
 			EmitSignal(
@@ -191,14 +222,14 @@ public partial class CustomerPanel : Control
 		brewResult = _brewingService.BrewPotion(
 			scoringIngredients,
 			request,
-			DataDb.Synergies.ToList());
+			_dataDb.Synergies.ToList());
 
 		return true;
 	}
 
 	private List<IngredientDef> BuildScoringIngredients(string itemId, ItemDef fallbackPotionItem)
 	{
-		if (!GameState.TryPeekPotionBatch(itemId, out var batchIngredientIds) || batchIngredientIds.Count == 0)
+		if (!_gameState.TryPeekPotionBatch(itemId, out var batchIngredientIds) || batchIngredientIds.Count == 0)
 			return new List<IngredientDef> { BuildPotionIngredientDef(fallbackPotionItem) };
 
 		var ingredients = new List<IngredientDef>();
@@ -235,17 +266,17 @@ public partial class CustomerPanel : Control
 		var goldDelta = isSuccess ? SuccessGoldGain : FailureGoldGain;
 		var dreadDelta = isSuccess ? SuccessDreadChange : FailureDreadChange;
 
-		GameState.AddGold(goldDelta);
-		GameState.AddDread(dreadDelta);
+		_gameState.AddGold(goldDelta);
+		_gameState.AddDread(dreadDelta);
 
-		GameState.ConsumeItem(itemId, 1);
+		_gameState.ConsumeItem(itemId, 1);
 		return (isSuccess, goldDelta, dreadDelta);
 	}
 
 	private void ShowSaleResult(string itemId, PotionResult brewResult)
 	{
 		Visible = false;
-		GameState.ClearActiveCustomerRequest();
+		_gameState.ClearActiveCustomerRequest();
 		_saleResultTitle.Text = $"Potion Score: {brewResult.FinalScore:0.##} ({brewResult.Grade})";
 		_saleResultBody.Text = BuildOutcomeText(itemId, brewResult);
 		_saleResultPanel.Visible = true;
@@ -310,7 +341,7 @@ public partial class CustomerPanel : Control
 		if (!IsPotionItem(itemId))
 			return fallbackName;
 
-		var customName = GameState.GetPotionDisplayName(itemId);
+		var customName = _gameState.GetPotionDisplayName(itemId);
 		return string.IsNullOrWhiteSpace(customName) ? fallbackName : customName;
 	}
 
@@ -326,6 +357,4 @@ public partial class CustomerPanel : Control
 				.Select(x => $"{x.Key}: {x.Value}"));
 	}
 
-	private GameState GameState => GetTree().Root.GetNode<GameState>("/root/GameState");
-	private DataDb DataDb => GetTree().Root.GetNode<DataDb>("/root/DataDb");
 }

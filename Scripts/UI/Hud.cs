@@ -14,7 +14,7 @@ public partial class Hud : Control
 	private Label _gold = default!;
 	private Label _dread = default!;
 	private Label _day = default!;
-	private Label _shopTimer = default!;
+	private Label? _shopTimer;
 	private Button _endDayButton = default!;
 	private Button _serveCustomerButton = default!;
 	private Button _brewPotionButton = default!;
@@ -25,13 +25,56 @@ public partial class Hud : Control
 	private Control _saveConfirmationPanel = default!;
 	private Label _saveConfirmationLabel = default!;
 	private Button _saveConfirmationCloseButton = default!;
-	private DayController _dayController = default!;
-	private Control _brewPanel = default!;
-	private Control _recipeBookPanel = default!;
+	private GameState? _gameState;
+	private SaveGameManager? _saveGameManager;
+	private DayController? _dayController;
+	private Control? _brewPanel;
+	private Control? _recipeBookPanel;
 	private Control _settingsPanel = default!;
 
 	public override void _Ready()
 	{
+		var gameState = GetNodeOrNull<GameState>("/root/GameState");
+		if (gameState is null)
+		{
+			GD.PushError("Hud: /root/GameState was not found.");
+			return;
+		}
+
+		var saveGameManager = GetNodeOrNull<SaveGameManager>("/root/SaveGameManager");
+		if (saveGameManager is null)
+		{
+			GD.PushError("Hud: /root/SaveGameManager was not found.");
+			return;
+		}
+
+		var dayController = GetNodeOrNull<DayController>("/root/Main/DayController");
+		if (dayController is null)
+		{
+			GD.PushError("Hud: /root/Main/DayController was not found.");
+			return;
+		}
+
+		var brewPanel = GetNodeOrNull<Control>("/root/Main/CanvasLayer/BrewPanel");
+		if (brewPanel is null)
+		{
+			GD.PushError("Hud: /root/Main/CanvasLayer/BrewPanel was not found.");
+			return;
+		}
+
+		var recipeBookPanel = GetNodeOrNull<Control>("/root/Main/CanvasLayer/RecipeBookPanel");
+		if (recipeBookPanel is null)
+		{
+			GD.PushError("Hud: /root/Main/CanvasLayer/RecipeBookPanel was not found.");
+			return;
+		}
+
+		_gameState = gameState;
+		_saveGameManager = saveGameManager;
+		_dayController = dayController;
+		_brewPanel = brewPanel;
+		_recipeBookPanel = recipeBookPanel;
+
 		_gold = GetNode<Label>(GoldLabelPath);
 		_dread = GetNode<Label>(DreadLabelPath);
 		_day = GetNode<Label>(DayLabelPath);
@@ -41,7 +84,6 @@ public partial class Hud : Control
 
 		if (_shopTimer is null)
 			GD.PushError("Hud: Shop timer label node is missing.");
-		_dayController = DayController;
 
 		_endDayButton = GetNode<Button>("EndDay");
 		_serveCustomerButton = GetNode<Button>("ServeCustomer");
@@ -64,7 +106,7 @@ public partial class Hud : Control
 		_saveGameButton.Pressed += OnSaveGamePressed;
 		_saveConfirmationCloseButton.Pressed += HideSaveConfirmation;
 
-		GameState.Changed += Refresh;
+		_gameState.Changed += Refresh;
 		_dayController.ShopStateChanged += RefreshShopState;
 		Refresh();
 		RefreshShopState();
@@ -73,55 +115,69 @@ public partial class Hud : Control
 
 	public override void _ExitTree()
 	{
-		GameState.Changed -= Refresh;
-		if (_dayController != null)
+		if (_gameState is not null)
+			_gameState.Changed -= Refresh;
+		if (_dayController is not null)
 			_dayController.ShopStateChanged -= RefreshShopState;
-		if (_endDayButton != null)
+		if (_endDayButton is not null)
 			_endDayButton.Pressed -= OnEndDayPressed;
-		if (_serveCustomerButton != null)
+		if (_serveCustomerButton is not null)
 			_serveCustomerButton.Pressed -= OnStartDayPressed;
-		if (_brewPotionButton != null)
+		if (_brewPotionButton is not null)
 			_brewPotionButton.Pressed -= OnBrewPotionPressed;
-		if (_recipeBookButton != null)
+		if (_recipeBookButton is not null)
 			_recipeBookButton.Pressed -= OnRecipeBookPressed;
-		if (_settingsButton != null)
+		if (_settingsButton is not null)
 			_settingsButton.Pressed -= OnSettingsPressed;
-		if (_returnToMainMenuButton != null)
+		if (_returnToMainMenuButton is not null)
 			_returnToMainMenuButton.Pressed -= OnReturnToMainMenuPressed;
-		if (_saveGameButton != null)
+		if (_saveGameButton is not null)
 			_saveGameButton.Pressed -= OnSaveGamePressed;
-		if (_saveConfirmationCloseButton != null)
+		if (_saveConfirmationCloseButton is not null)
 			_saveConfirmationCloseButton.Pressed -= HideSaveConfirmation;
 	}
 
 	private void Refresh()
 	{
-		_gold.Text = $"Gold: {GameState.Gold}";
-		_dread.Text = $"Dread: {GameState.Dread}";
-		_day.Text = $"Day: {GameState.Day}";
+		if (_gameState is null)
+			return;
+
+		_gold.Text = $"Gold: {_gameState.Gold}";
+		_dread.Text = $"Dread: {_gameState.Dread}";
+		_day.Text = $"Day: {_gameState.Day}";
 		RefreshShopState();
 	}
 
 	private void OnEndDayPressed()
 	{
-		DayController.EndDayAndRunNight();
+		if (_dayController is null)
+			return;
+
+		_dayController.EndDayAndRunNight();
 	}
 
 	private void OnStartDayPressed()
 	{
+		if (_dayController is null)
+			return;
+
 		_dayController.StartShopDay();
 	}
 
 	private void OnBrewPotionPressed()
 	{
-		var brewPanel = BrewPanel;
-		brewPanel.Visible = !brewPanel.Visible;
+		if (_brewPanel is null)
+			return;
+
+		_brewPanel.Visible = !_brewPanel.Visible;
 	}
 
 	private void OnRecipeBookPressed()
 	{
-		var recipeBookPanel = RecipeBookPanel;
-		recipeBookPanel.Visible = !recipeBookPanel.Visible;
+		if (_recipeBookPanel is null)
+			return;
+
+		_recipeBookPanel.Visible = !_recipeBookPanel.Visible;
 	}
 
 	private void OnSettingsPressed()
@@ -140,7 +196,10 @@ public partial class Hud : Control
 
 	private void OnSaveGamePressed()
 	{
-		if (!SaveGameManager.SaveGame())
+		if (_saveGameManager is null)
+			return;
+
+		if (!_saveGameManager.SaveGame())
 		{
 			GD.PushError("Hud: Save failed.");
 			return;
@@ -157,9 +216,6 @@ public partial class Hud : Control
 
 	private void HideSaveConfirmation()
 	{
-		if (_saveConfirmationPanel is null)
-			return;
-
 		_saveConfirmationPanel.Visible = false;
 	}
 
@@ -172,25 +228,12 @@ public partial class Hud : Control
 		var secondsRemaining = _dayController.SecondsRemaining;
 
 		if (_shopTimer is not null)
-		{
 			_shopTimer.Text = isShopOpen
 				? $"Shop Timer: {secondsRemaining}s"
 				: "Shop Timer: Closed";
-		}
 
-		if (_serveCustomerButton is not null)
-		{
-			_serveCustomerButton.Text = isShopOpen ? "Shop Open" : "Start Day";
-			_serveCustomerButton.Disabled = isShopOpen;
-		}
-
-		if (_endDayButton is not null)
-			_endDayButton.Disabled = isShopOpen;
+		_serveCustomerButton.Text = isShopOpen ? "Shop Open" : "Start Day";
+		_serveCustomerButton.Disabled = isShopOpen;
+		_endDayButton.Disabled = isShopOpen;
 	}
-
-	private static GameState GameState => ((SceneTree)Engine.GetMainLoop()).Root.GetNode<GameState>("GameState");
-	private static SaveGameManager SaveGameManager => ((SceneTree)Engine.GetMainLoop()).Root.GetNode<SaveGameManager>("SaveGameManager");
-	private static DayController DayController => ((SceneTree)Engine.GetMainLoop()).Root.GetNode<DayController>("Main/DayController");
-	private static Control BrewPanel => ((SceneTree)Engine.GetMainLoop()).Root.GetNode<Control>("Main/CanvasLayer/BrewPanel");
-	private static Control RecipeBookPanel => ((SceneTree)Engine.GetMainLoop()).Root.GetNode<Control>("Main/CanvasLayer/RecipeBookPanel");
 }

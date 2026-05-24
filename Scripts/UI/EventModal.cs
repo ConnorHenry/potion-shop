@@ -1,4 +1,3 @@
-using System.Linq;
 using Godot;
 using OccultShop.Autoload;
 using OccultShop.Models;
@@ -18,10 +17,19 @@ public partial class EventModal : Control
     private VBoxContainer _choices = default!;
     private TextureRect _characterImage = default!;
 
+    private GameState _gameState = default!;
     private EventCardDef? _card;
 
     public override void _Ready()
     {
+        var gameState = GetNodeOrNull<GameState>("/root/GameState");
+        if (gameState is null)
+        {
+            GD.PushError("EventModal: /root/GameState was not found.");
+            return;
+        }
+        _gameState = gameState;
+
         _title = GetNode<Label>(TitleLabelPath);
         _body = GetNode<RichTextLabel>(BodyLabelPath);
         _choices = GetNode<VBoxContainer>(ChoicesContainerPath);
@@ -39,13 +47,14 @@ public partial class EventModal : Control
         _body.Text = card.Text;
         SetCharacterImage(card.CharacterImagePath);
 
-        foreach (var child in _choices.GetChildren()) child.QueueFree();
+        foreach (var child in _choices.GetChildren())
+            child.QueueFree();
 
         foreach (var choice in card.Choices)
         {
             var b = new Button();
             b.Text = choice.Label;
-            b.Disabled = !Requirements.Met(GameState, choice.Requires);
+            b.Disabled = !Requirements.Met(_gameState, choice.Requires);
             b.Pressed += () => OnChoice(choice);
             _choices.AddChild(b);
         }
@@ -54,12 +63,13 @@ public partial class EventModal : Control
     private void OnChoice(EventChoiceDef choice)
     {
         if (_card is null) return;
-        if (!Requirements.Met(GameState, choice.Requires)) return;
+        if (!Requirements.Met(_gameState, choice.Requires)) return;
 
-        foreach (var e in choice.Effects) EffectApplier.Apply(GameState, e);
+        foreach (var e in choice.Effects)
+            EffectApplier.Apply(_gameState, e);
 
         // Night ends; advance day.
-        GameState.NextDay();
+        _gameState.NextDay();
         _characterImage.Texture = null;
         _characterImage.Visible = false;
         Visible = false;
@@ -79,6 +89,4 @@ public partial class EventModal : Control
         _characterImage.Texture = texture;
         _characterImage.Visible = texture is not null;
     }
-
-    private GameState GameState => GetTree().Root.GetNode<GameState>("/root/GameState");
 }

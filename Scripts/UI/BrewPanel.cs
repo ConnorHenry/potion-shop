@@ -49,14 +49,45 @@ public partial class BrewPanel : Control
 	private Label _riskPreviewLabel = default!;
 	private Button _brewButton = default!;
 	private Button _clearButton = default!;
+	private RuntimeContentDb _runtimeContentDb = default!;
+	private DataDb _dataDb = default!;
+	private GameState _gameState = default!;
 	private readonly List<string> _queuedIngredients = new();
 	private readonly PotionBrewingService _brewingService = new();
+	private Control.GuiInputEventHandler? _slotOneGuiInputHandler;
+	private Control.GuiInputEventHandler? _slotTwoGuiInputHandler;
+	private Control.GuiInputEventHandler? _slotThreeGuiInputHandler;
 	private int _draggingSlotIndex = -1;
 	private Vector2 _dragStartGlobalPosition = Vector2.Zero;
 	private bool _slotDragThresholdReached;
 
 	public override void _Ready()
 	{
+		var runtimeContentDb = GetNodeOrNull<RuntimeContentDb>("/root/RuntimeContentDb");
+		if (runtimeContentDb is null)
+		{
+			GD.PushError("BrewPanel: /root/RuntimeContentDb was not found.");
+			return;
+		}
+
+		var dataDb = GetNodeOrNull<DataDb>("/root/DataDb");
+		if (dataDb is null)
+		{
+			GD.PushError("BrewPanel: /root/DataDb was not found.");
+			return;
+		}
+
+		var gameState = GetNodeOrNull<GameState>("/root/GameState");
+		if (gameState is null)
+		{
+			GD.PushError("BrewPanel: /root/GameState was not found.");
+			return;
+		}
+
+		_runtimeContentDb = runtimeContentDb;
+		_dataDb = dataDb;
+		_gameState = gameState;
+
 		_closeButton = GetNode<Button>(CloseButtonPath);
 		_brewBox = GetNode<BrewDropBox>(BrewBoxPath);
 		_ingredientSlotOne = GetNode<TextureRect>(IngredientSlotOnePath);
@@ -84,11 +115,32 @@ public partial class BrewPanel : Control
 		_brewBox.ItemDropped += TryQueueIngredient;
 		_brewButton.Pressed += TryBrew;
 		_clearButton.Pressed += ClearQueue;
-		_ingredientSlotOneContainer.GuiInput += @event => HandleIngredientSlotGuiInput(0, @event);
-		_ingredientSlotTwoContainer.GuiInput += @event => HandleIngredientSlotGuiInput(1, @event);
-		_ingredientSlotThreeContainer.GuiInput += @event => HandleIngredientSlotGuiInput(2, @event);
+		_slotOneGuiInputHandler = @event => HandleIngredientSlotGuiInput(0, @event);
+		_slotTwoGuiInputHandler = @event => HandleIngredientSlotGuiInput(1, @event);
+		_slotThreeGuiInputHandler = @event => HandleIngredientSlotGuiInput(2, @event);
+		_ingredientSlotOneContainer.GuiInput += _slotOneGuiInputHandler;
+		_ingredientSlotTwoContainer.GuiInput += _slotTwoGuiInputHandler;
+		_ingredientSlotThreeContainer.GuiInput += _slotThreeGuiInputHandler;
 		Visible = false;
 		RefreshIngredientIcons();
+	}
+
+	public override void _ExitTree()
+	{
+		if (_closeButton is not null)
+			_closeButton.Pressed -= HidePanel;
+		if (_brewBox is not null)
+			_brewBox.ItemDropped -= TryQueueIngredient;
+		if (_brewButton is not null)
+			_brewButton.Pressed -= TryBrew;
+		if (_clearButton is not null)
+			_clearButton.Pressed -= ClearQueue;
+		if (_slotOneGuiInputHandler is not null)
+			_ingredientSlotOneContainer.GuiInput -= _slotOneGuiInputHandler;
+		if (_slotTwoGuiInputHandler is not null)
+			_ingredientSlotTwoContainer.GuiInput -= _slotTwoGuiInputHandler;
+		if (_slotThreeGuiInputHandler is not null)
+			_ingredientSlotThreeContainer.GuiInput -= _slotThreeGuiInputHandler;
 	}
 
 	public void Toggle()
@@ -165,13 +217,13 @@ public partial class BrewPanel : Control
 			return;
 		}
 
-		if (!GameState.HasItem(itemId, 1))
+		if (!_gameState.HasItem(itemId, 1))
 		{
 			_resultLabel.Text = "Not enough stock for that ingredient.";
 			return;
 		}
 
-		if (!GameState.ConsumeItem(itemId, 1))
+		if (!_gameState.ConsumeItem(itemId, 1))
 		{
 			_resultLabel.Text = "Could not take that ingredient.";
 			return;
@@ -208,27 +260,27 @@ public partial class BrewPanel : Control
 		var brewResult = _brewingService.BrewPotion(
 			ingredientDefs,
 			null,
-			DataDb.Synergies.ToList());
+			_dataDb.Synergies.ToList());
 
 		var potionBasePrice = CalculateIngredientTotalPrice(_queuedIngredients);
 		var brewCost = CalculateBrewCost(potionBasePrice, brewResult);
-		if (GameState.Gold < brewCost)
+		if (_gameState.Gold < brewCost)
 		{
 			_resultLabel.Text = $"Need {brewCost} gold to brew this potion.";
 			return;
 		}
 
-		GameState.AddGold(-brewCost);
+		_gameState.AddGold(-brewCost);
 
 		var combinationKey = BuildCombinationKey(_queuedIngredients);
-		var isNewCombination = !GameState.TryGetPotionForCombination(combinationKey, out var potionItemId);
+		var isNewCombination = !_gameState.TryGetPotionForCombination(combinationKey, out var potionItemId);
 		if (isNewCombination)
 		{
 			var randomName = GeneratePotionName();
-			potionItemId = $"brew_{GameState.PotionDisplayNames.Count + 1}";
+			potionItemId = $"brew_{_gameState.PotionDisplayNames.Count + 1}";
 			var iconPath = ResolvePotionIconPath();
 
-			RuntimeContentDb.RegisterRuntimePotionItem(
+			_runtimeContentDb.RegisterRuntimePotionItem(
 				potionItemId,
 				randomName,
 				iconPath,
@@ -237,17 +289,17 @@ public partial class BrewPanel : Control
 				new Dictionary<string, int>(brewResult.Traits),
 				new Dictionary<string, int>(brewResult.Risks));
 
-			GameState.SetPotionForCombination(combinationKey, potionItemId);
-			GameState.SetPotionDisplayName(potionItemId, randomName);
+			_gameState.SetPotionForCombination(combinationKey, potionItemId);
+			_gameState.SetPotionDisplayName(potionItemId, randomName);
 		}
 
-		GameState.RegisterPotionBasePrice(potionItemId, potionBasePrice);
-		if (RuntimeContentDb.TryGetItem(potionItemId, out var storedPotion))
+		_gameState.RegisterPotionBasePrice(potionItemId, potionBasePrice);
+		if (_runtimeContentDb.TryGetItem(potionItemId, out var storedPotion))
 			storedPotion.BasePrice = potionBasePrice;
 
-		GameState.RecordPotionRecipe(potionItemId, _queuedIngredients);
-		GameState.AddItem(potionItemId, BrewedPotionOutputQuantity);
-		GameState.RecordPotionBatch(potionItemId, _queuedIngredients);
+		_gameState.RecordPotionRecipe(potionItemId, _queuedIngredients);
+		_gameState.AddItem(potionItemId, BrewedPotionOutputQuantity);
+		_gameState.RecordPotionBatch(potionItemId, _queuedIngredients);
 		_queuedIngredients.Clear();
 		ResetSlotDragState();
 		RefreshIngredientIcons();
@@ -257,7 +309,7 @@ public partial class BrewPanel : Control
 	private void ReturnQueuedIngredients()
 	{
 		foreach (var itemId in _queuedIngredients)
-			GameState.AddItem(itemId, 1);
+			_gameState.AddItem(itemId, 1);
 	}
 
 	private void HandleIngredientSlotGuiInput(int slotIndex, InputEvent @event)
@@ -299,7 +351,7 @@ public partial class BrewPanel : Control
 
 		var removedIngredientId = _queuedIngredients[slotIndex];
 		_queuedIngredients.RemoveAt(slotIndex);
-		GameState.AddItem(removedIngredientId, 1);
+		_gameState.AddItem(removedIngredientId, 1);
 		_resultLabel.Text = "";
 		RefreshIngredientIcons();
 	}
@@ -374,7 +426,7 @@ public partial class BrewPanel : Control
 		var previewResult = _brewingService.BrewPotion(
 			ingredientDefs,
 			null,
-			DataDb.Synergies.ToList());
+			_dataDb.Synergies.ToList());
 
 		_traitPreviewLabel.Text = BuildTopListText("Top Traits", previewResult.Traits, 3);
 		_riskPreviewLabel.Text = BuildTopListText("Top Risks", previewResult.Risks, 2);
@@ -411,11 +463,6 @@ public partial class BrewPanel : Control
 		control.MouseDefaultCursorShape = CursorShape.PointingHand;
 	}
 
-	private string FormatIngredientSummary(IEnumerable<string> ingredientIds)
-	{
-		return string.Join(", ", _queuedIngredients.Select(ItemName));
-	}
-
 	private string ItemName(string itemId)
 	{
 		return PotionDisplayName(itemId, DefaultItemName(itemId));
@@ -425,7 +472,7 @@ public partial class BrewPanel : Control
 	{
 		if (IsPotion(itemId))
 		{
-			var customName = GameState.GetPotionDisplayName(itemId);
+			var customName = _gameState.GetPotionDisplayName(itemId);
 			if (!string.IsNullOrWhiteSpace(customName))
 				return customName;
 		}
@@ -475,7 +522,7 @@ public partial class BrewPanel : Control
 			var suffix = suffixes[Random.Shared.Next(suffixes.Length)];
 			var candidate = $"{prefix} {suffix}";
 
-			if (!GameState.PotionDisplayNames.Values.Any(x => string.Equals(x, candidate, System.StringComparison.OrdinalIgnoreCase)))
+			if (!_gameState.PotionDisplayNames.Values.Any(x => string.Equals(x, candidate, System.StringComparison.OrdinalIgnoreCase)))
 				return candidate;
 		}
 
@@ -513,6 +560,7 @@ public partial class BrewPanel : Control
 					.OrderBy(x => x.Key)
 					.Select(x => $"{x.Key} {x.Value}"));
 
+			lines.Add($"Traits: {contributingTraits}");
 			lines.Add($"Risks: {contributingRisks}");
 
 			if (!string.IsNullOrWhiteSpace(synergy.Description))
@@ -575,7 +623,7 @@ public partial class BrewPanel : Control
 	}
 
 	private bool TryBuildIngredientDefs(
-		List<string> ingredientIds,
+		IReadOnlyList<string> ingredientIds,
 		out List<IngredientDef> ingredients,
 		out string error)
 	{
@@ -605,8 +653,4 @@ public partial class BrewPanel : Control
 		error = string.Empty;
 		return true;
 	}
-
-	private RuntimeContentDb RuntimeContentDb => GetTree().Root.GetNode<RuntimeContentDb>("/root/RuntimeContentDb");
-	private DataDb DataDb => GetTree().Root.GetNode<DataDb>("/root/DataDb");
-	private GameState GameState => GetTree().Root.GetNode<GameState>("/root/GameState");
 }

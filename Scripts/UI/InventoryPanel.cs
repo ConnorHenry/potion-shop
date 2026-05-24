@@ -57,9 +57,18 @@ public partial class InventoryPanel : Control
 	private string? _activePotionTraitFilter;
 	private string? _activeIngredientTraitFilter;
 	private readonly PotionInventoryBrewService _brewService = new();
+	private GameState _gameState = default!;
 
 	public override void _Ready()
 	{
+		var gameState = GetNodeOrNull<GameState>("/root/GameState");
+		if (gameState is null)
+		{
+			GD.PushError("InventoryPanel: /root/GameState was not found.");
+			return;
+		}
+		_gameState = gameState;
+
 		_potions = GetNode<GridContainer>(PotionsContainerPath);
 		_ingredients = GetNode<GridContainer>(IngredientsContainerPath);
 		_potionsSortButton = GetNode<Button>(PotionsSortButtonPath);
@@ -97,7 +106,7 @@ public partial class InventoryPanel : Control
 			_ingredientsClearFilterButton.Pressed += ClearIngredientTraitFilter;
 		_itemDetailBrewButton.Pressed += TryBrewSelectedPotion;
 		_itemDetailCloseButton.Pressed += HideItemDetail;
-		GameState.Changed += Refresh;
+		_gameState.Changed += Refresh;
 
 		Visible = true;
 		_itemDetailPanel.Visible = false;
@@ -107,7 +116,24 @@ public partial class InventoryPanel : Control
 
 	public override void _ExitTree()
 	{
-		GameState.Changed -= Refresh;
+		if (_gameState is not null)
+			_gameState.Changed -= Refresh;
+		if (_potionsSortButton is not null)
+			_potionsSortButton.Pressed -= TogglePotionsSort;
+		if (_ingredientsSortButton is not null)
+			_ingredientsSortButton.Pressed -= ToggleIngredientsSort;
+		if (_potionsTraitFilter is not null)
+			_potionsTraitFilter.ItemSelected -= OnPotionTraitSelected;
+		if (_potionsClearFilterButton is not null)
+			_potionsClearFilterButton.Pressed -= ClearPotionTraitFilter;
+		if (_ingredientsTraitFilter is not null)
+			_ingredientsTraitFilter.ItemSelected -= OnIngredientTraitSelected;
+		if (_ingredientsClearFilterButton is not null)
+			_ingredientsClearFilterButton.Pressed -= ClearIngredientTraitFilter;
+		if (_itemDetailBrewButton is not null)
+			_itemDetailBrewButton.Pressed -= TryBrewSelectedPotion;
+		if (_itemDetailCloseButton is not null)
+			_itemDetailCloseButton.Pressed -= HideItemDetail;
 	}
 
 	private void TogglePotionsSort()
@@ -134,11 +160,11 @@ public partial class InventoryPanel : Control
 		foreach (var child in _ingredients.GetChildren())
 			child.QueueFree();
 
-		if (GameState.Inventory.Count == 0)
+		if (_gameState.Inventory.Count == 0)
 			_ingredients.AddChild(new Label { Text = "Empty" });
 
-		var potionStacks = GameState.Inventory.Where(x => IsPotion(x.Key)).ToList();
-		var ingredientStacks = GameState.Inventory.Where(x => !IsPotion(x.Key)).ToList();
+		var potionStacks = _gameState.Inventory.Where(x => IsPotion(x.Key)).ToList();
+		var ingredientStacks = _gameState.Inventory.Where(x => !IsPotion(x.Key)).ToList();
 		var potionTraitNames = BuildTraitNames(potionStacks);
 		var ingredientTraitNames = BuildTraitNames(ingredientStacks);
 
@@ -398,7 +424,7 @@ public partial class InventoryPanel : Control
 			MouseFilter = MouseFilterEnum.Ignore
 		};
 
-		var hasPrice = item is not null || GameState.TryGetPotionBasePrice(itemId, out _);
+		var hasPrice = item is not null || _gameState.TryGetPotionBasePrice(itemId, out _);
 		if (hasPrice)
 		{
 			var price = new Label
@@ -539,9 +565,6 @@ public partial class InventoryPanel : Control
 
 	private void UpdateBrewButtonState()
 	{
-		if (_itemDetailBrewButton is null)
-			return;
-
 		if (string.IsNullOrWhiteSpace(_currentItemId) || !IsPotion(_currentItemId))
 		{
 			_itemDetailBrewButton.Visible = false;
@@ -579,19 +602,19 @@ public partial class InventoryPanel : Control
 		return ItemCatalog.GetItemName(itemId);
 	}
 
-	private static int GetItemPrice(string itemId, ItemDef? item)
+	private int GetItemPrice(string itemId, ItemDef? item)
 	{
-		if (GameState.TryGetPotionBasePrice(itemId, out var potionBasePrice))
+		if (_gameState.TryGetPotionBasePrice(itemId, out var potionBasePrice))
 			return potionBasePrice;
 
 		return item?.BasePrice ?? 0;
 	}
 
-	private static string DisplayName(string itemId, string fallbackName)
+	private string DisplayName(string itemId, string fallbackName)
 	{
 		if (IsPotion(itemId))
 		{
-			var customName = GameState.GetPotionDisplayName(itemId);
+			var customName = _gameState.GetPotionDisplayName(itemId);
 			if (!string.IsNullOrWhiteSpace(customName))
 				return customName;
 		}
@@ -657,6 +680,4 @@ public partial class InventoryPanel : Control
 				.Take(maxCount)
 				.Select(x => $"{x.Key}: {x.Value}"));
 	}
-
-	private static GameState GameState => (GameState)((SceneTree)Engine.GetMainLoop()).Root.GetNode("/root/GameState");
 }

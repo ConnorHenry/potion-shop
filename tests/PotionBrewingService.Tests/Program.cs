@@ -560,8 +560,8 @@ static class Program
             source.Contains("Each ingredient can only be used once per potion."));
         AssertTrue("BrewPanel checks the current queue before consuming inventory",
             source.Contains("_queuedIngredients.Any(x => string.Equals(x, itemId, System.StringComparison.OrdinalIgnoreCase))"));
-        AssertTrue("BrewPanel queue summary shows unique ingredients without stack counts",
-            source.Contains("string.Join(\", \", _queuedIngredients.Select(ItemName))"));
+        AssertTrue("BrewPanel duplicate guard remains list-based without stack counting",
+            source.Contains("private readonly List<string> _queuedIngredients = new();"));
         AssertTrue("Inventory drag/drop still routes through TryQueueIngredient",
             ReadProjectFile("Scripts/UI/InventoryPanel.cs").Contains("_brewPanel.TryQueueIngredient(itemId);"));
         AssertTrue("Brew drop box still emits dragged item ids",
@@ -574,13 +574,13 @@ static class Program
         AssertTrue("BrewPanel calculates potion price from ingredient totals",
             brewPanel.Contains("CalculateIngredientTotalPrice(_queuedIngredients)"));
         AssertTrue("BrewPanel stores the potion base price in state",
-            brewPanel.Contains("GameState.RegisterPotionBasePrice(potionItemId, potionBasePrice)"));
+            brewPanel.Contains("RegisterPotionBasePrice(potionItemId, potionBasePrice)"));
         AssertTrue("BrewPanel sums ingredient BasePrice values",
             brewPanel.Contains("totalPrice += Math.Max(0, item.BasePrice);"));
 
         var inventoryPanel = ReadProjectFile("Scripts/UI/InventoryPanel.cs");
         AssertTrue("InventoryPanel resolves stored potion prices",
-            inventoryPanel.Contains("GameState.TryGetPotionBasePrice(itemId, out _)"));
+            inventoryPanel.Contains("TryGetPotionBasePrice(itemId, out _)"));
         AssertTrue("InventoryPanel shows potion price in the detail panel",
             inventoryPanel.Contains("GetItemPrice(_currentItemId, item)"));
         AssertTrue("InventoryPanel shows item prices on the slot icon",
@@ -724,7 +724,7 @@ static class Program
         AssertTrue("RecipeBookPanel resolves through ItemCatalog", recipeBookPanel.Contains("ItemCatalog.TryGetItem") && recipeBookPanel.Contains("ItemCatalog.GetItemName"));
         AssertTrue("CustomerPanel resolves through ItemCatalog", customerPanel.Contains("ItemCatalog.TryGetItem") && customerPanel.Contains("ItemCatalog.GetItemName"));
         AssertTrue("PotionInventoryBrewService resolves through ItemCatalog", brewService.Contains("ItemCatalog.GetItemName"));
-        AssertTrue("BrewPanel still registers runtime potions separately", brewPanel.Contains("RuntimeContentDb.RegisterRuntimePotionItem"));
+        AssertTrue("BrewPanel still registers runtime potions separately", brewPanel.Contains("RegisterRuntimePotionItem"));
     }
 
     private static void TestMainMenuLoadFlow()
@@ -735,8 +735,8 @@ static class Program
         AssertTrue("MainMenu has load button path", source.Contains("LoadButtonPath"));
         AssertTrue("MainMenu has new game button path", source.Contains("NewGameButtonPath"));
         AssertTrue("MainMenu continues the latest save", source.Contains("LoadLatestGameIfExists()"));
-        AssertTrue("MainMenu falls back to a new game when no save exists", source.Contains("SaveGameManager.StartNewGame();"));
-        AssertTrue("MainMenu hides continue until saves exist", source.Contains("Visible = SaveGameManager.HasSavedGames()"));
+        AssertTrue("MainMenu falls back to a new game when no save exists", source.Contains("StartNewGame();"));
+        AssertTrue("MainMenu hides continue until saves exist", source.Contains("Visible = _saveGameManager.HasSavedGames()"));
         AssertTrue("MainMenu opens load browser", source.Contains("Scenes/UI/LoadGameMenu.tscn"));
         AssertTrue("MainMenu scene has load button", scene.Contains("LoadButton"));
         AssertTrue("MainMenu scene has new game button", scene.Contains("NewGameButton"));

@@ -12,11 +12,11 @@ public partial class CustomerSellDropBox : PanelContainer
         return data.VariantType == Variant.Type.String;
     }
 
-    public override void _DropData(Vector2 atPosition, Variant data)
-    {
-        if (data.VariantType != Variant.Type.String)
-            return;
+	public override void _DropData(Vector2 atPosition, Variant data)
+	{
+		if (data.VariantType != Variant.Type.String)
+			return;
 
-        EmitSignal("ItemDropped", data.AsString());
-    }
+		EmitSignal(SignalName.ItemDropped, data.AsString());
+	}
 }

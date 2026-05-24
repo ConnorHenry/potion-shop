@@ -1,59 +1,35 @@
 using Godot;
 using OccultShop.Autoload;
 
+namespace OccultShop.UI;
+
 public partial class MainMenu : Control
 {
-	[Export]
-	public NodePath StartButtonPath { get; set; } = new NodePath("");
-	[Export]
-	public NodePath NewGameButtonPath { get; set; } = new NodePath("");
-	[Export]
-	public NodePath LoadButtonPath { get; set; } = new NodePath("");
+	[Export] public NodePath StartButtonPath = default!;
+	[Export] public NodePath NewGameButtonPath = default!;
+	[Export] public NodePath LoadButtonPath = default!;
 
-	private Button? _startButton;
-	private Button? _newGameButton;
-	private Button? _loadButton;
+	private Button _startButton = default!;
+	private Button _newGameButton = default!;
+	private Button _loadButton = default!;
+	private SaveGameManager _saveGameManager = default!;
 
 	public override void _Ready()
 	{
-		if (StartButtonPath.IsEmpty)
+		var saveGameManager = GetNodeOrNull<SaveGameManager>("/root/SaveGameManager");
+		if (saveGameManager is null)
 		{
-			GD.PushError("MainMenu: StartButtonPath is not assigned.");
+			GD.PushError("MainMenu: /root/SaveGameManager was not found.");
 			return;
 		}
+		_saveGameManager = saveGameManager;
 
-		_startButton = GetNodeOrNull<Button>(StartButtonPath);
-		if (_startButton == null)
-		{
-			GD.PushError($"MainMenu: Start button not found at path '{StartButtonPath}'.");
+		if (!TryGetRequiredButton(StartButtonPath, nameof(StartButtonPath), out _startButton))
 			return;
-		}
-
-		if (NewGameButtonPath.IsEmpty)
-		{
-			GD.PushError("MainMenu: NewGameButtonPath is not assigned.");
+		if (!TryGetRequiredButton(NewGameButtonPath, nameof(NewGameButtonPath), out _newGameButton))
 			return;
-		}
-
-		_newGameButton = GetNodeOrNull<Button>(NewGameButtonPath);
-		if (_newGameButton == null)
-		{
-			GD.PushError($"MainMenu: New Game button not found at path '{NewGameButtonPath}'.");
+		if (!TryGetRequiredButton(LoadButtonPath, nameof(LoadButtonPath), out _loadButton))
 			return;
-		}
-
-		if (LoadButtonPath.IsEmpty)
-		{
-			GD.PushError("MainMenu: LoadButtonPath is not assigned.");
-			return;
-		}
-
-		_loadButton = GetNodeOrNull<Button>(LoadButtonPath);
-		if (_loadButton == null)
-		{
-			GD.PushError($"MainMenu: Load button not found at path '{LoadButtonPath}'.");
-			return;
-		}
 
 		UpdateButtonLabels();
 		UpdateContinueButtonVisibility();
@@ -69,11 +45,11 @@ public partial class MainMenu : Control
 
 	public override void _ExitTree()
 	{
-		if (_startButton != null)
+		if (_startButton is not null)
 			_startButton.Pressed -= OnStartButtonPressed;
-		if (_newGameButton != null)
+		if (_newGameButton is not null)
 			_newGameButton.Pressed -= OnNewGamePressed;
-		if (_loadButton != null)
+		if (_loadButton is not null)
 			_loadButton.Pressed -= OnLoadButtonPressed;
 	}
 
@@ -93,27 +69,19 @@ public partial class MainMenu : Control
 
 	private void UpdateButtonLabels()
 	{
-		if (_startButton is not null)
-			_startButton.Text = "Continue";
-
-		if (_newGameButton is not null)
-			_newGameButton.Text = "New Game";
-
-		if (_loadButton is not null)
-			_loadButton.Text = "Load Game";
+		_startButton.Text = "Continue";
+		_newGameButton.Text = "New Game";
+		_loadButton.Text = "Load Game";
 	}
 
 	private void UpdateContinueButtonVisibility()
 	{
-		if (_startButton is null)
-			return;
-
-		_startButton.Visible = SaveGameManager.HasSavedGames();
+		_startButton.Visible = _saveGameManager.HasSavedGames();
 	}
 
 	private void StartNewGame()
 	{
-		SaveGameManager.StartNewGame();
+		_saveGameManager.StartNewGame();
 
 		Error error = GetTree().ChangeSceneToFile("res://Main.tscn");
 		if (error != Error.Ok)
@@ -124,8 +92,8 @@ public partial class MainMenu : Control
 
 	private void ContinueGame()
 	{
-		if (!SaveGameManager.LoadLatestGameIfExists())
-			SaveGameManager.StartNewGame();
+		if (!_saveGameManager.LoadLatestGameIfExists())
+			_saveGameManager.StartNewGame();
 
 		Error error = GetTree().ChangeSceneToFile("res://Main.tscn");
 		if (error != Error.Ok)
@@ -134,5 +102,24 @@ public partial class MainMenu : Control
 		}
 	}
 
-	private static SaveGameManager SaveGameManager => ((SceneTree)Engine.GetMainLoop()).Root.GetNode<SaveGameManager>("/root/SaveGameManager");
+	private bool TryGetRequiredButton(NodePath path, string exportName, out Button button)
+	{
+		button = default!;
+
+		if (path.IsEmpty)
+		{
+			GD.PushError($"MainMenu: {exportName} is not assigned.");
+			return false;
+		}
+
+		var resolvedButton = GetNodeOrNull<Button>(path);
+		if (resolvedButton is null)
+		{
+			GD.PushError($"MainMenu: Button not found at '{path}'.");
+			return false;
+		}
+		button = resolvedButton;
+
+		return true;
+	}
 }
