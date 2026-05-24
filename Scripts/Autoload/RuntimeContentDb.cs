@@ -47,7 +47,6 @@ public partial class RuntimeContentDb : Godot.Node
 	public ItemDef RegisterRuntimePotionItem(
 		string itemId,
 		string name,
-		string description,
 		string? iconPath,
 		int basePrice,
 		int quality,
@@ -61,7 +60,6 @@ public partial class RuntimeContentDb : Godot.Node
 		{
 			Id = itemId,
 			Name = name,
-			Description = description,
 			IconPath = iconPath,
 			BasePrice = basePrice,
 			Quality = quality,

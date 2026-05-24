@@ -40,6 +40,12 @@ public partial class DaySummaryPanel : Control
 		int finalGold,
 		int finalDread)
 	{
+		if (_title is null || _body is null)
+		{
+			GD.PushError("DaySummaryPanel: UI nodes are not ready.");
+			return;
+		}
+
 		_title.Text = $"Day {day} Summary";
 		_body.Text =
 			$"Customers served: {customersServed}\n" +
@@ -55,7 +61,8 @@ public partial class DaySummaryPanel : Control
 	public void HidePanel()
 	{
 		Visible = false;
-		_body.Text = string.Empty;
+		if (_body is not null)
+			_body.Text = string.Empty;
 	}
 
 	private void OnContinuePressed()

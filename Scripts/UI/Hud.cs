@@ -35,7 +35,12 @@ public partial class Hud : Control
 		_gold = GetNode<Label>(GoldLabelPath);
 		_dread = GetNode<Label>(DreadLabelPath);
 		_day = GetNode<Label>(DayLabelPath);
-		_shopTimer = GetNode<Label>(ShopTimerLabelPath);
+		_shopTimer = GetNodeOrNull<Label>(ShopTimerLabelPath);
+		if (_shopTimer is null)
+			_shopTimer = GetNodeOrNull<Label>("ShopTimer");
+
+		if (_shopTimer is null)
+			GD.PushError("Hud: Shop timer label node is missing.");
 		_dayController = DayController;
 
 		_endDayButton = GetNode<Button>("EndDay");
@@ -160,14 +165,27 @@ public partial class Hud : Control
 
 	private void RefreshShopState()
 	{
+		if (_dayController is null)
+			return;
+
 		var isShopOpen = _dayController.IsShopOpen;
 		var secondsRemaining = _dayController.SecondsRemaining;
-		_shopTimer.Text = isShopOpen
-			? $"Shop Timer: {secondsRemaining}s"
-			: "Shop Timer: Closed";
-		_serveCustomerButton.Text = isShopOpen ? "Shop Open" : "Start Day";
-		_serveCustomerButton.Disabled = isShopOpen;
-		_endDayButton.Disabled = isShopOpen;
+
+		if (_shopTimer is not null)
+		{
+			_shopTimer.Text = isShopOpen
+				? $"Shop Timer: {secondsRemaining}s"
+				: "Shop Timer: Closed";
+		}
+
+		if (_serveCustomerButton is not null)
+		{
+			_serveCustomerButton.Text = isShopOpen ? "Shop Open" : "Start Day";
+			_serveCustomerButton.Disabled = isShopOpen;
+		}
+
+		if (_endDayButton is not null)
+			_endDayButton.Disabled = isShopOpen;
 	}
 
 	private static GameState GameState => ((SceneTree)Engine.GetMainLoop()).Root.GetNode<GameState>("GameState");
