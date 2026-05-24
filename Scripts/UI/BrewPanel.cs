@@ -227,8 +227,6 @@ public partial class BrewPanel : Control
 			var randomName = GeneratePotionName();
 			potionItemId = $"brew_{GameState.PotionDisplayNames.Count + 1}";
 			var iconPath = ResolvePotionIconPath();
-			var description = BuildPotionDescription(_queuedIngredients, brewResult);
-			var basePrice = CalculatePotionBasePrice(brewCost, brewResult);
 
 			RuntimeContentDb.RegisterRuntimePotionItem(
 				potionItemId,
