@@ -58,6 +58,10 @@ stretch_mode = 5
 layout_mode = 2
 text = "Item Name"
 
+[node name="Price" type="Label" parent="InventoryItemDetail/Panel/Margin/VBox"]
+layout_mode = 2
+text = "Price - £0"
+
 [node name="TraitsHeader" type="Label" parent="InventoryItemDetail/Panel/Margin/VBox"]
 layout_mode = 2
 text = "Traits"
@@ -269,7 +273,6 @@ custom_minimum_size = Vector2(0, 96)
 layout_mode = 2
 
 [node name="BrewPanel" type="Control" parent="."]
-visible = false
 layout_mode = 3
 anchor_left = 0.406
 anchor_top = 0.6
@@ -294,8 +297,9 @@ IngredientSlotOneLabelPath = NodePath("Panel/Margin/VBox/IngredientSlots/Slot1/C
 IngredientSlotTwoLabelPath = NodePath("Panel/Margin/VBox/IngredientSlots/Slot2/Content/Name")
 IngredientSlotThreeLabelPath = NodePath("Panel/Margin/VBox/IngredientSlots/Slot3/Content/Name")
 ResultLabelPath = NodePath("Panel/Margin/VBox/Result")
-TraitPreviewLabelPath = NodePath("Panel/Margin/VBox/BrewRow/Preview/Traits")
-RiskPreviewLabelPath = NodePath("Panel/Margin/VBox/BrewRow/Preview/Risks")
+PricePreviewLabelPath = NodePath("Panel/Margin/VBox/BrewRow/Preview/PricePanel/PriceMargin/Price")
+TraitPreviewLabelPath = NodePath("Panel/Margin/VBox/BrewRow/Preview/Details/TraitsColumn/Traits")
+RiskPreviewLabelPath = NodePath("Panel/Margin/VBox/BrewRow/Preview/Details/RisksColumn/Risks")
 BrewButtonPath = NodePath("Panel/Margin/VBox/Actions/Brew")
 ClearButtonPath = NodePath("Panel/Margin/VBox/Actions/Clear")
 
@@ -338,20 +342,56 @@ layout_mode = 2
 theme_override_constants/separation = 12
 
 [node name="Preview" type="VBoxContainer" parent="BrewPanel/Panel/Margin/VBox/BrewRow"]
-custom_minimum_size = Vector2(180, 0)
+custom_minimum_size = Vector2(260, 0)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 6
 
-[node name="Traits" type="Label" parent="BrewPanel/Panel/Margin/VBox/BrewRow/Preview"]
+[node name="PricePanel" type="PanelContainer" parent="BrewPanel/Panel/Margin/VBox/BrewRow/Preview"]
 layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="PriceMargin" type="MarginContainer" parent="BrewPanel/Panel/Margin/VBox/BrewRow/Preview/PricePanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 6
+
+[node name="Price" type="Label" parent="BrewPanel/Panel/Margin/VBox/BrewRow/Preview/PricePanel/PriceMargin"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.94, 0.79, 0.31, 1)
+text = "Price - £0"
+horizontal_alignment = 1
+
+[node name="Details" type="HBoxContainer" parent="BrewPanel/Panel/Margin/VBox/BrewRow/Preview"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="TraitsColumn" type="VBoxContainer" parent="BrewPanel/Panel/Margin/VBox/BrewRow/Preview/Details"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 0
+
+[node name="Traits" type="Label" parent="BrewPanel/Panel/Margin/VBox/BrewRow/Preview/Details/TraitsColumn"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.35, 0.85, 0.35, 1)
 text = "Top Traits:
 -"
+horizontal_alignment = 1
 
-[node name="Risks" type="Label" parent="BrewPanel/Panel/Margin/VBox/BrewRow/Preview"]
+[node name="RisksColumn" type="VBoxContainer" parent="BrewPanel/Panel/Margin/VBox/BrewRow/Preview/Details"]
 layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 0
+
+[node name="Risks" type="Label" parent="BrewPanel/Panel/Margin/VBox/BrewRow/Preview/Details/RisksColumn"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.25, 0.25, 1)
 text = "Top Risks:
 -"
+horizontal_alignment = 1
 
 [node name="BrewBoxContainer" type="CenterContainer" parent="BrewPanel/Panel/Margin/VBox/BrewRow"]
 layout_mode = 2

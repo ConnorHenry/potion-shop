@@ -23,6 +23,7 @@ IngredientsClearFilterButtonPath = NodePath("Panel/Margin/VBox/IngredientsHeader
 ItemDetailPanelPath = NodePath("../InventoryItemDetail")
 ItemDetailImagePath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/Image")
 ItemDetailNamePath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/Name")
+ItemDetailPricePath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/Price")
 ItemDetailTraitsHeaderPath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/TraitsHeader")
 ItemDetailTraitsPath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/Traits")
 ItemDetailRisksHeaderPath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/RisksHeader")

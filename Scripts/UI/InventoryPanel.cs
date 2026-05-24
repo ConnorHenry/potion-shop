@@ -22,6 +22,7 @@ public partial class InventoryPanel : Control
 	[Export] public NodePath ItemDetailPanelPath = default!;
 	[Export] public NodePath ItemDetailImagePath = default!;
 	[Export] public NodePath ItemDetailNamePath = default!;
+	[Export] public NodePath ItemDetailPricePath = default!;
 	[Export] public NodePath ItemDetailTraitsHeaderPath = default!;
 	[Export] public NodePath ItemDetailTraitsPath = default!;
 	[Export] public NodePath ItemDetailRisksHeaderPath = default!;
@@ -41,6 +42,7 @@ public partial class InventoryPanel : Control
 	private Control _itemDetailPanel = default!;
 	private TextureRect _itemDetailImage = default!;
 	private Label _itemDetailName = default!;
+	private Label _itemDetailPrice = default!;
 	private Label _itemDetailTraitsHeader = default!;
 	private RichTextLabel _itemDetailTraits = default!;
 	private Label _itemDetailRisksHeader = default!;
@@ -69,12 +71,14 @@ public partial class InventoryPanel : Control
 		_itemDetailPanel = GetNode<Control>(ItemDetailPanelPath);
 		_itemDetailImage = GetNode<TextureRect>(ItemDetailImagePath);
 		_itemDetailName = GetNode<Label>(ItemDetailNamePath);
+		_itemDetailPrice = GetNode<Label>(ItemDetailPricePath);
 		_itemDetailTraitsHeader = GetNode<Label>(ItemDetailTraitsHeaderPath);
 		_itemDetailTraits = GetNode<RichTextLabel>(ItemDetailTraitsPath);
 		_itemDetailRisksHeader = GetNode<Label>(ItemDetailRisksHeaderPath);
 		_itemDetailRisks = GetNode<RichTextLabel>(ItemDetailRisksPath);
 		_itemDetailDescription = GetNode<RichTextLabel>(ItemDetailDescriptionPath);
 		_itemDetailDescription.BbcodeEnabled = true;
+		_itemDetailPrice.AddThemeColorOverride("font_color", new Color("FFD700"));
 		_itemDetailBrewButton = GetNode<Button>(ItemDetailBrewButtonPath);
 		_itemDetailCloseButton = GetNode<Button>(ItemDetailCloseButtonPath);
 		_brewPanel = GetNodeOrNull<BrewPanel>(new NodePath("../BrewPanel"));
@@ -394,6 +398,21 @@ public partial class InventoryPanel : Control
 			MouseFilter = MouseFilterEnum.Ignore
 		};
 
+		var hasPrice = item is not null || GameState.TryGetPotionBasePrice(itemId, out _);
+		if (hasPrice)
+		{
+			var price = new Label
+			{
+				Text = $"£{GetItemPrice(itemId, item)}",
+				Position = new Vector2(50, 2),
+				CustomMinimumSize = new Vector2(58, 0),
+				MouseFilter = MouseFilterEnum.Ignore,
+				HorizontalAlignment = HorizontalAlignment.Right
+			};
+			price.AddThemeColorOverride("font_color", new Color("FFD700"));
+			content.AddChild(price);
+		}
+
 		var name = new Label
 		{
 			Text = itemName,
@@ -480,6 +499,7 @@ public partial class InventoryPanel : Control
 		_itemDetailTraits.Text = "";
 		_itemDetailRisks.Text = "";
 		_itemDetailDescription.Text = "";
+		_itemDetailPrice.Text = "";
 		_itemDetailBrewButton.Visible = false;
 		_itemDetailBrewButton.Disabled = true;
 		_itemDetailPanel.Visible = false;
@@ -495,6 +515,7 @@ public partial class InventoryPanel : Control
 
 		_itemDetailImage.Texture = LoadIcon(item.IconPath);
 		_itemDetailName.Text = DisplayName(_currentItemId, item.Name);
+		_itemDetailPrice.Text = $"Price - £{GetItemPrice(_currentItemId, item)}";
 		_itemDetailTraits.Text = FormatTopTraits(item.Traits, 3);
 		_itemDetailRisks.Text = FormatDictionary(item.Risks);
 		_itemDetailDescription.Text = IsPotion(_currentItemId)
@@ -556,6 +577,14 @@ public partial class InventoryPanel : Control
 	private static string ItemName(string itemId)
 	{
 		return ItemCatalog.GetItemName(itemId);
+	}
+
+	private static int GetItemPrice(string itemId, ItemDef? item)
+	{
+		if (GameState.TryGetPotionBasePrice(itemId, out var potionBasePrice))
+			return potionBasePrice;
+
+		return item?.BasePrice ?? 0;
 	}
 
 	private static string DisplayName(string itemId, string fallbackName)
