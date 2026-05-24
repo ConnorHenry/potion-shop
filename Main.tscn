@@ -28,5 +28,6 @@ InventoryPanelPath = NodePath("../CanvasLayer/InventoryPanel")
 CustomerPanelPath = NodePath("../CanvasLayer/CustomerPanel")
 BrewPanelPath = NodePath("../CanvasLayer/BrewPanel")
 RecipeBookPanelPath = NodePath("../CanvasLayer/RecipeBookPanel")
+DaySummaryPanelPath = NodePath("../CanvasLayer/DaySummaryPanel")
 
 [node name="CanvasLayer" parent="." instance=ExtResource("8_gameui")]

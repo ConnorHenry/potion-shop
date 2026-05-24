@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3 uid="uid://4hripc13we86"]
+[gd_scene load_steps=12 format=3 uid="uid://4hripc13we86"]
 
 [ext_resource type="PackedScene" uid="uid://cikvfbes8y0kf" path="res://Scenes/UI/Hud.tscn" id="1_hud"]
 [ext_resource type="Script" uid="uid://hkjdjmtp1abw" path="res://Scripts/UI/EventModal.cs" id="2_8y3f6"]
@@ -10,6 +10,7 @@
 [ext_resource type="Script" uid="uid://c4yw4u6lyist2" path="res://Scripts/UI/RecipeBookPanel.cs" id="11_q7k2n"]
 [ext_resource type="Script" uid="uid://cdkl4a6bue2us" path="res://Scripts/UI/DraggablePanel.cs" id="12_6x1m8"]
 [ext_resource type="Texture2D" uid="uid://dw2q8lwc58yyq" path="res://Assets/UI/cauldron.svg" id="13_x17d0"]
+[ext_resource type="Script" uid="uid://bdb6mw7rn78kn" path="res://Scripts/UI/DaySummaryPanel.cs" id="14_daysum"]
 
 [node name="CanvasLayer" type="CanvasLayer"]
 
@@ -265,6 +266,57 @@ text = "Close"
 [node name="Body" type="RichTextLabel" parent="CustomerSaleResultPanel/Margin/VBox"]
 custom_minimum_size = Vector2(0, 96)
 layout_mode = 2
+
+[node name="DaySummaryPanel" type="Control" parent="."]
+visible = false
+layout_mode = 3
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -240.0
+offset_top = -180.0
+offset_right = 240.0
+offset_bottom = 180.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("14_daysum")
+TitlePath = NodePath("Panel/Margin/VBox/Title")
+BodyPath = NodePath("Panel/Margin/VBox/Body")
+ContinueButtonPath = NodePath("Panel/Margin/VBox/Continue")
+
+[node name="Panel" type="PanelContainer" parent="DaySummaryPanel"]
+layout_mode = 0
+offset_right = 480.0
+offset_bottom = 360.0
+script = ExtResource("12_6x1m8")
+DragHandlePath = NodePath("Margin/VBox/Title")
+
+[node name="Margin" type="MarginContainer" parent="DaySummaryPanel/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 14
+
+[node name="VBox" type="VBoxContainer" parent="DaySummaryPanel/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="DaySummaryPanel/Panel/Margin/VBox"]
+layout_mode = 2
+text = "Day Summary"
+
+[node name="Body" type="RichTextLabel" parent="DaySummaryPanel/Panel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 220)
+layout_mode = 2
+text = "Summary details."
+fit_content = true
+
+[node name="Continue" type="Button" parent="DaySummaryPanel/Panel/Margin/VBox"]
+layout_mode = 2
+text = "Continue to Night"
 
 [node name="BrewPanel" type="Control" parent="."]
 visible = false

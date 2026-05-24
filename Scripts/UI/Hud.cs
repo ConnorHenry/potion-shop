@@ -9,10 +9,12 @@ public partial class Hud : Control
 	[Export] public NodePath GoldLabelPath = default!;
 	[Export] public NodePath DreadLabelPath = default!;
 	[Export] public NodePath DayLabelPath = default!;
+	[Export] public NodePath ShopTimerLabelPath = default!;
 
 	private Label _gold = default!;
 	private Label _dread = default!;
 	private Label _day = default!;
+	private Label _shopTimer = default!;
 	private Button _endDayButton = default!;
 	private Button _serveCustomerButton = default!;
 	private Button _brewPotionButton = default!;
@@ -33,6 +35,8 @@ public partial class Hud : Control
 		_gold = GetNode<Label>(GoldLabelPath);
 		_dread = GetNode<Label>(DreadLabelPath);
 		_day = GetNode<Label>(DayLabelPath);
+		_shopTimer = GetNode<Label>(ShopTimerLabelPath);
+		_dayController = DayController;
 
 		_endDayButton = GetNode<Button>("EndDay");
 		_serveCustomerButton = GetNode<Button>("ServeCustomer");
@@ -47,7 +51,7 @@ public partial class Hud : Control
 		_settingsPanel = GetNode<Control>("SettingsPanel");
 
 		_endDayButton.Pressed += OnEndDayPressed;
-		_serveCustomerButton.Pressed += OnServeCustomerPressed;
+		_serveCustomerButton.Pressed += OnStartDayPressed;
 		_brewPotionButton.Pressed += OnBrewPotionPressed;
 		_recipeBookButton.Pressed += OnRecipeBookPressed;
 		_settingsButton.Pressed += OnSettingsPressed;
@@ -56,17 +60,21 @@ public partial class Hud : Control
 		_saveConfirmationCloseButton.Pressed += HideSaveConfirmation;
 
 		GameState.Changed += Refresh;
+		_dayController.ShopStateChanged += RefreshShopState;
 		Refresh();
+		RefreshShopState();
 		HideSaveConfirmation();
 	}
 
 	public override void _ExitTree()
 	{
 		GameState.Changed -= Refresh;
+		if (_dayController != null)
+			_dayController.ShopStateChanged -= RefreshShopState;
 		if (_endDayButton != null)
 			_endDayButton.Pressed -= OnEndDayPressed;
 		if (_serveCustomerButton != null)
-			_serveCustomerButton.Pressed -= OnServeCustomerPressed;
+			_serveCustomerButton.Pressed -= OnStartDayPressed;
 		if (_brewPotionButton != null)
 			_brewPotionButton.Pressed -= OnBrewPotionPressed;
 		if (_recipeBookButton != null)
@@ -86,6 +94,7 @@ public partial class Hud : Control
 		_gold.Text = $"Gold: {GameState.Gold}";
 		_dread.Text = $"Dread: {GameState.Dread}";
 		_day.Text = $"Day: {GameState.Day}";
+		RefreshShopState();
 	}
 
 	private void OnEndDayPressed()
@@ -93,9 +102,9 @@ public partial class Hud : Control
 		DayController.EndDayAndRunNight();
 	}
 
-	private void OnServeCustomerPressed()
+	private void OnStartDayPressed()
 	{
-		DayController.ServeCustomer();
+		_dayController.StartShopDay();
 	}
 
 	private void OnBrewPotionPressed()
@@ -147,6 +156,18 @@ public partial class Hud : Control
 			return;
 
 		_saveConfirmationPanel.Visible = false;
+	}
+
+	private void RefreshShopState()
+	{
+		var isShopOpen = _dayController.IsShopOpen;
+		var secondsRemaining = _dayController.SecondsRemaining;
+		_shopTimer.Text = isShopOpen
+			? $"Shop Timer: {secondsRemaining}s"
+			: "Shop Timer: Closed";
+		_serveCustomerButton.Text = isShopOpen ? "Shop Open" : "Start Day";
+		_serveCustomerButton.Disabled = isShopOpen;
+		_endDayButton.Disabled = isShopOpen;
 	}
 
 	private static GameState GameState => ((SceneTree)Engine.GetMainLoop()).Root.GetNode<GameState>("GameState");
