@@ -2,7 +2,7 @@
 
 [ext_resource type="PackedScene" uid="uid://cikvfbes8y0kf" path="res://Scenes/UI/Hud.tscn" id="1_hud"]
 [ext_resource type="Script" uid="uid://hkjdjmtp1abw" path="res://Scripts/UI/EventModal.cs" id="2_8y3f6"]
-[ext_resource type="PackedScene" path="res://Scenes/UI/InventoryPanel.tscn" id="5_invp"]
+[ext_resource type="PackedScene" uid="uid://b8wojjptpayx3" path="res://Scenes/UI/InventoryPanel.tscn" id="5_invp"]
 [ext_resource type="Script" uid="uid://d0i82ek5gng47" path="res://Scripts/UI/CustomerPanel.cs" id="6_h1r0d"]
 [ext_resource type="Script" uid="uid://co7ips8h5sgbl" path="res://Scripts/UI/CustomerSellDropBox.cs" id="8_74p2s"]
 [ext_resource type="Script" uid="uid://bygqfctik8rwk" path="res://Scripts/UI/BrewPanel.cs" id="9_em5ve"]

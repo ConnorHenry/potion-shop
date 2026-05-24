@@ -1,7 +1,6 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=2 format=3 uid="uid://b8wojjptpayx3"]
 
 [ext_resource type="Script" uid="uid://ciyicbkwp6f08" path="res://Scripts/UI/InventoryPanel.cs" id="1_5bh8f"]
-[ext_resource type="Script" uid="uid://cdkl4a6bue2us" path="res://Scripts/UI/DraggablePanel.cs" id="2_6x1m8"]
 
 [node name="InventoryPanel" type="Control"]
 layout_mode = 3
@@ -12,8 +11,8 @@ offset_right = 8.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_5bh8f")
-PotionsContainerPath = NodePath("Panel/Margin/VBox/Potions")
-IngredientsContainerPath = NodePath("Panel/Margin/VBox/Ingredients")
+PotionsContainerPath = NodePath("Panel/Margin/VBox/PotionsScroll/Potions")
+IngredientsContainerPath = NodePath("Panel/Margin/VBox/IngredientsScroll/Ingredients")
 PotionsSortButtonPath = NodePath("Panel/Margin/VBox/PotionsHeaderRow/Sort")
 PotionsTraitFilterPath = NodePath("Panel/Margin/VBox/PotionsHeaderRow/TraitFilter")
 PotionsClearFilterButtonPath = NodePath("Panel/Margin/VBox/PotionsHeaderRow/Clear")
@@ -76,16 +75,21 @@ text = "Clear"
 
 [node name="TraitFilter" type="OptionButton" parent="Panel/Margin/VBox/PotionsHeaderRow"]
 layout_mode = 2
-text = "Trait"
 
 [node name="Sort" type="Button" parent="Panel/Margin/VBox/PotionsHeaderRow"]
 layout_mode = 2
 text = "A-Z"
 
-[node name="Potions" type="GridContainer" parent="Panel/Margin/VBox"]
+[node name="PotionsScroll" type="ScrollContainer" parent="Panel/Margin/VBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="Potions" type="GridContainer" parent="Panel/Margin/VBox/PotionsScroll"]
 custom_minimum_size = Vector2(0, 100)
 layout_mode = 2
 size_flags_horizontal = 3
+size_flags_vertical = 0
 theme_override_constants/h_separation = 10
 theme_override_constants/v_separation = 10
 columns = 3
@@ -105,15 +109,20 @@ text = "Clear"
 
 [node name="TraitFilter" type="OptionButton" parent="Panel/Margin/VBox/IngredientsHeaderRow"]
 layout_mode = 2
-text = "Trait"
 
 [node name="Sort" type="Button" parent="Panel/Margin/VBox/IngredientsHeaderRow"]
 layout_mode = 2
 text = "A-Z"
 
-[node name="Ingredients" type="GridContainer" parent="Panel/Margin/VBox"]
+[node name="IngredientsScroll" type="ScrollContainer" parent="Panel/Margin/VBox"]
 layout_mode = 2
+size_flags_horizontal = 3
 size_flags_vertical = 3
+
+[node name="Ingredients" type="GridContainer" parent="Panel/Margin/VBox/IngredientsScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 0
 theme_override_constants/h_separation = 10
 theme_override_constants/v_separation = 10
 columns = 3
