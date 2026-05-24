@@ -1,4 +1,5 @@
 using Godot;
+using ImGuiGodot;
 using OccultShop.Autoload;
 using OccultShop.Controllers;
 
@@ -22,6 +23,7 @@ public partial class Hud : Control
 	private Button _settingsButton = default!;
 	private Button _returnToMainMenuButton = default!;
 	private Button _saveGameButton = default!;
+	private Button _toggleDebugPanelButton = default!;
 	private Control _saveConfirmationPanel = default!;
 	private Label _saveConfirmationLabel = default!;
 	private Button _saveConfirmationCloseButton = default!;
@@ -92,6 +94,7 @@ public partial class Hud : Control
 		_settingsButton = GetNode<Button>("MainMenu");
 		_returnToMainMenuButton = GetNode<Button>("SettingsPanel/Margin/VBox/ReturnToMainMenu");
 		_saveGameButton = GetNode<Button>("SettingsPanel/Margin/VBox/SaveGame");
+		_toggleDebugPanelButton = GetNode<Button>("SettingsPanel/Margin/VBox/ToggleDebugPanel");
 		_saveConfirmationPanel = GetNode<Control>("SaveConfirmationPanel");
 		_saveConfirmationLabel = GetNode<Label>("SaveConfirmationPanel/Panel/Margin/VBox/Message");
 		_saveConfirmationCloseButton = GetNode<Button>("SaveConfirmationPanel/Panel/Margin/VBox/Close");
@@ -104,10 +107,12 @@ public partial class Hud : Control
 		_settingsButton.Pressed += OnSettingsPressed;
 		_returnToMainMenuButton.Pressed += OnReturnToMainMenuPressed;
 		_saveGameButton.Pressed += OnSaveGamePressed;
+		_toggleDebugPanelButton.Pressed += OnToggleDebugPanelPressed;
 		_saveConfirmationCloseButton.Pressed += HideSaveConfirmation;
 
 		_gameState.Changed += Refresh;
 		_dayController.ShopStateChanged += RefreshShopState;
+		_toggleDebugPanelButton.Text = ImGuiGD.Visible ? "Debug Panel: On" : "Debug Panel: Off";
 		Refresh();
 		RefreshShopState();
 		HideSaveConfirmation();
@@ -133,6 +138,8 @@ public partial class Hud : Control
 			_returnToMainMenuButton.Pressed -= OnReturnToMainMenuPressed;
 		if (_saveGameButton is not null)
 			_saveGameButton.Pressed -= OnSaveGamePressed;
+		if (_toggleDebugPanelButton is not null)
+			_toggleDebugPanelButton.Pressed -= OnToggleDebugPanelPressed;
 		if (_saveConfirmationCloseButton is not null)
 			_saveConfirmationCloseButton.Pressed -= HideSaveConfirmation;
 	}
@@ -206,6 +213,12 @@ public partial class Hud : Control
 		}
 
 		ShowSaveConfirmation("Game saved successfully.");
+	}
+
+	private void OnToggleDebugPanelPressed()
+	{
+		ImGuiGD.Visible = !ImGuiGD.Visible;
+		_toggleDebugPanelButton.Text = ImGuiGD.Visible ? "Debug Panel: On" : "Debug Panel: Off";
 	}
 
 	private void ShowSaveConfirmation(string message)

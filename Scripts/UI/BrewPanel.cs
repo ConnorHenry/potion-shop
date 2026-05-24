@@ -407,7 +407,7 @@ public partial class BrewPanel : Control
 	private void RefreshBrewPreview()
 	{
 		var totalIngredientPrice = CalculateIngredientTotalPrice(_queuedIngredients);
-		_pricePreviewLabel.Text = $"Price - £{totalIngredientPrice}";
+		_pricePreviewLabel.Text = $"Sell Price - £{totalIngredientPrice}";
 
 		if (_queuedIngredients.Count == 0)
 		{

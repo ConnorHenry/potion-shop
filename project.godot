@@ -20,6 +20,7 @@ DataDb="*res://Scripts/Autoload/DataDb.cs"
 RuntimeContentDb="*res://Scripts/Autoload/RuntimeContentDb.cs"
 GameState="*res://Scripts/Autoload/GameState.cs"
 SaveGameManager="*res://Scripts/Autoload/SaveGameManager.cs"
+ImGuiRoot="*res://addons/imgui-godot/data/ImGuiRoot.tscn"
 
 [display]
 
@@ -30,3 +31,7 @@ window/size/mode=2
 [dotnet]
 
 project/assembly_name="OccultShop"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/imgui-godot/plugin.cfg")

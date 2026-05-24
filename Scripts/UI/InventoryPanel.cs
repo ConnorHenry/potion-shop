@@ -541,7 +541,7 @@ public partial class InventoryPanel : Control
 
 		_itemDetailImage.Texture = LoadIcon(item.IconPath);
 		_itemDetailName.Text = DisplayName(_currentItemId, item.Name);
-		_itemDetailPrice.Text = $"Price - £{GetItemPrice(_currentItemId, item)}";
+		_itemDetailPrice.Text = $"Sell Price - £{GetItemPrice(_currentItemId, item)}";
 		_itemDetailTraits.Text = FormatTopTraits(item.Traits, 3);
 		_itemDetailRisks.Text = FormatDictionary(item.Risks);
 		_itemDetailDescription.Text = IsPotion(_currentItemId)

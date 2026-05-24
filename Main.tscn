@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3 uid="uid://dcy7kc8w8kugi"]
+[gd_scene load_steps=6 format=3 uid="uid://dcy7kc8w8kugi"]
 
 [ext_resource type="Script" uid="uid://cmifnnvj2qr85" path="res://Scripts/Controllers/DayController.cs" id="3_1k1a3"]
 [ext_resource type="Script" uid="uid://c3ghssq14vnvq" path="res://Scripts/Controllers/EventController.cs" id="4_7w4xk"]
 [ext_resource type="Script" uid="uid://bad57hhje5lgo" path="res://Scripts/Controllers/CustomerEventController.cs" id="7_07l3o"]
 [ext_resource type="PackedScene" uid="uid://4hripc13we86" path="res://Scenes/UI/GameUi.tscn" id="8_gameui"]
+[ext_resource type="Script" path="res://Scripts/Debug/RuntimeDebugImGui.cs" id="9_debug"]
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -29,5 +30,8 @@ CustomerPanelPath = NodePath("../CanvasLayer/CustomerPanel")
 BrewPanelPath = NodePath("../CanvasLayer/BrewPanel")
 RecipeBookPanelPath = NodePath("../CanvasLayer/RecipeBookPanel")
 DaySummaryPanelPath = NodePath("../CanvasLayer/DaySummaryPanel")
+
+[node name="RuntimeDebugImGui" type="Node" parent="."]
+script = ExtResource("9_debug")
 
 [node name="CanvasLayer" parent="." instance=ExtResource("8_gameui")]

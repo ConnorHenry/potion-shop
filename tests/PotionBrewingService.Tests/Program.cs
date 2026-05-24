@@ -446,9 +446,7 @@ static class Program
     private static void TestInventoryPanelSplitInventoryName()
     {
         var type = GetTypeFromUiAssembly("OccultShop.UI.InventoryPanel");
-        var method = type.GetMethod("SplitInventoryName", BindingFlags.NonPublic | BindingFlags.Static)
-            ?? throw new InvalidOperationException("Missing method InventoryPanel.SplitInventoryName.");
-
+        var method = type.GetMethod("SplitInventoryName", BindingFlags.NonPublic | BindingFlags.Static);
         var splitArgs = new object?[] { "Moon Dust", null, null };
         method.Invoke(null, splitArgs);
         AssertEqual("Split first line", "Moon", splitArgs[1] as string ?? string.Empty);
