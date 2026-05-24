@@ -9,6 +9,11 @@ namespace OccultShop.UI;
 
 public partial class CustomerPanel : Control
 {
+	[Signal]
+	public delegate void SaleResolvedEventHandler(bool success, int goldDelta, int dreadDelta, float finalScore, string grade);
+
+	public bool SuppressSaleResultPanel { get; set; }
+
 	[Export] public NodePath TitlePath = default!;
 	[Export] public NodePath PortraitPath = default!;
 	[Export] public NodePath DesiredTraitsPath = default!;
@@ -142,8 +147,33 @@ public partial class CustomerPanel : Control
 		var itemId = _pendingItemId;
 		_pendingItemId = null;
 		_confirmDialog.Hide();
-		ApplySale(itemId, brewResult);
+		var saleResult = ApplySale(itemId, brewResult);
+
+		if (SuppressSaleResultPanel)
+		{
+			_interaction = null;
+			Visible = false;
+			GameState.ClearActiveCustomerRequest();
+			HideSaleResult();
+
+			EmitSignal(
+				SignalName.SaleResolved,
+				saleResult.IsSuccess,
+				saleResult.GoldDelta,
+				saleResult.DreadDelta,
+				brewResult.FinalScore,
+				brewResult.Grade);
+			return;
+		}
+
 		ShowSaleResult(itemId, brewResult);
+		EmitSignal(
+			SignalName.SaleResolved,
+			saleResult.IsSuccess,
+			saleResult.GoldDelta,
+			saleResult.DreadDelta,
+			brewResult.FinalScore,
+			brewResult.Grade);
 	}
 
 	private bool TryResolvePotionScore(string itemId, out PotionResult? brewResult)
@@ -199,22 +229,17 @@ public partial class CustomerPanel : Control
 		};
 	}
 
-	private void ApplySale(string itemId, PotionResult brewResult)
+	private (bool IsSuccess, int GoldDelta, int DreadDelta) ApplySale(string itemId, PotionResult brewResult)
 	{
 		var isSuccess = brewResult.FinalScore >= SuccessScoreThreshold;
+		var goldDelta = isSuccess ? SuccessGoldGain : FailureGoldGain;
+		var dreadDelta = isSuccess ? SuccessDreadChange : FailureDreadChange;
 
-		if (isSuccess)
-		{
-			GameState.AddGold(SuccessGoldGain);
-			GameState.AddDread(SuccessDreadChange);
-		}
-		else
-		{
-			GameState.AddGold(FailureGoldGain);
-			GameState.AddDread(FailureDreadChange);
-		}
+		GameState.AddGold(goldDelta);
+		GameState.AddDread(dreadDelta);
 
 		GameState.ConsumeItem(itemId, 1);
+		return (isSuccess, goldDelta, dreadDelta);
 	}
 
 	private void ShowSaleResult(string itemId, PotionResult brewResult)

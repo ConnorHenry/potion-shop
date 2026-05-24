@@ -228,11 +228,11 @@ public partial class BrewPanel : Control
 			potionItemId = $"brew_{GameState.PotionDisplayNames.Count + 1}";
 			var iconPath = ResolvePotionIconPath();
 			var description = BuildPotionDescription(_queuedIngredients, brewResult);
+			var basePrice = CalculatePotionBasePrice(brewCost, brewResult);
 
 			RuntimeContentDb.RegisterRuntimePotionItem(
 				potionItemId,
 				randomName,
-				description,
 				iconPath,
 				potionBasePrice,
 				brewResult.IngredientQualityScore,
@@ -544,11 +544,6 @@ public partial class BrewPanel : Control
 		}
 
 		return Math.Max(0, totalPrice);
-	}
-
-	private string BuildPotionDescription(IReadOnlyList<string> ingredientIds, PotionResult brewResult)
-	{
-		return "A brewed potion discovered from:";
 	}
 
 	private string ResolvePotionIconPath()

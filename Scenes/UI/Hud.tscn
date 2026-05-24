@@ -14,6 +14,7 @@ script = ExtResource("1_khu2m")
 GoldLabelPath = NodePath("Gold")
 DreadLabelPath = NodePath("Dread")
 DayLabelPath = NodePath("Day")
+ShopTimerLabelPath = NodePath("ShopTimer")
 
 [node name="Gold" type="Label" parent="."]
 layout_mode = 0
@@ -35,6 +36,14 @@ offset_right = 156.0
 offset_bottom = 76.0
 text = "Day:"
 
+[node name="ShopTimer" type="Label" parent="."]
+layout_mode = 0
+offset_left = 164.0
+offset_top = 52.0
+offset_right = 384.0
+offset_bottom = 76.0
+text = "Shop Timer:"
+
 [node name="EndDay" type="Button" parent="."]
 layout_mode = 0
 offset_left = 460.0
@@ -47,7 +56,7 @@ layout_mode = 0
 offset_left = 580.0
 offset_right = 710.0
 offset_bottom = 40.0
-text = "Serve Customer"
+text = "Start Day"
 
 [node name="BrewPotion" type="Button" parent="."]
 layout_mode = 0
