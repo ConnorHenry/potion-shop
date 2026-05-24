@@ -1,7 +1,9 @@
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace OccultShop.Models;
 
+[JsonConverter(typeof(ItemDefJsonConverter))]
 public sealed class ItemDef
 {
     public string Id { get; set; } = "";

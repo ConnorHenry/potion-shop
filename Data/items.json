@@ -5,6 +5,7 @@
 	"iconPath": "res://Assets/Items/mandrake_root.svg",
 	"description": "A rare mushroom that only grows in the light of a full moon. Said to have mild sedative properties and a faintly luminescent quality.",
 	"quality": 85,
+	"price": 14,
 	"traits": {
 	  "sleep": 4,
 	  "dream": 3,
@@ -21,6 +22,7 @@
 	"iconPath": "res://Assets/Items/henbane_leaf.svg",
 	"description": "A hardy mint that grows in graveyards and other places touched by death. It has a refreshing aroma and a bitter, earthy flavor.",
 	"quality": 70,
+	"price": 7,
 	"traits": {
 	  "calm": 4,
 	  "memory": 2,
@@ -37,6 +39,7 @@
 	"iconPath": "res://Assets/Items/black_candle.svg",
 	"description": "A viscous, tar-like substance that seeps from the wounds of certain cursed creatures. It is highly toxic and has a corrupting influence on those who handle it.",
 	"quality": 95,
+	"price": 19,
 	"traits": {
 	  "power": 5,
 	  "confidence": 5,
@@ -54,6 +57,7 @@
 	"iconPath": "res://Assets/Items/bone_charm.svg",
 	"description": "A fine ash made from burned lavender flowers. It has a soothing scent and is often used in calming rituals and sleep aids.",
 	"quality": 80,
+	"price": 10,
 	"traits": {
 	  "relaxation": 3,
 	  "gentle": 3,
@@ -70,6 +74,7 @@
 	"iconPath": "res://Assets/Items/myrrh_resin.svg",
 	"description": "A glossy, pitch-dark resin that hardens in moonless air. Brewers prize it for binding volatile mixtures into stable tinctures.",
 	"quality": 88,
+	"price": 16,
 	"traits": {
 	  "obsidian": 4,
 	  "resin": 3,
@@ -86,6 +91,7 @@
 	"iconPath": "res://Assets/Items/amber_nightshade.svg",
 	"description": "A poisonous nightshade blossom sealed in honey-colored sap. Its warm scent lingers in the mind and draws out vivid nocturnal reveries.",
 	"quality": 84,
+	"price": 12,
 	"traits": {
 	  "amber": 4,
 	  "dream": 3,
@@ -102,6 +108,7 @@
 	"iconPath": "res://Assets/Items/silver_thorn_bloom.svg",
 	"description": "A pale flower with needle-fine petals that glint like silver in dusk light. Distillers value it for sharp clarity and wakeful focus.",
 	"quality": 82,
+	"price": 9,
 	"traits": {
 	  "silver": 4,
 	  "thorn": 3,
@@ -118,6 +125,7 @@
 	"iconPath": "res://Assets/Items/moonwhisper_orchid.svg",
 	"description": "A dusk-bloom orchid whose petals shimmer pale blue under moonlight. Its fragrance soothes the mind while coaxing vivid dreams.",
 	"quality": 86,
+	"price": 18,
 	"traits": {
 	  "moon": 4,
 	  "whisper": 3,
@@ -134,6 +142,7 @@
 	"iconPath": "res://Assets/Items/raven_ash_peony.svg",
 	"description": "A smoke-dark peony harvested from old funeral grounds. When crushed, it releases a soft gray ash that steadies trembling hands.",
 	"quality": 79,
+	"price": 6,
 	"traits": {
 	  "raven": 4,
 	  "ash": 3,
@@ -150,6 +159,7 @@
 	"iconPath": "res://Assets/Items/iron_lullaby_root.svg",
 	"description": "A knotted root with a hard metallic skin and a strangely comforting scent. Brewers grate it into tonics meant to quiet panic and blunt pain.",
 	"quality": 83,
+	"price": 11,
 	"traits": {
 	  "iron": 4,
 	  "lullaby": 3,
@@ -166,6 +176,7 @@
 	"iconPath": "res://Assets/Items/mercury_vision_resin.svg",
 	"description": "A quicksilver resin sealed in a glassy skin. It glows faintly in darkness and is used to sharpen sight, though it can unsettle the body.",
 	"quality": 91,
+	"price": 20,
 	"traits": {
 	  "mercury": 4,
 	  "vision": 3,
@@ -182,6 +193,7 @@
 	"iconPath": "res://Assets/Items/hallowed_balm_leaf.svg",
 	"description": "A blessed balm leaf that carries the faint scent of incense and rain. It is dried for restorative salves and rites of protection.",
 	"quality": 87,
+	"price": 8,
 	"traits": {
 	  "hallowed": 4,
 	  "balm": 3,

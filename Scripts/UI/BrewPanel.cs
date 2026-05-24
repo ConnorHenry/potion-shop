@@ -10,179 +10,186 @@ namespace OccultShop.UI;
 
 public partial class BrewPanel : Control
 {
-    private const string DefaultPotionIconPath = "res://Assets/Items/sight_tonic.svg";
-    private const string PotionIconsDirectoryPath = "res://Assets/Potions";
-    private const int BrewedPotionOutputQuantity = 1;
+	private const string DefaultPotionIconPath = "res://Assets/Items/sight_tonic.svg";
+	private const string PotionIconsDirectoryPath = "res://Assets/Potions";
+	private const int BrewedPotionOutputQuantity = 1;
 
-    [Export] public NodePath CloseButtonPath = default!;
-    [Export] public NodePath BrewBoxPath = default!;
-    [Export] public NodePath IngredientSlotOnePath = default!;
-    [Export] public NodePath IngredientSlotTwoPath = default!;
-    [Export] public NodePath IngredientSlotThreePath = default!;
-    [Export] public NodePath IngredientSlotOneContainerPath = default!;
-    [Export] public NodePath IngredientSlotTwoContainerPath = default!;
-    [Export] public NodePath IngredientSlotThreeContainerPath = default!;
-    [Export] public NodePath IngredientSlotOneLabelPath = default!;
-    [Export] public NodePath IngredientSlotTwoLabelPath = default!;
-    [Export] public NodePath IngredientSlotThreeLabelPath = default!;
-    [Export] public NodePath ResultLabelPath = default!;
-    [Export] public NodePath TraitPreviewLabelPath = default!;
-    [Export] public NodePath RiskPreviewLabelPath = default!;
-    [Export] public NodePath BrewButtonPath = default!;
-    [Export] public NodePath ClearButtonPath = default!;
+	[Export] public NodePath CloseButtonPath = default!;
+	[Export] public NodePath BrewBoxPath = default!;
+	[Export] public NodePath IngredientSlotOnePath = default!;
+	[Export] public NodePath IngredientSlotTwoPath = default!;
+	[Export] public NodePath IngredientSlotThreePath = default!;
+	[Export] public NodePath IngredientSlotOneContainerPath = default!;
+	[Export] public NodePath IngredientSlotTwoContainerPath = default!;
+	[Export] public NodePath IngredientSlotThreeContainerPath = default!;
+	[Export] public NodePath IngredientSlotOneLabelPath = default!;
+	[Export] public NodePath IngredientSlotTwoLabelPath = default!;
+	[Export] public NodePath IngredientSlotThreeLabelPath = default!;
+	[Export] public NodePath ResultLabelPath = default!;
+	[Export] public NodePath PricePreviewLabelPath = default!;
+	[Export] public NodePath TraitPreviewLabelPath = default!;
+	[Export] public NodePath RiskPreviewLabelPath = default!;
+	[Export] public NodePath BrewButtonPath = default!;
+	[Export] public NodePath ClearButtonPath = default!;
 
-    private Button _closeButton = default!;
-    private BrewDropBox _brewBox = default!;
-    private TextureRect _ingredientSlotOne = default!;
-    private TextureRect _ingredientSlotTwo = default!;
-    private TextureRect _ingredientSlotThree = default!;
-    private PanelContainer _ingredientSlotOneContainer = default!;
-    private PanelContainer _ingredientSlotTwoContainer = default!;
-    private PanelContainer _ingredientSlotThreeContainer = default!;
-    private Label _ingredientSlotOneLabel = default!;
-    private Label _ingredientSlotTwoLabel = default!;
-    private Label _ingredientSlotThreeLabel = default!;
-    private Label _resultLabel = default!;
-    private Label _traitPreviewLabel = default!;
-    private Label _riskPreviewLabel = default!;
-    private Button _brewButton = default!;
-    private Button _clearButton = default!;
-    private readonly List<string> _queuedIngredients = new();
-    private readonly PotionBrewingService _brewingService = new();
-    private int _draggingSlotIndex = -1;
-    private Vector2 _dragStartGlobalPosition = Vector2.Zero;
-    private bool _slotDragThresholdReached;
+	private Button _closeButton = default!;
+	private BrewDropBox _brewBox = default!;
+	private TextureRect _ingredientSlotOne = default!;
+	private TextureRect _ingredientSlotTwo = default!;
+	private TextureRect _ingredientSlotThree = default!;
+	private PanelContainer _ingredientSlotOneContainer = default!;
+	private PanelContainer _ingredientSlotTwoContainer = default!;
+	private PanelContainer _ingredientSlotThreeContainer = default!;
+	private Label _ingredientSlotOneLabel = default!;
+	private Label _ingredientSlotTwoLabel = default!;
+	private Label _ingredientSlotThreeLabel = default!;
+	private Label _resultLabel = default!;
+	private Label _pricePreviewLabel = default!;
+	private Label _traitPreviewLabel = default!;
+	private Label _riskPreviewLabel = default!;
+	private Button _brewButton = default!;
+	private Button _clearButton = default!;
+	private readonly List<string> _queuedIngredients = new();
+	private readonly PotionBrewingService _brewingService = new();
+	private int _draggingSlotIndex = -1;
+	private Vector2 _dragStartGlobalPosition = Vector2.Zero;
+	private bool _slotDragThresholdReached;
 
-    public override void _Ready()
-    {
-        _closeButton = GetNode<Button>(CloseButtonPath);
-        _brewBox = GetNode<BrewDropBox>(BrewBoxPath);
-        _ingredientSlotOne = GetNode<TextureRect>(IngredientSlotOnePath);
-        _ingredientSlotTwo = GetNode<TextureRect>(IngredientSlotTwoPath);
-        _ingredientSlotThree = GetNode<TextureRect>(IngredientSlotThreePath);
-        _ingredientSlotOneContainer = GetNode<PanelContainer>(IngredientSlotOneContainerPath);
-        _ingredientSlotTwoContainer = GetNode<PanelContainer>(IngredientSlotTwoContainerPath);
-        _ingredientSlotThreeContainer = GetNode<PanelContainer>(IngredientSlotThreeContainerPath);
-        _ingredientSlotOneLabel = GetNode<Label>(IngredientSlotOneLabelPath);
-        _ingredientSlotTwoLabel = GetNode<Label>(IngredientSlotTwoLabelPath);
-        _ingredientSlotThreeLabel = GetNode<Label>(IngredientSlotThreeLabelPath);
-        _resultLabel = GetNode<Label>(ResultLabelPath);
-        _traitPreviewLabel = GetNode<Label>(TraitPreviewLabelPath);
-        _riskPreviewLabel = GetNode<Label>(RiskPreviewLabelPath);
-        _brewButton = GetNode<Button>(BrewButtonPath);
-        _clearButton = GetNode<Button>(ClearButtonPath);
+	public override void _Ready()
+	{
+		_closeButton = GetNode<Button>(CloseButtonPath);
+		_brewBox = GetNode<BrewDropBox>(BrewBoxPath);
+		_ingredientSlotOne = GetNode<TextureRect>(IngredientSlotOnePath);
+		_ingredientSlotTwo = GetNode<TextureRect>(IngredientSlotTwoPath);
+		_ingredientSlotThree = GetNode<TextureRect>(IngredientSlotThreePath);
+		_ingredientSlotOneContainer = GetNode<PanelContainer>(IngredientSlotOneContainerPath);
+		_ingredientSlotTwoContainer = GetNode<PanelContainer>(IngredientSlotTwoContainerPath);
+		_ingredientSlotThreeContainer = GetNode<PanelContainer>(IngredientSlotThreeContainerPath);
+		_ingredientSlotOneLabel = GetNode<Label>(IngredientSlotOneLabelPath);
+		_ingredientSlotTwoLabel = GetNode<Label>(IngredientSlotTwoLabelPath);
+		_ingredientSlotThreeLabel = GetNode<Label>(IngredientSlotThreeLabelPath);
+		_resultLabel = GetNode<Label>(ResultLabelPath);
+		_pricePreviewLabel = GetNode<Label>(PricePreviewLabelPath);
+		_traitPreviewLabel = GetNode<Label>(TraitPreviewLabelPath);
+		_riskPreviewLabel = GetNode<Label>(RiskPreviewLabelPath);
+		_brewButton = GetNode<Button>(BrewButtonPath);
+		_clearButton = GetNode<Button>(ClearButtonPath);
 
-        MouseFilter = MouseFilterEnum.Ignore;
-        _closeButton.Pressed += HidePanel;
-        _brewBox.ItemDropped += TryQueueIngredient;
-        _brewButton.Pressed += TryBrew;
-        _clearButton.Pressed += ClearQueue;
-        _ingredientSlotOneContainer.GuiInput += @event => HandleIngredientSlotGuiInput(0, @event);
-        _ingredientSlotTwoContainer.GuiInput += @event => HandleIngredientSlotGuiInput(1, @event);
-        _ingredientSlotThreeContainer.GuiInput += @event => HandleIngredientSlotGuiInput(2, @event);
-        Visible = false;
-        RefreshIngredientIcons();
-    }
+		SetInteractiveCursor(_ingredientSlotOneContainer);
+		SetInteractiveCursor(_ingredientSlotTwoContainer);
+		SetInteractiveCursor(_ingredientSlotThreeContainer);
 
-    public void Toggle()
-    {
-        Visible = !Visible;
-    }
+		MouseFilter = MouseFilterEnum.Ignore;
+		_closeButton.Pressed += HidePanel;
+		_brewBox.ItemDropped += TryQueueIngredient;
+		_brewButton.Pressed += TryBrew;
+		_clearButton.Pressed += ClearQueue;
+		_ingredientSlotOneContainer.GuiInput += @event => HandleIngredientSlotGuiInput(0, @event);
+		_ingredientSlotTwoContainer.GuiInput += @event => HandleIngredientSlotGuiInput(1, @event);
+		_ingredientSlotThreeContainer.GuiInput += @event => HandleIngredientSlotGuiInput(2, @event);
+		Visible = false;
+		RefreshIngredientIcons();
+	}
 
-    public void HidePanel()
-    {
-        ReturnQueuedIngredients();
-        ResetSlotDragState();
-        Visible = false;
-        _resultLabel.Text = "";
-        RefreshIngredientIcons();
-    }
+	public void Toggle()
+	{
+		Visible = !Visible;
+	}
 
-    public override void _Input(InputEvent @event)
-    {
-        if (!Visible)
-            return;
+	public void HidePanel()
+	{
+		ReturnQueuedIngredients();
+		ResetSlotDragState();
+		Visible = false;
+		_resultLabel.Text = "";
+		RefreshIngredientIcons();
+	}
 
-        if (_draggingSlotIndex < 0)
-            return;
+	public override void _Input(InputEvent @event)
+	{
+		if (!Visible)
+			return;
 
-        if (@event is InputEventMouseMotion mouseMotion)
-        {
-            if (_slotDragThresholdReached)
-                return;
+		if (_draggingSlotIndex < 0)
+			return;
 
-            const float dragThresholdPixels = 8.0f;
-            if (mouseMotion.GlobalPosition.DistanceTo(_dragStartGlobalPosition) >= dragThresholdPixels)
-                _slotDragThresholdReached = true;
+		if (@event is InputEventMouseMotion mouseMotion)
+		{
+			if (_slotDragThresholdReached)
+				return;
 
-            return;
-        }
+			const float dragThresholdPixels = 8.0f;
+			if (mouseMotion.GlobalPosition.DistanceTo(_dragStartGlobalPosition) >= dragThresholdPixels)
+				_slotDragThresholdReached = true;
 
-        if (@event is not InputEventMouseButton mouseButton)
-            return;
+			return;
+		}
 
-        if (mouseButton.ButtonIndex != MouseButton.Left || mouseButton.Pressed)
-            return;
+		if (@event is not InputEventMouseButton mouseButton)
+			return;
 
-        if (_slotDragThresholdReached && !IsPointInsideAnyIngredientSlot(mouseButton.GlobalPosition))
-            RemoveQueuedIngredientAt(_draggingSlotIndex);
+		if (mouseButton.ButtonIndex != MouseButton.Left || mouseButton.Pressed)
+			return;
 
-        ResetSlotDragState();
-    }
+		if (_slotDragThresholdReached && !IsPointInsideAnyIngredientSlot(mouseButton.GlobalPosition))
+			RemoveQueuedIngredientAt(_draggingSlotIndex);
 
-    public void TryQueueIngredient(string itemId)
-    {
-        if (!ItemCatalog.TryGetItem(itemId, out var item))
-        {
-            _resultLabel.Text = "That item is not recognized.";
-            return;
-        }
+		ResetSlotDragState();
+	}
 
-        if (!IsIngredient(item))
-        {
-            _resultLabel.Text = IsPotion(itemId)
-                ? "Brewing only accepts ingredients, not potions."
-                : "Brewing only accepts ingredients.";
-            return;
-        }
+	public void TryQueueIngredient(string itemId)
+	{
+		if (!ItemCatalog.TryGetItem(itemId, out var item))
+		{
+			_resultLabel.Text = "That item is not recognized.";
+			return;
+		}
 
-        if (_queuedIngredients.Any(x => string.Equals(x, itemId, System.StringComparison.OrdinalIgnoreCase)))
-        {
-            _resultLabel.Text = "Each ingredient can only be used once per potion.";
-            return;
-        }
+		if (!IsIngredient(item))
+		{
+			_resultLabel.Text = IsPotion(itemId)
+				? "Brewing only accepts ingredients, not potions."
+				: "Brewing only accepts ingredients.";
+			return;
+		}
 
-        if (_queuedIngredients.Count >= 3)
-        {
-            _resultLabel.Text = "Brewing requires exactly 3 ingredients.";
-            return;
-        }
+		if (_queuedIngredients.Any(x => string.Equals(x, itemId, System.StringComparison.OrdinalIgnoreCase)))
+		{
+			_resultLabel.Text = "Each ingredient can only be used once per potion.";
+			return;
+		}
 
-        if (!GameState.HasItem(itemId, 1))
-        {
-            _resultLabel.Text = "Not enough stock for that ingredient.";
-            return;
-        }
+		if (_queuedIngredients.Count >= 3)
+		{
+			_resultLabel.Text = "Brewing requires exactly 3 ingredients.";
+			return;
+		}
 
-        if (!GameState.ConsumeItem(itemId, 1))
-        {
-            _resultLabel.Text = "Could not take that ingredient.";
-            return;
-        }
+		if (!GameState.HasItem(itemId, 1))
+		{
+			_resultLabel.Text = "Not enough stock for that ingredient.";
+			return;
+		}
 
-        _queuedIngredients.Add(itemId);
-        _resultLabel.Text = "";
-        RefreshIngredientIcons();
-    }
+		if (!GameState.ConsumeItem(itemId, 1))
+		{
+			_resultLabel.Text = "Could not take that ingredient.";
+			return;
+		}
 
-    private void ClearQueue()
-    {
-        ResetSlotDragState();
-        ReturnQueuedIngredients();
-        _queuedIngredients.Clear();
-        _resultLabel.Text = "";
-        RefreshIngredientIcons();
-    }
+		_queuedIngredients.Add(itemId);
+		_resultLabel.Text = "";
+		RefreshIngredientIcons();
+	}
+
+	private void ClearQueue()
+	{
+		ResetSlotDragState();
+		ReturnQueuedIngredients();
+		_queuedIngredients.Clear();
+		_resultLabel.Text = "";
+		RefreshIngredientIcons();
+	}
 
 	private void TryBrew()
 	{
@@ -203,12 +210,13 @@ public partial class BrewPanel : Control
 			null,
 			DataDb.Synergies.ToList());
 
-		var brewCost = CalculateBrewCost(_queuedIngredients, brewResult);
-        if (GameState.Gold < brewCost)
-        {
-            _resultLabel.Text = $"Need {brewCost} gold to brew this potion.";
-            return;
-        }
+		var potionBasePrice = CalculateIngredientTotalPrice(_queuedIngredients);
+		var brewCost = CalculateBrewCost(potionBasePrice, brewResult);
+		if (GameState.Gold < brewCost)
+		{
+			_resultLabel.Text = $"Need {brewCost} gold to brew this potion.";
+			return;
+		}
 
 		GameState.AddGold(-brewCost);
 
@@ -219,13 +227,14 @@ public partial class BrewPanel : Control
 			var randomName = GeneratePotionName();
 			potionItemId = $"brew_{GameState.PotionDisplayNames.Count + 1}";
 			var iconPath = ResolvePotionIconPath();
+			var description = BuildPotionDescription(_queuedIngredients, brewResult);
 			var basePrice = CalculatePotionBasePrice(brewCost, brewResult);
 
 			RuntimeContentDb.RegisterRuntimePotionItem(
 				potionItemId,
 				randomName,
 				iconPath,
-				basePrice,
+				potionBasePrice,
 				brewResult.IngredientQualityScore,
 				new Dictionary<string, int>(brewResult.Traits),
 				new Dictionary<string, int>(brewResult.Risks));
@@ -234,178 +243,185 @@ public partial class BrewPanel : Control
 			GameState.SetPotionDisplayName(potionItemId, randomName);
 		}
 
+		GameState.RegisterPotionBasePrice(potionItemId, potionBasePrice);
+		if (RuntimeContentDb.TryGetItem(potionItemId, out var storedPotion))
+			storedPotion.BasePrice = potionBasePrice;
+
 		GameState.RecordPotionRecipe(potionItemId, _queuedIngredients);
 		GameState.AddItem(potionItemId, BrewedPotionOutputQuantity);
 		GameState.RecordPotionBatch(potionItemId, _queuedIngredients);
 		_queuedIngredients.Clear();
-        ResetSlotDragState();
+		ResetSlotDragState();
 		RefreshIngredientIcons();
 		_resultLabel.Text = BuildBrewResultText(potionItemId, brewResult);
-    }
+	}
 
-    private void ReturnQueuedIngredients()
-    {
-        foreach (var itemId in _queuedIngredients)
-            GameState.AddItem(itemId, 1);
-    }
+	private void ReturnQueuedIngredients()
+	{
+		foreach (var itemId in _queuedIngredients)
+			GameState.AddItem(itemId, 1);
+	}
 
-    private void HandleIngredientSlotGuiInput(int slotIndex, InputEvent @event)
-    {
-        if (slotIndex < 0 || slotIndex >= _queuedIngredients.Count)
-            return;
+	private void HandleIngredientSlotGuiInput(int slotIndex, InputEvent @event)
+	{
+		if (slotIndex < 0 || slotIndex >= _queuedIngredients.Count)
+			return;
 
-        if (@event is InputEventMouseButton rightMouseButton &&
-            rightMouseButton.ButtonIndex == MouseButton.Right &&
-            rightMouseButton.Pressed)
-        {
-            RemoveQueuedIngredientAt(slotIndex);
-            AcceptEvent();
-            return;
-        }
+		if (@event is InputEventMouseButton rightMouseButton &&
+			rightMouseButton.ButtonIndex == MouseButton.Right &&
+			rightMouseButton.Pressed)
+		{
+			RemoveQueuedIngredientAt(slotIndex);
+			AcceptEvent();
+			return;
+		}
 
-        if (@event is InputEventMouseButton leftMouseButton &&
-            leftMouseButton.ButtonIndex == MouseButton.Left)
-        {
-            if (leftMouseButton.Pressed)
-            {
-                _draggingSlotIndex = slotIndex;
-                _dragStartGlobalPosition = leftMouseButton.GlobalPosition;
-                _slotDragThresholdReached = false;
-            }
-            else
-            {
-                ResetSlotDragState();
-            }
+		if (@event is InputEventMouseButton leftMouseButton &&
+			leftMouseButton.ButtonIndex == MouseButton.Left)
+		{
+			if (leftMouseButton.Pressed)
+			{
+				_draggingSlotIndex = slotIndex;
+				_dragStartGlobalPosition = leftMouseButton.GlobalPosition;
+				_slotDragThresholdReached = false;
+			}
+			else
+			{
+				ResetSlotDragState();
+			}
 
-            AcceptEvent();
-        }
-    }
+			AcceptEvent();
+		}
+	}
 
-    private void RemoveQueuedIngredientAt(int slotIndex)
-    {
-        if (slotIndex < 0 || slotIndex >= _queuedIngredients.Count)
-            return;
+	private void RemoveQueuedIngredientAt(int slotIndex)
+	{
+		if (slotIndex < 0 || slotIndex >= _queuedIngredients.Count)
+			return;
 
-        var removedIngredientId = _queuedIngredients[slotIndex];
-        _queuedIngredients.RemoveAt(slotIndex);
-        GameState.AddItem(removedIngredientId, 1);
-        _resultLabel.Text = "";
-        RefreshIngredientIcons();
-    }
+		var removedIngredientId = _queuedIngredients[slotIndex];
+		_queuedIngredients.RemoveAt(slotIndex);
+		GameState.AddItem(removedIngredientId, 1);
+		_resultLabel.Text = "";
+		RefreshIngredientIcons();
+	}
 
-    private bool IsPointInsideAnyIngredientSlot(Vector2 globalPosition)
-    {
-        return IsPointInsideSlot(_ingredientSlotOneContainer, globalPosition)
-            || IsPointInsideSlot(_ingredientSlotTwoContainer, globalPosition)
-            || IsPointInsideSlot(_ingredientSlotThreeContainer, globalPosition);
-    }
+	private bool IsPointInsideAnyIngredientSlot(Vector2 globalPosition)
+	{
+		return IsPointInsideSlot(_ingredientSlotOneContainer, globalPosition)
+			|| IsPointInsideSlot(_ingredientSlotTwoContainer, globalPosition)
+			|| IsPointInsideSlot(_ingredientSlotThreeContainer, globalPosition);
+	}
 
-    private static bool IsPointInsideSlot(Control slot, Vector2 globalPosition)
-    {
-        return new Rect2(slot.GlobalPosition, slot.Size).HasPoint(globalPosition);
-    }
+	private static bool IsPointInsideSlot(Control slot, Vector2 globalPosition)
+	{
+		return new Rect2(slot.GlobalPosition, slot.Size).HasPoint(globalPosition);
+	}
 
-    private void ResetSlotDragState()
-    {
-        _draggingSlotIndex = -1;
-        _dragStartGlobalPosition = Vector2.Zero;
-        _slotDragThresholdReached = false;
-    }
+	private void ResetSlotDragState()
+	{
+		_draggingSlotIndex = -1;
+		_dragStartGlobalPosition = Vector2.Zero;
+		_slotDragThresholdReached = false;
+	}
 
-    private void RefreshIngredientIcons()
-    {
-        var slots = new[] { _ingredientSlotOne, _ingredientSlotTwo, _ingredientSlotThree };
-        var labels = new[] { _ingredientSlotOneLabel, _ingredientSlotTwoLabel, _ingredientSlotThreeLabel };
+	private void RefreshIngredientIcons()
+	{
+		var slots = new[] { _ingredientSlotOne, _ingredientSlotTwo, _ingredientSlotThree };
+		var labels = new[] { _ingredientSlotOneLabel, _ingredientSlotTwoLabel, _ingredientSlotThreeLabel };
 
-        for (var i = 0; i < slots.Length; i++)
-        {
-            if (i >= _queuedIngredients.Count)
-            {
-                slots[i].Texture = null;
-                labels[i].Text = string.Empty;
-                continue;
-            }
+		for (var i = 0; i < slots.Length; i++)
+		{
+			if (i >= _queuedIngredients.Count)
+			{
+				slots[i].Texture = null;
+				labels[i].Text = string.Empty;
+				continue;
+			}
 
-            var ingredientId = _queuedIngredients[i];
-            if (!ItemCatalog.TryGetItem(ingredientId, out var item))
-            {
-                slots[i].Texture = null;
-                labels[i].Text = string.Empty;
-                continue;
-            }
+			var ingredientId = _queuedIngredients[i];
+			if (!ItemCatalog.TryGetItem(ingredientId, out var item))
+			{
+				slots[i].Texture = null;
+				labels[i].Text = string.Empty;
+				continue;
+			}
 
-            slots[i].Texture = LoadIcon(item.IconPath);
-            labels[i].Text = ItemName(ingredientId);
-        }
+			slots[i].Texture = LoadIcon(item.IconPath);
+			labels[i].Text = ItemName(ingredientId);
+		}
 
-        RefreshBrewPreview();
-    }
+		RefreshBrewPreview();
+	}
 
-    private void RefreshBrewPreview()
-    {
-        if (_queuedIngredients.Count == 0)
-        {
-            _traitPreviewLabel.Text = "Top Traits:\n-";
-            _riskPreviewLabel.Text = "Top Risks:\n-";
-            return;
-        }
+	private void RefreshBrewPreview()
+	{
+		var totalIngredientPrice = CalculateIngredientTotalPrice(_queuedIngredients);
+		_pricePreviewLabel.Text = $"Price - £{totalIngredientPrice}";
 
-        if (!TryBuildIngredientDefs(_queuedIngredients, out var ingredientDefs, out _))
-        {
-            _traitPreviewLabel.Text = "Top Traits:\n-";
-            _riskPreviewLabel.Text = "Top Risks:\n-";
-            return;
-        }
+		if (_queuedIngredients.Count == 0)
+		{
+			_traitPreviewLabel.Text = "Top Traits:\n-";
+			_riskPreviewLabel.Text = "Top Risks:\n-";
+			return;
+		}
 
-        var previewResult = _brewingService.BrewPotion(
-            ingredientDefs,
-            null,
-            DataDb.Synergies.ToList());
+		if (!TryBuildIngredientDefs(_queuedIngredients, out var ingredientDefs, out _))
+		{
+			_traitPreviewLabel.Text = "Top Traits:\n-";
+			_riskPreviewLabel.Text = "Top Risks:\n-";
+			return;
+		}
 
-        _traitPreviewLabel.Text = BuildTopListText("Top Traits", previewResult.Traits, 3);
-        _riskPreviewLabel.Text = BuildTopListText("Top Risks", previewResult.Risks, 2);
-    }
+		var previewResult = _brewingService.BrewPotion(
+			ingredientDefs,
+			null,
+			DataDb.Synergies.ToList());
 
-    private static string BuildTopListText(string title, IReadOnlyDictionary<string, int> values, int maxCount)
-    {
-        if (values.Count == 0)
-            return $"{title}:\n-";
+		_traitPreviewLabel.Text = BuildTopListText("Top Traits", previewResult.Traits, 3);
+		_riskPreviewLabel.Text = BuildTopListText("Top Risks", previewResult.Risks, 2);
+	}
 
-        var lines = values
-            .OrderByDescending(x => x.Value)
-            .ThenBy(x => x.Key)
-            .Take(maxCount)
-            .Select(x => $"{x.Key} {x.Value}")
-            .ToList();
+	private static string BuildTopListText(string title, IReadOnlyDictionary<string, int> values, int maxCount)
+	{
+		if (values.Count == 0)
+			return $"{title}:\n-";
 
-        if (lines.Count == 0)
-            return $"{title}:\n-";
+		var lines = values
+			.OrderByDescending(x => x.Value)
+			.ThenBy(x => x.Key)
+			.Take(maxCount)
+			.Select(x => $"{x.Key} {x.Value}")
+			.ToList();
 
-        return $"{title}:\n{string.Join("\n", lines)}";
-    }
+		if (lines.Count == 0)
+			return $"{title}:\n-";
 
-    private static Texture2D? LoadIcon(string? iconPath)
-    {
-        if (string.IsNullOrWhiteSpace(iconPath))
-            return null;
+		return $"{title}:\n{string.Join("\n", lines)}";
+	}
 
-        return ResourceLoader.Load<Texture2D>(iconPath);
-    }
+	private static Texture2D? LoadIcon(string? iconPath)
+	{
+		if (string.IsNullOrWhiteSpace(iconPath))
+			return null;
+
+		return ResourceLoader.Load<Texture2D>(iconPath);
+	}
+
+	private static void SetInteractiveCursor(Control control)
+	{
+		control.MouseDefaultCursorShape = CursorShape.PointingHand;
+	}
 
 	private string FormatIngredientSummary(IEnumerable<string> ingredientIds)
 	{
-		var grouped = ingredientIds
-			.GroupBy(x => x)
-			.OrderBy(g => ItemName(g.Key))
-			.Select(g => $"{ItemName(g.Key)} x{g.Count()}");
-
-		return string.Join("\n", grouped);
+		return string.Join(", ", _queuedIngredients.Select(ItemName));
 	}
 
-    private string ItemName(string itemId)
-    {
-        return PotionDisplayName(itemId, DefaultItemName(itemId));
-    }
+	private string ItemName(string itemId)
+	{
+		return PotionDisplayName(itemId, DefaultItemName(itemId));
+	}
 
 	private string PotionDisplayName(string itemId, string fallbackName)
 	{
@@ -439,20 +455,20 @@ public partial class BrewPanel : Control
 		var prefixes = new[]
 		{
 			"Moon", "Velvet", "Ashen", "Gilded", "Silent", "Waking", "Hollow", "Duskwind", "Ivory", "Sable",
-            "Grave", "Blood", "Fever", "Widow", "Saint", "Witch", "Mournful", "Whispering", "Buried", "Forgotten",
-            "Crimson", "Silver", "Pale", "Black", "Honeyed", "Thorn", "Lantern", "Raven", "Serpent", "Spider",
-            "Cursed", "Hallowed", "Profane", "Restless", "Lucid", "Delirious", "Withered", "Blooming", "Frozen", "Burning",
-            "Marrow", "Salt", "Iron", "Mercury", "Obsidian", "Amber", "Violet", "Opal", "Spectral", "Haunted"
+			"Grave", "Blood", "Fever", "Widow", "Saint", "Witch", "Mournful", "Whispering", "Buried", "Forgotten",
+			"Crimson", "Silver", "Pale", "Black", "Honeyed", "Thorn", "Lantern", "Raven", "Serpent", "Spider",
+			"Cursed", "Hallowed", "Profane", "Restless", "Lucid", "Delirious", "Withered", "Blooming", "Frozen", "Burning",
+			"Marrow", "Salt", "Iron", "Mercury", "Obsidian", "Amber", "Violet", "Opal", "Spectral", "Haunted"
 		};
 
 		var suffixes = new[]
 		{
 			"Draught", "Tonic", "Elixir", "Brew", "Vial", "Concoction", "Essence", "Infusion", "Philter",
-            "Serum", "Mixture", "Distillate", "Extract", "Syrup", "Remedy", "Cordial", "Tincture", "Decoction",
-            "Salve", "Balm", "Oil", "Poultice", "Powder", "Salt", "Ash", "Dust", "Resin", "Venom", "Ichor",
-            "Phial", "Ampoule", "Flask", "Mist", "Vapour", "Smoke", "Fume", "Charm", "Hex", "Curse",
-            "Blessing", "Rite", "Offering", "Relic", "Memory", "Dream", "Vision", "Whisper", "Lullaby",
-            "Confession", "Mercy", "Fever", "Shiver", "Rot", "Binding", "Release", "Awakening"
+			"Serum", "Mixture", "Distillate", "Extract", "Syrup", "Remedy", "Cordial", "Tincture", "Decoction",
+			"Salve", "Balm", "Oil", "Poultice", "Powder", "Salt", "Ash", "Dust", "Resin", "Venom", "Ichor",
+			"Phial", "Ampoule", "Flask", "Mist", "Vapour", "Smoke", "Fume", "Charm", "Hex", "Curse",
+			"Blessing", "Rite", "Offering", "Relic", "Memory", "Dream", "Vision", "Whisper", "Lullaby",
+			"Confession", "Mercy", "Fever", "Shiver", "Rot", "Binding", "Release", "Awakening"
 		};
 
 		for (var i = 0; i < 12; i++)
@@ -508,27 +524,26 @@ public partial class BrewPanel : Control
 		return string.Join("\n", lines);
 	}
 
-	private int CalculateBrewCost(IReadOnlyList<string> ingredientIds, PotionResult brewResult)
+	private int CalculateBrewCost(int totalIngredientPrice, PotionResult brewResult)
 	{
-		var totalBasePrice = 0;
+		var qualityBonus = Math.Max(0, brewResult.IngredientQualityScore - 50) / 10;
+		var rawCost = (int)MathF.Round((totalIngredientPrice * 0.30f) + qualityBonus);
+		return Math.Max(5, rawCost);
+	}
+
+	private static int CalculateIngredientTotalPrice(IReadOnlyList<string> ingredientIds)
+	{
+		var totalPrice = 0;
 
 		foreach (var itemId in ingredientIds)
 		{
 			if (!ItemCatalog.TryGetItem(itemId, out var item))
 				continue;
 
-			totalBasePrice += Math.Max(1, item.BasePrice);
+			totalPrice += Math.Max(0, item.BasePrice);
 		}
 
-		var qualityBonus = Math.Max(0, brewResult.IngredientQualityScore - 50) / 10;
-		var rawCost = (int)MathF.Round((totalBasePrice * 0.30f) + qualityBonus);
-		return Math.Max(5, rawCost);
-	}
-
-	private static int CalculatePotionBasePrice(int brewCost, PotionResult brewResult)
-	{
-		var qualityBonus = Math.Max(0, brewResult.IngredientQualityScore - 50);
-		return Math.Max(1, (brewCost * 2) + qualityBonus);
+		return Math.Max(0, totalPrice);
 	}
 
 	private string ResolvePotionIconPath()
@@ -584,7 +599,7 @@ public partial class BrewPanel : Control
 				Traits = new Dictionary<string, int>(item.Traits),
 				Risks = new Dictionary<string, int>(item.Risks),
 				Tags = [.. item.Tags]
-            };
+			};
 
 			ingredients.Add(ingredient);
 		}
@@ -593,7 +608,7 @@ public partial class BrewPanel : Control
 		return true;
 	}
 
-    private RuntimeContentDb RuntimeContentDb => GetTree().Root.GetNode<RuntimeContentDb>("/root/RuntimeContentDb");
-    private DataDb DataDb => GetTree().Root.GetNode<DataDb>("/root/DataDb");
-    private GameState GameState => GetTree().Root.GetNode<GameState>("/root/GameState");
+	private RuntimeContentDb RuntimeContentDb => GetTree().Root.GetNode<RuntimeContentDb>("/root/RuntimeContentDb");
+	private DataDb DataDb => GetTree().Root.GetNode<DataDb>("/root/DataDb");
+	private GameState GameState => GetTree().Root.GetNode<GameState>("/root/GameState");
 }

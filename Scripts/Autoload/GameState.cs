@@ -18,6 +18,7 @@ public partial class GameState : Node
 	public HashSet<string> ActiveRules { get; } = new();
 	public HashSet<string> KnownPotions { get; } = new();
 	public Dictionary<string, string> PotionDisplayNames { get; } = new(StringComparer.OrdinalIgnoreCase);
+	private readonly Dictionary<string, int> _potionBasePrices = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Dictionary<string, List<string>> _potionRecipes = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Dictionary<string, string> _combinationPotionItems = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Dictionary<string, Queue<List<string>>> _potionBatches = new(StringComparer.OrdinalIgnoreCase);
@@ -39,6 +40,7 @@ public partial class GameState : Node
 		ActiveRules.Clear();
 		KnownPotions.Clear();
 		PotionDisplayNames.Clear();
+		_potionBasePrices.Clear();
 		_potionRecipes.Clear();
 		_combinationPotionItems.Clear();
 		_potionBatches.Clear();
@@ -59,6 +61,7 @@ public partial class GameState : Node
 			ActiveRules = ActiveRules.ToList(),
 			KnownPotions = KnownPotions.ToList(),
 			PotionDisplayNames = new Dictionary<string, string>(PotionDisplayNames, StringComparer.OrdinalIgnoreCase),
+			PotionBasePrices = new Dictionary<string, int>(_potionBasePrices, StringComparer.OrdinalIgnoreCase),
 			PotionRecipes = ClonePotionRecipes(),
 			CombinationPotionItems = new Dictionary<string, string>(_combinationPotionItems, StringComparer.OrdinalIgnoreCase),
 			PotionBatches = ClonePotionBatches(),
@@ -121,6 +124,18 @@ public partial class GameState : Node
 					continue;
 
 				PotionDisplayNames[pair.Key] = pair.Value;
+			}
+		}
+
+		_potionBasePrices.Clear();
+		if (snapshot.PotionBasePrices is not null)
+		{
+			foreach (var pair in snapshot.PotionBasePrices)
+			{
+				if (string.IsNullOrWhiteSpace(pair.Key) || pair.Value < 0)
+					continue;
+
+				_potionBasePrices[pair.Key] = pair.Value;
 			}
 		}
 
@@ -257,6 +272,23 @@ public partial class GameState : Node
 
 		PotionDisplayNames[potionId] = displayName;
 		EmitChanged();
+	}
+
+	public void RegisterPotionBasePrice(string potionId, int basePrice)
+	{
+		if (string.IsNullOrWhiteSpace(potionId) || basePrice < 0)
+			return;
+
+		if (_potionBasePrices.ContainsKey(potionId))
+			return;
+
+		_potionBasePrices[potionId] = basePrice;
+		EmitChanged();
+	}
+
+	public bool TryGetPotionBasePrice(string potionId, out int basePrice)
+	{
+		return _potionBasePrices.TryGetValue(potionId, out basePrice);
 	}
 
 	public string? GetPotionDisplayName(string potionId)

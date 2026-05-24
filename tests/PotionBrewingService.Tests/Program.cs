@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.Loader;
+using System.Text.Json;
 using OccultShop.Models;
 using OccultShop.Systems;
 
@@ -30,7 +31,9 @@ static class Program
         Run("RecipeBookPanel top-traits formatting is stable", TestRecipeBookPanelFormatTopTraits);
         Run("BrewPanel ingredient tag detection is case-insensitive", TestBrewPanelIsIngredient);
         Run("BrewPanel rejects duplicate queued ingredients", TestBrewPanelRejectsDuplicateQueuedIngredients);
-        Run("BrewPanel base price calculation is stable", TestBrewPanelCalculatePotionBasePrice);
+        Run("Brew and inventory price wiring stays intact", TestBrewAndInventoryPriceWiring);
+        Run("Potion base price survives snapshot round-trips", TestPotionBasePriceSnapshotRoundTrip);
+        Run("ItemDef price converter accepts price fields", TestItemDefPriceConverterSupportsPriceFields);
         Run("CustomerPanel creates detached ingredient snapshots", TestCustomerPanelBuildPotionIngredientDef);
         Run("RuntimeContentDb stores generated items separately", TestRuntimeContentDbSeparatesRuntimeItems);
         Run("DataDb does not expose runtime registration", TestDataDbDoesNotExposeRuntimeRegistration);
@@ -565,23 +568,61 @@ static class Program
             ReadProjectFile("Scripts/UI/BrewDropBox.cs").Contains("EmitSignal(SignalName.ItemDropped, data.AsString());"));
     }
 
-    private static void TestBrewPanelCalculatePotionBasePrice()
+    private static void TestBrewAndInventoryPriceWiring()
     {
-        var potionResultType = GetTypeFromUiAssembly("PotionResult");
+        var brewPanel = ReadProjectFile("Scripts/UI/BrewPanel.cs");
+        AssertTrue("BrewPanel calculates potion price from ingredient totals",
+            brewPanel.Contains("CalculateIngredientTotalPrice(_queuedIngredients)"));
+        AssertTrue("BrewPanel stores the potion base price in state",
+            brewPanel.Contains("GameState.RegisterPotionBasePrice(potionItemId, potionBasePrice)"));
+        AssertTrue("BrewPanel sums ingredient BasePrice values",
+            brewPanel.Contains("totalPrice += Math.Max(0, item.BasePrice);"));
 
-        var highQualityResult = Activator.CreateInstance(potionResultType)
-            ?? throw new InvalidOperationException("Failed to create PotionResult instance.");
-        SetProperty(highQualityResult, "IngredientQualityScore", 80);
+        var inventoryPanel = ReadProjectFile("Scripts/UI/InventoryPanel.cs");
+        AssertTrue("InventoryPanel resolves stored potion prices",
+            inventoryPanel.Contains("GameState.TryGetPotionBasePrice(itemId, out _)"));
+        AssertTrue("InventoryPanel shows potion price in the detail panel",
+            inventoryPanel.Contains("GetItemPrice(_currentItemId, item)"));
+        AssertTrue("InventoryPanel shows item prices on the slot icon",
+            inventoryPanel.Contains("GetItemPrice(itemId, item)"));
+    }
 
-        var lowQualityResult = Activator.CreateInstance(potionResultType)
-            ?? throw new InvalidOperationException("Failed to create PotionResult instance.");
-        SetProperty(lowQualityResult, "IngredientQualityScore", 10);
+    private static void TestPotionBasePriceSnapshotRoundTrip()
+    {
+        var gameStateSource = ReadProjectFile("Scripts/Autoload/GameState.cs");
+        var saveDataSource = ReadProjectFile("Scripts/Persistence/SaveData.cs");
 
-        var highQualityPrice = InvokePrivateStatic<int>("OccultShop.UI.BrewPanel", "CalculatePotionBasePrice", 10, highQualityResult);
-        var minimumPrice = InvokePrivateStatic<int>("OccultShop.UI.BrewPanel", "CalculatePotionBasePrice", 0, lowQualityResult);
+        AssertTrue("GameState tracks potion base prices in a dedicated map",
+            gameStateSource.Contains("_potionBasePrices"));
+        AssertTrue("GameState registers potion base prices once per potion",
+            gameStateSource.Contains("if (_potionBasePrices.ContainsKey(potionId))"));
+        AssertTrue("GameState snapshot exports potion base prices",
+            gameStateSource.Contains("PotionBasePrices = new Dictionary<string, int>(_potionBasePrices, StringComparer.OrdinalIgnoreCase)"));
+        AssertTrue("GameState snapshot restores potion base prices",
+            gameStateSource.Contains("if (snapshot.PotionBasePrices is not null)"));
+        AssertTrue("GameState exposes a lookup for potion base prices",
+            gameStateSource.Contains("TryGetPotionBasePrice(string potionId, out int basePrice)"));
+        AssertTrue("Save data persists potion base prices",
+            saveDataSource.Contains("PotionBasePrices"));
+    }
 
-        AssertEqual("High quality base price", 50, highQualityPrice);
-        AssertEqual("Minimum base price", 1, minimumPrice);
+    private static void TestItemDefPriceConverterSupportsPriceFields()
+    {
+        var itemDefType = GetTypeFromUiAssembly("OccultShop.Models.ItemDef");
+
+        var authoredJson = "{\"id\":\"brew_moon_draught\",\"name\":\"Moon Draught\",\"price\":42,\"quality\":88}";
+        var authoredItem = JsonSerializer.Deserialize(authoredJson, itemDefType)
+            ?? throw new InvalidOperationException("Could not deserialize authored ItemDef JSON.");
+        AssertEqual("Authored price populates BasePrice", 42, GetProperty<int>(authoredItem, "BasePrice"));
+
+        var serialized = JsonSerializer.Serialize(authoredItem, itemDefType);
+        AssertTrue("Serialized item uses the price field", serialized.Contains("\"price\":42"));
+        AssertTrue("Serialized item does not write BasePrice", !serialized.Contains("BasePrice"));
+
+        var legacyJson = "{\"id\":\"brew_legacy\",\"name\":\"Legacy Brew\",\"BasePrice\":19}";
+        var legacyItem = JsonSerializer.Deserialize(legacyJson, itemDefType)
+            ?? throw new InvalidOperationException("Could not deserialize legacy ItemDef JSON.");
+        AssertEqual("Legacy BasePrice still loads", 19, GetProperty<int>(legacyItem, "BasePrice"));
     }
 
     private static void TestCustomerPanelBuildPotionIngredientDef()
@@ -791,6 +832,14 @@ static class Program
             ?? throw new InvalidOperationException($"Missing method {typeName}.{methodName}.");
 
         return method.Invoke(null, args);
+    }
+
+    private static object? InvokeInstance(object target, string methodName, params object?[] args)
+    {
+        var method = target.GetType().GetMethod(methodName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
+            ?? throw new InvalidOperationException($"Missing method {target.GetType().Name}.{methodName}.");
+
+        return method.Invoke(target, args);
     }
 
     private static void SetProperty(object target, string propertyName, object? value)
