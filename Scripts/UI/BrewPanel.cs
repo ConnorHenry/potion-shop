@@ -72,6 +72,10 @@ public partial class BrewPanel : Control
         _brewButton = GetNode<Button>(BrewButtonPath);
         _clearButton = GetNode<Button>(ClearButtonPath);
 
+        SetInteractiveCursor(_ingredientSlotOneContainer);
+        SetInteractiveCursor(_ingredientSlotTwoContainer);
+        SetInteractiveCursor(_ingredientSlotThreeContainer);
+
         MouseFilter = MouseFilterEnum.Ignore;
         _closeButton.Pressed += HidePanel;
         _brewBox.ItemDropped += TryQueueIngredient;
@@ -392,6 +396,11 @@ public partial class BrewPanel : Control
             return null;
 
         return ResourceLoader.Load<Texture2D>(iconPath);
+    }
+
+    private static void SetInteractiveCursor(Control control)
+    {
+        control.MouseDefaultCursorShape = CursorShape.PointingHand;
     }
 
 	private string FormatIngredientSummary(IEnumerable<string> ingredientIds)

@@ -17,6 +17,11 @@ public partial class InventoryItemSlot : Button
 
 	private bool _dragStarted;
 
+	public override void _Ready()
+	{
+		MouseDefaultCursorShape = CursorShape.PointingHand;
+	}
+
 	public override Variant _GetDragData(Vector2 atPosition)
 	{
 		if (string.IsNullOrWhiteSpace(IconPath))

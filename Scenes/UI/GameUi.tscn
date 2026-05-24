@@ -16,6 +16,8 @@
 [node name="Hud" parent="." instance=ExtResource("1_hud")]
 
 [node name="InventoryPanel" parent="." instance=ExtResource("5_invp")]
+PotionsTraitFilterPath = null
+PotionsClearFilterButtonPath = null
 
 [node name="InventoryItemDetail" type="Control" parent="."]
 layout_mode = 3
