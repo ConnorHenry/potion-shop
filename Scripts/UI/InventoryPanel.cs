@@ -230,7 +230,7 @@ public partial class InventoryPanel : Control
 
 		if (!string.IsNullOrWhiteSpace(_activePotionTraitFilter))
 		{
-			potionStacksToRender = potionStacks.Where(stack => ItemHasTrait(stack.Key, _activePotionTraitFilter)).ToList();
+			potionStacksToRender = potionStacks.Where(stack => ItemHasTopTrait(stack.Key, _activePotionTraitFilter, 3)).ToList();
 		}
 		if (!string.IsNullOrWhiteSpace(_activePotionRiskFilter))
 		{
@@ -502,6 +502,27 @@ public partial class InventoryPanel : Control
 				continue;
 
 			return trait.Value > 0;
+		}
+
+		return false;
+	}
+
+	private static bool ItemHasTopTrait(string itemId, string traitName, int maxCount)
+	{
+		if (!ItemCatalog.TryGetItem(itemId, out var item))
+			return false;
+
+		foreach (var trait in item.Traits
+			.OrderByDescending(x => x.Value)
+			.ThenBy(x => x.Key)
+			.Take(maxCount))
+		{
+			if (!string.Equals(trait.Key, traitName, System.StringComparison.OrdinalIgnoreCase))
+				continue;
+			if (trait.Value <= 0)
+				continue;
+
+			return true;
 		}
 
 		return false;

@@ -511,12 +511,17 @@ public partial class RecipeBookPanel : Control
 		if (!ItemCatalog.TryGetItem(itemId, out var item))
 			return false;
 
-		foreach (var trait in item.Traits)
+		foreach (var trait in item.Traits
+			.OrderByDescending(x => x.Value)
+			.ThenBy(x => x.Key)
+			.Take(3))
 		{
 			if (!string.Equals(trait.Key, traitName, System.StringComparison.OrdinalIgnoreCase))
 				continue;
+			if (trait.Value <= 0)
+				continue;
 
-			return trait.Value > 0;
+			return true;
 		}
 
 		return false;

@@ -120,8 +120,6 @@ DesiredTraitsPath = NodePath("Panel/Margin/VBox/RequestTraits/DesiredColumn/Desi
 BadTraitsPath = NodePath("Panel/Margin/VBox/RequestTraits/BadColumn/BadTraits")
 DialoguePath = NodePath("Panel/Margin/VBox/Dialogue")
 SellDropBoxPath = NodePath("Panel/Margin/VBox/SellDropBox")
-ConfirmDialogPath = NodePath("ConfirmDialog")
-ConfirmDialogLabelPath = NodePath("ConfirmDialog/Margin/Label")
 SaleResultPanelPath = NodePath("../CustomerSaleResultPanel")
 SaleResultTitlePath = NodePath("../CustomerSaleResultPanel/Margin/VBox/Header/Title")
 SaleResultBodyPath = NodePath("../CustomerSaleResultPanel/Margin/VBox/Body")
@@ -221,21 +219,6 @@ layout_mode = 2
 text = "Drop item here"
 horizontal_alignment = 1
 vertical_alignment = 1
-
-[node name="ConfirmDialog" type="ConfirmationDialog" parent="CustomerPanel"]
-title = "Confirm Sale"
-initial_position = 1
-ok_button_text = "Confirm"
-
-[node name="Margin" type="MarginContainer" parent="CustomerPanel/ConfirmDialog"]
-theme_override_constants/margin_left = 14
-theme_override_constants/margin_top = 14
-theme_override_constants/margin_right = 14
-theme_override_constants/margin_bottom = 14
-
-[node name="Label" type="Label" parent="CustomerPanel/ConfirmDialog/Margin"]
-layout_mode = 2
-text = "Confirm sale?"
 
 [node name="CustomerSaleResultPanel" type="PanelContainer" parent="."]
 visible = false

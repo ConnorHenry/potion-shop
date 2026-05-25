@@ -20,8 +20,6 @@ public partial class CustomerPanel : Control
 	[Export] public NodePath BadTraitsPath = default!;
 	[Export] public NodePath DialoguePath = default!;
 	[Export] public NodePath SellDropBoxPath = default!;
-	[Export] public NodePath ConfirmDialogPath = default!;
-	[Export] public NodePath ConfirmDialogLabelPath = default!;
 	[Export] public NodePath SaleResultPanelPath = default!;
 	[Export] public NodePath SaleResultTitlePath = default!;
 	[Export] public NodePath SaleResultBodyPath = default!;
@@ -34,22 +32,17 @@ public partial class CustomerPanel : Control
 	private RichTextLabel _badTraits = default!;
 	private RichTextLabel _dialogue = default!;
 	private CustomerSellDropBox _sellDropBox = default!;
-	private ConfirmationDialog _confirmDialog = default!;
-	private Label _confirmDialogLabel = default!;
 	private Control _saleResultPanel = default!;
 	private Label _saleResultTitle = default!;
 	private RichTextLabel _saleResultBody = default!;
 	private Button _saleResultCloseButton = default!;
 	private Button _closeButton = default!;
 	private CustomerInteractionDef? _interaction;
-	private string? _pendingItemId;
 	private readonly PotionBrewingService _brewingService = new();
 	private GameState _gameState = default!;
 	private DataDb _dataDb = default!;
 	private const float SuccessScoreThreshold = 60.0f;
-	private const int SuccessGoldGain = 45;
 	private const int SuccessDreadChange = -2;
-	private const int FailureGoldGain = 15;
 	private const int FailureDreadChange = 4;
 
 	public override void _Ready()
@@ -77,8 +70,6 @@ public partial class CustomerPanel : Control
 		_badTraits = GetNode<RichTextLabel>(BadTraitsPath);
 		_dialogue = GetNode<RichTextLabel>(DialoguePath);
 		_sellDropBox = GetNode<CustomerSellDropBox>(SellDropBoxPath);
-		_confirmDialog = GetNode<ConfirmationDialog>(ConfirmDialogPath);
-		_confirmDialogLabel = GetNode<Label>(ConfirmDialogLabelPath);
 		_saleResultPanel = GetNode<Control>(SaleResultPanelPath);
 		_saleResultTitle = GetNode<Label>(SaleResultTitlePath);
 		_saleResultBody = GetNode<RichTextLabel>(SaleResultBodyPath);
@@ -89,7 +80,6 @@ public partial class CustomerPanel : Control
 		_closeButton.Pressed += HidePanel;
 		_saleResultCloseButton.Pressed += HideSaleResult;
 		_sellDropBox.ItemDropped += OnItemDropped;
-		_confirmDialog.Confirmed += ConfirmPendingSale;
 		_portrait.Visible = false;
 		_saleResultPanel.Visible = false;
 		Visible = false;
@@ -103,8 +93,6 @@ public partial class CustomerPanel : Control
 			_saleResultCloseButton.Pressed -= HideSaleResult;
 		if (_sellDropBox is not null)
 			_sellDropBox.ItemDropped -= OnItemDropped;
-		if (_confirmDialog is not null)
-			_confirmDialog.Confirmed -= ConfirmPendingSale;
 	}
 
 	public void ShowInteraction(CustomerInteractionDef interaction)
@@ -123,13 +111,11 @@ public partial class CustomerPanel : Control
 	public void HidePanel()
 	{
 		_interaction = null;
-		_pendingItemId = null;
 		_gameState.ClearActiveCustomerRequest();
 		_portrait.Texture = null;
 		_portrait.Visible = false;
 		_desiredTraits.Text = "";
 		_badTraits.Text = "";
-		_confirmDialog.Hide();
 		HideSaleResult();
 		Visible = false;
 	}
@@ -140,44 +126,17 @@ public partial class CustomerPanel : Control
 			return;
 
 		if (!ItemCatalog.TryGetItem(itemId, out _))
-		{
-			_confirmDialogLabel.Text = "That item is not recognized.";
-			_confirmDialog.PopupCentered();
 			return;
-		}
 
 		if (!IsPotionItem(itemId))
-		{
-			_confirmDialogLabel.Text = "Customers only accept brewed potions.";
-			_confirmDialog.PopupCentered();
-			return;
-		}
-
-		var itemName = ItemCatalog.GetItemName(itemId);
-		itemName = DisplayName(itemId, itemName);
-		_pendingItemId = itemId;
-		_confirmDialogLabel.Text = $"Sell {itemName} to this customer?";
-		_confirmDialog.PopupCentered();
-	}
-
-	private void ConfirmPendingSale()
-	{
-		if (string.IsNullOrWhiteSpace(_pendingItemId))
 			return;
 
-		if (!TryResolvePotionScore(_pendingItemId, out var brewResult))
+		if (!TryResolvePotionScore(itemId, out var brewResult))
 			return;
 
 		if (brewResult is null)
-		{
-			_confirmDialogLabel.Text = "No customer score could be calculated.";
-			_confirmDialog.PopupCentered();
 			return;
-		}
 
-		var itemId = _pendingItemId;
-		_pendingItemId = null;
-		_confirmDialog.Hide();
 		var saleResult = ApplySale(itemId, brewResult);
 
 		if (SuppressSaleResultPanel)
@@ -263,7 +222,7 @@ public partial class CustomerPanel : Control
 	private (bool IsSuccess, int GoldDelta, int DreadDelta) ApplySale(string itemId, PotionResult brewResult)
 	{
 		var isSuccess = brewResult.FinalScore >= SuccessScoreThreshold;
-		var goldDelta = isSuccess ? SuccessGoldGain : FailureGoldGain;
+		var goldDelta = GetSalePrice(itemId);
 		var dreadDelta = isSuccess ? SuccessDreadChange : FailureDreadChange;
 
 		_gameState.AddGold(goldDelta);
@@ -297,14 +256,15 @@ public partial class CustomerPanel : Control
 		lines.Add($"Q={brewResult.IngredientQualityScore}, F={brewResult.EffectFitScore}, Y={brewResult.SynergyScore}, T={brewResult.StabilityScore}, P={brewResult.PenaltyScore}");
 
 		var isSuccess = brewResult.FinalScore >= SuccessScoreThreshold;
+		var salePrice = GetSalePrice(itemId);
 		if (isSuccess)
 		{
-			lines.Add($"Gold gained: {SuccessGoldGain}");
+			lines.Add($"Gold gained: {salePrice}");
 			lines.Add($"Dread reduced: {System.Math.Abs(SuccessDreadChange)}");
 		}
 		else
 		{
-			lines.Add($"Gold gained: {FailureGoldGain}");
+			lines.Add($"Gold gained: {salePrice}");
 			lines.Add($"Dread gained: {FailureDreadChange}");
 		}
 
@@ -334,6 +294,17 @@ public partial class CustomerPanel : Control
 	private bool IsPotionItem(string itemId)
 	{
 		return ItemCatalog.IsPotion(itemId);
+	}
+
+	private int GetSalePrice(string itemId)
+	{
+		if (_gameState.TryGetPotionBasePrice(itemId, out var potionBasePrice))
+			return System.Math.Max(0, potionBasePrice);
+
+		if (ItemCatalog.TryGetItem(itemId, out var item))
+			return System.Math.Max(0, item.BasePrice);
+
+		return 0;
 	}
 
 	private string DisplayName(string itemId, string fallbackName)
