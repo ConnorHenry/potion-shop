@@ -27,8 +27,11 @@ static class Program
         Run("InventoryPanel splits inventory labels predictably", TestInventoryPanelSplitInventoryName);
         Run("InventoryPanel dictionary formatting is stable", TestInventoryPanelFormatDictionary);
         Run("InventoryPanel top-traits formatting is stable", TestInventoryPanelFormatTopTraits);
+        Run("InventoryPanel potion filter uses only top traits", TestInventoryPanelPotionFilterUsesOnlyTopTraits);
+        Run("InventoryPanel risk filter is wired", TestInventoryPanelRiskFilterIsWired);
         Run("RecipeBookPanel dictionary formatting is stable", TestRecipeBookPanelFormatDictionary);
         Run("RecipeBookPanel top-traits formatting is stable", TestRecipeBookPanelFormatTopTraits);
+        Run("RecipeBookPanel entry shows traits and risks to the right of ingredients", TestRecipeBookPanelEntryShowsTraitsAndRisksToTheRightOfIngredients);
         Run("BrewPanel ingredient tag detection is case-insensitive", TestBrewPanelIsIngredient);
         Run("BrewPanel rejects duplicate queued ingredients", TestBrewPanelRejectsDuplicateQueuedIngredients);
         Run("Brew and inventory price wiring stays intact", TestBrewAndInventoryPriceWiring);
@@ -37,10 +40,13 @@ static class Program
         Run("CustomerPanel creates detached ingredient snapshots", TestCustomerPanelBuildPotionIngredientDef);
         Run("RuntimeContentDb stores generated items separately", TestRuntimeContentDbSeparatesRuntimeItems);
         Run("DataDb does not expose runtime registration", TestDataDbDoesNotExposeRuntimeRegistration);
-        Run("DataDb reloads authored JSON only", TestDataDbReloadsAuthoredJsonOnly);
+        Run("DataDb reloads authored resource catalogs only", TestDataDbReloadsAuthoredResourceCatalogsOnly);
         Run("UI lookup uses the runtime-first item catalog", TestUiLookupUsesRuntimeFirstCatalog);
         Run("Main menu exposes start and load flows", TestMainMenuLoadFlow);
         Run("Load menu scene is wired for saved game browsing", TestLoadGameMenuScene);
+        Run("Game UI keeps the potion trait filter wired", TestGameUiKeepsPotionTraitFilterWired);
+        Run("Recipe book filters are wired", TestRecipeBookFiltersAreWired);
+        Run("Recipe book clear button is wired", TestRecipeBookClearButtonIsWired);
         Run("SaveGameManager stores saves in a dedicated directory", TestSaveGameManagerUsesSaveDirectory);
         Run("Hud return-to-menu does not auto-save", TestHudReturnToMainMenuDoesNotAutoSave);
         Run("Persistence boundary stays separated", TestPersistenceBoundaryIsDocumented);
@@ -447,6 +453,10 @@ static class Program
     {
         var type = GetTypeFromUiAssembly("OccultShop.UI.InventoryPanel");
         var method = type.GetMethod("SplitInventoryName", BindingFlags.NonPublic | BindingFlags.Static);
+        AssertTrue("SplitInventoryName method exists", method is not null);
+        if (method is null)
+            return;
+
         var splitArgs = new object?[] { "Moon Dust", null, null };
         method.Invoke(null, splitArgs);
         AssertEqual("Split first line", "Moon", splitArgs[1] as string ?? string.Empty);
@@ -499,6 +509,43 @@ static class Program
         AssertEqual("Inventory top traits empty", "None", empty);
     }
 
+    private static void TestInventoryPanelPotionFilterUsesOnlyTopTraits()
+    {
+        var inventoryPanel = ReadProjectFile("Scripts/UI/InventoryPanel.cs");
+
+        AssertTrue("InventoryPanel builds potion trait names from the top three traits only",
+            inventoryPanel.Contains("var potionTraitNames = BuildTopTraitNames(potionStacks, 3);"));
+        AssertTrue("InventoryPanel keeps ingredient trait names unchanged",
+            inventoryPanel.Contains("var ingredientTraitNames = BuildTraitNames(ingredientStacks);"));
+        AssertTrue("InventoryPanel top-trait helper limits the selected traits",
+            inventoryPanel.Contains(".Take(maxCount)"));
+    }
+
+    private static void TestInventoryPanelRiskFilterIsWired()
+    {
+        var inventoryPanel = ReadProjectFile("Scripts/UI/InventoryPanel.cs");
+        var scene = ReadProjectFile("Scenes/UI/InventoryPanel.tscn");
+
+        AssertTrue("InventoryPanel exports a potion risk filter path",
+            inventoryPanel.Contains("PotionsRiskFilterPath"));
+        AssertTrue("InventoryPanel exports an ingredient risk filter path",
+            inventoryPanel.Contains("IngredientsRiskFilterPath"));
+        AssertTrue("InventoryPanel builds risk names",
+            inventoryPanel.Contains("BuildRiskNames(potionStacks)"));
+        AssertTrue("InventoryPanel checks potion risks",
+            inventoryPanel.Contains("ItemHasRisk(stack.Key, _activePotionRiskFilter)"));
+        AssertTrue("InventoryPanel checks ingredient risks",
+            inventoryPanel.Contains("ItemHasRisk(stack.Key, _activeIngredientRiskFilter)"));
+        AssertTrue("InventoryPanel defines potion risk filter in the scene",
+            scene.Contains("PotionsRiskFilterPath = NodePath(\"Panel/Margin/VBox/PotionsHeaderRow/RiskFilter\")"));
+        AssertTrue("InventoryPanel defines ingredient risk filter in the scene",
+            scene.Contains("IngredientsRiskFilterPath = NodePath(\"Panel/Margin/VBox/IngredientsHeaderRow/RiskFilter\")"));
+        AssertTrue("InventoryPanel scene places potion risk filter to the right of trait filter",
+            scene.Contains("[node name=\"RiskFilter\" type=\"OptionButton\" parent=\"Panel/Margin/VBox/PotionsHeaderRow\"]"));
+        AssertTrue("InventoryPanel scene places ingredient risk filter to the right of trait filter",
+            scene.Contains("[node name=\"RiskFilter\" type=\"OptionButton\" parent=\"Panel/Margin/VBox/IngredientsHeaderRow\"]"));
+    }
+
     private static void TestRecipeBookPanelFormatDictionary()
     {
         var values = new Dictionary<string, int>
@@ -530,6 +577,46 @@ static class Program
 
         var empty = InvokePrivateStatic<string>("OccultShop.UI.RecipeBookPanel", "FormatTopTraits", new Dictionary<string, int>(), 3);
         AssertEqual("Recipe top traits empty", "None", empty);
+    }
+
+    private static void TestRecipeBookPanelEntryShowsTraitsAndRisksToTheRightOfIngredients()
+    {
+        var source = ReadProjectFile("Scripts/UI/RecipeBookPanel.cs");
+
+        AssertTrue("RecipeBookPanel builds an info row for ingredients and stats",
+            source.Contains("var infoRow = new HBoxContainer"));
+        AssertTrue("RecipeBookPanel keeps ingredients in the left column",
+            source.Contains("var ingredientColumn = new VBoxContainer"));
+        AssertTrue("RecipeBookPanel keeps traits in their own column",
+            source.Contains("var traitsColumn = new VBoxContainer"));
+        AssertTrue("RecipeBookPanel keeps risks in their own column",
+            source.Contains("var risksColumn = new VBoxContainer"));
+        AssertTrue("RecipeBookPanel uses rich text for traits",
+            source.Contains("var traits = new RichTextLabel"));
+        AssertTrue("RecipeBookPanel uses rich text for risks",
+            source.Contains("var risks = new RichTextLabel"));
+        AssertTrue("RecipeBookPanel formats traits as multiline rich text",
+            source.Contains("FormatTraitDetails(item.Traits, 3)"));
+        AssertTrue("RecipeBookPanel formats risks as multiline rich text",
+            source.Contains("FormatRiskDetails(item.Risks)"));
+        AssertTrue("RecipeBookPanel gives ingredients more width",
+            source.Contains("SizeFlagsStretchRatio = 3.0f"));
+        AssertTrue("RecipeBookPanel narrows the traits column",
+            source.Contains("CustomMinimumSize = new Vector2(120, 0)"));
+        AssertTrue("RecipeBookPanel narrows the risks column",
+            source.Contains("SizeFlagsStretchRatio = 1.0f"));
+        AssertTrue("RecipeBookPanel wraps ingredient text at word boundaries",
+            source.Contains("AutowrapMode = TextServer.AutowrapMode.WordSmart"));
+        AssertTrue("RecipeBookPanel colors traits green",
+            source.Contains("[color=#59d65f]"));
+        AssertTrue("RecipeBookPanel colors risks red",
+            source.Contains("[color=#e04a4a]"));
+        AssertTrue("RecipeBookPanel inserts line breaks between detail entries",
+            source.Contains("string.Join(\"\\n\", lines)"));
+        AssertTrue("RecipeBookPanel allows the ingredients block to fit its contents",
+            source.Contains("FitContent = true"));
+        AssertTrue("RecipeBookPanel reserves minimum space for each card",
+            source.Contains("CustomMinimumSize = new Vector2(0, 170)"));
     }
 
     private static void TestBrewPanelIsIngredient()
@@ -691,16 +778,20 @@ static class Program
         AssertTrue("DataDb runtime registration removed", method is null);
     }
 
-    private static void TestDataDbReloadsAuthoredJsonOnly()
+    private static void TestDataDbReloadsAuthoredResourceCatalogsOnly()
     {
         var source = ReadProjectFile("Scripts/Autoload/DataDb.cs");
+        var resource = ReadProjectFile("Data/authored_data.tres");
         AssertTrue("DataDb reload entry point exists", source.Contains("public override void _Ready()"));
         AssertTrue("DataDb reloads on ready", source.Contains("ReloadAll();"));
-        AssertTrue("DataDb loads authored items", source.Contains("LoadArray<ItemDef>(\"res://Data/items.json\")"));
-        AssertTrue("DataDb loads authored rules", source.Contains("LoadArray<RuleDef>(\"res://Data/rules.json\")"));
-        AssertTrue("DataDb loads authored events", source.Contains("LoadArray<EventCardDef>(\"res://Data/events.json\")"));
-        AssertTrue("DataDb loads authored customers", source.Contains("LoadArray<CustomerInteractionDef>(\"res://Data/customers.json\")"));
-        AssertTrue("DataDb loads authored synergies", source.Contains("LoadArray<SynergyRule>(\"res://Data/synergies.json\")"));
+        AssertTrue("DataDb loads authored data resource", source.Contains("ResourceLoader.Load<AuthoredDataResource>"));
+        AssertTrue("DataDb references the authored data resource path", source.Contains("AuthoredDataPath"));
+        AssertTrue("Authored data resource file exists", resource.Contains("script_class=\"AuthoredDataResource\""));
+        AssertTrue("Authored data resource stores item catalog", resource.Contains("Items = ["));
+        AssertTrue("Authored data resource stores rule catalog", resource.Contains("Rules = ["));
+        AssertTrue("Authored data resource stores event catalog", resource.Contains("Events = ["));
+        AssertTrue("Authored data resource stores customer catalog", resource.Contains("CustomerInteractions = ["));
+        AssertTrue("Authored data resource stores synergy catalog", resource.Contains("Synergies = ["));
         AssertTrue("DataDb does not register runtime items", !source.Contains("RegisterRuntimePotionItem"));
         AssertTrue("DataDb does not reference runtime catalog", !source.Contains("RuntimeContentDb"));
     }
@@ -758,6 +849,50 @@ static class Program
         AssertTrue("LoadGameMenu scene exposes back button", scene.Contains("BackButton"));
     }
 
+    private static void TestGameUiKeepsPotionTraitFilterWired()
+    {
+        var scene = ReadProjectFile("Scenes/UI/GameUi.tscn");
+
+        AssertTrue("GameUi keeps potion trait filter path wired", !scene.Contains("PotionsTraitFilterPath = null"));
+        AssertTrue("GameUi keeps potion clear filter path wired", !scene.Contains("PotionsClearFilterButtonPath = null"));
+        AssertTrue("InventoryPanel scene defines potion trait filter", ReadProjectFile("Scenes/UI/InventoryPanel.tscn").Contains("PotionsTraitFilterPath = NodePath(\"Panel/Margin/VBox/PotionsHeaderRow/TraitFilter\")"));
+        AssertTrue("InventoryPanel scene defines potion clear filter", ReadProjectFile("Scenes/UI/InventoryPanel.tscn").Contains("PotionsClearFilterButtonPath = NodePath(\"Panel/Margin/VBox/PotionsHeaderRow/Clear\")"));
+    }
+
+    private static void TestRecipeBookFiltersAreWired()
+    {
+        var source = ReadProjectFile("Scripts/UI/RecipeBookPanel.cs");
+        var scene = ReadProjectFile("Scenes/UI/GameUi.tscn");
+
+        AssertTrue("RecipeBookPanel exports a clear button path", source.Contains("ClearButtonPath"));
+        AssertTrue("RecipeBookPanel exports a trait filter path", source.Contains("TraitFilterPath"));
+        AssertTrue("RecipeBookPanel exports a risk filter path", source.Contains("RiskFilterPath"));
+        AssertTrue("RecipeBookPanel wires the clear button handler", source.Contains("_clearButton.Pressed += ClearFilters"));
+        AssertTrue("RecipeBookPanel clear button resets both filters", source.Contains("private void ClearFilters()"));
+        AssertTrue("RecipeBookPanel builds trait filter options from learned potions", source.Contains("BuildTopTraitNames(learnedPotionIds, 3)"));
+        AssertTrue("RecipeBookPanel builds risk filter options from learned potions", source.Contains("BuildRiskNames(learnedPotionIds)"));
+        AssertTrue("RecipeBookPanel filters by traits", source.Contains("ItemHasTrait(entry.PotionId, _activeTraitFilter)"));
+        AssertTrue("RecipeBookPanel filters by risks", source.Contains("ItemHasRisk(entry.PotionId, _activeRiskFilter)"));
+        AssertTrue("RecipeBookPanel scene wires clear button path", scene.Contains("ClearButtonPath = NodePath(\"Panel/Margin/VBox/Header/Clear\")"));
+        AssertTrue("RecipeBookPanel scene wires trait filter path", scene.Contains("TraitFilterPath = NodePath(\"Panel/Margin/VBox/Header/TraitFilter\")"));
+        AssertTrue("RecipeBookPanel scene wires risk filter path", scene.Contains("RiskFilterPath = NodePath(\"Panel/Margin/VBox/Header/RiskFilter\")"));
+        AssertTrue("RecipeBookPanel scene places clear button before trait filter", scene.Contains("[node name=\"Clear\" type=\"Button\" parent=\"RecipeBookPanel/Panel/Margin/VBox/Header\"]"));
+        AssertTrue("RecipeBookPanel scene includes a trait filter OptionButton", scene.Contains("[node name=\"TraitFilter\" type=\"OptionButton\" parent=\"RecipeBookPanel/Panel/Margin/VBox/Header\"]"));
+        AssertTrue("RecipeBookPanel scene includes a risk filter OptionButton", scene.Contains("[node name=\"RiskFilter\" type=\"OptionButton\" parent=\"RecipeBookPanel/Panel/Margin/VBox/Header\"]"));
+    }
+
+    private static void TestRecipeBookClearButtonIsWired()
+    {
+        var source = ReadProjectFile("Scripts/UI/RecipeBookPanel.cs");
+
+        AssertTrue("RecipeBookPanel clear button field exists", source.Contains("private Button? _clearButton;"));
+        AssertTrue("RecipeBookPanel clear button is resolved from the scene", source.Contains("_clearButton = GetNodeOrNull<Button>(ClearButtonPath);"));
+        AssertTrue("RecipeBookPanel clear button subscribes on ready", source.Contains("_clearButton.Pressed += ClearFilters;"));
+        AssertTrue("RecipeBookPanel clear button unsubscribes on exit", source.Contains("_clearButton.Pressed -= ClearFilters;"));
+        AssertTrue("RecipeBookPanel clear button clears the active filters", source.Contains("_activeTraitFilter = null;") && source.Contains("_activeRiskFilter = null;"));
+        AssertTrue("RecipeBookPanel clear button resets the placeholder selection when already clear", source.Contains("_traitFilter.Selected = 0;") && source.Contains("_riskFilter.Selected = 0;"));
+    }
+
     private static void TestSaveGameManagerUsesSaveDirectory()
     {
         var source = ReadProjectFile("Scripts/Autoload/SaveGameManager.cs");
@@ -786,7 +921,7 @@ static class Program
         var persistenceBoundary = ReadProjectFile("PERSISTENCE_BOUNDARY.md");
         AssertTrue("Persistence boundary note exists", persistenceBoundary.Contains("runtime save/load system"));
         AssertTrue("Persistence boundary documents save directory", persistenceBoundary.Contains("user://saves/"));
-        AssertTrue("Authored data reload rule documented", persistenceBoundary.Contains("Authored data: always reload from `res://Data/*.json`"));
+        AssertTrue("Authored data reload rule documented", persistenceBoundary.Contains("Authored data: always reload from `res://Data/authored_data.tres`"));
         AssertTrue("Runtime catalog save rule documented", persistenceBoundary.Contains("Runtime-generated item catalog: persist separately from authored data"));
         AssertTrue("Player state save rule documented", persistenceBoundary.Contains("Player state: save independently"));
     }

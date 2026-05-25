@@ -90,6 +90,8 @@ public partial class GameState : Node
 			{
 				if (string.IsNullOrWhiteSpace(pair.Key) || pair.Value <= 0)
 					continue;
+				if (!ItemCatalog.TryGetItem(pair.Key, out _))
+					continue;
 
 				Inventory[pair.Key] = pair.Value;
 			}
@@ -219,7 +221,14 @@ public partial class GameState : Node
 
 	public void AddItem(string itemId, int qty)
 	{
-		if (qty <= 0) return;
+		if (qty <= 0 || string.IsNullOrWhiteSpace(itemId))
+			return;
+		if (!ItemCatalog.TryGetItem(itemId, out _))
+		{
+			GD.PushError($"GameState: Cannot add unknown item '{itemId}' to inventory.");
+			return;
+		}
+
 		Inventory[itemId] = Inventory.GetValueOrDefault(itemId) + qty;
 		EmitChanged();
 	}
@@ -352,19 +361,20 @@ public partial class GameState : Node
 
 	private void SeedStartingInventory()
 	{
-		AddStartingStack("mooncap_mushroom", 10);
-		AddStartingStack("grave_mint", 10);
-		AddStartingStack("lavender_ash", 10);
-		AddStartingStack("black_ichor", 10);
-		AddStartingStack("obsidian_resin", 10);
-		AddStartingStack("obsidian_resin", 10);
-		AddStartingStack("amber_nightshade", 10);
-		AddStartingStack("silver_thorn_bloom", 10);
-		AddStartingStack("moonwhisper_orchid", 10);
-		AddStartingStack("raven_ash_peony", 10);
-		AddStartingStack("iron_lullaby_root", 10);
-		AddStartingStack("mercury_vision_resin", 10);
-		AddStartingStack("hallowed_balm_leaf", 10);
+		var dataDb = GetNodeOrNull<DataDb>("/root/DataDb");
+		if (dataDb is null)
+		{
+			GD.PushError("GameState: /root/DataDb was not found. Starting inventory could not be seeded.");
+			return;
+		}
+
+		foreach (var item in dataDb.Items.Values.OrderBy(x => x.Id, StringComparer.OrdinalIgnoreCase))
+		{
+			if (!IsIngredient(item))
+				continue;
+
+			AddStartingStack(item.Id, 10);
+		}
 	}
 
 	private void AddStartingStack(string itemId, int qty)
@@ -373,6 +383,14 @@ public partial class GameState : Node
 			return;
 
 		Inventory[itemId] = Inventory.GetValueOrDefault(itemId) + qty;
+	}
+
+	private static bool IsIngredient(ItemDef item)
+	{
+		if (item.Tags is null)
+			return false;
+
+		return item.Tags.Any(tag => string.Equals(tag, "ingredient", StringComparison.OrdinalIgnoreCase));
 	}
 
 	private Dictionary<string, List<string>> ClonePotionRecipes()

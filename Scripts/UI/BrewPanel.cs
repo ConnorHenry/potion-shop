@@ -294,8 +294,7 @@ public partial class BrewPanel : Control
 		}
 
 		_gameState.RegisterPotionBasePrice(potionItemId, potionBasePrice);
-		if (_runtimeContentDb.TryGetItem(potionItemId, out var storedPotion))
-			storedPotion.BasePrice = potionBasePrice;
+		_runtimeContentDb.TrySetRuntimeItemBasePrice(potionItemId, potionBasePrice);
 
 		_gameState.RecordPotionRecipe(potionItemId, _queuedIngredients);
 		_gameState.AddItem(potionItemId, BrewedPotionOutputQuantity);

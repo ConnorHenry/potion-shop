@@ -30,6 +30,17 @@ public partial class RuntimeDebugImGui : Node
 	private int _selectedTraitIndex;
 	private int _selectedTraitItemIndex;
 	private string _statusMessage = string.Empty;
+	private string _runtimeItemIdInput = string.Empty;
+	private string _runtimeItemNameInput = string.Empty;
+	private string _runtimeItemIconPathInput = string.Empty;
+	private string _runtimeItemDescriptionInput = string.Empty;
+	private string _runtimeItemTraitsInput = string.Empty;
+	private string _runtimeItemRisksInput = string.Empty;
+	private int _runtimeItemBasePrice = 10;
+	private int _runtimeItemQuality = 50;
+	private int _runtimeItemStartingQuantity = 1;
+	private bool _runtimeItemTagIngredient = true;
+	private bool _runtimeItemTagPotion;
 
 	public override void _Ready()
 	{
@@ -89,6 +100,8 @@ public partial class RuntimeDebugImGui : Node
 		DrawPotionSection();
 		ImGui.Separator();
 		DrawTraitSection();
+		ImGui.Separator();
+		DrawRuntimeCatalogSection();
 
 		if (!string.IsNullOrWhiteSpace(_statusMessage))
 		{
@@ -316,6 +329,161 @@ public partial class RuntimeDebugImGui : Node
 			_gameState.AddItem(selectedTraitItemId, _traitItemQuantity);
 			_statusMessage = $"Added {_traitItemQuantity}x {BuildItemLabel(selectedTraitItemId)} for trait {selectedTrait}.";
 		}
+	}
+
+	private void DrawRuntimeCatalogSection()
+	{
+		if (!ImGui.CollapsingHeader("Runtime Catalog", ImGuiTreeNodeFlags.DefaultOpen))
+			return;
+
+		ImGui.TextWrapped("Create or update runtime item definitions while the game is running.");
+		ImGui.TextWrapped("Traits and risks format: key=value,key=value");
+
+		ImGui.InputText("Item Id", ref _runtimeItemIdInput, 96);
+		ImGui.InputText("Item Name", ref _runtimeItemNameInput, 128);
+		ImGui.InputText("Icon Path", ref _runtimeItemIconPathInput, 256);
+		ImGui.InputText("Description", ref _runtimeItemDescriptionInput, 256);
+
+		ImGui.InputInt("Base Price", ref _runtimeItemBasePrice);
+		if (_runtimeItemBasePrice < 0)
+			_runtimeItemBasePrice = 0;
+
+		ImGui.InputInt("Quality", ref _runtimeItemQuality);
+		_runtimeItemQuality = Math.Clamp(_runtimeItemQuality, 0, 100);
+
+		ImGui.Checkbox("Tag: ingredient", ref _runtimeItemTagIngredient);
+		ImGui.SameLine();
+		ImGui.Checkbox("Tag: potion", ref _runtimeItemTagPotion);
+
+		ImGui.InputText("Traits", ref _runtimeItemTraitsInput, 256);
+		ImGui.InputText("Risks", ref _runtimeItemRisksInput, 256);
+		ImGui.InputInt("Starting Qty", ref _runtimeItemStartingQuantity);
+		if (_runtimeItemStartingQuantity < 0)
+			_runtimeItemStartingQuantity = 0;
+
+		if (ImGui.Button("Save Runtime Item"))
+		{
+			if (!TryBuildRuntimeItemFromInput(out var item, out var error))
+			{
+				_statusMessage = error;
+				return;
+			}
+
+			if (!_runtimeContentDb.UpsertRuntimeItem(item))
+			{
+				_statusMessage = $"Failed to save runtime item '{item.Id}'.";
+				return;
+			}
+
+			if (_runtimeItemStartingQuantity > 0)
+				_gameState.AddItem(item.Id, _runtimeItemStartingQuantity);
+
+			RebuildDebugCatalog();
+			_statusMessage = _runtimeItemStartingQuantity > 0
+				? $"Saved runtime item {BuildItemLabel(item.Id)} and added {_runtimeItemStartingQuantity} to inventory."
+				: $"Saved runtime item {BuildItemLabel(item.Id)}.";
+		}
+
+		ImGui.SameLine();
+		if (ImGui.SmallButton("Reset Runtime Form"))
+			ResetRuntimeItemForm();
+	}
+
+	private bool TryBuildRuntimeItemFromInput(out ItemDef item, out string error)
+	{
+		item = new ItemDef();
+		error = string.Empty;
+
+		var itemId = (_runtimeItemIdInput ?? string.Empty).Trim();
+		if (string.IsNullOrWhiteSpace(itemId))
+		{
+			error = "Runtime item Id is required.";
+			return false;
+		}
+
+		if (!_runtimeItemTagIngredient && !_runtimeItemTagPotion)
+		{
+			error = "Select at least one tag: ingredient or potion.";
+			return false;
+		}
+
+		if (!TryParseStatMap(_runtimeItemTraitsInput, out var traits, out var traitError))
+		{
+			error = $"Traits error: {traitError}";
+			return false;
+		}
+
+		if (!TryParseStatMap(_runtimeItemRisksInput, out var risks, out var riskError))
+		{
+			error = $"Risks error: {riskError}";
+			return false;
+		}
+
+		var tags = new List<string>();
+		if (_runtimeItemTagIngredient)
+			tags.Add("ingredient");
+		if (_runtimeItemTagPotion)
+			tags.Add("potion");
+
+		item = new ItemDef
+		{
+			Id = itemId,
+			Name = string.IsNullOrWhiteSpace(_runtimeItemNameInput) ? itemId : _runtimeItemNameInput.Trim(),
+			IconPath = string.IsNullOrWhiteSpace(_runtimeItemIconPathInput) ? null : _runtimeItemIconPathInput.Trim(),
+			Description = (_runtimeItemDescriptionInput ?? string.Empty).Trim(),
+			BasePrice = Math.Max(0, _runtimeItemBasePrice),
+			Quality = Math.Clamp(_runtimeItemQuality, 0, 100),
+			Tags = tags,
+			Traits = traits,
+			Risks = risks
+		};
+
+		return true;
+	}
+
+	private static bool TryParseStatMap(string input, out Dictionary<string, int> values, out string error)
+	{
+		values = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+		error = string.Empty;
+
+		if (string.IsNullOrWhiteSpace(input))
+			return true;
+
+		var entries = input.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+		foreach (var entry in entries)
+		{
+			var keyValue = entry.Split('=', 2, StringSplitOptions.TrimEntries);
+			if (keyValue.Length != 2 || string.IsNullOrWhiteSpace(keyValue[0]))
+			{
+				error = $"Invalid entry '{entry}'. Use key=value.";
+				return false;
+			}
+
+			if (!int.TryParse(keyValue[1], out var amount))
+			{
+				error = $"Invalid number '{keyValue[1]}' for key '{keyValue[0]}'.";
+				return false;
+			}
+
+			values[keyValue[0]] = amount;
+		}
+
+		return true;
+	}
+
+	private void ResetRuntimeItemForm()
+	{
+		_runtimeItemIdInput = string.Empty;
+		_runtimeItemNameInput = string.Empty;
+		_runtimeItemIconPathInput = string.Empty;
+		_runtimeItemDescriptionInput = string.Empty;
+		_runtimeItemTraitsInput = string.Empty;
+		_runtimeItemRisksInput = string.Empty;
+		_runtimeItemBasePrice = 10;
+		_runtimeItemQuality = 50;
+		_runtimeItemStartingQuantity = 1;
+		_runtimeItemTagIngredient = true;
+		_runtimeItemTagPotion = false;
 	}
 
 	private void OnRuntimeContentChanged()

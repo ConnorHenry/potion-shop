@@ -4,8 +4,8 @@ This project now has a runtime save/load system (`SaveGameManager`) that writes 
 
 If save/load is added later, keep the serialized domains separate:
 
-- Authored data: always reload from `res://Data/*.json`
+- Authored data: always reload from `res://Data/authored_data.tres`
 - Runtime-generated item catalog: persist separately from authored data so generated potion definitions survive reloads
 - Player state: save independently from authored data and from the runtime catalog
 
-Do not mix generated item definitions into authored JSON files.
+Do not mix generated item definitions into authored resource catalogs.

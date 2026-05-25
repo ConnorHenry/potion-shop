@@ -15,12 +15,14 @@
 [node name="CanvasLayer" type="CanvasLayer"]
 
 [node name="Hud" parent="." instance=ExtResource("1_hud")]
+offset_left = 155.0
+offset_bottom = 58.0
 
 [node name="InventoryPanel" parent="." instance=ExtResource("5_invp")]
-offset_left = 1.0
-offset_right = 7.0
-PotionsTraitFilterPath = null
-PotionsClearFilterButtonPath = null
+offset_left = -28.0
+offset_top = 4.0
+offset_right = -4.0
+offset_bottom = 4.0
 
 [node name="InventoryItemDetail" type="Control" parent="."]
 layout_mode = 3
@@ -32,9 +34,9 @@ grow_vertical = 2
 
 [node name="Panel" type="PanelContainer" parent="InventoryItemDetail"]
 layout_mode = 0
-offset_left = 390.0
+offset_left = 476.0
 offset_top = 94.0
-offset_right = 760.0
+offset_right = 686.0
 offset_bottom = 1018.0
 script = ExtResource("12_6x1m8")
 DragHandlePath = NodePath("Margin/VBox/Name")
@@ -332,10 +334,10 @@ anchor_left = 0.406
 anchor_top = 0.6
 anchor_right = 0.692
 anchor_bottom = 1.0
-offset_left = 6.32001
-offset_top = 38.0
-offset_right = -5.75995
-offset_bottom = -112.0
+offset_left = -65.68
+offset_top = 32.0
+offset_right = -27.7599
+offset_bottom = -118.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("9_em5ve")
@@ -550,14 +552,18 @@ anchor_left = 0.723
 anchor_top = 0.086
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -41.44
-offset_top = 0.079998
-offset_bottom = 1.0
+offset_left = -77.44
+offset_top = 17.08
+offset_right = -36.0
+offset_bottom = 46.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("11_q7k2n")
 CloseButtonPath = NodePath("Panel/Margin/VBox/Header/Close")
+ClearButtonPath = NodePath("Panel/Margin/VBox/Header/Clear")
 SortButtonPath = NodePath("Panel/Margin/VBox/Header/Sort")
+TraitFilterPath = NodePath("Panel/Margin/VBox/Header/TraitFilter")
+RiskFilterPath = NodePath("Panel/Margin/VBox/Header/RiskFilter")
 RecipesContainerPath = NodePath("Panel/Margin/VBox/Scroll/Recipes")
 
 [node name="Panel" type="PanelContainer" parent="RecipeBookPanel"]
@@ -565,9 +571,9 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -587.0
+offset_left = -614.0
 offset_top = 10.0
-offset_right = -587.0
+offset_right = -560.0
 offset_bottom = -539.0
 grow_horizontal = 2
 grow_vertical = 2
@@ -593,6 +599,16 @@ text = "Recipe Book"
 [node name="Close" type="Button" parent="RecipeBookPanel/Panel/Margin/VBox/Header"]
 layout_mode = 2
 text = "Close"
+
+[node name="Clear" type="Button" parent="RecipeBookPanel/Panel/Margin/VBox/Header"]
+layout_mode = 2
+text = "Clear"
+
+[node name="TraitFilter" type="OptionButton" parent="RecipeBookPanel/Panel/Margin/VBox/Header"]
+layout_mode = 2
+
+[node name="RiskFilter" type="OptionButton" parent="RecipeBookPanel/Panel/Margin/VBox/Header"]
+layout_mode = 2
 
 [node name="Sort" type="Button" parent="RecipeBookPanel/Panel/Margin/VBox/Header"]
 layout_mode = 2

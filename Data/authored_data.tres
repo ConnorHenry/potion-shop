@@ -1,0 +1,360 @@
+[gd_resource type="Resource" script_class="AuthoredDataResource" load_steps=2 format=3 uid="uid://w3kaauyqufdy"]
+
+[ext_resource type="Script" uid="uid://chhdxkrq4cetw" path="res://Scripts/Models/AuthoredDataResource.cs" id="1_authored_data"]
+
+[resource]
+script = ExtResource("1_authored_data")
+Items = [{
+"description": "A rare mushroom that only grows in the light of a full moon. Said to have mild sedative properties and a faintly luminescent quality.",
+"iconPath": "res://Assets/Items/mandrake_root.svg",
+"id": "mooncap_mushroom",
+"name": "Mooncap Mushroom",
+"price": 14,
+"quality": 85,
+"risks": {
+"hallucination": 1
+},
+"tags": ["ingredient"],
+"traits": {
+"dream": 3,
+"healing": 2,
+"sleep": 4
+}
+}, {
+"description": "A hardy mint that grows in graveyards and other places touched by death. It has a refreshing aroma and a bitter, earthy flavor.",
+"iconPath": "res://Assets/Items/henbane_leaf.svg",
+"id": "grave_mint",
+"name": "Grave Mint",
+"price": 7,
+"quality": 70,
+"risks": {
+"melancholy": 1
+},
+"tags": ["ingredient"],
+"traits": {
+"calm": 4,
+"memory": 2,
+"positivity": 2
+}
+}, {
+"description": "A viscous, tar-like substance that seeps from the wounds of certain cursed creatures. It is highly toxic and has a corrupting influence on those who handle it.",
+"iconPath": "res://Assets/Items/black_candle.svg",
+"id": "black_ichor",
+"name": "Black Ichor",
+"price": 19,
+"quality": 95,
+"risks": {
+"addiction": 2,
+"mutation": 4
+},
+"tags": ["ingredient"],
+"traits": {
+"charisma": 3,
+"confidence": 5,
+"power": 5
+}
+}, {
+"description": "A fine ash made from burned lavender flowers. It has a soothing scent and is often used in calming rituals and sleep aids.",
+"iconPath": "res://Assets/Items/bone_charm.svg",
+"id": "lavender_ash",
+"name": "Lavender Ash",
+"price": 10,
+"quality": 80,
+"risks": {
+"corruption": 1
+},
+"tags": ["ingredient"],
+"traits": {
+"gentle": 3,
+"relaxation": 3,
+"smoke": 1
+}
+}, {
+"description": "A glossy, pitch-dark resin that hardens in moonless air. Brewers prize it for binding volatile mixtures into stable tinctures.",
+"iconPath": "res://Assets/Items/myrrh_resin.svg",
+"id": "obsidian_resin",
+"name": "Obsidian Resin",
+"price": 16,
+"quality": 88,
+"risks": {
+"shiver": 1
+},
+"tags": ["ingredient"],
+"traits": {
+"binding": 2,
+"obsidian": 4,
+"resin": 3
+}
+}, {
+"description": "A poisonous nightshade blossom sealed in honey-colored sap. Its warm scent lingers in the mind and draws out vivid nocturnal reveries.",
+"iconPath": "res://Assets/Items/amber_nightshade.svg",
+"id": "amber_nightshade",
+"name": "Amber Nightshade",
+"price": 12,
+"quality": 84,
+"risks": {
+"fever": 1
+},
+"tags": ["ingredient"],
+"traits": {
+"amber": 4,
+"dream": 3,
+"whisper": 2
+}
+}, {
+"description": "A pale flower with needle-fine petals that glint like silver in dusk light. Distillers value it for sharp clarity and wakeful focus.",
+"iconPath": "res://Assets/Items/silver_thorn_bloom.svg",
+"id": "silver_thorn_bloom",
+"name": "Silver Thorn Bloom",
+"price": 9,
+"quality": 82,
+"risks": {
+"shiver": 1
+},
+"tags": ["ingredient"],
+"traits": {
+"awakening": 2,
+"silver": 4,
+"thorn": 3
+}
+}, {
+"description": "A dusk-bloom orchid whose petals shimmer pale blue under moonlight. Its fragrance soothes the mind while coaxing vivid dreams.",
+"iconPath": "res://Assets/Items/moonwhisper_orchid.svg",
+"id": "moonwhisper_orchid",
+"name": "Moonwhisper Orchid",
+"price": 18,
+"quality": 86,
+"risks": {
+"hallucination": 1
+},
+"tags": ["ingredient"],
+"traits": {
+"moon": 4,
+"testimony": 2,
+"whisper": 3
+}
+}, {
+"description": "A smoke-dark peony harvested from old funeral grounds. When crushed, it releases a soft gray ash that steadies trembling hands.",
+"iconPath": "res://Assets/Items/raven_ash_peony.svg",
+"id": "raven_ash_peony",
+"name": "Raven Ash Peony",
+"price": 6,
+"quality": 79,
+"risks": {
+"shiver": 1
+},
+"tags": ["ingredient"],
+"traits": {
+"ash": 3,
+"raven": 4,
+"smoke": 2
+}
+}, {
+"description": "A knotted root with a hard metallic skin and a strangely comforting scent. Brewers grate it into tonics meant to quiet panic and blunt pain.",
+"iconPath": "res://Assets/Items/iron_lullaby_root.svg",
+"id": "iron_lullaby_root",
+"name": "Iron Lullaby Root",
+"price": 11,
+"quality": 83,
+"risks": {
+"melancholy": 1
+},
+"tags": ["ingredient"],
+"traits": {
+"iron": 4,
+"lullaby": 3,
+"mercy": 2
+}
+}, {
+"description": "A quicksilver resin sealed in a glassy skin. It glows faintly in darkness and is used to sharpen sight, though it can unsettle the body.",
+"iconPath": "res://Assets/Items/mercury_vision_resin.svg",
+"id": "mercury_vision_resin",
+"name": "Mercury Vision Resin",
+"price": 20,
+"quality": 91,
+"risks": {
+"mutation": 2
+},
+"tags": ["ingredient"],
+"traits": {
+"fume": 2,
+"mercury": 4,
+"vision": 3
+}
+}, {
+"description": "A blessed balm leaf that carries the faint scent of incense and rain. It is dried for restorative salves and rites of protection.",
+"iconPath": "res://Assets/Items/hallowed_balm_leaf.svg",
+"id": "hallowed_balm_leaf",
+"name": "Hallowed Balm",
+"price": 6,
+"quality": 86,
+"risks": {
+"corruption": 1
+},
+"tags": ["ingredient"],
+"traits": {
+"balm": 3,
+"blessing": 2,
+"hallowed": 4
+}
+}, {
+"description": "Great for keeping vampires away",
+"iconPath": "res://Assets/Items/hallowed_balm_leaf.svg",
+"id": "garlic",
+"name": "Garlic",
+"price": 6,
+"quality": 34,
+"risks": {
+"addiction": 1
+},
+"tags": ["ingredient"],
+"traits": {
+"balm": 3,
+"blessing": 2,
+"cleansing": 4
+}
+}, {}]
+Rules = [{
+"desc": "Selling 'ritual' items adds +1 Dread (the shop doesn't like being perceived).",
+"id": "no_mirrors",
+"name": "No Mirrors"
+}, {
+"desc": "Each night event adds +2 extra Dread.",
+"id": "thin_veil",
+"name": "The Veil Thins"
+}]
+Events = [{
+"choices": [{
+"effects": [{
+"addGold": 30
+}, {
+"addDread": 8
+}, {
+"addRule": "no_mirrors"
+}],
+"label": "Open it"
+}, {
+"effects": [{
+"consumeItemId": "salt",
+"consumeItemQty": 1
+}, {
+"addDread": 2
+}],
+"label": "Ward it with salt",
+"requires": {
+"hasItemId": "salt",
+"hasItemQty": 1
+}
+}],
+"id": "knocking_at_back_door",
+"requires": {
+"dreadMin": 0
+},
+"text": "Three knocks. No one outside. The air smells like pennies.",
+"title": "Knocking at the Back Door",
+"weight": 10
+}, {
+"choices": [{
+"effects": [{
+"consumeItemId": "bone_charm",
+"consumeItemQty": 1
+}, {
+"addGold": 80
+}, {
+"addDread": 6
+}],
+"label": "Sell a Bone Charm",
+"requires": {
+"hasItemId": "bone_charm",
+"hasItemQty": 1
+}
+}, {
+"effects": [{
+"addDread": 4
+}, {
+"addRule": "thin_veil"
+}],
+"label": "Refuse"
+}],
+"id": "the_customer_with_no_face",
+"requires": {
+"dreadMin": 8
+},
+"text": "A hooded figure slides a note across the counter: 'Something that helps me forget.'",
+"title": "The Customer With No Face",
+"weight": 8
+}, {
+"characterImagePath": "res://Assets/Characters/bone_charm_hawker.svg",
+"choices": [{
+"effects": [{
+"addGold": -100
+}, {
+"addItemId": "bone_charm",
+"addItemQty": 1
+}],
+"label": "Accept",
+"requires": {
+"goldMin": 100
+}
+}, {
+"effects": [{
+"addDread": 20
+}],
+"label": "Refuse"
+}],
+"id": "bone_charm_hawker",
+"requires": {
+"dreadMin": 0
+},
+"text": "A gaunt peddler arrives at dusk and unwraps a bone charm from a stained cloth. '100 gold,' they say. 'You will want this before the week is out.'",
+"title": "Bone Charm Hawker",
+"weight": 6
+}]
+CustomerInteractions = [{
+"badTraits": {
+"addiction": 5,
+"rage": 5
+},
+"characterImagePath": "res://Assets/Characters/store_customer.svg",
+"desiredTraits": {
+"calm": 3,
+"gentle": 2,
+"sleep": 5
+},
+"id": "traveler_asks_for_sleep_tonic",
+"requires": {},
+"text": "A weary traveler enters the shop and asks for something to help them sleep.",
+"title": "Customer",
+"weight": 10
+}, {
+"badTraits": {
+"corruption": 5
+},
+"characterImagePath": "res://Assets/Characters/chapel_warden.svg",
+"desiredTraits": {
+"balm": 3,
+"blessing": 2,
+"hallowed": 5
+},
+"id": "chapel_warden_requests_hallowed_balm",
+"requires": {},
+"text": "A chapel warden arrives with rain on their cloak and asks for a balm to bless and protect a damaged shrine.",
+"title": "Customer",
+"weight": 10
+}]
+Synergies = [{
+"description": "Sleep and calm combine into a smooth sedative effect.",
+"id": "sleep_calm",
+"modifier": 10,
+"requiredTraits": ["sleep", "calm"],
+"resultTrait": "peaceful_sedation"
+}, {
+"addedRisk": "mutation",
+"addedRiskStrength": 4,
+"description": "Healing mixed with corruption creates mutation risk.",
+"id": "healing_corruption",
+"modifier": -20,
+"requiredRisks": ["corruption"],
+"requiredTraits": ["healing"],
+"resultTrait": "unstable_regeneration"
+}]

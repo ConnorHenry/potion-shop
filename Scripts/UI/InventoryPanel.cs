@@ -15,9 +15,11 @@ public partial class InventoryPanel : Control
 	[Export] public NodePath IngredientsContainerPath = default!;
 	[Export] public NodePath PotionsSortButtonPath = default!;
 	[Export] public NodePath PotionsTraitFilterPath = default!;
+	[Export] public NodePath PotionsRiskFilterPath = default!;
 	[Export] public NodePath PotionsClearFilterButtonPath = default!;
 	[Export] public NodePath IngredientsSortButtonPath = default!;
 	[Export] public NodePath IngredientsTraitFilterPath = default!;
+	[Export] public NodePath IngredientsRiskFilterPath = default!;
 	[Export] public NodePath IngredientsClearFilterButtonPath = default!;
 	[Export] public NodePath ItemDetailPanelPath = default!;
 	[Export] public NodePath ItemDetailImagePath = default!;
@@ -35,9 +37,11 @@ public partial class InventoryPanel : Control
 	private GridContainer _ingredients = default!;
 	private Button _potionsSortButton = default!;
 	private OptionButton? _potionsTraitFilter;
+	private OptionButton? _potionsRiskFilter;
 	private Button? _potionsClearFilterButton;
 	private Button _ingredientsSortButton = default!;
 	private OptionButton? _ingredientsTraitFilter;
+	private OptionButton? _ingredientsRiskFilter;
 	private Button? _ingredientsClearFilterButton;
 	private Control _itemDetailPanel = default!;
 	private TextureRect _itemDetailImage = default!;
@@ -55,7 +59,9 @@ public partial class InventoryPanel : Control
 	private bool _potionsAscending = true;
 	private bool _ingredientsAscending = true;
 	private string? _activePotionTraitFilter;
+	private string? _activePotionRiskFilter;
 	private string? _activeIngredientTraitFilter;
+	private string? _activeIngredientRiskFilter;
 	private readonly PotionInventoryBrewService _brewService = new();
 	private GameState _gameState = default!;
 
@@ -73,9 +79,11 @@ public partial class InventoryPanel : Control
 		_ingredients = GetNode<GridContainer>(IngredientsContainerPath);
 		_potionsSortButton = GetNode<Button>(PotionsSortButtonPath);
 		_potionsTraitFilter = GetNodeOrNull<OptionButton>(PotionsTraitFilterPath);
+		_potionsRiskFilter = GetNodeOrNull<OptionButton>(PotionsRiskFilterPath);
 		_potionsClearFilterButton = GetNodeOrNull<Button>(PotionsClearFilterButtonPath);
 		_ingredientsSortButton = GetNode<Button>(IngredientsSortButtonPath);
 		_ingredientsTraitFilter = GetNodeOrNull<OptionButton>(IngredientsTraitFilterPath);
+		_ingredientsRiskFilter = GetNodeOrNull<OptionButton>(IngredientsRiskFilterPath);
 		_ingredientsClearFilterButton = GetNodeOrNull<Button>(IngredientsClearFilterButtonPath);
 		_itemDetailPanel = GetNode<Control>(ItemDetailPanelPath);
 		_itemDetailImage = GetNode<TextureRect>(ItemDetailImagePath);
@@ -98,12 +106,16 @@ public partial class InventoryPanel : Control
 		_ingredientsSortButton.Pressed += ToggleIngredientsSort;
 		if (_potionsTraitFilter is not null)
 			_potionsTraitFilter.ItemSelected += OnPotionTraitSelected;
+		if (_potionsRiskFilter is not null)
+			_potionsRiskFilter.ItemSelected += OnPotionRiskSelected;
 		if (_potionsClearFilterButton is not null)
-			_potionsClearFilterButton.Pressed += ClearPotionTraitFilter;
+			_potionsClearFilterButton.Pressed += ClearPotionFilters;
 		if (_ingredientsTraitFilter is not null)
 			_ingredientsTraitFilter.ItemSelected += OnIngredientTraitSelected;
+		if (_ingredientsRiskFilter is not null)
+			_ingredientsRiskFilter.ItemSelected += OnIngredientRiskSelected;
 		if (_ingredientsClearFilterButton is not null)
-			_ingredientsClearFilterButton.Pressed += ClearIngredientTraitFilter;
+			_ingredientsClearFilterButton.Pressed += ClearIngredientFilters;
 		_itemDetailBrewButton.Pressed += TryBrewSelectedPotion;
 		_itemDetailCloseButton.Pressed += HideItemDetail;
 		_gameState.Changed += Refresh;
@@ -124,12 +136,16 @@ public partial class InventoryPanel : Control
 			_ingredientsSortButton.Pressed -= ToggleIngredientsSort;
 		if (_potionsTraitFilter is not null)
 			_potionsTraitFilter.ItemSelected -= OnPotionTraitSelected;
+		if (_potionsRiskFilter is not null)
+			_potionsRiskFilter.ItemSelected -= OnPotionRiskSelected;
 		if (_potionsClearFilterButton is not null)
-			_potionsClearFilterButton.Pressed -= ClearPotionTraitFilter;
+			_potionsClearFilterButton.Pressed -= ClearPotionFilters;
 		if (_ingredientsTraitFilter is not null)
 			_ingredientsTraitFilter.ItemSelected -= OnIngredientTraitSelected;
+		if (_ingredientsRiskFilter is not null)
+			_ingredientsRiskFilter.ItemSelected -= OnIngredientRiskSelected;
 		if (_ingredientsClearFilterButton is not null)
-			_ingredientsClearFilterButton.Pressed -= ClearIngredientTraitFilter;
+			_ingredientsClearFilterButton.Pressed -= ClearIngredientFilters;
 		if (_itemDetailBrewButton is not null)
 			_itemDetailBrewButton.Pressed -= TryBrewSelectedPotion;
 		if (_itemDetailCloseButton is not null)
@@ -165,8 +181,10 @@ public partial class InventoryPanel : Control
 
 		var potionStacks = _gameState.Inventory.Where(x => IsPotion(x.Key)).ToList();
 		var ingredientStacks = _gameState.Inventory.Where(x => !IsPotion(x.Key)).ToList();
-		var potionTraitNames = BuildTraitNames(potionStacks);
+		var potionTraitNames = BuildTopTraitNames(potionStacks, 3);
+		var potionRiskNames = BuildRiskNames(potionStacks);
 		var ingredientTraitNames = BuildTraitNames(ingredientStacks);
+		var ingredientRiskNames = BuildRiskNames(ingredientStacks);
 
 		if (!string.IsNullOrWhiteSpace(_activePotionTraitFilter))
 		{
@@ -174,6 +192,14 @@ public partial class InventoryPanel : Control
 				string.Equals(trait, _activePotionTraitFilter, System.StringComparison.OrdinalIgnoreCase));
 			if (!activeTraitExists)
 				_activePotionTraitFilter = null;
+		}
+
+		if (!string.IsNullOrWhiteSpace(_activePotionRiskFilter))
+		{
+			var activeRiskExists = potionRiskNames.Any(risk =>
+				string.Equals(risk, _activePotionRiskFilter, System.StringComparison.OrdinalIgnoreCase));
+			if (!activeRiskExists)
+				_activePotionRiskFilter = null;
 		}
 
 		if (!string.IsNullOrWhiteSpace(_activeIngredientTraitFilter))
@@ -184,14 +210,31 @@ public partial class InventoryPanel : Control
 				_activeIngredientTraitFilter = null;
 		}
 
+		if (!string.IsNullOrWhiteSpace(_activeIngredientRiskFilter))
+		{
+			var activeRiskExists = ingredientRiskNames.Any(risk =>
+				string.Equals(risk, _activeIngredientRiskFilter, System.StringComparison.OrdinalIgnoreCase));
+			if (!activeRiskExists)
+				_activeIngredientRiskFilter = null;
+		}
+
 		var potionStacksToRender = potionStacks;
 		if (_potionsTraitFilter is null)
 		{
 			_activePotionTraitFilter = null;
 		}
-		else if (!string.IsNullOrWhiteSpace(_activePotionTraitFilter))
+		if (_potionsRiskFilter is null)
+		{
+			_activePotionRiskFilter = null;
+		}
+
+		if (!string.IsNullOrWhiteSpace(_activePotionTraitFilter))
 		{
 			potionStacksToRender = potionStacks.Where(stack => ItemHasTrait(stack.Key, _activePotionTraitFilter)).ToList();
+		}
+		if (!string.IsNullOrWhiteSpace(_activePotionRiskFilter))
+		{
+			potionStacksToRender = potionStacksToRender.Where(stack => ItemHasRisk(stack.Key, _activePotionRiskFilter)).ToList();
 		}
 
 		if (_potionsAscending)
@@ -210,9 +253,18 @@ public partial class InventoryPanel : Control
 		{
 			_activeIngredientTraitFilter = null;
 		}
-		else if (!string.IsNullOrWhiteSpace(_activeIngredientTraitFilter))
+		if (_ingredientsRiskFilter is null)
+		{
+			_activeIngredientRiskFilter = null;
+		}
+
+		if (!string.IsNullOrWhiteSpace(_activeIngredientTraitFilter))
 		{
 			ingredientStacksToRender = ingredientStacks.Where(stack => ItemHasTrait(stack.Key, _activeIngredientTraitFilter)).ToList();
+		}
+		if (!string.IsNullOrWhiteSpace(_activeIngredientRiskFilter))
+		{
+			ingredientStacksToRender = ingredientStacksToRender.Where(stack => ItemHasRisk(stack.Key, _activeIngredientRiskFilter)).ToList();
 		}
 
 		if (_ingredientsAscending)
@@ -226,8 +278,10 @@ public partial class InventoryPanel : Control
 				_ingredients.AddChild(CreateSlot(stack.Key, stack.Value));
 		}
 
-		RefreshTraitFilterOptions(_potionsTraitFilter, potionTraitNames, ref _activePotionTraitFilter);
-		RefreshTraitFilterOptions(_ingredientsTraitFilter, ingredientTraitNames, ref _activeIngredientTraitFilter);
+		RefreshFilterOptions(_potionsTraitFilter, potionTraitNames, "Trait", ref _activePotionTraitFilter);
+		RefreshFilterOptions(_potionsRiskFilter, potionRiskNames, "Risk", ref _activePotionRiskFilter);
+		RefreshFilterOptions(_ingredientsTraitFilter, ingredientTraitNames, "Trait", ref _activeIngredientTraitFilter);
+		RefreshFilterOptions(_ingredientsRiskFilter, ingredientRiskNames, "Risk", ref _activeIngredientRiskFilter);
 		RefreshCurrentItemDetail();
 		UpdateBrewButtonState();
 	}
@@ -243,22 +297,15 @@ public partial class InventoryPanel : Control
 		if (_ingredientsTraitFilter is null)
 			return;
 
-		HandleTraitSelected(_ingredientsTraitFilter, selectedIndex, ref _activeIngredientTraitFilter);
+		HandleFilterSelected(_ingredientsTraitFilter, selectedIndex, "Trait", ref _activeIngredientTraitFilter);
 	}
 
-	private void ClearIngredientTraitFilter()
+	private void OnIngredientRiskSelected(long selectedIndex)
 	{
-		if (_ingredientsTraitFilter is null)
+		if (_ingredientsRiskFilter is null)
 			return;
 
-		if (string.IsNullOrWhiteSpace(_activeIngredientTraitFilter))
-		{
-			_ingredientsTraitFilter.Selected = 0;
-			return;
-		}
-
-		_activeIngredientTraitFilter = null;
-		Refresh();
+		HandleFilterSelected(_ingredientsRiskFilter, selectedIndex, "Risk", ref _activeIngredientRiskFilter);
 	}
 
 	private void OnPotionTraitSelected(long selectedIndex)
@@ -266,31 +313,62 @@ public partial class InventoryPanel : Control
 		if (_potionsTraitFilter is null)
 			return;
 
-		HandleTraitSelected(_potionsTraitFilter, selectedIndex, ref _activePotionTraitFilter);
+		HandleFilterSelected(_potionsTraitFilter, selectedIndex, "Trait", ref _activePotionTraitFilter);
 	}
 
-	private void ClearPotionTraitFilter()
+	private void OnPotionRiskSelected(long selectedIndex)
 	{
-		if (_potionsTraitFilter is null)
+		if (_potionsRiskFilter is null)
 			return;
 
-		if (string.IsNullOrWhiteSpace(_activePotionTraitFilter))
+		HandleFilterSelected(_potionsRiskFilter, selectedIndex, "Risk", ref _activePotionRiskFilter);
+	}
+
+	private void ClearIngredientFilters()
+	{
+		if (_ingredientsTraitFilter is null && _ingredientsRiskFilter is null)
+			return;
+
+		if (string.IsNullOrWhiteSpace(_activeIngredientTraitFilter) && string.IsNullOrWhiteSpace(_activeIngredientRiskFilter))
 		{
-			_potionsTraitFilter.Selected = 0;
+			if (_ingredientsTraitFilter is not null)
+				_ingredientsTraitFilter.Selected = 0;
+			if (_ingredientsRiskFilter is not null)
+				_ingredientsRiskFilter.Selected = 0;
+			return;
+		}
+
+		_activeIngredientTraitFilter = null;
+		_activeIngredientRiskFilter = null;
+		Refresh();
+	}
+
+	private void ClearPotionFilters()
+	{
+		if (_potionsTraitFilter is null && _potionsRiskFilter is null)
+			return;
+
+		if (string.IsNullOrWhiteSpace(_activePotionTraitFilter) && string.IsNullOrWhiteSpace(_activePotionRiskFilter))
+		{
+			if (_potionsTraitFilter is not null)
+				_potionsTraitFilter.Selected = 0;
+			if (_potionsRiskFilter is not null)
+				_potionsRiskFilter.Selected = 0;
 			return;
 		}
 
 		_activePotionTraitFilter = null;
+		_activePotionRiskFilter = null;
 		Refresh();
 	}
 
-	private void HandleTraitSelected(OptionButton? traitFilter, long selectedIndex, ref string? activeTraitFilter)
+	private void HandleFilterSelected(OptionButton? traitFilter, long selectedIndex, string placeholderLabel, ref string? activeTraitFilter)
 	{
 		if (traitFilter is null)
 			return;
 
 		var selectedTrait = traitFilter.GetItemText((int)selectedIndex);
-		if (string.Equals(selectedTrait, "Trait", System.StringComparison.OrdinalIgnoreCase))
+		if (string.Equals(selectedTrait, placeholderLabel, System.StringComparison.OrdinalIgnoreCase))
 		{
 			if (!string.IsNullOrWhiteSpace(activeTraitFilter))
 			{
@@ -313,13 +391,13 @@ public partial class InventoryPanel : Control
 		Refresh();
 	}
 
-	private static void RefreshTraitFilterOptions(OptionButton? traitFilter, List<string> traitNames, ref string? activeTraitFilter)
+	private static void RefreshFilterOptions(OptionButton? traitFilter, List<string> traitNames, string placeholderLabel, ref string? activeTraitFilter)
 	{
 		if (traitFilter is null)
 			return;
 
 		traitFilter.Clear();
-		traitFilter.AddItem("Trait");
+		traitFilter.AddItem(placeholderLabel);
 
 		foreach (var traitName in traitNames)
 			traitFilter.AddItem(traitName);
@@ -344,6 +422,31 @@ public partial class InventoryPanel : Control
 		traitFilter.Selected = 0;
 	}
 
+	private static List<string> BuildTopTraitNames(IEnumerable<KeyValuePair<string, int>> itemStacks, int maxCount)
+	{
+		var uniqueNames = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+		foreach (var stack in itemStacks)
+		{
+			if (!ItemCatalog.TryGetItem(stack.Key, out var item))
+				continue;
+
+			foreach (var trait in item.Traits
+				.OrderByDescending(x => x.Value)
+				.ThenBy(x => x.Key)
+				.Take(maxCount))
+			{
+				if (string.IsNullOrWhiteSpace(trait.Key))
+					continue;
+				if (trait.Value <= 0)
+					continue;
+
+				uniqueNames.Add(trait.Key);
+			}
+		}
+
+		return uniqueNames.OrderBy(name => name).ToList();
+	}
+
 	private static List<string> BuildTraitNames(IEnumerable<KeyValuePair<string, int>> itemStacks)
 	{
 		var uniqueNames = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
@@ -366,6 +469,28 @@ public partial class InventoryPanel : Control
 		return uniqueNames.OrderBy(name => name).ToList();
 	}
 
+	private static List<string> BuildRiskNames(IEnumerable<KeyValuePair<string, int>> itemStacks)
+	{
+		var uniqueNames = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+		foreach (var stack in itemStacks)
+		{
+			if (!ItemCatalog.TryGetItem(stack.Key, out var item))
+				continue;
+
+			foreach (var risk in item.Risks)
+			{
+				if (string.IsNullOrWhiteSpace(risk.Key))
+					continue;
+				if (risk.Value <= 0)
+					continue;
+
+				uniqueNames.Add(risk.Key);
+			}
+		}
+
+		return uniqueNames.OrderBy(name => name).ToList();
+	}
+
 	private static bool ItemHasTrait(string itemId, string traitName)
 	{
 		if (!ItemCatalog.TryGetItem(itemId, out var item))
@@ -377,6 +502,22 @@ public partial class InventoryPanel : Control
 				continue;
 
 			return trait.Value > 0;
+		}
+
+		return false;
+	}
+
+	private static bool ItemHasRisk(string itemId, string riskName)
+	{
+		if (!ItemCatalog.TryGetItem(itemId, out var item))
+			return false;
+
+		foreach (var risk in item.Risks)
+		{
+			if (!string.Equals(risk.Key, riskName, System.StringComparison.OrdinalIgnoreCase))
+				continue;
+
+			return risk.Value > 0;
 		}
 
 		return false;

@@ -15,9 +15,11 @@ PotionsContainerPath = NodePath("Panel/Margin/VBox/PotionsScroll/Potions")
 IngredientsContainerPath = NodePath("Panel/Margin/VBox/IngredientsScroll/Ingredients")
 PotionsSortButtonPath = NodePath("Panel/Margin/VBox/PotionsHeaderRow/Sort")
 PotionsTraitFilterPath = NodePath("Panel/Margin/VBox/PotionsHeaderRow/TraitFilter")
+PotionsRiskFilterPath = NodePath("Panel/Margin/VBox/PotionsHeaderRow/RiskFilter")
 PotionsClearFilterButtonPath = NodePath("Panel/Margin/VBox/PotionsHeaderRow/Clear")
 IngredientsSortButtonPath = NodePath("Panel/Margin/VBox/IngredientsHeaderRow/Sort")
 IngredientsTraitFilterPath = NodePath("Panel/Margin/VBox/IngredientsHeaderRow/TraitFilter")
+IngredientsRiskFilterPath = NodePath("Panel/Margin/VBox/IngredientsHeaderRow/RiskFilter")
 IngredientsClearFilterButtonPath = NodePath("Panel/Margin/VBox/IngredientsHeaderRow/Clear")
 ItemDetailPanelPath = NodePath("../InventoryItemDetail")
 ItemDetailImagePath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/Image")
@@ -36,6 +38,10 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_left = 45.0
+offset_top = -4.0
+offset_right = 75.0
+offset_bottom = -4.0
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -76,6 +82,9 @@ text = "Clear"
 [node name="TraitFilter" type="OptionButton" parent="Panel/Margin/VBox/PotionsHeaderRow"]
 layout_mode = 2
 
+[node name="RiskFilter" type="OptionButton" parent="Panel/Margin/VBox/PotionsHeaderRow"]
+layout_mode = 2
+
 [node name="Sort" type="Button" parent="Panel/Margin/VBox/PotionsHeaderRow"]
 layout_mode = 2
 text = "A-Z"
@@ -108,6 +117,9 @@ layout_mode = 2
 text = "Clear"
 
 [node name="TraitFilter" type="OptionButton" parent="Panel/Margin/VBox/IngredientsHeaderRow"]
+layout_mode = 2
+
+[node name="RiskFilter" type="OptionButton" parent="Panel/Margin/VBox/IngredientsHeaderRow"]
 layout_mode = 2
 
 [node name="Sort" type="Button" parent="Panel/Margin/VBox/IngredientsHeaderRow"]
