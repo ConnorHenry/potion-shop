@@ -11,6 +11,8 @@ public partial class CustomerPanel : Control
 {
 	[Signal]
 	public delegate void SaleResolvedEventHandler(bool success, int goldDelta, int dreadDelta, float finalScore, string grade);
+	[Signal]
+	public delegate void CustomerSkippedEventHandler();
 
 	public bool SuppressSaleResultPanel { get; set; }
 
@@ -37,6 +39,8 @@ public partial class CustomerPanel : Control
 	private RichTextLabel _saleResultBody = default!;
 	private Button _saleResultCloseButton = default!;
 	private Button _closeButton = default!;
+	private Button _comeBackTomorrowButton = default!;
+	private Button _sorryCantHelpYouButton = default!;
 	private CustomerInteractionDef? _interaction;
 	private readonly PotionBrewingService _brewingService = new();
 	private GameState _gameState = default!;
@@ -44,6 +48,8 @@ public partial class CustomerPanel : Control
 	private const float SuccessScoreThreshold = 60.0f;
 	private const int SuccessDreadChange = -2;
 	private const int FailureDreadChange = 4;
+	private const string MatchedDesiredColorHex = "#59D959";
+	private const string MatchedRiskColorHex = "#E64040";
 
 	public override void _Ready()
 	{
@@ -75,11 +81,22 @@ public partial class CustomerPanel : Control
 		_saleResultBody = GetNode<RichTextLabel>(SaleResultBodyPath);
 		_saleResultCloseButton = GetNode<Button>(SaleResultCloseButtonPath);
 		_closeButton = GetNode<Button>(CloseButtonPath);
+		BindOrCreateSkipButtons();
+
+		_desiredTraits.BbcodeEnabled = true;
+		_badTraits.BbcodeEnabled = true;
 
 		MouseFilter = MouseFilterEnum.Ignore;
 		_closeButton.Pressed += HidePanel;
+		if (_comeBackTomorrowButton is not null)
+			_comeBackTomorrowButton.Pressed += OnSkipCustomerPressed;
+
+		if (_sorryCantHelpYouButton is not null)
+			_sorryCantHelpYouButton.Pressed += OnSkipCustomerPressed;
 		_saleResultCloseButton.Pressed += HideSaleResult;
 		_sellDropBox.ItemDropped += OnItemDropped;
+		_sellDropBox.ItemHoverPreview += OnSellDropHoverPreview;
+		_sellDropBox.HoverPreviewCleared += OnSellDropHoverPreviewCleared;
 		_portrait.Visible = false;
 		_saleResultPanel.Visible = false;
 		Visible = false;
@@ -89,10 +106,18 @@ public partial class CustomerPanel : Control
 	{
 		if (_closeButton is not null)
 			_closeButton.Pressed -= HidePanel;
+		if (_comeBackTomorrowButton is not null)
+			_comeBackTomorrowButton.Pressed -= OnSkipCustomerPressed;
+		if (_sorryCantHelpYouButton is not null)
+			_sorryCantHelpYouButton.Pressed -= OnSkipCustomerPressed;
 		if (_saleResultCloseButton is not null)
 			_saleResultCloseButton.Pressed -= HideSaleResult;
 		if (_sellDropBox is not null)
+		{
 			_sellDropBox.ItemDropped -= OnItemDropped;
+			_sellDropBox.ItemHoverPreview -= OnSellDropHoverPreview;
+			_sellDropBox.HoverPreviewCleared -= OnSellDropHoverPreviewCleared;
+		}
 	}
 
 	public void ShowInteraction(CustomerInteractionDef interaction)
@@ -273,8 +298,8 @@ public partial class CustomerPanel : Control
 
 	private void SetRequestTraits(CustomerRequestDef request)
 	{
-		_desiredTraits.Text = FormatTraitList(request.DesiredTraits);
-		_badTraits.Text = FormatTraitList(request.BadTraits);
+		_desiredTraits.Text = FormatTraitListWithMatches(request.DesiredTraits, null, MatchedDesiredColorHex);
+		_badTraits.Text = FormatTraitListWithMatches(request.BadTraits, null, MatchedRiskColorHex);
 	}
 
 	private void SetPortrait(string? portraitPath)
@@ -316,16 +341,153 @@ public partial class CustomerPanel : Control
 		return string.IsNullOrWhiteSpace(customName) ? fallbackName : customName;
 	}
 
-	private static string FormatTraitList(Dictionary<string, int> values)
+	private void OnSellDropHoverPreview(string itemId)
 	{
-		if (values is null || values.Count == 0)
+		if (_interaction is null)
+			return;
+
+		if (!TryResolvePotionScore(itemId, out var brewResult))
+		{
+			SetRequestTraits(_interaction.BuildRequest());
+			return;
+		}
+
+		if (brewResult is null)
+		{
+			SetRequestTraits(_interaction.BuildRequest());
+			return;
+		}
+
+		var request = _interaction.BuildRequest();
+		_desiredTraits.Text = FormatTraitListWithMatches(request.DesiredTraits, brewResult.Traits, MatchedDesiredColorHex);
+		_badTraits.Text = FormatTraitListWithMatches(request.BadTraits, brewResult.Risks, MatchedRiskColorHex);
+	}
+
+	private void OnSellDropHoverPreviewCleared()
+	{
+		if (_interaction is null)
+			return;
+
+		SetRequestTraits(_interaction.BuildRequest());
+	}
+
+	private static string FormatTraitListWithMatches(
+		Dictionary<string, int> requiredValues,
+		IReadOnlyDictionary<string, int>? producedValues,
+		string matchedColorHex)
+	{
+		if (requiredValues is null || requiredValues.Count == 0)
 			return "None";
 
-		return string.Join("\n",
-			values
+		return string.Join(
+			"\n",
+			requiredValues
 				.OrderByDescending(x => x.Value)
 				.ThenBy(x => x.Key)
-				.Select(x => $"{x.Key}: {x.Value}"));
+				.Select(pair => FormatTraitLine(pair.Key, pair.Value, producedValues, matchedColorHex)));
+	}
+
+	private static string FormatTraitLine(
+		string key,
+		int requiredValue,
+		IReadOnlyDictionary<string, int>? producedValues,
+		string matchedColorHex)
+	{
+		var safeKey = EscapeBbCodeText(key);
+		var line = $"{safeKey}: {requiredValue}";
+		if (producedValues is null)
+			return line;
+
+		if (!TryGetValueIgnoreCase(producedValues, key, out var producedValue))
+			return line;
+
+		if (producedValue < requiredValue)
+			return line;
+
+		return $"[color={matchedColorHex}]{line}[/color]";
+	}
+
+	private static bool TryGetValueIgnoreCase(
+		IReadOnlyDictionary<string, int> values,
+		string key,
+		out int value)
+	{
+		foreach (var pair in values)
+		{
+			if (!string.Equals(pair.Key, key, System.StringComparison.OrdinalIgnoreCase))
+				continue;
+
+			value = pair.Value;
+			return true;
+		}
+
+		value = 0;
+		return false;
+	}
+
+	private static string EscapeBbCodeText(string text)
+	{
+		return text
+			.Replace("[", "[lb]")
+			.Replace("]", "[rb]");
+	}
+
+	private void OnSkipCustomerPressed()
+	{
+		if (_interaction is null)
+			return;
+
+		HidePanel();
+		EmitSignal(SignalName.CustomerSkipped);
+	}
+
+	private void BindOrCreateSkipButtons()
+	{
+		_comeBackTomorrowButton = GetNodeOrNull<Button>("Panel/Margin/VBox/CustomerActions/ComeBackTomorrow");
+		_sorryCantHelpYouButton = GetNodeOrNull<Button>("Panel/Margin/VBox/CustomerActions/SorryCantHelpYou");
+		if (_comeBackTomorrowButton is not null && _sorryCantHelpYouButton is not null)
+			return;
+
+		var customerVBox = GetNodeOrNull<VBoxContainer>("Panel/Margin/VBox");
+		if (customerVBox is null)
+		{
+			GD.PushError("CustomerPanel: Panel/Margin/VBox not found; cannot create skip buttons.");
+			return;
+		}
+
+		var customerActions = customerVBox.GetNodeOrNull<HBoxContainer>("CustomerActions");
+		if (customerActions is null)
+		{
+			customerActions = new HBoxContainer
+			{
+				Name = "CustomerActions"
+			};
+			customerVBox.AddChild(customerActions);
+		}
+
+		_comeBackTomorrowButton = customerActions.GetNodeOrNull<Button>("ComeBackTomorrow");
+		if (_comeBackTomorrowButton is null)
+		{
+			_comeBackTomorrowButton = new Button
+			{
+				Name = "ComeBackTomorrow",
+				Text = "Come back tomorrow",
+				SizeFlagsHorizontal = SizeFlags.ExpandFill
+			};
+			customerActions.AddChild(_comeBackTomorrowButton);
+		}
+
+		_sorryCantHelpYouButton = customerActions.GetNodeOrNull<Button>("SorryCantHelpYou");
+		if (_sorryCantHelpYouButton is null)
+		{
+			_sorryCantHelpYouButton = new Button
+			{
+				Name = "SorryCantHelpYou",
+				Text = "Sorry can't help you",
+				SizeFlagsHorizontal = SizeFlags.ExpandFill
+			};
+			customerActions.AddChild(_sorryCantHelpYouButton);
+		}
 	}
 
 }

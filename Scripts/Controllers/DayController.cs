@@ -55,6 +55,7 @@ public partial class DayController : Node
 		_shopTimer.Timeout += OnShopTimerTick;
 
 		_customerPanel.SaleResolved += OnCustomerSaleResolved;
+		_customerPanel.CustomerSkipped += OnCustomerSkipped;
 		_daySummaryPanel.ContinuePressed += OnSummaryContinuePressed;
 		_daySummaryPanel.HidePanel();
 		_customerPanel.SuppressSaleResultPanel = false;
@@ -65,6 +66,8 @@ public partial class DayController : Node
 	{
 		if (_shopTimer != null)
 			_shopTimer.Timeout -= OnShopTimerTick;
+		if (_customerPanel != null)
+			_customerPanel.CustomerSkipped -= OnCustomerSkipped;
 		if (_customerPanel != null)
 			_customerPanel.SaleResolved -= OnCustomerSaleResolved;
 		if (_daySummaryPanel != null)
@@ -182,6 +185,21 @@ public partial class DayController : Node
 
 		_customerPanel.ShowInteraction(interaction);
 		return true;
+	}
+
+	private void OnCustomerSkipped()
+	{
+		if (!IsShopOpen)
+			return;
+
+		if (_secondsRemaining <= 0)
+		{
+			CloseShopAndShowSummary();
+			return;
+		}
+
+		if (!TryShowNextCustomer())
+			CloseShopAndShowSummary();
 	}
 
 	private void CloseShopAndShowSummary()

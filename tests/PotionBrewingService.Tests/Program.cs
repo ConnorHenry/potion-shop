@@ -583,40 +583,32 @@ static class Program
     {
         var source = ReadProjectFile("Scripts/UI/RecipeBookPanel.cs");
 
-        AssertTrue("RecipeBookPanel builds an info row for ingredients and stats",
-            source.Contains("var infoRow = new HBoxContainer"));
-        AssertTrue("RecipeBookPanel keeps ingredients in the left column",
-            source.Contains("var ingredientColumn = new VBoxContainer"));
-        AssertTrue("RecipeBookPanel keeps traits in their own column",
-            source.Contains("var traitsColumn = new VBoxContainer"));
-        AssertTrue("RecipeBookPanel keeps risks in their own column",
-            source.Contains("var risksColumn = new VBoxContainer"));
-        AssertTrue("RecipeBookPanel uses rich text for traits",
-            source.Contains("var traits = new RichTextLabel"));
-        AssertTrue("RecipeBookPanel uses rich text for risks",
-            source.Contains("var risks = new RichTextLabel"));
-        AssertTrue("RecipeBookPanel formats traits as multiline rich text",
-            source.Contains("FormatTraitDetails(item.Traits, 3)"));
-        AssertTrue("RecipeBookPanel formats risks as multiline rich text",
-            source.Contains("FormatRiskDetails(item.Risks)"));
-        AssertTrue("RecipeBookPanel gives ingredients more width",
-            source.Contains("SizeFlagsStretchRatio = 3.0f"));
-        AssertTrue("RecipeBookPanel narrows the traits column",
-            source.Contains("CustomMinimumSize = new Vector2(120, 0)"));
-        AssertTrue("RecipeBookPanel narrows the risks column",
-            source.Contains("SizeFlagsStretchRatio = 1.0f"));
-        AssertTrue("RecipeBookPanel wraps ingredient text at word boundaries",
-            source.Contains("AutowrapMode = TextServer.AutowrapMode.WordSmart"));
-        AssertTrue("RecipeBookPanel colors traits green",
-            source.Contains("[color=#59d65f]"));
-        AssertTrue("RecipeBookPanel colors risks red",
-            source.Contains("[color=#e04a4a]"));
-        AssertTrue("RecipeBookPanel inserts line breaks between detail entries",
-            source.Contains("string.Join(\"\\n\", lines)"));
-        AssertTrue("RecipeBookPanel allows the ingredients block to fit its contents",
-            source.Contains("FitContent = true"));
-        AssertTrue("RecipeBookPanel reserves minimum space for each card",
-            source.Contains("CustomMinimumSize = new Vector2(0, 170)"));
+        AssertTrue("RecipeBookPanel builds a top header row with icon, title, and brew action",
+            source.Contains("var topRow = new HBoxContainer"));
+        AssertTrue("RecipeBookPanel builds a details row beneath the header row",
+            source.Contains("var detailsRow = new HBoxContainer"));
+        AssertTrue("RecipeBookPanel keeps ingredient rendering in a dedicated helper",
+            source.Contains("CreateIngredientLines(availabilityEntries)"));
+        AssertTrue("RecipeBookPanel keeps trait rendering in a dedicated helper",
+            source.Contains("BuildStatLines(item.Traits"));
+        AssertTrue("RecipeBookPanel keeps risk rendering in a dedicated helper",
+            source.Contains("BuildStatLines(item.Risks"));
+        AssertTrue("RecipeBookPanel uses explicit column builder helpers",
+            source.Contains("CreateDetailsColumn("));
+        AssertTrue("RecipeBookPanel inserts separators between ingredients, traits, and risks",
+            source.Contains("CreateVerticalSeparator()"));
+        AssertTrue("RecipeBookPanel keeps the ingredients column wider",
+            source.Contains("3.0f"));
+        AssertTrue("RecipeBookPanel keeps stat columns narrower than ingredients",
+            source.Contains("1.5f"));
+        AssertTrue("RecipeBookPanel exposes brewability status as a dedicated tag",
+            source.Contains("CreateStatusTag(isBrewable, missingCount)"));
+        AssertTrue("RecipeBookPanel disables brew when ingredients are missing",
+            source.Contains("Disabled = !isBrewable"));
+        AssertTrue("RecipeBookPanel uses clear ingredient availability markers",
+            source.Contains("var prefix = entry.IsAvailable ? \"v\" : \"X\""));
+        AssertTrue("RecipeBookPanel keeps the yellow missing status label",
+            source.Contains("Missing {missingCount}"));
     }
 
     private static void TestBrewPanelIsIngredient()
@@ -864,19 +856,25 @@ static class Program
         var source = ReadProjectFile("Scripts/UI/RecipeBookPanel.cs");
         var scene = ReadProjectFile("Scenes/UI/GameUi.tscn");
 
-        AssertTrue("RecipeBookPanel exports a clear button path", source.Contains("ClearButtonPath"));
+        AssertTrue("RecipeBookPanel exports a reset button path", source.Contains("ResetButtonPath"));
+        AssertTrue("RecipeBookPanel exports a search input path", source.Contains("SearchInputPath"));
+        AssertTrue("RecipeBookPanel exports a sort filter path", source.Contains("SortFilterPath"));
         AssertTrue("RecipeBookPanel exports a trait filter path", source.Contains("TraitFilterPath"));
         AssertTrue("RecipeBookPanel exports a risk filter path", source.Contains("RiskFilterPath"));
-        AssertTrue("RecipeBookPanel wires the clear button handler", source.Contains("_clearButton.Pressed += ClearFilters"));
-        AssertTrue("RecipeBookPanel clear button resets both filters", source.Contains("private void ClearFilters()"));
+        AssertTrue("RecipeBookPanel wires the reset button handler", source.Contains("_resetButton.Pressed += ClearFilters"));
+        AssertTrue("RecipeBookPanel reset button clears filters", source.Contains("private void ClearFilters()"));
         AssertTrue("RecipeBookPanel builds trait filter options from learned potions", source.Contains("BuildTopTraitNames(learnedPotionIds, 3)"));
         AssertTrue("RecipeBookPanel builds risk filter options from learned potions", source.Contains("BuildRiskNames(learnedPotionIds)"));
         AssertTrue("RecipeBookPanel filters by traits", source.Contains("ItemHasTrait(entry.PotionId, _activeTraitFilter)"));
         AssertTrue("RecipeBookPanel filters by risks", source.Contains("ItemHasRisk(entry.PotionId, _activeRiskFilter)"));
-        AssertTrue("RecipeBookPanel scene wires clear button path", scene.Contains("ClearButtonPath = NodePath(\"Panel/Margin/VBox/Header/Clear\")"));
+        AssertTrue("RecipeBookPanel scene wires reset button path", scene.Contains("ResetButtonPath = NodePath(\"Panel/Margin/VBox/Header/ResetFilters\")"));
+        AssertTrue("RecipeBookPanel scene wires search input path", scene.Contains("SearchInputPath = NodePath(\"Panel/Margin/VBox/Header/SearchInput\")"));
+        AssertTrue("RecipeBookPanel scene wires sort filter path", scene.Contains("SortFilterPath = NodePath(\"Panel/Margin/VBox/Header/SortFilter\")"));
         AssertTrue("RecipeBookPanel scene wires trait filter path", scene.Contains("TraitFilterPath = NodePath(\"Panel/Margin/VBox/Header/TraitFilter\")"));
         AssertTrue("RecipeBookPanel scene wires risk filter path", scene.Contains("RiskFilterPath = NodePath(\"Panel/Margin/VBox/Header/RiskFilter\")"));
-        AssertTrue("RecipeBookPanel scene places clear button before trait filter", scene.Contains("[node name=\"Clear\" type=\"Button\" parent=\"RecipeBookPanel/Panel/Margin/VBox/Header\"]"));
+        AssertTrue("RecipeBookPanel scene places search input in the header", scene.Contains("[node name=\"SearchInput\" type=\"LineEdit\" parent=\"RecipeBookPanel/Panel/Margin/VBox/Header\"]"));
+        AssertTrue("RecipeBookPanel scene places sort filter in the header", scene.Contains("[node name=\"SortFilter\" type=\"OptionButton\" parent=\"RecipeBookPanel/Panel/Margin/VBox/Header\"]"));
+        AssertTrue("RecipeBookPanel scene places reset button in the header", scene.Contains("[node name=\"ResetFilters\" type=\"Button\" parent=\"RecipeBookPanel/Panel/Margin/VBox/Header\"]"));
         AssertTrue("RecipeBookPanel scene includes a trait filter OptionButton", scene.Contains("[node name=\"TraitFilter\" type=\"OptionButton\" parent=\"RecipeBookPanel/Panel/Margin/VBox/Header\"]"));
         AssertTrue("RecipeBookPanel scene includes a risk filter OptionButton", scene.Contains("[node name=\"RiskFilter\" type=\"OptionButton\" parent=\"RecipeBookPanel/Panel/Margin/VBox/Header\"]"));
     }
@@ -885,12 +883,13 @@ static class Program
     {
         var source = ReadProjectFile("Scripts/UI/RecipeBookPanel.cs");
 
-        AssertTrue("RecipeBookPanel clear button field exists", source.Contains("private Button? _clearButton;"));
-        AssertTrue("RecipeBookPanel clear button is resolved from the scene", source.Contains("_clearButton = GetNodeOrNull<Button>(ClearButtonPath);"));
-        AssertTrue("RecipeBookPanel clear button subscribes on ready", source.Contains("_clearButton.Pressed += ClearFilters;"));
-        AssertTrue("RecipeBookPanel clear button unsubscribes on exit", source.Contains("_clearButton.Pressed -= ClearFilters;"));
-        AssertTrue("RecipeBookPanel clear button clears the active filters", source.Contains("_activeTraitFilter = null;") && source.Contains("_activeRiskFilter = null;"));
-        AssertTrue("RecipeBookPanel clear button resets the placeholder selection when already clear", source.Contains("_traitFilter.Selected = 0;") && source.Contains("_riskFilter.Selected = 0;"));
+        AssertTrue("RecipeBookPanel reset button field exists", source.Contains("private Button? _resetButton;"));
+        AssertTrue("RecipeBookPanel reset button is resolved from the scene", source.Contains("_resetButton = GetNodeOrNull<Button>(ResetButtonPath);"));
+        AssertTrue("RecipeBookPanel reset button subscribes on ready", source.Contains("_resetButton.Pressed += ClearFilters;"));
+        AssertTrue("RecipeBookPanel reset button unsubscribes on exit", source.Contains("_resetButton.Pressed -= ClearFilters;"));
+        AssertTrue("RecipeBookPanel reset button clears the active filters", source.Contains("_activeTraitFilter = null;") && source.Contains("_activeRiskFilter = null;"));
+        AssertTrue("RecipeBookPanel reset button clears search text", source.Contains("_searchInput.Text = string.Empty;"));
+        AssertTrue("RecipeBookPanel reset button resets filter selections", source.Contains("_traitFilter.Selected = 0;") && source.Contains("_riskFilter.Selected = 0;"));
     }
 
     private static void TestSaveGameManagerUsesSaveDirectory()

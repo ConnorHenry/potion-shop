@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3 uid="uid://4hripc13we86"]
+[gd_scene load_steps=13 format=3 uid="uid://4hripc13we86"]
 
 [ext_resource type="PackedScene" uid="uid://cikvfbes8y0kf" path="res://Scenes/UI/Hud.tscn" id="1_hud"]
 [ext_resource type="Script" uid="uid://hkjdjmtp1abw" path="res://Scripts/UI/EventModal.cs" id="2_8y3f6"]
@@ -11,6 +11,7 @@
 [ext_resource type="Script" uid="uid://cdkl4a6bue2us" path="res://Scripts/UI/DraggablePanel.cs" id="12_6x1m8"]
 [ext_resource type="Texture2D" uid="uid://dw2q8lwc58yyq" path="res://Assets/UI/cauldron.svg" id="13_x17d0"]
 [ext_resource type="Script" uid="uid://bdb6mw7rn78kn" path="res://Scripts/UI/DaySummaryPanel.cs" id="14_daysum"]
+[ext_resource type="Theme" uid="uid://dsdgpree5b8xv" path="res://Assets/UI/RecipeBookTheme.tres" id="15_recipe_theme"]
 
 [node name="CanvasLayer" type="CanvasLayer"]
 
@@ -219,6 +220,19 @@ layout_mode = 2
 text = "Drop item here"
 horizontal_alignment = 1
 vertical_alignment = 1
+
+[node name="CustomerActions" type="HBoxContainer" parent="CustomerPanel/Panel/Margin/VBox"]
+layout_mode = 2
+
+[node name="ComeBackTomorrow" type="Button" parent="CustomerPanel/Panel/Margin/VBox/CustomerActions"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Come back tomorrow"
+
+[node name="SorryCantHelpYou" type="Button" parent="CustomerPanel/Panel/Margin/VBox/CustomerActions"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Sorry can't help you"
 
 [node name="CustomerSaleResultPanel" type="PanelContainer" parent="."]
 visible = false
@@ -531,22 +545,25 @@ text = "Clear"
 
 [node name="RecipeBookPanel" type="Control" parent="."]
 layout_mode = 3
-anchor_left = 0.723
+anchor_left = 0.343
 anchor_top = 0.086
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -77.44
-offset_top = 17.08
-offset_right = -36.0
-offset_bottom = 46.0
+anchor_right = 0.987
+anchor_bottom = 0.975
+offset_left = -1.56
+offset_top = 0.039978
+offset_right = 0.0400391
+offset_bottom = -0.480042
 grow_horizontal = 2
 grow_vertical = 2
+scale = Vector2(0.48, 0.48)
+theme = ExtResource("15_recipe_theme")
 script = ExtResource("11_q7k2n")
 CloseButtonPath = NodePath("Panel/Margin/VBox/Header/Close")
-ClearButtonPath = NodePath("Panel/Margin/VBox/Header/Clear")
-SortButtonPath = NodePath("Panel/Margin/VBox/Header/Sort")
+ResetButtonPath = NodePath("Panel/Margin/VBox/Header/ResetFilters")
+SortFilterPath = NodePath("Panel/Margin/VBox/Header/SortFilter")
 TraitFilterPath = NodePath("Panel/Margin/VBox/Header/TraitFilter")
 RiskFilterPath = NodePath("Panel/Margin/VBox/Header/RiskFilter")
+SearchInputPath = NodePath("Panel/Margin/VBox/Header/SearchInput")
 RecipesContainerPath = NodePath("Panel/Margin/VBox/Scroll/Recipes")
 
 [node name="Panel" type="PanelContainer" parent="RecipeBookPanel"]
@@ -554,57 +571,81 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -614.0
-offset_top = 10.0
-offset_right = -560.0
-offset_bottom = -539.0
+offset_left = 61.5
+offset_top = 10.5
+offset_right = 612.395
+offset_bottom = 3.64008
 grow_horizontal = 2
 grow_vertical = 2
 
 [node name="Margin" type="MarginContainer" parent="RecipeBookPanel/Panel"]
 layout_mode = 2
-theme_override_constants/margin_left = 14
-theme_override_constants/margin_top = 14
-theme_override_constants/margin_right = 14
-theme_override_constants/margin_bottom = 14
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 18
 
 [node name="VBox" type="VBoxContainer" parent="RecipeBookPanel/Panel/Margin"]
 layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 18
 
 [node name="Header" type="HBoxContainer" parent="RecipeBookPanel/Panel/Margin/VBox"]
 layout_mode = 2
+theme_override_constants/separation = 12
 
 [node name="Title" type="Label" parent="RecipeBookPanel/Panel/Margin/VBox/Header"]
+visible = false
 layout_mode = 2
-size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 50
 text = "Recipe Book"
 
-[node name="Close" type="Button" parent="RecipeBookPanel/Panel/Margin/VBox/Header"]
+[node name="SearchInput" type="LineEdit" parent="RecipeBookPanel/Panel/Margin/VBox/Header"]
+custom_minimum_size = Vector2(360, 68)
 layout_mode = 2
-text = "Close"
-
-[node name="Clear" type="Button" parent="RecipeBookPanel/Panel/Margin/VBox/Header"]
-layout_mode = 2
-text = "Clear"
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 29
+placeholder_text = "Search recipes..."
 
 [node name="TraitFilter" type="OptionButton" parent="RecipeBookPanel/Panel/Margin/VBox/Header"]
+custom_minimum_size = Vector2(208, 68)
 layout_mode = 2
+theme_override_font_sizes/font_size = 29
 
 [node name="RiskFilter" type="OptionButton" parent="RecipeBookPanel/Panel/Margin/VBox/Header"]
+custom_minimum_size = Vector2(208, 68)
 layout_mode = 2
+theme_override_font_sizes/font_size = 29
 
-[node name="Sort" type="Button" parent="RecipeBookPanel/Panel/Margin/VBox/Header"]
+[node name="SortFilter" type="OptionButton" parent="RecipeBookPanel/Panel/Margin/VBox/Header"]
+custom_minimum_size = Vector2(216, 68)
 layout_mode = 2
-text = "A-Z"
+theme_override_font_sizes/font_size = 29
+
+[node name="ResetFilters" type="Button" parent="RecipeBookPanel/Panel/Margin/VBox/Header"]
+custom_minimum_size = Vector2(200, 68)
+layout_mode = 2
+theme_override_font_sizes/font_size = 29
+text = "Reset Filters"
+
+[node name="Close" type="Button" parent="RecipeBookPanel/Panel/Margin/VBox/Header"]
+visible = false
+custom_minimum_size = Vector2(140, 68)
+layout_mode = 2
+theme_override_font_sizes/font_size = 29
+text = "Close"
 
 [node name="Scroll" type="ScrollContainer" parent="RecipeBookPanel/Panel/Margin/VBox"]
 layout_mode = 2
+size_flags_horizontal = 3
 size_flags_vertical = 3
 
 [node name="Recipes" type="VBoxContainer" parent="RecipeBookPanel/Panel/Margin/VBox/Scroll"]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 0
+theme_override_constants/separation = 14
 
 [node name="EventModal" type="Control" parent="."]
 visible = false
