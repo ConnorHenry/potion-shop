@@ -348,7 +348,6 @@ public partial class RecipeBookPanel : Control
 
 		headingColumn.AddChild(title);
 		headingColumn.AddChild(statusTag);
-		topRow.AddChild(icon);
 		topRow.AddChild(headingColumn);
 		topRow.AddChild(actionColumn);
 
