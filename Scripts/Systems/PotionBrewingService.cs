@@ -158,31 +158,6 @@ public sealed class PotionBrewingService
         return selected;
     }
 
-    private static Dictionary<string, int> CombineMaps(
-        List<IngredientDef> ingredients,
-        Func<IngredientDef, Dictionary<string, int>> selector)
-    {
-        var combined = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var ingredient in ingredients)
-        {
-            var map = selector(ingredient);
-            if (map is null)
-                continue;
-
-            foreach (var pair in map)
-            {
-                if (string.IsNullOrWhiteSpace(pair.Key))
-                    continue;
-
-                if (!combined.TryAdd(pair.Key, pair.Value))
-                    combined[pair.Key] += pair.Value;
-            }
-        }
-
-        return combined;
-    }
-
     private static int CalculateIngredientQuality(List<IngredientDef> ingredients)
     {
         if (ingredients.Count == 0)

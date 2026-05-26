@@ -11,6 +11,11 @@ public partial class Hud : Control
 	[Export] public NodePath DreadLabelPath = default!;
 	[Export] public NodePath DayLabelPath = default!;
 	[Export] public NodePath ShopTimerLabelPath = default!;
+	[Export] public NodePath GameStatePath = new("/root/GameState");
+	[Export] public NodePath SaveGameManagerPath = new("/root/SaveGameManager");
+	[Export] public NodePath DayControllerPath = new("/root/Main/DayController");
+	[Export] public NodePath BrewPanelPath = new("../BrewPanel");
+	[Export] public NodePath RecipeBookPanelPath = new("../RecipeBookPanel");
 
 	private Label _gold = default!;
 	private Label _dread = default!;
@@ -36,38 +41,38 @@ public partial class Hud : Control
 
 	public override void _Ready()
 	{
-		var gameState = GetNodeOrNull<GameState>("/root/GameState");
+		var gameState = GetNodeOrNull<GameState>(GameStatePath);
 		if (gameState is null)
 		{
-			GD.PushError("Hud: /root/GameState was not found.");
+			GD.PushError($"Hud: GameState was not found at '{GameStatePath}'.");
 			return;
 		}
 
-		var saveGameManager = GetNodeOrNull<SaveGameManager>("/root/SaveGameManager");
+		var saveGameManager = GetNodeOrNull<SaveGameManager>(SaveGameManagerPath);
 		if (saveGameManager is null)
 		{
-			GD.PushError("Hud: /root/SaveGameManager was not found.");
+			GD.PushError($"Hud: SaveGameManager was not found at '{SaveGameManagerPath}'.");
 			return;
 		}
 
-		var dayController = GetNodeOrNull<DayController>("/root/Main/DayController");
+		var dayController = GetNodeOrNull<DayController>(DayControllerPath);
 		if (dayController is null)
 		{
-			GD.PushError("Hud: /root/Main/DayController was not found.");
+			GD.PushError($"Hud: DayController was not found at '{DayControllerPath}'.");
 			return;
 		}
 
-		var brewPanel = GetNodeOrNull<Control>("/root/Main/CanvasLayer/BrewPanel");
+		var brewPanel = GetNodeOrNull<Control>(BrewPanelPath);
 		if (brewPanel is null)
 		{
-			GD.PushError("Hud: /root/Main/CanvasLayer/BrewPanel was not found.");
+			GD.PushError($"Hud: BrewPanel was not found at '{BrewPanelPath}'.");
 			return;
 		}
 
-		var recipeBookPanel = GetNodeOrNull<Control>("/root/Main/CanvasLayer/RecipeBookPanel");
+		var recipeBookPanel = GetNodeOrNull<Control>(RecipeBookPanelPath);
 		if (recipeBookPanel is null)
 		{
-			GD.PushError("Hud: /root/Main/CanvasLayer/RecipeBookPanel was not found.");
+			GD.PushError($"Hud: RecipeBookPanel was not found at '{RecipeBookPanelPath}'.");
 			return;
 		}
 

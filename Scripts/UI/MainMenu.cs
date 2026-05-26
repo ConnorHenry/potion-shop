@@ -8,6 +8,7 @@ public partial class MainMenu : Control
 	[Export] public NodePath StartButtonPath = default!;
 	[Export] public NodePath NewGameButtonPath = default!;
 	[Export] public NodePath LoadButtonPath = default!;
+	[Export] public NodePath SaveGameManagerPath = new("/root/SaveGameManager");
 
 	private Button _startButton = default!;
 	private Button _newGameButton = default!;
@@ -16,10 +17,10 @@ public partial class MainMenu : Control
 
 	public override void _Ready()
 	{
-		var saveGameManager = GetNodeOrNull<SaveGameManager>("/root/SaveGameManager");
+		var saveGameManager = GetNodeOrNull<SaveGameManager>(SaveGameManagerPath);
 		if (saveGameManager is null)
 		{
-			GD.PushError("MainMenu: /root/SaveGameManager was not found.");
+			GD.PushError($"MainMenu: SaveGameManager was not found at '{SaveGameManagerPath}'.");
 			return;
 		}
 		_saveGameManager = saveGameManager;

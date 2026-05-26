@@ -34,6 +34,10 @@ public partial class BrewPanel : Control
 	[Export] public NodePath IngredientCountLabelPath = default!;
 	[Export] public NodePath BrewButtonPath = default!;
 	[Export] public NodePath ClearButtonPath = default!;
+	[Export] public NodePath RuntimeContentDbPath = new("/root/RuntimeContentDb");
+	[Export] public NodePath DataDbPath = new("/root/DataDb");
+	[Export] public NodePath GameStatePath = new("/root/GameState");
+	[Export] public NodePath ItemCatalogPath = new("/root/ItemCatalog");
 
 	private Button _closeButton = default!;
 	private BrewDropBox _brewBox = default!;
@@ -59,6 +63,7 @@ public partial class BrewPanel : Control
 	private RuntimeContentDb _runtimeContentDb = default!;
 	private DataDb _dataDb = default!;
 	private GameState _gameState = default!;
+	private ItemCatalogService _itemCatalog = default!;
 	private readonly List<string> _queuedIngredients = new();
 	private readonly PotionBrewingService _brewingService = new();
 	private string _previewPotionCombinationKey = string.Empty;
@@ -72,30 +77,38 @@ public partial class BrewPanel : Control
 
 	public override void _Ready()
 	{
-		var runtimeContentDb = GetNodeOrNull<RuntimeContentDb>("/root/RuntimeContentDb");
+		var runtimeContentDb = GetNodeOrNull<RuntimeContentDb>(RuntimeContentDbPath);
 		if (runtimeContentDb is null)
 		{
-			GD.PushError("BrewPanel: /root/RuntimeContentDb was not found.");
+			GD.PushError($"BrewPanel: RuntimeContentDb was not found at '{RuntimeContentDbPath}'.");
 			return;
 		}
 
-		var dataDb = GetNodeOrNull<DataDb>("/root/DataDb");
+		var dataDb = GetNodeOrNull<DataDb>(DataDbPath);
 		if (dataDb is null)
 		{
-			GD.PushError("BrewPanel: /root/DataDb was not found.");
+			GD.PushError($"BrewPanel: DataDb was not found at '{DataDbPath}'.");
 			return;
 		}
 
-		var gameState = GetNodeOrNull<GameState>("/root/GameState");
+		var gameState = GetNodeOrNull<GameState>(GameStatePath);
 		if (gameState is null)
 		{
-			GD.PushError("BrewPanel: /root/GameState was not found.");
+			GD.PushError($"BrewPanel: GameState was not found at '{GameStatePath}'.");
+			return;
+		}
+
+		var itemCatalog = GetNodeOrNull<ItemCatalogService>(ItemCatalogPath);
+		if (itemCatalog is null)
+		{
+			GD.PushError($"BrewPanel: ItemCatalog was not found at '{ItemCatalogPath}'.");
 			return;
 		}
 
 		_runtimeContentDb = runtimeContentDb;
 		_dataDb = dataDb;
 		_gameState = gameState;
+		_itemCatalog = itemCatalog;
 
 		_brewBox = GetNode<BrewDropBox>(BrewBoxPath);
 		_ingredientSlotOne = GetNode<TextureRect>(IngredientSlotOnePath);
@@ -200,7 +213,7 @@ public partial class BrewPanel : Control
 
 	public void TryQueueIngredient(string itemId)
 	{
-		if (!ItemCatalog.TryGetItem(itemId, out var item))
+		if (!_itemCatalog.TryGetItem(itemId, out var item))
 		{
 			_resultLabel.Text = "That item is not recognized.";
 			return;
@@ -398,14 +411,14 @@ public partial class BrewPanel : Control
 			}
 
 			var ingredientId = _queuedIngredients[i];
-			if (!ItemCatalog.TryGetItem(ingredientId, out var item))
+			if (!_itemCatalog.TryGetItem(ingredientId, out var item))
 			{
 				slots[i].Texture = null;
 				labels[i].Text = string.Empty;
 				continue;
 			}
 
-			slots[i].Texture = LoadIcon(item.IconPath);
+			slots[i].Texture = UiIconLoader.LoadIcon(item.IconPath);
 			labels[i].Text = ItemName(ingredientId);
 		}
 
@@ -524,14 +537,6 @@ public partial class BrewPanel : Control
 		return string.Join("\n", lines);
 	}
 
-	private static Texture2D? LoadIcon(string? iconPath)
-	{
-		if (string.IsNullOrWhiteSpace(iconPath))
-			return null;
-
-		return ResourceLoader.Load<Texture2D>(iconPath);
-	}
-
 	private static void SetInteractiveCursor(Control control)
 	{
 		control.MouseDefaultCursorShape = CursorShape.PointingHand;
@@ -556,17 +561,17 @@ public partial class BrewPanel : Control
 
 	private string DefaultItemName(string itemId)
 	{
-		return ItemCatalog.GetItemName(itemId);
+		return _itemCatalog.GetItemName(itemId);
 	}
 
 	private bool IsPotion(string itemId)
 	{
-		return ItemCatalog.IsPotion(itemId);
+		return _itemCatalog.IsPotion(itemId);
 	}
 
 	private static bool IsIngredient(ItemDef item)
 	{
-		return item.Tags.Any(tag => string.Equals(tag, "ingredient", System.StringComparison.OrdinalIgnoreCase));
+		return ItemCatalogService.HasTag(item, "ingredient");
 	}
 
 	private string GeneratePotionName()
@@ -651,13 +656,13 @@ public partial class BrewPanel : Control
 		return Math.Max(5, rawCost);
 	}
 
-	private static int CalculateIngredientTotalPrice(IReadOnlyList<string> ingredientIds)
+	private int CalculateIngredientTotalPrice(IReadOnlyList<string> ingredientIds)
 	{
 		var totalPrice = 0;
 
 		foreach (var itemId in ingredientIds)
 		{
-			if (!ItemCatalog.TryGetItem(itemId, out var item))
+			if (!_itemCatalog.TryGetItem(itemId, out var item))
 				continue;
 
 			totalPrice += Math.Max(0, item.BasePrice);
@@ -705,21 +710,13 @@ public partial class BrewPanel : Control
 
 		foreach (var itemId in ingredientIds)
 		{
-			if (!ItemCatalog.TryGetItem(itemId, out var item))
+			if (!_itemCatalog.TryGetItem(itemId, out var item))
 			{
 				error = $"Unknown ingredient: {itemId}";
 				return false;
 			}
 
-			var ingredient = new IngredientDef
-			{
-				Id = item.Id,
-				Name = item.Name,
-				Quality = item.Quality,
-				Traits = new Dictionary<string, int>(item.Traits),
-				Risks = new Dictionary<string, int>(item.Risks),
-				Tags = [.. item.Tags]
-			};
+			var ingredient = IngredientDefFactory.FromItemDef(item);
 
 			ingredients.Add(ingredient);
 		}

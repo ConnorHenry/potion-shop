@@ -9,6 +9,9 @@ namespace OccultShop.Autoload;
 
 public partial class GameState : Node
 {
+	[Export] public NodePath DataDbPath { get; set; } = new("/root/DataDb");
+	[Export] public NodePath ItemCatalogPath { get; set; } = new("/root/ItemCatalog");
+
 	public int Day { get; private set; } = 1;
 	public int Gold { get; private set; } = 50000;
 	public int Dread { get; private set; } = 0;
@@ -25,9 +28,18 @@ public partial class GameState : Node
 	public CustomerRequestDef? ActiveCustomerRequest { get; private set; }
 
 	public event Action? Changed;
+	private ItemCatalogService _itemCatalog = default!;
 
 	public override void _Ready()
 	{
+		var itemCatalog = GetNodeOrNull<ItemCatalogService>(ItemCatalogPath);
+		if (itemCatalog is null)
+		{
+			GD.PushError($"GameState: ItemCatalog was not found at '{ItemCatalogPath}'.");
+			return;
+		}
+
+		_itemCatalog = itemCatalog;
 		ResetForNewGame();
 	}
 
@@ -90,7 +102,7 @@ public partial class GameState : Node
 			{
 				if (string.IsNullOrWhiteSpace(pair.Key) || pair.Value <= 0)
 					continue;
-				if (!ItemCatalog.TryGetItem(pair.Key, out _))
+				if (!_itemCatalog.TryGetItem(pair.Key, out _))
 					continue;
 
 				Inventory[pair.Key] = pair.Value;
@@ -223,7 +235,7 @@ public partial class GameState : Node
 	{
 		if (qty <= 0 || string.IsNullOrWhiteSpace(itemId))
 			return;
-		if (!ItemCatalog.TryGetItem(itemId, out _))
+		if (!_itemCatalog.TryGetItem(itemId, out _))
 		{
 			GD.PushError($"GameState: Cannot add unknown item '{itemId}' to inventory.");
 			return;
@@ -361,10 +373,10 @@ public partial class GameState : Node
 
 	private void SeedStartingInventory()
 	{
-		var dataDb = GetNodeOrNull<DataDb>("/root/DataDb");
+		var dataDb = GetNodeOrNull<DataDb>(DataDbPath);
 		if (dataDb is null)
 		{
-			GD.PushError("GameState: /root/DataDb was not found. Starting inventory could not be seeded.");
+			GD.PushError($"GameState: DataDb was not found at '{DataDbPath}'. Starting inventory could not be seeded.");
 			return;
 		}
 

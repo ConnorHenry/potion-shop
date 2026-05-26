@@ -15,13 +15,39 @@ public partial class SaveGameManager : Node
 	private const string SaveDirectoryPath = "user://saves";
 	private const string SaveFilePrefix = "save_";
 	private const int CurrentSaveVersion = 1;
+
+	[Export] public NodePath GameStatePath { get; set; } = new("/root/GameState");
+	[Export] public NodePath RuntimeContentDbPath { get; set; } = new("/root/RuntimeContentDb");
+
 	private string? _activeSaveFilePath;
+	private GameState _gameState = default!;
+	private RuntimeContentDb _runtimeContentDb = default!;
 
 	private static readonly JsonSerializerOptions JsonOpts = new()
 	{
 		PropertyNameCaseInsensitive = true,
 		WriteIndented = true
 	};
+
+	public override void _Ready()
+	{
+		var gameState = GetNodeOrNull<GameState>(GameStatePath);
+		if (gameState is null)
+		{
+			GD.PushError($"SaveGameManager: GameState was not found at '{GameStatePath}'.");
+			return;
+		}
+
+		var runtimeContentDb = GetNodeOrNull<RuntimeContentDb>(RuntimeContentDbPath);
+		if (runtimeContentDb is null)
+		{
+			GD.PushError($"SaveGameManager: RuntimeContentDb was not found at '{RuntimeContentDbPath}'.");
+			return;
+		}
+
+		_gameState = gameState;
+		_runtimeContentDb = runtimeContentDb;
+	}
 
 	public bool HasSaveFile()
 	{
@@ -43,8 +69,8 @@ public partial class SaveGameManager : Node
 			{
 				Version = CurrentSaveVersion,
 				SavedAtUtc = DateTime.UtcNow,
-				GameState = GameState.BuildSnapshot(),
-				RuntimeItems = RuntimeContentDb.BuildRuntimeItemSnapshot()
+				GameState = _gameState.BuildSnapshot(),
+				RuntimeItems = _runtimeContentDb.BuildRuntimeItemSnapshot()
 			};
 
 			var saveFilePath = string.IsNullOrWhiteSpace(_activeSaveFilePath)
@@ -132,8 +158,8 @@ public partial class SaveGameManager : Node
 			return false;
 		}
 
-		RuntimeContentDb.RestoreRuntimeItems(saveData.RuntimeItems);
-		GameState.ApplySnapshot(saveData.GameState);
+		_runtimeContentDb.RestoreRuntimeItems(saveData.RuntimeItems);
+		_gameState.ApplySnapshot(saveData.GameState);
 		_activeSaveFilePath = saveFilePath;
 		return true;
 	}
@@ -172,8 +198,8 @@ public partial class SaveGameManager : Node
 	public void StartNewGame()
 	{
 		_activeSaveFilePath = null;
-		RuntimeContentDb.ClearRuntimeItems();
-		GameState.ResetForNewGame();
+		_runtimeContentDb.ClearRuntimeItems();
+		_gameState.ResetForNewGame();
 	}
 
 	private bool TryReadSaveData(string saveFilePath, out SaveFileData saveData)
@@ -275,6 +301,4 @@ public partial class SaveGameManager : Node
 			string.Equals(saveFilePath, SaveDirectoryPath, StringComparison.OrdinalIgnoreCase);
 	}
 
-	private GameState GameState => GetTree().Root.GetNode<GameState>("/root/GameState");
-	private RuntimeContentDb RuntimeContentDb => GetTree().Root.GetNode<RuntimeContentDb>("/root/RuntimeContentDb");
 }

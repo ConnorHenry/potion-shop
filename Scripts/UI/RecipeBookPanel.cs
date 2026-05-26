@@ -24,6 +24,8 @@ public partial class RecipeBookPanel : Control
 	[Export] public NodePath RiskFilterPath = default!;
 	[Export] public NodePath SearchInputPath = default!;
 	[Export] public NodePath RecipesContainerPath = default!;
+	[Export] public NodePath GameStatePath = new("/root/GameState");
+	[Export] public NodePath ItemCatalogPath = new("/root/ItemCatalog");
 
 	private Button _closeButton = default!;
 	private Button? _resetButton;
@@ -32,20 +34,30 @@ public partial class RecipeBookPanel : Control
 	private OptionButton? _riskFilter;
 	private LineEdit? _searchInput;
 	private VBoxContainer _recipes = default!;
-	private readonly PotionInventoryBrewService _brewService = new();
+	private PotionInventoryBrewService _brewService = default!;
 	private string? _activeTraitFilter;
 	private string? _activeRiskFilter;
 	private GameState _gameState = default!;
+	private ItemCatalogService _itemCatalog = default!;
 
 	public override void _Ready()
 	{
-		var gameState = GetNodeOrNull<GameState>("/root/GameState");
+		var gameState = GetNodeOrNull<GameState>(GameStatePath);
 		if (gameState is null)
 		{
-			GD.PushError("RecipeBookPanel: /root/GameState was not found.");
+			GD.PushError($"RecipeBookPanel: GameState was not found at '{GameStatePath}'.");
+			return;
+		}
+
+		var itemCatalog = GetNodeOrNull<ItemCatalogService>(ItemCatalogPath);
+		if (itemCatalog is null)
+		{
+			GD.PushError($"RecipeBookPanel: ItemCatalog was not found at '{ItemCatalogPath}'.");
 			return;
 		}
 		_gameState = gameState;
+		_itemCatalog = itemCatalog;
+		_brewService = new PotionInventoryBrewService(_gameState, _itemCatalog);
 
 		_closeButton = GetNode<Button>(CloseButtonPath);
 		_resetButton = GetNodeOrNull<Button>(ResetButtonPath);
@@ -135,15 +147,16 @@ public partial class RecipeBookPanel : Control
 			child.QueueFree();
 
 		var learnedPotionIds = GetLearnedPotionEntries();
-		var traitNames = BuildTopTraitNames(learnedPotionIds, 3);
-		var riskNames = BuildRiskNames(learnedPotionIds);
-		RefreshFilterOptions(_traitFilter, traitNames, AllFilterLabel, ref _activeTraitFilter);
-		RefreshFilterOptions(_riskFilter, riskNames, AllFilterLabel, ref _activeRiskFilter);
+		var potionIds = learnedPotionIds.Select(x => x.PotionId).ToList();
+		var traitNames = ItemFilterUtilities.BuildTopTraitNames(potionIds, 3, _itemCatalog);
+		var riskNames = ItemFilterUtilities.BuildRiskNames(potionIds, _itemCatalog);
+		ItemFilterUtilities.RefreshFilterOptions(_traitFilter, traitNames, AllFilterLabel, ref _activeTraitFilter);
+		ItemFilterUtilities.RefreshFilterOptions(_riskFilter, riskNames, AllFilterLabel, ref _activeRiskFilter);
 
 		if (!string.IsNullOrWhiteSpace(_activeTraitFilter))
-			learnedPotionIds = learnedPotionIds.Where(entry => ItemHasTrait(entry.PotionId, _activeTraitFilter)).ToList();
+			learnedPotionIds = learnedPotionIds.Where(entry => ItemFilterUtilities.ItemHasTrait(entry.PotionId, _activeTraitFilter, _itemCatalog, topCount: 3)).ToList();
 		if (!string.IsNullOrWhiteSpace(_activeRiskFilter))
-			learnedPotionIds = learnedPotionIds.Where(entry => ItemHasRisk(entry.PotionId, _activeRiskFilter)).ToList();
+			learnedPotionIds = learnedPotionIds.Where(entry => ItemFilterUtilities.ItemHasRisk(entry.PotionId, _activeRiskFilter, _itemCatalog)).ToList();
 
 		learnedPotionIds = learnedPotionIds
 			.OrderBy(x => x.Name)
@@ -206,37 +219,6 @@ public partial class RecipeBookPanel : Control
 		Refresh();
 	}
 
-	private static void RefreshFilterOptions(OptionButton? filter, List<string> values, string placeholderLabel, ref string? activeFilter)
-	{
-		if (filter is null)
-			return;
-
-		filter.Clear();
-		filter.AddItem(placeholderLabel);
-
-		foreach (var value in values)
-			filter.AddItem(value);
-
-		if (string.IsNullOrWhiteSpace(activeFilter))
-		{
-			filter.Selected = 0;
-			return;
-		}
-
-		for (var index = 1; index < filter.ItemCount; index++)
-		{
-			var itemText = filter.GetItemText(index);
-			if (!string.Equals(itemText, activeFilter, System.StringComparison.OrdinalIgnoreCase))
-				continue;
-
-			filter.Selected = index;
-			return;
-		}
-
-		activeFilter = null;
-		filter.Selected = 0;
-	}
-
 	private List<LearnedPotionEntry> GetLearnedPotionEntries()
 	{
 		return _gameState.KnownPotions
@@ -247,7 +229,7 @@ public partial class RecipeBookPanel : Control
 
 	private Control CreateRecipeCard(string potionId)
 	{
-		if (!ItemCatalog.TryGetItem(potionId, out var item))
+		if (!_itemCatalog.TryGetItem(potionId, out var item))
 			return new Label { Text = potionId };
 
 		if (!_brewService.TryGetRequiredIngredients(potionId, out var requiredIngredients, out var error))
@@ -288,7 +270,7 @@ public partial class RecipeBookPanel : Control
 			StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
 			MouseFilter = MouseFilterEnum.Ignore
 		};
-		icon.Texture = LoadIcon(item.IconPath);
+		icon.Texture = UiIconLoader.LoadIcon(item.IconPath);
 
 		var iconColumn = new VBoxContainer
 		{
@@ -616,124 +598,14 @@ public partial class RecipeBookPanel : Control
 		GD.PushError(error);
 	}
 
-	private static string FormatDictionary(Dictionary<string, int> values)
+	private bool IsKnownBrewedPotion(string potionId)
 	{
-		if (values is null || values.Count == 0)
-			return "None";
-
-		return string.Join(", ",
-			values
-				.OrderByDescending(x => x.Value)
-				.ThenBy(x => x.Key)
-				.Select(x => $"{x.Key}: {x.Value}"));
+		return _itemCatalog.IsPotion(potionId);
 	}
 
-	private static string FormatTopTraits(Dictionary<string, int> values, int maxCount)
+	private string ItemName(string itemId)
 	{
-		if (values is null || values.Count == 0)
-			return "None";
-
-		return string.Join(", ",
-			values
-				.OrderByDescending(x => x.Value)
-				.ThenBy(x => x.Key)
-				.Take(maxCount)
-				.Select(x => $"{x.Key}: {x.Value}"));
-	}
-
-	private static bool IsKnownBrewedPotion(string potionId)
-	{
-		return ItemCatalog.TryGetItem(potionId, out var item) &&
-			item.Tags.Any(tag => string.Equals(tag, "potion", System.StringComparison.OrdinalIgnoreCase));
-	}
-
-	private static List<string> BuildTopTraitNames(IEnumerable<LearnedPotionEntry> learnedPotionIds, int maxCount)
-	{
-		var uniqueNames = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
-		foreach (var entry in learnedPotionIds)
-		{
-			if (!ItemCatalog.TryGetItem(entry.PotionId, out var item))
-				continue;
-
-			foreach (var trait in item.Traits
-				.OrderByDescending(x => x.Value)
-				.ThenBy(x => x.Key)
-				.Take(maxCount))
-			{
-				if (string.IsNullOrWhiteSpace(trait.Key))
-					continue;
-				if (trait.Value <= 0)
-					continue;
-
-				uniqueNames.Add(trait.Key);
-			}
-		}
-
-		return uniqueNames.OrderBy(name => name).ToList();
-	}
-
-	private static List<string> BuildRiskNames(IEnumerable<LearnedPotionEntry> learnedPotionIds)
-	{
-		var uniqueNames = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
-		foreach (var entry in learnedPotionIds)
-		{
-			if (!ItemCatalog.TryGetItem(entry.PotionId, out var item))
-				continue;
-
-			foreach (var risk in item.Risks)
-			{
-				if (string.IsNullOrWhiteSpace(risk.Key))
-					continue;
-				if (risk.Value <= 0)
-					continue;
-
-				uniqueNames.Add(risk.Key);
-			}
-		}
-
-		return uniqueNames.OrderBy(name => name).ToList();
-	}
-
-	private static bool ItemHasTrait(string itemId, string traitName)
-	{
-		if (!ItemCatalog.TryGetItem(itemId, out var item))
-			return false;
-
-		foreach (var trait in item.Traits
-			.OrderByDescending(x => x.Value)
-			.ThenBy(x => x.Key)
-			.Take(3))
-		{
-			if (!string.Equals(trait.Key, traitName, System.StringComparison.OrdinalIgnoreCase))
-				continue;
-			if (trait.Value <= 0)
-				continue;
-
-			return true;
-		}
-
-		return false;
-	}
-
-	private static bool ItemHasRisk(string itemId, string riskName)
-	{
-		if (!ItemCatalog.TryGetItem(itemId, out var item))
-			return false;
-
-		foreach (var risk in item.Risks)
-		{
-			if (!string.Equals(risk.Key, riskName, System.StringComparison.OrdinalIgnoreCase))
-				continue;
-
-			return risk.Value > 0;
-		}
-
-		return false;
-	}
-
-	private static string ItemName(string itemId)
-	{
-		return ItemCatalog.GetItemName(itemId);
+		return _itemCatalog.GetItemName(itemId);
 	}
 
 	private string DisplayName(string itemId, string fallbackName)
@@ -742,14 +614,8 @@ public partial class RecipeBookPanel : Control
 		return string.IsNullOrWhiteSpace(customName) ? fallbackName : customName;
 	}
 
-	private static Texture2D? LoadIcon(string? iconPath)
-	{
-		if (string.IsNullOrWhiteSpace(iconPath))
-			return null;
-
-		return ResourceLoader.Load<Texture2D>(iconPath);
-	}
-
 	private readonly record struct LearnedPotionEntry(string PotionId, string Name);
 	private readonly record struct IngredientAvailabilityEntry(string DisplayName, bool IsAvailable);
 }
+
+

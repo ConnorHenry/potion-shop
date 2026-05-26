@@ -9,6 +9,7 @@ public partial class LoadGameMenu : Control
 	[Export] public NodePath SaveListPath = default!;
 	[Export] public NodePath EmptyStateLabelPath = default!;
 	[Export] public NodePath BackButtonPath = default!;
+	[Export] public NodePath SaveGameManagerPath = new("/root/SaveGameManager");
 
 	private VBoxContainer _saveList = default!;
 	private Label _emptyStateLabel = default!;
@@ -17,10 +18,10 @@ public partial class LoadGameMenu : Control
 
 	public override void _Ready()
 	{
-		var saveGameManager = GetNodeOrNull<SaveGameManager>("/root/SaveGameManager");
+		var saveGameManager = GetNodeOrNull<SaveGameManager>(SaveGameManagerPath);
 		if (saveGameManager is null)
 		{
-			GD.PushError("LoadGameMenu: /root/SaveGameManager was not found.");
+			GD.PushError($"LoadGameMenu: SaveGameManager was not found at '{SaveGameManagerPath}'.");
 			return;
 		}
 		_saveGameManager = saveGameManager;

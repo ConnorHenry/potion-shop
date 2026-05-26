@@ -29,6 +29,9 @@ public partial class CustomerPanel : Control
 	[Export] public NodePath SaleResultBodyPath = default!;
 	[Export] public NodePath SaleResultCloseButtonPath = default!;
 	[Export] public NodePath CloseButtonPath = default!;
+	[Export] public NodePath GameStatePath = new("/root/GameState");
+	[Export] public NodePath DataDbPath = new("/root/DataDb");
+	[Export] public NodePath ItemCatalogPath = new("/root/ItemCatalog");
 
 	private Label _title = default!;
 	private TextureRect _portrait = default!;
@@ -47,6 +50,7 @@ public partial class CustomerPanel : Control
 	private readonly PotionBrewingService _brewingService = new();
 	private GameState _gameState = default!;
 	private DataDb _dataDb = default!;
+	private ItemCatalogService _itemCatalog = default!;
 	private const int SuccessDreadChange = -2;
 	private const int FailureDreadChange = 4;
 	private const string MatchedDesiredColorHex = "#59D959";
@@ -54,22 +58,30 @@ public partial class CustomerPanel : Control
 
 	public override void _Ready()
 	{
-		var gameState = GetNodeOrNull<GameState>("/root/GameState");
+		var gameState = GetNodeOrNull<GameState>(GameStatePath);
 		if (gameState is null)
 		{
-			GD.PushError("CustomerPanel: /root/GameState was not found.");
+			GD.PushError($"CustomerPanel: GameState was not found at '{GameStatePath}'.");
 			return;
 		}
 
-		var dataDb = GetNodeOrNull<DataDb>("/root/DataDb");
+		var dataDb = GetNodeOrNull<DataDb>(DataDbPath);
 		if (dataDb is null)
 		{
-			GD.PushError("CustomerPanel: /root/DataDb was not found.");
+			GD.PushError($"CustomerPanel: DataDb was not found at '{DataDbPath}'.");
+			return;
+		}
+
+		var itemCatalog = GetNodeOrNull<ItemCatalogService>(ItemCatalogPath);
+		if (itemCatalog is null)
+		{
+			GD.PushError($"CustomerPanel: ItemCatalog was not found at '{ItemCatalogPath}'.");
 			return;
 		}
 
 		_gameState = gameState;
 		_dataDb = dataDb;
+		_itemCatalog = itemCatalog;
 
 		_title = GetNode<Label>(TitlePath);
 		_portrait = GetNode<TextureRect>(PortraitPath);
@@ -152,7 +164,7 @@ public partial class CustomerPanel : Control
 		if (_interaction is null)
 			return;
 
-		if (!ItemCatalog.TryGetItem(itemId, out _))
+		if (!_itemCatalog.TryGetItem(itemId, out _))
 			return;
 
 		if (!IsPotionItem(itemId))
@@ -200,7 +212,7 @@ public partial class CustomerPanel : Control
 		if (_interaction is null)
 			return false;
 
-		if (!ItemCatalog.TryGetItem(itemId, out var item))
+		if (!_itemCatalog.TryGetItem(itemId, out var item))
 			return false;
 
 		var request = _interaction.BuildRequest();
@@ -216,34 +228,21 @@ public partial class CustomerPanel : Control
 	private List<IngredientDef> BuildScoringIngredients(string itemId, ItemDef fallbackPotionItem)
 	{
 		if (!_gameState.TryPeekPotionBatch(itemId, out var batchIngredientIds) || batchIngredientIds.Count == 0)
-			return new List<IngredientDef> { BuildPotionIngredientDef(fallbackPotionItem) };
+			return new List<IngredientDef> { IngredientDefFactory.FromItemDef(fallbackPotionItem) };
 
 		var ingredients = new List<IngredientDef>();
 		foreach (var ingredientId in batchIngredientIds)
 		{
-			if (!ItemCatalog.TryGetItem(ingredientId, out var ingredientItem))
+			if (!_itemCatalog.TryGetItem(ingredientId, out var ingredientItem))
 				continue;
 
-			ingredients.Add(BuildPotionIngredientDef(ingredientItem));
+			ingredients.Add(IngredientDefFactory.FromItemDef(ingredientItem));
 		}
 
 		if (ingredients.Count == 0)
-			return new List<IngredientDef> { BuildPotionIngredientDef(fallbackPotionItem) };
+			return new List<IngredientDef> { IngredientDefFactory.FromItemDef(fallbackPotionItem) };
 
 		return ingredients;
-	}
-
-	private static IngredientDef BuildPotionIngredientDef(ItemDef item)
-	{
-		return new IngredientDef
-		{
-			Id = item.Id,
-			Name = item.Name,
-			Quality = item.Quality,
-			Traits = new Dictionary<string, int>(item.Traits),
-			Risks = new Dictionary<string, int>(item.Risks),
-			Tags = new List<string>(item.Tags)
-		};
 	}
 
 	private (bool IsSuccess, int GoldDelta, int DreadDelta) ApplySale(string itemId, PotionResult brewResult)
@@ -293,7 +292,7 @@ public partial class CustomerPanel : Control
 	private string BuildOutcomeText(string itemId, PotionResult brewResult)
 	{
 		var lines = new List<string>();
-		var itemName = ItemCatalog.GetItemName(itemId);
+		var itemName = _itemCatalog.GetItemName(itemId);
 		itemName = DisplayName(itemId, itemName);
 		lines.Add($"Potion: {itemName}");
 
@@ -350,7 +349,7 @@ public partial class CustomerPanel : Control
 
 	private bool IsPotionItem(string itemId)
 	{
-		return ItemCatalog.IsPotion(itemId);
+		return _itemCatalog.IsPotion(itemId);
 	}
 
 	private int GetSalePrice(string itemId)
@@ -358,7 +357,7 @@ public partial class CustomerPanel : Control
 		if (_gameState.TryGetPotionBasePrice(itemId, out var potionBasePrice))
 			return System.Math.Max(0, potionBasePrice);
 
-		if (ItemCatalog.TryGetItem(itemId, out var item))
+		if (_itemCatalog.TryGetItem(itemId, out var item))
 			return System.Math.Max(0, item.BasePrice);
 
 		return 0;
