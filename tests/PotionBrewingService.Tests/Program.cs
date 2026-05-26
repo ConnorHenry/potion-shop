@@ -893,16 +893,16 @@ static class Program
         AssertTrue("RecipeBookPanel builds risk filter options from learned potions", source.Contains("BuildRiskNames(learnedPotionIds)"));
         AssertTrue("RecipeBookPanel filters by traits", source.Contains("ItemHasTrait(entry.PotionId, _activeTraitFilter)"));
         AssertTrue("RecipeBookPanel filters by risks", source.Contains("ItemHasRisk(entry.PotionId, _activeRiskFilter)"));
-        AssertTrue("RecipeBookPanel scene wires reset button path", scene.Contains("ResetButtonPath = NodePath(\"Panel/Margin/VBox/Header/ResetFilters\")"));
-        AssertTrue("RecipeBookPanel scene wires search input path", scene.Contains("SearchInputPath = NodePath(\"Panel/Margin/VBox/Header/SearchInput\")"));
-        AssertTrue("RecipeBookPanel scene wires sort filter path", scene.Contains("SortFilterPath = NodePath(\"Panel/Margin/VBox/Header/SortFilter\")"));
-        AssertTrue("RecipeBookPanel scene wires trait filter path", scene.Contains("TraitFilterPath = NodePath(\"Panel/Margin/VBox/Header/TraitFilter\")"));
-        AssertTrue("RecipeBookPanel scene wires risk filter path", scene.Contains("RiskFilterPath = NodePath(\"Panel/Margin/VBox/Header/RiskFilter\")"));
-        AssertTrue("RecipeBookPanel scene places search input in the header", scene.Contains("[node name=\"SearchInput\" type=\"LineEdit\" parent=\"RecipeBookPanel/Panel/Margin/VBox/Header\"]"));
-        AssertTrue("RecipeBookPanel scene places sort filter in the header", scene.Contains("[node name=\"SortFilter\" type=\"OptionButton\" parent=\"RecipeBookPanel/Panel/Margin/VBox/Header\"]"));
-        AssertTrue("RecipeBookPanel scene places reset button in the header", scene.Contains("[node name=\"ResetFilters\" type=\"Button\" parent=\"RecipeBookPanel/Panel/Margin/VBox/Header\"]"));
-        AssertTrue("RecipeBookPanel scene includes a trait filter OptionButton", scene.Contains("[node name=\"TraitFilter\" type=\"OptionButton\" parent=\"RecipeBookPanel/Panel/Margin/VBox/Header\"]"));
-        AssertTrue("RecipeBookPanel scene includes a risk filter OptionButton", scene.Contains("[node name=\"RiskFilter\" type=\"OptionButton\" parent=\"RecipeBookPanel/Panel/Margin/VBox/Header\"]"));
+        AssertTrue("RecipeBookPanel scene wires reset button path", scene.Contains("ResetButtonPath = NodePath(\"Panel/Margin/VBox/Header/SearchRow/ResetFilters\")"));
+        AssertTrue("RecipeBookPanel scene wires search input path", scene.Contains("SearchInputPath = NodePath(\"Panel/Margin/VBox/Header/SearchRow/SearchInput\")"));
+        AssertTrue("RecipeBookPanel scene wires sort filter path", scene.Contains("SortFilterPath = NodePath(\"Panel/Margin/VBox/Header/FilterRow/SortFilter\")"));
+        AssertTrue("RecipeBookPanel scene wires trait filter path", scene.Contains("TraitFilterPath = NodePath(\"Panel/Margin/VBox/Header/FilterRow/TraitFilter\")"));
+        AssertTrue("RecipeBookPanel scene wires risk filter path", scene.Contains("RiskFilterPath = NodePath(\"Panel/Margin/VBox/Header/FilterRow/RiskFilter\")"));
+        AssertTrue("RecipeBookPanel scene places search input in the search row", scene.Contains("[node name=\"SearchInput\" type=\"LineEdit\" parent=\"RecipeBookPanel/Panel/Margin/VBox/Header/SearchRow\"]"));
+        AssertTrue("RecipeBookPanel scene places sort filter in the filter row", scene.Contains("[node name=\"SortFilter\" type=\"OptionButton\" parent=\"RecipeBookPanel/Panel/Margin/VBox/Header/FilterRow\"]"));
+        AssertTrue("RecipeBookPanel scene places reset button in the search row", scene.Contains("[node name=\"ResetFilters\" type=\"Button\" parent=\"RecipeBookPanel/Panel/Margin/VBox/Header/SearchRow\"]"));
+        AssertTrue("RecipeBookPanel scene includes a trait filter OptionButton", scene.Contains("[node name=\"TraitFilter\" type=\"OptionButton\" parent=\"RecipeBookPanel/Panel/Margin/VBox/Header/FilterRow\"]"));
+        AssertTrue("RecipeBookPanel scene includes a risk filter OptionButton", scene.Contains("[node name=\"RiskFilter\" type=\"OptionButton\" parent=\"RecipeBookPanel/Panel/Margin/VBox/Header/FilterRow\"]"));
     }
 
     private static void TestRecipeBookClearButtonIsWired()
