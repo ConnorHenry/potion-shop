@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3 uid="uid://4hripc13we86"]
+[gd_scene load_steps=16 format=3 uid="uid://4hripc13we86"]
 
 [ext_resource type="PackedScene" uid="uid://cikvfbes8y0kf" path="res://Scenes/UI/Hud.tscn" id="1_hud"]
 [ext_resource type="Script" uid="uid://hkjdjmtp1abw" path="res://Scripts/UI/EventModal.cs" id="2_8y3f6"]
@@ -15,6 +15,22 @@
 [ext_resource type="Theme" uid="uid://bcxrpcn1ol80g" path="res://Assets/UI/BrewPanelTheme.tres" id="16_brew_theme"]
 [ext_resource type="Texture2D" uid="uid://bygvuw1k7loxa" path="res://Assets/Items/sight_tonic.svg" id="17_sight_tonic"]
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_inventory_detail_root"]
+content_margin_left = 14.0
+content_margin_top = 14.0
+content_margin_right = 14.0
+content_margin_bottom = 14.0
+bg_color = Color(0.039, 0.046, 0.054, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.18, 0.2, 0.22, 1)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+
 [node name="CanvasLayer" type="CanvasLayer"]
 
 [node name="Hud" parent="." instance=ExtResource("1_hud")]
@@ -28,104 +44,225 @@ offset_right = -22.0
 offset_bottom = 4.0
 
 [node name="InventoryItemDetail" type="Control" parent="."]
+z_index = 2000
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 8.0
-offset_top = 8.0
-offset_right = 8.0
-offset_bottom = 8.0
+offset_left = -50.0
+offset_top = -83.0
+offset_right = -50.0
+offset_bottom = -83.0
 grow_horizontal = 2
 grow_vertical = 2
+theme = ExtResource("16_brew_theme")
 
 [node name="Panel" type="PanelContainer" parent="InventoryItemDetail"]
+custom_minimum_size = Vector2(280, 280)
 layout_mode = 0
-offset_left = 429.0
-offset_top = 92.0
-offset_right = 639.0
-offset_bottom = 1016.0
+offset_left = 477.0
+offset_top = 305.0
+offset_right = 870.0
+offset_bottom = 1047.0
+theme_type_variation = &"BrewRoot"
+theme_override_styles/panel = SubResource("StyleBoxFlat_inventory_detail_root")
 script = ExtResource("12_6x1m8")
-DragHandlePath = NodePath("Margin/VBox/Name")
+DragHandlePath = NodePath("Margin/VBox/Header")
 
 [node name="Margin" type="MarginContainer" parent="InventoryItemDetail/Panel"]
 layout_mode = 2
-theme_override_constants/margin_left = 20
-theme_override_constants/margin_top = 18
-theme_override_constants/margin_right = 20
-theme_override_constants/margin_bottom = 18
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 12
 
 [node name="VBox" type="VBoxContainer" parent="InventoryItemDetail/Panel/Margin"]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
+theme_override_constants/separation = 9
 
-[node name="Image" type="TextureRect" parent="InventoryItemDetail/Panel/Margin/VBox"]
-custom_minimum_size = Vector2(0, 150)
+[node name="Header" type="HBoxContainer" parent="InventoryItemDetail/Panel/Margin/VBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="InventoryItemDetail/Panel/Margin/VBox/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.68, 0.7, 0.75, 1)
+theme_override_font_sizes/font_size = 13
+text = "ITEM DETAILS"
+vertical_alignment = 1
+
+[node name="Close" type="Button" parent="InventoryItemDetail/Panel/Margin/VBox/Header"]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+text = "X"
+
+[node name="TopRow" type="HBoxContainer" parent="InventoryItemDetail/Panel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 112)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 12
+
+[node name="IconFrame" type="PanelContainer" parent="InventoryItemDetail/Panel/Margin/VBox/TopRow"]
+custom_minimum_size = Vector2(96, 96)
+layout_mode = 2
+theme_type_variation = &"BrewIconFrame"
+
+[node name="Icon" type="TextureRect" parent="InventoryItemDetail/Panel/Margin/VBox/TopRow/IconFrame"]
 layout_mode = 2
 expand_mode = 1
 stretch_mode = 5
 
-[node name="Name" type="Label" parent="InventoryItemDetail/Panel/Margin/VBox"]
+[node name="Identity" type="VBoxContainer" parent="InventoryItemDetail/Panel/Margin/VBox/TopRow"]
 layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="Name" type="Label" parent="InventoryItemDetail/Panel/Margin/VBox/TopRow/Identity"]
+custom_minimum_size = Vector2(0, 46)
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
 text = "Item Name"
+autowrap_mode = 3
+clip_text = true
 
-[node name="Price" type="Label" parent="InventoryItemDetail/Panel/Margin/VBox"]
+[node name="Owned" type="Label" parent="InventoryItemDetail/Panel/Margin/VBox/TopRow/Identity"]
 layout_mode = 2
-text = "Price - Â£0"
+theme_override_colors/font_color = Color(0.7, 0.72, 0.78, 1)
+text = "Owned: 0"
 
-[node name="TraitsHeader" type="Label" parent="InventoryItemDetail/Panel/Margin/VBox"]
+[node name="Separator" type="HSeparator" parent="InventoryItemDetail/Panel/Margin/VBox/TopRow/Identity"]
 layout_mode = 2
-text = "Traits"
 
-[node name="Traits" type="RichTextLabel" parent="InventoryItemDetail/Panel/Margin/VBox"]
-custom_minimum_size = Vector2(0, 90)
+[node name="Price" type="Label" parent="InventoryItemDetail/Panel/Margin/VBox/TopRow/Identity"]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.94, 0.79, 0.31, 1)
+text = "Sell Price: 0"
+
+[node name="StatsRow" type="HBoxContainer" parent="InventoryItemDetail/Panel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 102)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="TraitsColumn" type="VBoxContainer" parent="InventoryItemDetail/Panel/Margin/VBox/StatsRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="Header" type="Label" parent="InventoryItemDetail/Panel/Margin/VBox/StatsRow/TraitsColumn"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.43, 0.83, 0.48, 1)
+text = "TRAITS"
+
+[node name="Traits" type="RichTextLabel" parent="InventoryItemDetail/Panel/Margin/VBox/StatsRow/TraitsColumn"]
+custom_minimum_size = Vector2(0, 72)
+layout_mode = 2
+theme_override_colors/default_color = Color(0.43, 0.83, 0.48, 1)
 text = "None"
-fit_content = true
 
-[node name="RisksHeader" type="Label" parent="InventoryItemDetail/Panel/Margin/VBox"]
+[node name="Divider" type="VSeparator" parent="InventoryItemDetail/Panel/Margin/VBox/StatsRow"]
 layout_mode = 2
-text = "Risks"
 
-[node name="Risks" type="RichTextLabel" parent="InventoryItemDetail/Panel/Margin/VBox"]
-custom_minimum_size = Vector2(0, 90)
+[node name="RisksColumn" type="VBoxContainer" parent="InventoryItemDetail/Panel/Margin/VBox/StatsRow"]
 layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="Header" type="Label" parent="InventoryItemDetail/Panel/Margin/VBox/StatsRow/RisksColumn"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.94, 0.32, 0.28, 1)
+text = "RISKS"
+
+[node name="Risks" type="RichTextLabel" parent="InventoryItemDetail/Panel/Margin/VBox/StatsRow/RisksColumn"]
+custom_minimum_size = Vector2(0, 72)
+layout_mode = 2
+theme_override_colors/default_color = Color(0.73, 0.74, 0.78, 1)
 text = "None"
-fit_content = true
+
+[node name="DetailsSeparator" type="HSeparator" parent="InventoryItemDetail/Panel/Margin/VBox"]
+layout_mode = 2
+
+[node name="DescriptionHeader" type="Label" parent="InventoryItemDetail/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.68, 0.7, 0.75, 1)
+text = "DESCRIPTION"
 
 [node name="Description" type="RichTextLabel" parent="InventoryItemDetail/Panel/Margin/VBox"]
-custom_minimum_size = Vector2(0, 140)
+custom_minimum_size = Vector2(0, 126)
 layout_mode = 2
+theme_override_colors/default_color = Color(0.78, 0.79, 0.84, 1)
 text = "Description"
-fit_content = true
 
-[node name="Brew" type="Button" parent="InventoryItemDetail/Panel/Margin/VBox"]
+[node name="RecipesHeader" type="Label" parent="InventoryItemDetail/Panel/Margin/VBox"]
 layout_mode = 2
-text = "Brew"
+theme_override_colors/font_color = Color(0.68, 0.7, 0.75, 1)
+text = "KNOWN RECIPES"
 
-[node name="Close" type="Button" parent="InventoryItemDetail/Panel/Margin/VBox"]
+[node name="RecipesFrame" type="PanelContainer" parent="InventoryItemDetail/Panel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 132)
+layout_mode = 2
+
+[node name="RecipesMargin" type="MarginContainer" parent="InventoryItemDetail/Panel/Margin/VBox/RecipesFrame"]
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 8
+
+[node name="RecipesScroll" type="ScrollContainer" parent="InventoryItemDetail/Panel/Margin/VBox/RecipesFrame/RecipesMargin"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="Recipes" type="VBoxContainer" parent="InventoryItemDetail/Panel/Margin/VBox/RecipesFrame/RecipesMargin/RecipesScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 5
+
+[node name="ActionSeparator" type="HSeparator" parent="InventoryItemDetail/Panel/Margin/VBox"]
+layout_mode = 2
+
+[node name="Actions" type="HBoxContainer" parent="InventoryItemDetail/Panel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Close" type="Button" parent="InventoryItemDetail/Panel/Margin/VBox/Actions"]
+custom_minimum_size = Vector2(82, 40)
 layout_mode = 2
 text = "Close"
 
+[node name="Brew" type="Button" parent="InventoryItemDetail/Panel/Margin/VBox/Actions"]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"BrewActionButton"
+text = "Add to Brew"
+
 [node name="CustomerPanel" type="Control" parent="."]
 layout_mode = 3
-anchor_left = 0.406
-anchor_top = 0.086
-anchor_right = 0.692
-anchor_bottom = 0.594
-offset_left = -123.68
-offset_top = 200.08
-offset_right = -68.7599
-offset_bottom = -149.68
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -312.5
+offset_top = -192.0
+offset_right = 312.5
+offset_bottom = 192.0
 grow_horizontal = 2
 grow_vertical = 2
+theme = ExtResource("16_brew_theme")
 script = ExtResource("6_h1r0d")
-TitlePath = NodePath("Panel/Margin/VBox/Header/Title")
-PortraitPath = NodePath("Panel/Margin/VBox/Portrait")
+TitlePath = NodePath("Panel/Margin/VBox/Content/Details/Name")
+PortraitPath = NodePath("Panel/Margin/VBox/Content/PortraitFrame/Portrait")
 DesiredTraitsPath = NodePath("Panel/Margin/VBox/RequestTraits/DesiredColumn/DesiredTraits")
 BadTraitsPath = NodePath("Panel/Margin/VBox/RequestTraits/BadColumn/BadTraits")
-DialoguePath = NodePath("Panel/Margin/VBox/Dialogue")
+DialoguePath = NodePath("Panel/Margin/VBox/Content/Details/DialogueFrame/Dialogue")
 SellDropBoxPath = NodePath("Panel/Margin/VBox/SellDropBox")
 SaleResultPanelPath = NodePath("../CustomerSaleResultPanel")
 SaleResultTitlePath = NodePath("../CustomerSaleResultPanel/Margin/VBox/Header/Title")
@@ -138,45 +275,78 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -6.99994
-offset_top = -187.0
-offset_right = -6.99994
-offset_bottom = 120.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_type_variation = &"BrewRoot"
 
 [node name="Margin" type="MarginContainer" parent="CustomerPanel/Panel"]
 layout_mode = 2
-theme_override_constants/margin_left = 14
-theme_override_constants/margin_top = 14
-theme_override_constants/margin_right = 14
-theme_override_constants/margin_bottom = 14
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 10
 
 [node name="VBox" type="VBoxContainer" parent="CustomerPanel/Panel/Margin"]
 layout_mode = 2
+theme_override_constants/separation = 8
 
 [node name="Header" type="HBoxContainer" parent="CustomerPanel/Panel/Margin/VBox"]
-visible = false
+custom_minimum_size = Vector2(0, 36)
 layout_mode = 2
+theme_override_constants/separation = 8
 
 [node name="Title" type="Label" parent="CustomerPanel/Panel/Margin/VBox/Header"]
 layout_mode = 2
 size_flags_horizontal = 3
-text = "Customer"
+theme_override_font_sizes/font_size = 22
+text = "Customer Request"
+vertical_alignment = 1
 
 [node name="Close" type="Button" parent="CustomerPanel/Panel/Margin/VBox/Header"]
+custom_minimum_size = Vector2(68, 32)
 layout_mode = 2
 text = "Close"
 
-[node name="Portrait" type="TextureRect" parent="CustomerPanel/Panel/Margin/VBox"]
-custom_minimum_size = Vector2(0, 180)
+[node name="Content" type="HBoxContainer" parent="CustomerPanel/Panel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 128)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 10
+
+[node name="PortraitFrame" type="PanelContainer" parent="CustomerPanel/Panel/Margin/VBox/Content"]
+custom_minimum_size = Vector2(112, 128)
+layout_mode = 2
+
+[node name="Portrait" type="TextureRect" parent="CustomerPanel/Panel/Margin/VBox/Content/PortraitFrame"]
 layout_mode = 2
 expand_mode = 1
 stretch_mode = 5
 
-[node name="Dialogue" type="RichTextLabel" parent="CustomerPanel/Panel/Margin/VBox"]
-custom_minimum_size = Vector2(0, 96)
+[node name="Details" type="VBoxContainer" parent="CustomerPanel/Panel/Margin/VBox/Content"]
 layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="Name" type="Label" parent="CustomerPanel/Panel/Margin/VBox/Content/Details"]
+custom_minimum_size = Vector2(0, 30)
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Customer"
+vertical_alignment = 1
+autowrap_mode = 3
+clip_text = true
+
+[node name="DialogueFrame" type="PanelContainer" parent="CustomerPanel/Panel/Margin/VBox/Content/Details"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="Dialogue" type="RichTextLabel" parent="CustomerPanel/Panel/Margin/VBox/Content/Details/DialogueFrame"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_colors/default_color = Color(0.88, 0.9, 0.93, 1)
+text = "..."
 
 [node name="RequestTraits" type="GridContainer" parent="CustomerPanel/Panel/Margin/VBox"]
 visible = false
@@ -211,7 +381,7 @@ layout_mode = 2
 fit_content = true
 
 [node name="SellDropBox" type="PanelContainer" parent="CustomerPanel/Panel/Margin/VBox"]
-custom_minimum_size = Vector2(0, 90)
+custom_minimum_size = Vector2(0, 58)
 layout_mode = 2
 script = ExtResource("8_74p2s")
 
@@ -224,12 +394,16 @@ theme_override_constants/margin_bottom = 12
 
 [node name="DropLabel" type="Label" parent="CustomerPanel/Panel/Margin/VBox/SellDropBox/DropMargin"]
 layout_mode = 2
-text = "Drop item here"
+theme_override_colors/font_color = Color(0.82, 0.86, 0.9, 1)
+theme_override_font_sizes/font_size = 18
+text = "Drop potion here"
 horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="CustomerActions" type="HBoxContainer" parent="CustomerPanel/Panel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 34)
 layout_mode = 2
+theme_override_constants/separation = 8
 
 [node name="ComeBackTomorrow" type="Button" parent="CustomerPanel/Panel/Margin/VBox/CustomerActions"]
 layout_mode = 2
@@ -340,10 +514,10 @@ anchor_left = 0.406
 anchor_top = 0.6
 anchor_right = 0.692
 anchor_bottom = 1.0
-offset_left = -133.68
-offset_top = 7.99997
-offset_right = 60.2401
-offset_bottom = -280.0
+offset_left = 0.320007
+offset_top = 78.0
+offset_right = 216.24
+offset_bottom = -182.0
 grow_horizontal = 2
 grow_vertical = 2
 scale = Vector2(0.825, 0.825)
@@ -651,25 +825,22 @@ stretch_mode = 5
 
 [node name="RecipeBookPanel" type="Control" parent="."]
 layout_mode = 3
-anchor_left = 0.343
-anchor_top = 0.086
-anchor_right = 0.987
-anchor_bottom = 0.975
-offset_left = 752.96
-offset_top = 9.08
-offset_right = -71.36
-offset_bottom = 1617.0
-grow_horizontal = 2
-grow_vertical = 2
-scale = Vector2(0.355, 0.355)
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -510.0
+offset_top = 76.0
+offset_right = -4.0
+offset_bottom = 963.0
+grow_horizontal = 0
 theme = ExtResource("15_recipe_theme")
 script = ExtResource("11_q7k2n")
-CloseButtonPath = NodePath("Panel/Margin/VBox/Header/Close")
-ResetButtonPath = NodePath("Panel/Margin/VBox/Header/ResetFilters")
-SortFilterPath = NodePath("Panel/Margin/VBox/Header/SortFilter")
-TraitFilterPath = NodePath("Panel/Margin/VBox/Header/TraitFilter")
-RiskFilterPath = NodePath("Panel/Margin/VBox/Header/RiskFilter")
-SearchInputPath = NodePath("Panel/Margin/VBox/Header/SearchInput")
+CloseButtonPath = NodePath("Panel/Margin/VBox/Header/SearchRow/Close")
+ResetButtonPath = NodePath("Panel/Margin/VBox/Header/SearchRow/ResetFilters")
+SortFilterPath = NodePath("Panel/Margin/VBox/Header/FilterRow/SortFilter")
+TraitFilterPath = NodePath("Panel/Margin/VBox/Header/FilterRow/TraitFilter")
+RiskFilterPath = NodePath("Panel/Margin/VBox/Header/FilterRow/RiskFilter")
+SearchInputPath = NodePath("Panel/Margin/VBox/Header/SearchRow/SearchInput")
 RecipesContainerPath = NodePath("Panel/Margin/VBox/Scroll/Recipes")
 
 [node name="Panel" type="PanelContainer" parent="RecipeBookPanel"]
@@ -677,70 +848,79 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -353.0
-offset_top = 13.0
-offset_right = 1023.0
-offset_bottom = 2.0
 grow_horizontal = 2
 grow_vertical = 2
 
 [node name="Margin" type="MarginContainer" parent="RecipeBookPanel/Panel"]
 layout_mode = 2
-theme_override_constants/margin_left = 18
-theme_override_constants/margin_top = 18
-theme_override_constants/margin_right = 18
-theme_override_constants/margin_bottom = 18
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
 
 [node name="VBox" type="VBoxContainer" parent="RecipeBookPanel/Panel/Margin"]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
-theme_override_constants/separation = 18
+theme_override_constants/separation = 10
 
-[node name="Header" type="HBoxContainer" parent="RecipeBookPanel/Panel/Margin/VBox"]
+[node name="Header" type="VBoxContainer" parent="RecipeBookPanel/Panel/Margin/VBox"]
 layout_mode = 2
-theme_override_constants/separation = 12
+theme_override_constants/separation = 8
 
-[node name="Title" type="Label" parent="RecipeBookPanel/Panel/Margin/VBox/Header"]
-visible = false
-layout_mode = 2
-theme_override_font_sizes/font_size = 50
-text = "Recipe Book"
-
-[node name="SearchInput" type="LineEdit" parent="RecipeBookPanel/Panel/Margin/VBox/Header"]
-custom_minimum_size = Vector2(360, 68)
+[node name="SearchRow" type="HBoxContainer" parent="RecipeBookPanel/Panel/Margin/VBox/Header"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 29
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="RecipeBookPanel/Panel/Margin/VBox/Header/SearchRow"]
+visible = false
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Recipe Book"
+
+[node name="SearchInput" type="LineEdit" parent="RecipeBookPanel/Panel/Margin/VBox/Header/SearchRow"]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 16
 placeholder_text = "Search recipes..."
 
-[node name="TraitFilter" type="OptionButton" parent="RecipeBookPanel/Panel/Margin/VBox/Header"]
-custom_minimum_size = Vector2(208, 68)
+[node name="ResetFilters" type="Button" parent="RecipeBookPanel/Panel/Margin/VBox/Header/SearchRow"]
+custom_minimum_size = Vector2(86, 40)
 layout_mode = 2
-theme_override_font_sizes/font_size = 29
+theme_override_font_sizes/font_size = 14
+text = "Reset"
 
-[node name="RiskFilter" type="OptionButton" parent="RecipeBookPanel/Panel/Margin/VBox/Header"]
-custom_minimum_size = Vector2(208, 68)
-layout_mode = 2
-theme_override_font_sizes/font_size = 29
-
-[node name="SortFilter" type="OptionButton" parent="RecipeBookPanel/Panel/Margin/VBox/Header"]
-custom_minimum_size = Vector2(216, 68)
-layout_mode = 2
-theme_override_font_sizes/font_size = 29
-
-[node name="ResetFilters" type="Button" parent="RecipeBookPanel/Panel/Margin/VBox/Header"]
-custom_minimum_size = Vector2(200, 68)
-layout_mode = 2
-theme_override_font_sizes/font_size = 29
-text = "Reset Filters"
-
-[node name="Close" type="Button" parent="RecipeBookPanel/Panel/Margin/VBox/Header"]
+[node name="Close" type="Button" parent="RecipeBookPanel/Panel/Margin/VBox/Header/SearchRow"]
 visible = false
-custom_minimum_size = Vector2(140, 68)
+custom_minimum_size = Vector2(64, 40)
 layout_mode = 2
-theme_override_font_sizes/font_size = 29
+theme_override_font_sizes/font_size = 14
 text = "Close"
+
+[node name="FilterRow" type="HBoxContainer" parent="RecipeBookPanel/Panel/Margin/VBox/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="TraitFilter" type="OptionButton" parent="RecipeBookPanel/Panel/Margin/VBox/Header/FilterRow"]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 14
+
+[node name="RiskFilter" type="OptionButton" parent="RecipeBookPanel/Panel/Margin/VBox/Header/FilterRow"]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 14
+
+[node name="SortFilter" type="OptionButton" parent="RecipeBookPanel/Panel/Margin/VBox/Header/FilterRow"]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 14
 
 [node name="Scroll" type="ScrollContainer" parent="RecipeBookPanel/Panel/Margin/VBox"]
 layout_mode = 2
@@ -751,7 +931,7 @@ size_flags_vertical = 3
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 0
-theme_override_constants/separation = 14
+theme_override_constants/separation = 8
 
 [node name="EventModal" type="Control" parent="."]
 visible = false

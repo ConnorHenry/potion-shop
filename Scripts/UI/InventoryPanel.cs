@@ -30,8 +30,11 @@ public partial class InventoryPanel : Control
 	[Export] public NodePath ItemDetailRisksHeaderPath = default!;
 	[Export] public NodePath ItemDetailRisksPath = default!;
 	[Export] public NodePath ItemDetailDescriptionPath = default!;
+	[Export] public NodePath ItemDetailOwnedPath = default!;
+	[Export] public NodePath ItemDetailKnownRecipesPath = default!;
 	[Export] public NodePath ItemDetailBrewButtonPath = default!;
 	[Export] public NodePath ItemDetailCloseButtonPath = default!;
+	[Export] public NodePath ItemDetailTopCloseButtonPath = default!;
 
 	private GridContainer _potions = default!;
 	private GridContainer _ingredients = default!;
@@ -52,8 +55,11 @@ public partial class InventoryPanel : Control
 	private Label _itemDetailRisksHeader = default!;
 	private RichTextLabel _itemDetailRisks = default!;
 	private RichTextLabel _itemDetailDescription = default!;
+	private Label _itemDetailOwned = default!;
+	private VBoxContainer _itemDetailKnownRecipes = default!;
 	private Button _itemDetailBrewButton = default!;
 	private Button _itemDetailCloseButton = default!;
+	private Button? _itemDetailTopCloseButton;
 	private BrewPanel? _brewPanel;
 	private string? _currentItemId;
 	private bool _potionsAscending = true;
@@ -94,14 +100,17 @@ public partial class InventoryPanel : Control
 		_itemDetailRisksHeader = GetNode<Label>(ItemDetailRisksHeaderPath);
 		_itemDetailRisks = GetNode<RichTextLabel>(ItemDetailRisksPath);
 		_itemDetailDescription = GetNode<RichTextLabel>(ItemDetailDescriptionPath);
+		_itemDetailOwned = GetNode<Label>(ItemDetailOwnedPath);
+		_itemDetailKnownRecipes = GetNode<VBoxContainer>(ItemDetailKnownRecipesPath);
 		_itemDetailDescription.BbcodeEnabled = true;
-		_itemDetailPrice.AddThemeColorOverride("font_color", new Color("FFD700"));
 		_itemDetailBrewButton = GetNode<Button>(ItemDetailBrewButtonPath);
 		_itemDetailCloseButton = GetNode<Button>(ItemDetailCloseButtonPath);
+		_itemDetailTopCloseButton = GetNodeOrNull<Button>(ItemDetailTopCloseButtonPath);
 		_brewPanel = GetNodeOrNull<BrewPanel>(new NodePath("../BrewPanel"));
 
 		MouseFilter = MouseFilterEnum.Ignore;
 		_itemDetailPanel.MouseFilter = MouseFilterEnum.Ignore;
+		_itemDetailPanel.ZIndex = 2000;
 		_potionsSortButton.Pressed += TogglePotionsSort;
 		_ingredientsSortButton.Pressed += ToggleIngredientsSort;
 		if (_potionsTraitFilter is not null)
@@ -116,8 +125,10 @@ public partial class InventoryPanel : Control
 			_ingredientsRiskFilter.ItemSelected += OnIngredientRiskSelected;
 		if (_ingredientsClearFilterButton is not null)
 			_ingredientsClearFilterButton.Pressed += ClearIngredientFilters;
-		_itemDetailBrewButton.Pressed += TryBrewSelectedPotion;
+		_itemDetailBrewButton.Pressed += TryUseSelectedItem;
 		_itemDetailCloseButton.Pressed += HideItemDetail;
+		if (_itemDetailTopCloseButton is not null)
+			_itemDetailTopCloseButton.Pressed += HideItemDetail;
 		_gameState.Changed += Refresh;
 
 		Visible = true;
@@ -147,9 +158,11 @@ public partial class InventoryPanel : Control
 		if (_ingredientsClearFilterButton is not null)
 			_ingredientsClearFilterButton.Pressed -= ClearIngredientFilters;
 		if (_itemDetailBrewButton is not null)
-			_itemDetailBrewButton.Pressed -= TryBrewSelectedPotion;
+			_itemDetailBrewButton.Pressed -= TryUseSelectedItem;
 		if (_itemDetailCloseButton is not null)
 			_itemDetailCloseButton.Pressed -= HideItemDetail;
+		if (_itemDetailTopCloseButton is not null)
+			_itemDetailTopCloseButton.Pressed -= HideItemDetail;
 	}
 
 	private void TogglePotionsSort()
@@ -663,6 +676,7 @@ public partial class InventoryPanel : Control
 		_currentItemId = itemId;
 		RefreshCurrentItemDetail();
 		_itemDetailPanel.Visible = true;
+		_itemDetailPanel.MoveToFront();
 		UpdateBrewButtonState();
 	}
 
@@ -688,6 +702,8 @@ public partial class InventoryPanel : Control
 		_itemDetailRisks.Text = "";
 		_itemDetailDescription.Text = "";
 		_itemDetailPrice.Text = "";
+		_itemDetailOwned.Text = "";
+		ClearKnownRecipeRows();
 		_itemDetailBrewButton.Visible = false;
 		_itemDetailBrewButton.Disabled = true;
 		_itemDetailPanel.Visible = false;
@@ -703,18 +719,33 @@ public partial class InventoryPanel : Control
 
 		_itemDetailImage.Texture = LoadIcon(item.IconPath);
 		_itemDetailName.Text = DisplayName(_currentItemId, item.Name);
-		_itemDetailPrice.Text = $"Sell Price - £{GetItemPrice(_currentItemId, item)}";
-		_itemDetailTraits.Text = FormatTopTraits(item.Traits, 3);
-		_itemDetailRisks.Text = FormatDictionary(item.Risks);
+		_itemDetailOwned.Text = $"Owned: {_gameState.Inventory.GetValueOrDefault(_currentItemId)}";
+		_itemDetailPrice.Text = $"Sell Price: \u00A3{GetItemPrice(_currentItemId, item)}";
+		_itemDetailTraits.Text = FormatTopStats(item.Traits, 3);
+		_itemDetailRisks.Text = FormatTopStats(item.Risks, 3, "None");
 		_itemDetailDescription.Text = IsPotion(_currentItemId)
 			? _brewService.BuildPotionDescriptionText(_currentItemId, item.Description)
 			: item.Description;
+		RefreshKnownRecipes(_currentItemId, item);
 	}
 
-	private void TryBrewSelectedPotion()
+	private void TryUseSelectedItem()
 	{
 		if (string.IsNullOrWhiteSpace(_currentItemId))
 			return;
+
+		if (IsIngredient(_currentItemId))
+		{
+			if (_brewPanel is null)
+			{
+				GD.PushError("InventoryPanel: Brew panel was not found.");
+				return;
+			}
+
+			_brewPanel.TryQueueIngredient(_currentItemId);
+			HideItemDetail();
+			return;
+		}
 
 		if (!IsPotion(_currentItemId))
 			return;
@@ -729,12 +760,24 @@ public partial class InventoryPanel : Control
 	{
 		if (string.IsNullOrWhiteSpace(_currentItemId) || !IsPotion(_currentItemId))
 		{
+			if (!string.IsNullOrWhiteSpace(_currentItemId) && IsIngredient(_currentItemId))
+			{
+				_itemDetailBrewButton.Text = "Add to Brew";
+				_itemDetailBrewButton.Visible = true;
+				_itemDetailBrewButton.Disabled = !_gameState.HasItem(_currentItemId, 1) || _brewPanel is null;
+				_itemDetailBrewButton.TooltipText = _itemDetailBrewButton.Disabled
+					? "No stock available to add."
+					: "Add this ingredient to the brew panel.";
+				return;
+			}
+
 			_itemDetailBrewButton.Visible = false;
 			_itemDetailBrewButton.Disabled = true;
 			_itemDetailBrewButton.TooltipText = "";
 			return;
 		}
 
+		_itemDetailBrewButton.Text = "Brew This Potion";
 		_itemDetailBrewButton.Visible = true;
 
 		if (!_brewService.TryGetRequiredIngredients(_currentItemId, out var requiredIngredients, out var error))
@@ -813,9 +856,152 @@ public partial class InventoryPanel : Control
 		return item.Tags.Any(tag => string.Equals(tag, "potion", System.StringComparison.OrdinalIgnoreCase));
 	}
 
+	private static bool IsIngredient(string itemId)
+	{
+		if (!ItemCatalog.TryGetItem(itemId, out var item))
+			return false;
+
+		return IsIngredient(item);
+	}
+
 	private static bool IsIngredient(ItemDef item)
 	{
 		return item.Tags.Any(tag => string.Equals(tag, "ingredient", System.StringComparison.OrdinalIgnoreCase));
+	}
+
+	private void RefreshKnownRecipes(string itemId, ItemDef item)
+	{
+		ClearKnownRecipeRows();
+
+		if (!IsIngredient(item))
+		{
+			AddKnownRecipeEmptyRow("Only ingredients list known recipes.");
+			return;
+		}
+
+		var knownPotionIds = _gameState.KnownPotions
+			.OrderBy(potionId => DisplayName(potionId, ItemName(potionId)))
+			.ThenBy(potionId => potionId)
+			.ToList();
+
+		var foundAnyRecipe = false;
+		foreach (var potionId in knownPotionIds)
+		{
+			if (!_gameState.TryGetPotionRecipe(potionId, out var ingredientIds))
+				continue;
+			if (!ingredientIds.Any(ingredientId => string.Equals(ingredientId, itemId, System.StringComparison.OrdinalIgnoreCase)))
+				continue;
+			if (!ItemCatalog.TryGetItem(potionId, out var potion))
+				continue;
+
+			foundAnyRecipe = true;
+			AddKnownRecipeRow(potionId, potion);
+		}
+
+		if (!foundAnyRecipe)
+			AddKnownRecipeEmptyRow("No known recipes");
+	}
+
+	private void AddKnownRecipeRow(string potionId, ItemDef potion)
+	{
+		var row = new HBoxContainer
+		{
+			CustomMinimumSize = new Vector2(0, 34),
+			MouseFilter = MouseFilterEnum.Ignore
+		};
+		row.AddThemeConstantOverride("separation", 8);
+
+		var icon = new TextureRect
+		{
+			CustomMinimumSize = new Vector2(30, 30),
+			Texture = LoadIcon(potion.IconPath),
+			ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+			StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+			MouseFilter = MouseFilterEnum.Ignore
+		};
+
+		var name = new Label
+		{
+			Text = DisplayName(potionId, potion.Name),
+			CustomMinimumSize = new Vector2(114, 0),
+			SizeFlagsHorizontal = SizeFlags.ExpandFill,
+			ClipText = true,
+			MouseFilter = MouseFilterEnum.Ignore
+		};
+
+		var status = new Label
+		{
+			Text = BuildRecipeStatusText(potionId),
+			CustomMinimumSize = new Vector2(76, 0),
+			HorizontalAlignment = HorizontalAlignment.Right,
+			MouseFilter = MouseFilterEnum.Ignore
+		};
+		status.AddThemeColorOverride("font_color", status.Text == "Brewable"
+			? new Color(0.43f, 0.83f, 0.48f, 1f)
+			: new Color(0.73f, 0.74f, 0.78f, 1f));
+
+		row.AddChild(icon);
+		row.AddChild(name);
+		row.AddChild(status);
+		_itemDetailKnownRecipes.AddChild(row);
+	}
+
+	private string BuildRecipeStatusText(string potionId)
+	{
+		if (!_brewService.TryGetRequiredIngredients(potionId, out var requiredIngredients, out _))
+			return "Unknown";
+
+		var missingCount = 0;
+		foreach (var pair in requiredIngredients)
+		{
+			var have = _gameState.Inventory.GetValueOrDefault(pair.Key);
+			missingCount += Math.Max(0, pair.Value - have);
+		}
+
+		return missingCount == 0 ? "Brewable" : $"Missing {missingCount}";
+	}
+
+	private void AddKnownRecipeEmptyRow(string text)
+	{
+		var label = new Label
+		{
+			Text = text,
+			CustomMinimumSize = new Vector2(0, 34),
+			VerticalAlignment = VerticalAlignment.Center,
+			MouseFilter = MouseFilterEnum.Ignore
+		};
+		label.AddThemeColorOverride("font_color", new Color(0.68f, 0.7f, 0.75f, 1f));
+		_itemDetailKnownRecipes.AddChild(label);
+	}
+
+	private void ClearKnownRecipeRows()
+	{
+		foreach (var child in _itemDetailKnownRecipes.GetChildren())
+		{
+			_itemDetailKnownRecipes.RemoveChild(child);
+			child.QueueFree();
+		}
+	}
+
+	private static string FormatTopStats(Dictionary<string, int> values, int maxCount, string emptyLabel = "None")
+	{
+		var lines = new List<string>(maxCount);
+		if (values is not null)
+		{
+			lines.AddRange(values
+				.OrderByDescending(x => x.Value)
+				.ThenBy(x => x.Key)
+				.Take(maxCount)
+				.Select(x => $"{DisplayStatName(x.Key)} +{x.Value}"));
+		}
+
+		if (lines.Count == 0)
+			lines.Add(emptyLabel);
+
+		while (lines.Count < maxCount)
+			lines.Add(string.Empty);
+
+		return string.Join("\n", lines);
 	}
 
 	private static string FormatDictionary(Dictionary<string, int> values)
@@ -841,5 +1027,17 @@ public partial class InventoryPanel : Control
 				.ThenBy(x => x.Key)
 				.Take(maxCount)
 				.Select(x => $"{x.Key}: {x.Value}"));
+	}
+
+	private static string DisplayStatName(string key)
+	{
+		if (string.IsNullOrWhiteSpace(key))
+			return string.Empty;
+
+		var normalized = key.Replace('_', ' ').Trim();
+		if (normalized.Length == 0)
+			return string.Empty;
+
+		return char.ToUpperInvariant(normalized[0]) + normalized[1..];
 	}
 }

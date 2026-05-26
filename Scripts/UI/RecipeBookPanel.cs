@@ -11,6 +11,11 @@ public partial class RecipeBookPanel : Control
 {
 	private const string AllFilterLabel = "All";
 	private const string SortAzLabel = "A-Z";
+	private const int CardTitleFontSize = 22;
+	private const int DetailHeadingFontSize = 14;
+	private const int DetailValueFontSize = 13;
+	private const int ButtonFontSize = 14;
+	private const int TagFontSize = 13;
 
 	[Export] public NodePath CloseButtonPath = default!;
 	[Export] public NodePath ResetButtonPath = default!;
@@ -259,26 +264,26 @@ public partial class RecipeBookPanel : Control
 
 		var card = new PanelContainer
 		{
-			CustomMinimumSize = new Vector2(0, 365)
+			CustomMinimumSize = new Vector2(0, 154)
 		};
 		ApplyCardStyle(card);
 
 		var margin = new MarginContainer();
-		margin.AddThemeConstantOverride("margin_left", 24);
-		margin.AddThemeConstantOverride("margin_top", 22);
-		margin.AddThemeConstantOverride("margin_right", 24);
-		margin.AddThemeConstantOverride("margin_bottom", 20);
+		margin.AddThemeConstantOverride("margin_left", 10);
+		margin.AddThemeConstantOverride("margin_top", 10);
+		margin.AddThemeConstantOverride("margin_right", 10);
+		margin.AddThemeConstantOverride("margin_bottom", 10);
 
 		var cardBody = new HBoxContainer
 		{
 			SizeFlagsHorizontal = SizeFlags.ExpandFill,
 			SizeFlagsVertical = SizeFlags.ExpandFill
 		};
-		cardBody.AddThemeConstantOverride("separation", 22);
+		cardBody.AddThemeConstantOverride("separation", 10);
 
 		var icon = new TextureRect
 		{
-			CustomMinimumSize = new Vector2(138, 138),
+			CustomMinimumSize = new Vector2(58, 58),
 			ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
 			StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
 			MouseFilter = MouseFilterEnum.Ignore
@@ -287,10 +292,10 @@ public partial class RecipeBookPanel : Control
 
 		var iconColumn = new VBoxContainer
 		{
-			CustomMinimumSize = new Vector2(150, 0),
+			CustomMinimumSize = new Vector2(64, 0),
 			SizeFlagsVertical = SizeFlags.ExpandFill
 		};
-		iconColumn.AddThemeConstantOverride("separation", 10);
+		iconColumn.AddThemeConstantOverride("separation", 6);
 		iconColumn.AddChild(icon);
 		iconColumn.AddChild(new Control
 		{
@@ -302,39 +307,40 @@ public partial class RecipeBookPanel : Control
 			SizeFlagsHorizontal = SizeFlags.ExpandFill,
 			SizeFlagsVertical = SizeFlags.ExpandFill
 		};
-		contentColumn.AddThemeConstantOverride("separation", 16);
+		contentColumn.AddThemeConstantOverride("separation", 8);
 
 		var topRow = new HBoxContainer
 		{
 			SizeFlagsHorizontal = SizeFlags.ExpandFill,
 			SizeFlagsVertical = SizeFlags.ShrinkBegin
 		};
-		topRow.AddThemeConstantOverride("separation", 18);
+		topRow.AddThemeConstantOverride("separation", 8);
 
 		var headingColumn = new VBoxContainer
 		{
 			SizeFlagsHorizontal = SizeFlags.ExpandFill
 		};
-		headingColumn.AddThemeConstantOverride("separation", 10);
+		headingColumn.AddThemeConstantOverride("separation", 5);
 
 		var title = new Label
 		{
-			Text = DisplayName(potionId, item.Name)
+			Text = DisplayName(potionId, item.Name),
+			ClipText = true
 		};
-		title.AddThemeFontSizeOverride("font_size", 46);
+		title.AddThemeFontSizeOverride("font_size", CardTitleFontSize);
 
 		var statusTag = CreateStatusTag(isBrewable, missingCount);
 
 		var actionColumn = new VBoxContainer
 		{
-			CustomMinimumSize = new Vector2(290, 0),
+			CustomMinimumSize = new Vector2(116, 0),
 			SizeFlagsVertical = SizeFlags.ShrinkBegin
 		};
 
 		var brewButton = new Button
 		{
-			Text = "Brew Potion",
-			CustomMinimumSize = new Vector2(270, 86),
+			Text = "Brew",
+			CustomMinimumSize = new Vector2(104, 36),
 			SizeFlagsHorizontal = SizeFlags.ShrinkEnd,
 			Disabled = !isBrewable
 		};
@@ -358,7 +364,7 @@ public partial class RecipeBookPanel : Control
 		{
 			SizeFlagsHorizontal = SizeFlags.ExpandFill
 		};
-		detailsRow.AddThemeConstantOverride("separation", 20);
+		detailsRow.AddThemeConstantOverride("separation", 8);
 
 		var ingredientsColumn = CreateDetailsColumn(
 			"Ingredients",
@@ -398,7 +404,7 @@ public partial class RecipeBookPanel : Control
 	{
 		return new ColorRect
 		{
-			CustomMinimumSize = new Vector2(2, 0),
+			CustomMinimumSize = new Vector2(1, 0),
 			SizeFlagsHorizontal = SizeFlags.ShrinkCenter,
 			SizeFlagsVertical = SizeFlags.ExpandFill,
 			Color = new Color("3f5166")
@@ -416,14 +422,14 @@ public partial class RecipeBookPanel : Control
 			SizeFlagsHorizontal = SizeFlags.ExpandFill,
 			SizeFlagsStretchRatio = stretchRatio
 		};
-		column.AddThemeConstantOverride("separation", 10);
+		column.AddThemeConstantOverride("separation", 3);
 
 		var headingLabel = new Label
 		{
 			Text = heading
 		};
 		headingLabel.AddThemeColorOverride("font_color", headingColor);
-		headingLabel.AddThemeFontSizeOverride("font_size", 36);
+		headingLabel.AddThemeFontSizeOverride("font_size", DetailHeadingFontSize);
 
 		column.AddChild(headingLabel);
 
@@ -431,10 +437,11 @@ public partial class RecipeBookPanel : Control
 		{
 			var valueLabel = new Label
 			{
-				Text = line.Text
+				Text = line.Text,
+				AutowrapMode = TextServer.AutowrapMode.WordSmart
 			};
 			valueLabel.AddThemeColorOverride("font_color", line.Color);
-			valueLabel.AddThemeFontSizeOverride("font_size", 26);
+			valueLabel.AddThemeFontSizeOverride("font_size", DetailValueFontSize);
 			column.AddChild(valueLabel);
 		}
 
@@ -505,17 +512,17 @@ public partial class RecipeBookPanel : Control
 			: CreateTagStyleBox(new Color("5f4e1a"), new Color("d3a73b")));
 
 		var tagMargin = new MarginContainer();
-		tagMargin.AddThemeConstantOverride("margin_left", 10);
-		tagMargin.AddThemeConstantOverride("margin_top", 6);
-		tagMargin.AddThemeConstantOverride("margin_right", 10);
-		tagMargin.AddThemeConstantOverride("margin_bottom", 6);
+		tagMargin.AddThemeConstantOverride("margin_left", 7);
+		tagMargin.AddThemeConstantOverride("margin_top", 3);
+		tagMargin.AddThemeConstantOverride("margin_right", 7);
+		tagMargin.AddThemeConstantOverride("margin_bottom", 3);
 
 		var tagLabel = new Label
 		{
 			Text = isBrewable ? "v  Brewable" : $"!  Missing {missingCount}"
 		};
 		tagLabel.AddThemeColorOverride("font_color", isBrewable ? new Color("74f3a1") : new Color("f5d064"));
-		tagLabel.AddThemeFontSizeOverride("font_size", 26);
+		tagLabel.AddThemeFontSizeOverride("font_size", TagFontSize);
 
 		tagMargin.AddChild(tagLabel);
 		tagContainer.AddChild(tagMargin);
@@ -544,28 +551,28 @@ public partial class RecipeBookPanel : Control
 		card.AddThemeStyleboxOverride("panel", CreatePanelStyleBox(
 			new Color("0f1924e6"),
 			new Color("324455f2"),
-			10,
+			7,
 			1));
 	}
 
 	private static void ApplyPrimaryButtonStyle(Button button)
 	{
-		button.AddThemeStyleboxOverride("normal", CreateButtonStyleBox(new Color("1f5938"), new Color("3fb26b"), 8));
-		button.AddThemeStyleboxOverride("hover", CreateButtonStyleBox(new Color("286f46"), new Color("50d47e"), 8));
-		button.AddThemeStyleboxOverride("pressed", CreateButtonStyleBox(new Color("18452b"), new Color("2d9d5c"), 8));
-		button.AddThemeStyleboxOverride("disabled", CreateButtonStyleBox(new Color("283232"), new Color("4d5a5a"), 8));
+		button.AddThemeStyleboxOverride("normal", CreateButtonStyleBox(new Color("1f5938"), new Color("3fb26b"), 6));
+		button.AddThemeStyleboxOverride("hover", CreateButtonStyleBox(new Color("286f46"), new Color("50d47e"), 6));
+		button.AddThemeStyleboxOverride("pressed", CreateButtonStyleBox(new Color("18452b"), new Color("2d9d5c"), 6));
+		button.AddThemeStyleboxOverride("disabled", CreateButtonStyleBox(new Color("283232"), new Color("4d5a5a"), 6));
 		button.AddThemeColorOverride("font_color", new Color("f2fff7"));
 		button.AddThemeColorOverride("font_disabled_color", new Color("9ba9a9"));
-		button.AddThemeFontSizeOverride("font_size", 34);
+		button.AddThemeFontSizeOverride("font_size", ButtonFontSize);
 	}
 
 	private static StyleBoxFlat CreateButtonStyleBox(Color fillColor, Color borderColor, int radius)
 	{
 		var style = CreatePanelStyleBox(fillColor, borderColor, radius, 1);
-		style.ContentMarginLeft = 20;
-		style.ContentMarginRight = 20;
-		style.ContentMarginTop = 12;
-		style.ContentMarginBottom = 12;
+		style.ContentMarginLeft = 10;
+		style.ContentMarginRight = 10;
+		style.ContentMarginTop = 6;
+		style.ContentMarginBottom = 6;
 		return style;
 	}
 
@@ -746,4 +753,3 @@ public partial class RecipeBookPanel : Control
 	private readonly record struct LearnedPotionEntry(string PotionId, string Name);
 	private readonly record struct IngredientAvailabilityEntry(string DisplayName, bool IsAvailable);
 }
-
