@@ -36,7 +36,10 @@ public partial class DataDb : Node
 		var authoredData = ResourceLoader.Load<AuthoredDataResource>(AuthoredDataPath);
 		if (authoredData is null)
 		{
-			GD.PushError($"DataDb: Failed to load authored data resource at '{AuthoredDataPath}'.");
+			var exists = ResourceLoader.Exists(AuthoredDataPath);
+			var genericResource = ResourceLoader.Load<Resource>(AuthoredDataPath);
+			var genericTypeName = genericResource?.GetType().FullName ?? "<null>";
+			GD.PushError($"DataDb: Failed to load authored data resource at '{AuthoredDataPath}'. Exists={exists}. GenericLoadType={genericTypeName}.");
 			_items = new Dictionary<string, ItemDef>();
 			_rules = new Dictionary<string, RuleDef>();
 			_events = new List<EventCardDef>();
@@ -45,11 +48,34 @@ public partial class DataDb : Node
 			return;
 		}
 
-		_items = ParseItems(authoredData.Items).ToDictionary(x => x.Id, x => x, StringComparer.OrdinalIgnoreCase);
-		_rules = ParseRules(authoredData.Rules).ToDictionary(x => x.Id, x => x, StringComparer.OrdinalIgnoreCase);
-		_events = ParseEvents(authoredData.Events);
-		_customerInteractions = ParseCustomerInteractions(authoredData.CustomerInteractions);
-		_synergies = ParseSynergies(authoredData.Synergies);
+		var itemsResource = LoadSection<AuthoredItemsResource>(authoredData.ItemsPath, "items");
+		var rulesResource = LoadSection<AuthoredRulesResource>(authoredData.RulesPath, "rules");
+		var eventsResource = LoadSection<AuthoredEventsResource>(authoredData.EventsPath, "events");
+		var customerInteractionsResource = LoadSection<AuthoredCustomerInteractionsResource>(authoredData.CustomerInteractionsPath, "customer interactions");
+		var synergiesResource = LoadSection<AuthoredSynergiesResource>(authoredData.SynergiesPath, "synergies");
+
+		_items = ParseItems(itemsResource?.Entries ?? new Godot.Collections.Array())
+			.ToDictionary(x => x.Id, x => x, StringComparer.OrdinalIgnoreCase);
+		_rules = ParseRules(rulesResource?.Entries ?? new Godot.Collections.Array())
+			.ToDictionary(x => x.Id, x => x, StringComparer.OrdinalIgnoreCase);
+		_events = ParseEvents(eventsResource?.Entries ?? new Godot.Collections.Array());
+		_customerInteractions = ParseCustomerInteractions(customerInteractionsResource?.Entries ?? new Godot.Collections.Array());
+		_synergies = ParseSynergies(synergiesResource?.Entries ?? new Godot.Collections.Array());
+	}
+
+	private static TSection? LoadSection<TSection>(string path, string sectionName) where TSection : Resource
+	{
+		if (string.IsNullOrWhiteSpace(path))
+		{
+			GD.PushError($"DataDb: Missing path for authored {sectionName} section.");
+			return null;
+		}
+
+		var section = ResourceLoader.Load<TSection>(path);
+		if (section is null)
+			GD.PushError($"DataDb: Failed to load authored {sectionName} section at '{path}'.");
+
+		return section;
 	}
 
 	public bool TryGetItem(string itemId, out ItemDef item)

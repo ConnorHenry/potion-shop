@@ -6,17 +6,17 @@ namespace OccultShop.Models;
 public partial class AuthoredDataResource : Resource
 {
 	[Export]
-	public Godot.Collections.Array Items { get; set; } = new();
+	public string ItemsPath { get; set; } = "res://Data/items_data.tres";
 
 	[Export]
-	public Godot.Collections.Array Rules { get; set; } = new();
+	public string RulesPath { get; set; } = "res://Data/rules_data.tres";
 
 	[Export]
-	public Godot.Collections.Array Events { get; set; } = new();
+	public string EventsPath { get; set; } = "res://Data/events_data.tres";
 
 	[Export]
-	public Godot.Collections.Array CustomerInteractions { get; set; } = new();
+	public string CustomerInteractionsPath { get; set; } = "res://Data/customers_data.tres";
 
 	[Export]
-	public Godot.Collections.Array Synergies { get; set; } = new();
+	public string SynergiesPath { get; set; } = "res://Data/synergies_data.tres";
 }

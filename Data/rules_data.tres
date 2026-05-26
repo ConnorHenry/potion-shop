@@ -1,0 +1,7 @@
+[gd_resource type="Resource" script_class="AuthoredRulesResource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Models/AuthoredRulesResource.cs" id="1"]
+
+[resource]
+script = ExtResource("1")
+Entries = [{"id":"no_mirrors","name":"No Mirrors","desc":"Selling 'ritual' items adds +1 Dread (the shop doesn't like being perceived)."},{"id":"thin_veil","name":"The Veil Thins","desc":"Each night event adds +2 extra Dread."}]

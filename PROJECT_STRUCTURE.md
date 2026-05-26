@@ -9,7 +9,7 @@ This project targets **Godot 4.4 + C# (.NET 8)**.
 - `Main.tscn`: Primary gameplay scene.
 - `Scenes/`: Scene files grouped by feature (currently `Scenes/UI`).
 - `Scripts/`: Runtime C# code split by responsibilities.
-- `Data/`: JSON gameplay content definitions.
+- `Data/`: Authored gameplay content resources (`.tres`).
 - `Assets/`: Source art assets (SVG + Godot import metadata).
 - `tests/`: Isolated .NET test harnesses.
 
@@ -26,7 +26,7 @@ This project targets **Godot 4.4 + C# (.NET 8)**.
 
 Keep in version control:
 
-- `*.cs`, `*.tscn`, `*.json`, `*.svg`
+- `*.cs`, `*.tscn`, `*.tres`, `*.svg`
 - `*.import` (import settings)
 - `*.uid` (Godot UID sidecar files)
 - `.sln`, `.csproj`, docs

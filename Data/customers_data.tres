@@ -1,0 +1,7 @@
+[gd_resource type="Resource" script_class="AuthoredCustomerInteractionsResource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Models/AuthoredCustomerInteractionsResource.cs" id="1"]
+
+[resource]
+script = ExtResource("1")
+Entries = [{"id":"traveler_asks_for_sleep_tonic","title":"Customer","text":"A weary traveler enters the shop and asks for something to help them sleep.","characterImagePath":"res://Assets/Characters/store_customer.svg","requires":{},"weight":10,"desiredTraits":{"sleep":5,"calm":3,"gentle":2},"badTraits":{"addiction":5,"rage":5}},{"id":"chapel_warden_requests_hallowed_balm","title":"Customer","text":"A chapel warden arrives with rain on their cloak and asks for a balm to bless and protect a damaged shrine.","characterImagePath":"res://Assets/Characters/chapel_warden.svg","requires":{},"weight":10,"desiredTraits":{"hallowed":5,"balm":3,"blessing":2},"badTraits":{"corruption":5}}]
