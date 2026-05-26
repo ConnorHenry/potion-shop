@@ -4,7 +4,7 @@
 [ext_resource type="Script" uid="uid://c3ghssq14vnvq" path="res://Scripts/Controllers/EventController.cs" id="4_7w4xk"]
 [ext_resource type="Script" uid="uid://bad57hhje5lgo" path="res://Scripts/Controllers/CustomerEventController.cs" id="7_07l3o"]
 [ext_resource type="PackedScene" uid="uid://4hripc13we86" path="res://Scenes/UI/GameUi.tscn" id="8_gameui"]
-[ext_resource type="Script" path="res://Scripts/Debug/RuntimeDebugImGui.cs" id="9_debug"]
+[ext_resource type="Script" uid="uid://mqpx3neg5dr7" path="res://Scripts/Debug/RuntimeDebugImGui.cs" id="9_debug"]
 
 [node name="Main" type="Control"]
 layout_mode = 3

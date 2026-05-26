@@ -34,6 +34,7 @@ static class Program
         Run("RecipeBookPanel entry shows traits and risks to the right of ingredients", TestRecipeBookPanelEntryShowsTraitsAndRisksToTheRightOfIngredients);
         Run("BrewPanel ingredient tag detection is case-insensitive", TestBrewPanelIsIngredient);
         Run("BrewPanel rejects duplicate queued ingredients", TestBrewPanelRejectsDuplicateQueuedIngredients);
+        Run("BrewPanel previews potion names before brewing", TestBrewPanelPreviewNameIsWired);
         Run("Brew and inventory price wiring stays intact", TestBrewAndInventoryPriceWiring);
         Run("Potion base price survives snapshot round-trips", TestPotionBasePriceSnapshotRoundTrip);
         Run("ItemDef price converter accepts price fields", TestItemDefPriceConverterSupportsPriceFields);
@@ -645,11 +646,36 @@ static class Program
             ReadProjectFile("Scripts/UI/BrewDropBox.cs").Contains("EmitSignal(SignalName.ItemDropped, data.AsString());"));
     }
 
+    private static void TestBrewPanelPreviewNameIsWired()
+    {
+        var source = ReadProjectFile("Scripts/UI/BrewPanel.cs");
+        var scene = ReadProjectFile("Scenes/UI/GameUi.tscn");
+
+        AssertTrue("BrewPanel exports a preview name label path",
+            source.Contains("PotionNamePreviewLabelPath"));
+        AssertTrue("BrewPanel caches the current preview combination",
+            source.Contains("_previewPotionCombinationKey"));
+        AssertTrue("BrewPanel caches the current preview name",
+            source.Contains("_previewPotionName"));
+        AssertTrue("BrewPanel resolves the preview name before brewing",
+            source.Contains("var potionDisplayName = GetPreviewPotionName(combinationKey);"));
+        AssertTrue("BrewPanel regenerates preview names from the combination key",
+            source.Contains("GetPreviewPotionName(string combinationKey)"));
+        AssertTrue("BrewPanel scene wires the live preview name label",
+            scene.Contains("PotionNamePreviewLabelPath = NodePath(\"Panel/Margin/VBox/BrewRow/Preview/Identity/TopRow/TextColumn/NameFrame/NameMargin/Name\")"));
+        AssertTrue("BrewPanel scene labels the brew button like the mockup",
+            scene.Contains("text = \"Brew Potion\""));
+        AssertTrue("BrewPanel scene labels the clear button like the mockup",
+            scene.Contains("text = \"Clear Ingredients\""));
+    }
+
     private static void TestBrewAndInventoryPriceWiring()
     {
         var brewPanel = ReadProjectFile("Scripts/UI/BrewPanel.cs");
         AssertTrue("BrewPanel calculates potion price from ingredient totals",
             brewPanel.Contains("CalculateIngredientTotalPrice(_queuedIngredients)"));
+        AssertTrue("BrewPanel renders the mockup price label",
+            brewPanel.Contains("Estimated Sell Price: \\u00A3"));
         AssertTrue("BrewPanel stores the potion base price in state",
             brewPanel.Contains("RegisterPotionBasePrice(potionItemId, potionBasePrice)"));
         AssertTrue("BrewPanel sums ingredient BasePrice values",
@@ -779,11 +805,11 @@ static class Program
         AssertTrue("DataDb loads authored data resource", source.Contains("ResourceLoader.Load<AuthoredDataResource>"));
         AssertTrue("DataDb references the authored data resource path", source.Contains("AuthoredDataPath"));
         AssertTrue("Authored data resource file exists", resource.Contains("script_class=\"AuthoredDataResource\""));
-        AssertTrue("Authored data resource stores item catalog", resource.Contains("Items = ["));
-        AssertTrue("Authored data resource stores rule catalog", resource.Contains("Rules = ["));
-        AssertTrue("Authored data resource stores event catalog", resource.Contains("Events = ["));
-        AssertTrue("Authored data resource stores customer catalog", resource.Contains("CustomerInteractions = ["));
-        AssertTrue("Authored data resource stores synergy catalog", resource.Contains("Synergies = ["));
+        AssertTrue("Authored data resource stores item catalog", resource.Contains("ItemsPath = \"res://Data/items_data.tres\""));
+        AssertTrue("Authored data resource stores rule catalog", resource.Contains("RulesPath = \"res://Data/rules_data.tres\""));
+        AssertTrue("Authored data resource stores event catalog", resource.Contains("EventsPath = \"res://Data/events_data.tres\""));
+        AssertTrue("Authored data resource stores customer catalog", resource.Contains("CustomerInteractionsPath = \"res://Data/customers_data.tres\""));
+        AssertTrue("Authored data resource stores synergy catalog", resource.Contains("SynergiesPath = \"res://Data/synergies_data.tres\""));
         AssertTrue("DataDb does not register runtime items", !source.Contains("RegisterRuntimePotionItem"));
         AssertTrue("DataDb does not reference runtime catalog", !source.Contains("RuntimeContentDb"));
     }

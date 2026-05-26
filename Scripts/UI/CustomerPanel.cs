@@ -13,6 +13,8 @@ public partial class CustomerPanel : Control
 	public delegate void SaleResolvedEventHandler(bool success, int goldDelta, int dreadDelta, float finalScore, string grade);
 	[Signal]
 	public delegate void CustomerSkippedEventHandler();
+	[Signal]
+	public delegate void SaleResultClosedEventHandler();
 
 	public bool SuppressSaleResultPanel { get; set; }
 
@@ -45,7 +47,6 @@ public partial class CustomerPanel : Control
 	private readonly PotionBrewingService _brewingService = new();
 	private GameState _gameState = default!;
 	private DataDb _dataDb = default!;
-	private const float SuccessScoreThreshold = 60.0f;
 	private const int SuccessDreadChange = -2;
 	private const int FailureDreadChange = 4;
 	private const string MatchedDesiredColorHex = "#59D959";
@@ -93,7 +94,8 @@ public partial class CustomerPanel : Control
 
 		if (_sorryCantHelpYouButton is not null)
 			_sorryCantHelpYouButton.Pressed += OnSkipCustomerPressed;
-		_saleResultCloseButton.Pressed += HideSaleResult;
+		_saleResultCloseButton.Text = "Close";
+		_saleResultCloseButton.Pressed += OnSaleResultClosePressed;
 		_sellDropBox.ItemDropped += OnItemDropped;
 		_sellDropBox.ItemHoverPreview += OnSellDropHoverPreview;
 		_sellDropBox.HoverPreviewCleared += OnSellDropHoverPreviewCleared;
@@ -111,7 +113,7 @@ public partial class CustomerPanel : Control
 		if (_sorryCantHelpYouButton is not null)
 			_sorryCantHelpYouButton.Pressed -= OnSkipCustomerPressed;
 		if (_saleResultCloseButton is not null)
-			_saleResultCloseButton.Pressed -= HideSaleResult;
+			_saleResultCloseButton.Pressed -= OnSaleResultClosePressed;
 		if (_sellDropBox is not null)
 		{
 			_sellDropBox.ItemDropped -= OnItemDropped;
@@ -246,7 +248,8 @@ public partial class CustomerPanel : Control
 
 	private (bool IsSuccess, int GoldDelta, int DreadDelta) ApplySale(string itemId, PotionResult brewResult)
 	{
-		var isSuccess = brewResult.FinalScore >= SuccessScoreThreshold;
+		var request = _interaction?.BuildRequest();
+		var isSuccess = request is not null && HasAllDesiredTraitsPresent(request, brewResult.Traits);
 		var goldDelta = GetSalePrice(itemId);
 		var dreadDelta = isSuccess ? SuccessDreadChange : FailureDreadChange;
 
@@ -261,8 +264,13 @@ public partial class CustomerPanel : Control
 	{
 		Visible = false;
 		_gameState.ClearActiveCustomerRequest();
-		_saleResultTitle.Text = $"Potion Score: {brewResult.FinalScore:0.##} ({brewResult.Grade})";
+		var request = _interaction?.BuildRequest();
+		var isSuccess = request is not null && HasAllDesiredTraitsPresent(request, brewResult.Traits);
+		_saleResultTitle.Text = "Sale Result";
 		_saleResultBody.Text = BuildOutcomeText(itemId, brewResult);
+		_saleResultPanel.ZIndex = 1000;
+		_saleResultPanel.Show();
+		_saleResultPanel.MoveToFront();
 		_saleResultPanel.Visible = true;
 	}
 
@@ -272,26 +280,50 @@ public partial class CustomerPanel : Control
 		_saleResultBody.Text = "";
 	}
 
+	private void OnSaleResultClosePressed()
+	{
+		if (!_saleResultPanel.Visible)
+			return;
+
+		HideSaleResult();
+		_interaction = null;
+		EmitSignal(SignalName.SaleResultClosed);
+	}
+
 	private string BuildOutcomeText(string itemId, PotionResult brewResult)
 	{
 		var lines = new List<string>();
 		var itemName = ItemCatalog.GetItemName(itemId);
 		itemName = DisplayName(itemId, itemName);
-		lines.Add($"Sold: {itemName}");
-		lines.Add($"Q={brewResult.IngredientQualityScore}, F={brewResult.EffectFitScore}, Y={brewResult.SynergyScore}, T={brewResult.StabilityScore}, P={brewResult.PenaltyScore}");
+		lines.Add($"Potion: {itemName}");
 
-		var isSuccess = brewResult.FinalScore >= SuccessScoreThreshold;
-		var salePrice = GetSalePrice(itemId);
-		if (isSuccess)
-		{
-			lines.Add($"Gold gained: {salePrice}");
-			lines.Add($"Dread reduced: {System.Math.Abs(SuccessDreadChange)}");
-		}
-		else
-		{
-			lines.Add($"Gold gained: {salePrice}");
-			lines.Add($"Dread gained: {FailureDreadChange}");
-		}
+		var request = _interaction?.BuildRequest();
+		var isSuccess = request is not null && HasAllDesiredTraitsPresent(request, brewResult.Traits);
+		lines.Add($"Sale: {(isSuccess ? "Success" : "Failure")}");
+		lines.Add(string.Empty);
+		lines.Add("Desired Traits:");
+		lines.Add(FormatTraitDictionaryForResult(request?.DesiredTraits));
+		lines.Add(string.Empty);
+		lines.Add("Potion Traits:");
+		lines.Add(FormatTraitDictionaryForResult(brewResult.Traits));
+
+		return string.Join("\n", lines);
+	}
+
+	private static string FormatTraitDictionaryForResult(IReadOnlyDictionary<string, int>? values)
+	{
+		if (values is null || values.Count == 0)
+			return "None";
+
+		var lines = values
+			.Where(pair => !string.IsNullOrWhiteSpace(pair.Key))
+			.OrderByDescending(pair => pair.Value)
+			.ThenBy(pair => pair.Key)
+			.Select(pair => $"- {pair.Key}: {pair.Value}")
+			.ToList();
+
+		if (lines.Count == 0)
+			return "None";
 
 		return string.Join("\n", lines);
 	}
@@ -401,10 +433,49 @@ public partial class CustomerPanel : Control
 		if (!TryGetValueIgnoreCase(producedValues, key, out var producedValue))
 			return line;
 
-		if (producedValue < requiredValue)
+		if (producedValue <= 0)
 			return line;
 
 		return $"[color={matchedColorHex}]{line}[/color]";
+	}
+
+	private static bool HasAllDesiredTraitsPresent(CustomerRequestDef request, IReadOnlyDictionary<string, int> producedTraits)
+	{
+		var totalDesiredTraitCount = 0;
+		var matchedDesiredTraitCount = 0;
+
+		foreach (var desiredTrait in request.DesiredTraits)
+		{
+			if (string.IsNullOrWhiteSpace(desiredTrait.Key))
+				continue;
+
+			totalDesiredTraitCount += 1;
+
+			if (!TryGetValueIgnoreCase(producedTraits, desiredTrait.Key, out var producedValue))
+				continue;
+
+			if (producedValue <= 0)
+				continue;
+
+			matchedDesiredTraitCount += 1;
+		}
+
+		if (totalDesiredTraitCount == 0)
+			return true;
+
+		var requiredMatchCount = GetRequiredDesiredTraitMatchCount(totalDesiredTraitCount);
+		return matchedDesiredTraitCount >= requiredMatchCount;
+	}
+
+	private static int GetRequiredDesiredTraitMatchCount(int totalDesiredTraitCount)
+	{
+		if (totalDesiredTraitCount <= 0)
+			return 0;
+
+		if (totalDesiredTraitCount >= 3)
+			return totalDesiredTraitCount - 1;
+
+		return totalDesiredTraitCount;
 	}
 
 	private static bool TryGetValueIgnoreCase(

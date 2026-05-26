@@ -4,4 +4,145 @@
 
 [resource]
 script = ExtResource("1")
-Entries = [{"id":"traveler_asks_for_sleep_tonic","title":"Customer","text":"A weary traveler enters the shop and asks for something to help them sleep.","characterImagePath":"res://Assets/Characters/store_customer.svg","requires":{},"weight":10,"desiredTraits":{"sleep":5,"calm":3,"gentle":2},"badTraits":{"addiction":5,"rage":5}},{"id":"chapel_warden_requests_hallowed_balm","title":"Customer","text":"A chapel warden arrives with rain on their cloak and asks for a balm to bless and protect a damaged shrine.","characterImagePath":"res://Assets/Characters/chapel_warden.svg","requires":{},"weight":10,"desiredTraits":{"hallowed":5,"balm":3,"blessing":2},"badTraits":{"corruption":5}}]
+Entries = [
+  {
+    "id": "customer_requests_sleep_draught",
+    "title": "Sleep Draught",
+    "text": "A tired customer rubs their eyes and says they have not slept properly in days. They need something to help their body settle and their mind drift away.",
+    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "requires": {},
+    "weight": 10,
+    "desiredTraits": {
+      "rest": 5,
+      "calm": 3,
+      "dream": 2
+    },
+    "badTraits": {}
+  },
+  {
+    "id": "customer_requests_nightmare_ward",
+    "title": "Nightmare Ward",
+    "text": "A nervous customer says the same nightmare waits for them every night. They are afraid to close their eyes and need something to help them face their dreams.",
+    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "requires": {},
+    "weight": 10,
+    "desiredTraits": {
+      "dream": 5,
+      "calm": 3,
+      "courage": 2
+    },
+    "badTraits": {}
+  },
+  {
+    "id": "customer_requests_pain_relief_tonic",
+    "title": "Pain Relief Tonic",
+    "text": "A weary labourer clutches their back and says every step hurts after a week of hauling crates. They need something to ease the pain and help them recover.",
+    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "requires": {},
+    "weight": 10,
+    "desiredTraits": {
+      "soothe": 5,
+      "mend": 3,
+      "rest": 2
+    },
+    "badTraits": {}
+  },
+  {
+    "id": "customer_requests_love_philter",
+    "title": "Love Philter",
+    "text": "A hopeful customer admits they want to be noticed at the dance tonight. They need something to make them feel appealing, warm, and impossible to ignore.",
+    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "requires": {},
+    "weight": 10,
+    "desiredTraits": {
+      "charm": 5,
+      "vigor": 3,
+      "calm": 2
+    },
+    "badTraits": {}
+  },
+  {
+    "id": "customer_requests_focus_elixir",
+    "title": "Focus Elixir",
+    "text": "A student arrives in a panic and says their exam is tomorrow, but their thoughts feel thick and useless. They need something to help them think clearly and stay alert.",
+    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "requires": {},
+    "weight": 10,
+    "desiredTraits": {
+      "clarity": 5,
+      "calm": 3,
+      "vigor": 2
+    },
+    "badTraits": {}
+  },
+  {
+    "id": "customer_requests_curse_cleanser",
+    "title": "Curse Cleanser",
+    "text": "A frightened customer whispers that something foul has followed them home. Bad luck clings to them, and they need something to drive it out.",
+    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "requires": {},
+    "weight": 10,
+    "desiredTraits": {
+      "cleanse": 5,
+      "courage": 3,
+      "clarity": 2
+    },
+    "badTraits": {}
+  },
+  {
+    "id": "customer_requests_recovery_brew",
+    "title": "Recovery Brew",
+    "text": "A pale customer says they have been sick for days. The fever has passed, but their body still feels weak and slow to heal.",
+    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "requires": {},
+    "weight": 10,
+    "desiredTraits": {
+      "mend": 5,
+      "cleanse": 3,
+      "rest": 2
+    },
+    "badTraits": {}
+  },
+  {
+    "id": "customer_requests_confidence_draught",
+    "title": "Confidence Draught",
+    "text": "A customer admits they must give a speech before the council, but the thought of everyone staring at them makes their hands shake.",
+    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "requires": {},
+    "weight": 10,
+    "desiredTraits": {
+      "courage": 5,
+      "calm": 3,
+      "charm": 2
+    },
+    "badTraits": {}
+  },
+  {
+    "id": "customer_requests_inspiration_tonic",
+    "title": "Inspiration Tonic",
+    "text": "A tired artist says their work has gone lifeless. They need something to stir the imagination and bring energy back to their ideas.",
+    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "requires": {},
+    "weight": 10,
+    "desiredTraits": {
+      "dream": 5,
+      "vigor": 3,
+      "clarity": 2
+    },
+    "badTraits": {}
+  },
+  {
+    "id": "customer_requests_antidote_potion",
+    "title": "Antidote Potion",
+    "text": "A queasy customer says they drank something strange at the tavern and now their stomach is turning. They need something to purge the poison and settle the damage.",
+    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "requires": {},
+    "weight": 10,
+    "desiredTraits": {
+      "cleanse": 5,
+      "soothe": 3,
+      "mend": 2
+    },
+    "badTraits": {}
+  }
+]

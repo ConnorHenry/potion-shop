@@ -14,7 +14,6 @@ public partial class BrewPanel : Control
 	private const string PotionIconsDirectoryPath = "res://Assets/Potions";
 	private const int BrewedPotionOutputQuantity = 1;
 
-	[Export] public NodePath CloseButtonPath = default!;
 	[Export] public NodePath BrewBoxPath = default!;
 	[Export] public NodePath IngredientSlotOnePath = default!;
 	[Export] public NodePath IngredientSlotTwoPath = default!;
@@ -25,10 +24,14 @@ public partial class BrewPanel : Control
 	[Export] public NodePath IngredientSlotOneLabelPath = default!;
 	[Export] public NodePath IngredientSlotTwoLabelPath = default!;
 	[Export] public NodePath IngredientSlotThreeLabelPath = default!;
+	[Export] public NodePath PotionNamePreviewLabelPath = default!;
 	[Export] public NodePath ResultLabelPath = default!;
 	[Export] public NodePath PricePreviewLabelPath = default!;
 	[Export] public NodePath TraitPreviewLabelPath = default!;
 	[Export] public NodePath RiskPreviewLabelPath = default!;
+	[Export] public NodePath RiskStatusIconLabelPath = default!;
+	[Export] public NodePath RiskStatusLabelPath = default!;
+	[Export] public NodePath IngredientCountLabelPath = default!;
 	[Export] public NodePath BrewButtonPath = default!;
 	[Export] public NodePath ClearButtonPath = default!;
 
@@ -43,10 +46,14 @@ public partial class BrewPanel : Control
 	private Label _ingredientSlotOneLabel = default!;
 	private Label _ingredientSlotTwoLabel = default!;
 	private Label _ingredientSlotThreeLabel = default!;
+	private Label _potionNamePreviewLabel = default!;
 	private Label _resultLabel = default!;
 	private Label _pricePreviewLabel = default!;
 	private Label _traitPreviewLabel = default!;
 	private Label _riskPreviewLabel = default!;
+	private Label _riskStatusIconLabel = default!;
+	private Label _riskStatusLabel = default!;
+	private Label _ingredientCountLabel = default!;
 	private Button _brewButton = default!;
 	private Button _clearButton = default!;
 	private RuntimeContentDb _runtimeContentDb = default!;
@@ -54,6 +61,8 @@ public partial class BrewPanel : Control
 	private GameState _gameState = default!;
 	private readonly List<string> _queuedIngredients = new();
 	private readonly PotionBrewingService _brewingService = new();
+	private string _previewPotionCombinationKey = string.Empty;
+	private string _previewPotionName = string.Empty;
 	private Control.GuiInputEventHandler? _slotOneGuiInputHandler;
 	private Control.GuiInputEventHandler? _slotTwoGuiInputHandler;
 	private Control.GuiInputEventHandler? _slotThreeGuiInputHandler;
@@ -88,7 +97,6 @@ public partial class BrewPanel : Control
 		_dataDb = dataDb;
 		_gameState = gameState;
 
-		_closeButton = GetNode<Button>(CloseButtonPath);
 		_brewBox = GetNode<BrewDropBox>(BrewBoxPath);
 		_ingredientSlotOne = GetNode<TextureRect>(IngredientSlotOnePath);
 		_ingredientSlotTwo = GetNode<TextureRect>(IngredientSlotTwoPath);
@@ -99,10 +107,14 @@ public partial class BrewPanel : Control
 		_ingredientSlotOneLabel = GetNode<Label>(IngredientSlotOneLabelPath);
 		_ingredientSlotTwoLabel = GetNode<Label>(IngredientSlotTwoLabelPath);
 		_ingredientSlotThreeLabel = GetNode<Label>(IngredientSlotThreeLabelPath);
+		_potionNamePreviewLabel = GetNode<Label>(PotionNamePreviewLabelPath);
 		_resultLabel = GetNode<Label>(ResultLabelPath);
 		_pricePreviewLabel = GetNode<Label>(PricePreviewLabelPath);
 		_traitPreviewLabel = GetNode<Label>(TraitPreviewLabelPath);
 		_riskPreviewLabel = GetNode<Label>(RiskPreviewLabelPath);
+		_riskStatusIconLabel = GetNode<Label>(RiskStatusIconLabelPath);
+		_riskStatusLabel = GetNode<Label>(RiskStatusLabelPath);
+		_ingredientCountLabel = GetNode<Label>(IngredientCountLabelPath);
 		_brewButton = GetNode<Button>(BrewButtonPath);
 		_clearButton = GetNode<Button>(ClearButtonPath);
 
@@ -111,7 +123,6 @@ public partial class BrewPanel : Control
 		SetInteractiveCursor(_ingredientSlotThreeContainer);
 
 		MouseFilter = MouseFilterEnum.Ignore;
-		_closeButton.Pressed += HidePanel;
 		_brewBox.ItemDropped += TryQueueIngredient;
 		_brewButton.Pressed += TryBrew;
 		_clearButton.Pressed += ClearQueue;
@@ -127,8 +138,6 @@ public partial class BrewPanel : Control
 
 	public override void _ExitTree()
 	{
-		if (_closeButton is not null)
-			_closeButton.Pressed -= HidePanel;
 		if (_brewBox is not null)
 			_brewBox.ItemDropped -= TryQueueIngredient;
 		if (_brewButton is not null)
@@ -273,16 +282,16 @@ public partial class BrewPanel : Control
 		_gameState.AddGold(-brewCost);
 
 		var combinationKey = BuildCombinationKey(_queuedIngredients);
+		var potionDisplayName = GetPreviewPotionName(combinationKey);
 		var isNewCombination = !_gameState.TryGetPotionForCombination(combinationKey, out var potionItemId);
 		if (isNewCombination)
 		{
-			var randomName = GeneratePotionName();
 			potionItemId = $"brew_{_gameState.PotionDisplayNames.Count + 1}";
 			var iconPath = ResolvePotionIconPath();
 
 			_runtimeContentDb.RegisterRuntimePotionItem(
 				potionItemId,
-				randomName,
+				potionDisplayName,
 				iconPath,
 				potionBasePrice,
 				brewResult.IngredientQualityScore,
@@ -290,7 +299,7 @@ public partial class BrewPanel : Control
 				new Dictionary<string, int>(brewResult.Risks));
 
 			_gameState.SetPotionForCombination(combinationKey, potionItemId);
-			_gameState.SetPotionDisplayName(potionItemId, randomName);
+			_gameState.SetPotionDisplayName(potionItemId, potionDisplayName);
 		}
 
 		_gameState.RegisterPotionBasePrice(potionItemId, potionBasePrice);
@@ -405,48 +414,114 @@ public partial class BrewPanel : Control
 
 	private void RefreshBrewPreview()
 	{
+		var ingredientCount = _queuedIngredients.Count;
 		var totalIngredientPrice = CalculateIngredientTotalPrice(_queuedIngredients);
-		_pricePreviewLabel.Text = $"Sell Price - £{totalIngredientPrice}";
+		_ingredientCountLabel.Text = $"{ingredientCount}/3";
+		_ingredientCountLabel.AddThemeColorOverride("font_color", ingredientCount == 3
+			? new Color(0.43f, 0.83f, 0.48f, 1f)
+			: new Color(0.65f, 0.68f, 0.72f, 1f));
+		_pricePreviewLabel.Text = $"Estimated Sell Price: \u00A3{totalIngredientPrice}";
 
-		if (_queuedIngredients.Count == 0)
+		if (ingredientCount < 3)
 		{
-			_traitPreviewLabel.Text = "Top Traits:\n-";
-			_riskPreviewLabel.Text = "Top Risks:\n-";
+			SetIncompletePreviewState();
 			return;
 		}
 
 		if (!TryBuildIngredientDefs(_queuedIngredients, out var ingredientDefs, out _))
 		{
-			_traitPreviewLabel.Text = "Top Traits:\n-";
-			_riskPreviewLabel.Text = "Top Risks:\n-";
+			SetIncompletePreviewState();
 			return;
 		}
+
+		var combinationKey = BuildCombinationKey(_queuedIngredients);
+		_potionNamePreviewLabel.Text = GetPreviewPotionName(combinationKey);
+		_potionNamePreviewLabel.AddThemeColorOverride("font_color", new Color(0.95f, 0.96f, 0.98f, 1f));
 
 		var previewResult = _brewingService.BrewPotion(
 			ingredientDefs,
 			null,
 			_dataDb.Synergies.ToList());
 
-		_traitPreviewLabel.Text = BuildTopListText("Top Traits", previewResult.Traits, 3);
-		_riskPreviewLabel.Text = BuildTopListText("Top Risks", previewResult.Risks, 2);
+		_traitPreviewLabel.Text = BuildStatListText(previewResult.Traits, 3);
+		_riskPreviewLabel.Text = previewResult.Risks.Count == 0
+			? "None detected"
+			: BuildStatListText(previewResult.Risks, 2);
+		SetRiskStatusPreview(previewResult.Risks.Count == 0);
 	}
 
-	private static string BuildTopListText(string title, IReadOnlyDictionary<string, int> values, int maxCount)
+	private void SetIncompletePreviewState()
+	{
+		ClearPreviewPotionName();
+		_potionNamePreviewLabel.Text = "Add 3 ingredients to preview";
+		_potionNamePreviewLabel.AddThemeColorOverride("font_color", new Color(0.73f, 0.76f, 0.79f, 1f));
+		_traitPreviewLabel.Text = "-\n-\n-";
+		_riskPreviewLabel.Text = "-";
+		_riskStatusIconLabel.Text = "v";
+		_riskStatusLabel.Text = "Waiting for 3 ingredients";
+		_riskStatusIconLabel.AddThemeColorOverride("font_color", new Color(0.65f, 0.68f, 0.72f, 1f));
+		_riskStatusLabel.AddThemeColorOverride("font_color", new Color(0.65f, 0.68f, 0.72f, 1f));
+	}
+
+	private void SetRiskStatusPreview(bool hasNoRisks)
+	{
+		if (hasNoRisks)
+		{
+			_riskStatusIconLabel.Text = "v";
+			_riskStatusLabel.Text = "No detected risks";
+			_riskStatusIconLabel.AddThemeColorOverride("font_color", new Color(0.43f, 0.83f, 0.48f, 1f));
+			_riskStatusLabel.AddThemeColorOverride("font_color", new Color(0.43f, 0.83f, 0.48f, 1f));
+			return;
+		}
+
+		_riskStatusIconLabel.Text = "!";
+		_riskStatusLabel.Text = "Risks detected";
+		_riskStatusIconLabel.AddThemeColorOverride("font_color", new Color(0.94f, 0.38f, 0.33f, 1f));
+		_riskStatusLabel.AddThemeColorOverride("font_color", new Color(0.94f, 0.38f, 0.33f, 1f));
+	}
+
+	private void ClearPreviewPotionName()
+	{
+		_previewPotionCombinationKey = string.Empty;
+		_previewPotionName = string.Empty;
+	}
+
+	private string GetPreviewPotionName(string combinationKey)
+	{
+		if (string.IsNullOrWhiteSpace(combinationKey))
+			return string.Empty;
+
+		if (_previewPotionCombinationKey == combinationKey && !string.IsNullOrWhiteSpace(_previewPotionName))
+			return _previewPotionName;
+
+		if (_gameState.TryGetPotionForCombination(combinationKey, out var potionItemId))
+		{
+			_previewPotionCombinationKey = combinationKey;
+			_previewPotionName = PotionDisplayName(potionItemId, DefaultItemName(potionItemId));
+			return _previewPotionName;
+		}
+
+		_previewPotionCombinationKey = combinationKey;
+		_previewPotionName = GeneratePotionName();
+		return _previewPotionName;
+	}
+
+	private static string BuildStatListText(IReadOnlyDictionary<string, int> values, int maxCount)
 	{
 		if (values.Count == 0)
-			return $"{title}:\n-";
+			return "None detected";
 
 		var lines = values
 			.OrderByDescending(x => x.Value)
 			.ThenBy(x => x.Key)
 			.Take(maxCount)
-			.Select(x => $"{x.Key} {x.Value}")
+			.Select(x => $"{x.Key} +{x.Value}")
 			.ToList();
 
 		if (lines.Count == 0)
-			return $"{title}:\n-";
+			return "None detected";
 
-		return $"{title}:\n{string.Join("\n", lines)}";
+		return string.Join("\n", lines);
 	}
 
 	private static Texture2D? LoadIcon(string? iconPath)

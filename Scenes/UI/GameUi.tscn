@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3 uid="uid://4hripc13we86"]
+[gd_scene load_steps=15 format=3 uid="uid://4hripc13we86"]
 
 [ext_resource type="PackedScene" uid="uid://cikvfbes8y0kf" path="res://Scenes/UI/Hud.tscn" id="1_hud"]
 [ext_resource type="Script" uid="uid://hkjdjmtp1abw" path="res://Scripts/UI/EventModal.cs" id="2_8y3f6"]
@@ -12,6 +12,8 @@
 [ext_resource type="Texture2D" uid="uid://dw2q8lwc58yyq" path="res://Assets/UI/cauldron.svg" id="13_x17d0"]
 [ext_resource type="Script" uid="uid://bdb6mw7rn78kn" path="res://Scripts/UI/DaySummaryPanel.cs" id="14_daysum"]
 [ext_resource type="Theme" uid="uid://dsdgpree5b8xv" path="res://Assets/UI/RecipeBookTheme.tres" id="15_recipe_theme"]
+[ext_resource type="Theme" uid="uid://bcxrpcn1ol80g" path="res://Assets/UI/BrewPanelTheme.tres" id="16_brew_theme"]
+[ext_resource type="Texture2D" uid="uid://bygvuw1k7loxa" path="res://Assets/Items/sight_tonic.svg" id="17_sight_tonic"]
 
 [node name="CanvasLayer" type="CanvasLayer"]
 
@@ -20,9 +22,9 @@ offset_left = 155.0
 offset_bottom = 58.0
 
 [node name="InventoryPanel" parent="." instance=ExtResource("5_invp")]
-offset_left = -28.0
+offset_left = -46.0
 offset_top = 4.0
-offset_right = -4.0
+offset_right = -22.0
 offset_bottom = 4.0
 
 [node name="InventoryItemDetail" type="Control" parent="."]
@@ -30,15 +32,19 @@ layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = 8.0
+offset_right = 8.0
+offset_bottom = 8.0
 grow_horizontal = 2
 grow_vertical = 2
 
 [node name="Panel" type="PanelContainer" parent="InventoryItemDetail"]
 layout_mode = 0
-offset_left = 476.0
-offset_top = 94.0
-offset_right = 686.0
-offset_bottom = 1018.0
+offset_left = 429.0
+offset_top = 92.0
+offset_right = 639.0
+offset_bottom = 1016.0
 script = ExtResource("12_6x1m8")
 DragHandlePath = NodePath("Margin/VBox/Name")
 
@@ -66,7 +72,7 @@ text = "Item Name"
 
 [node name="Price" type="Label" parent="InventoryItemDetail/Panel/Margin/VBox"]
 layout_mode = 2
-text = "Price - £0"
+text = "Price - Â£0"
 
 [node name="TraitsHeader" type="Label" parent="InventoryItemDetail/Panel/Margin/VBox"]
 layout_mode = 2
@@ -108,10 +114,10 @@ anchor_left = 0.406
 anchor_top = 0.086
 anchor_right = 0.692
 anchor_bottom = 0.594
-offset_left = 560.32
-offset_top = 170.08
-offset_right = 599.24
-offset_bottom = 266.32
+offset_left = -123.68
+offset_top = 200.08
+offset_right = -68.7599
+offset_bottom = -149.68
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("6_h1r0d")
@@ -133,9 +139,9 @@ anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = -6.99994
-offset_top = -154.0
-offset_right = -7.0799
-offset_bottom = 217.0
+offset_top = -187.0
+offset_right = -6.99994
+offset_bottom = 120.0
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -173,6 +179,7 @@ custom_minimum_size = Vector2(0, 96)
 layout_mode = 2
 
 [node name="RequestTraits" type="GridContainer" parent="CustomerPanel/Panel/Margin/VBox"]
+visible = false
 layout_mode = 2
 size_flags_horizontal = 3
 columns = 2
@@ -273,6 +280,7 @@ text = "Close"
 [node name="Body" type="RichTextLabel" parent="CustomerSaleResultPanel/Margin/VBox"]
 custom_minimum_size = Vector2(0, 96)
 layout_mode = 2
+fit_content = true
 
 [node name="DaySummaryPanel" type="Control" parent="."]
 visible = false
@@ -326,20 +334,22 @@ layout_mode = 2
 text = "Continue to Night"
 
 [node name="BrewPanel" type="Control" parent="."]
+custom_minimum_size = Vector2(560, 0)
 layout_mode = 3
 anchor_left = 0.406
 anchor_top = 0.6
 anchor_right = 0.692
 anchor_bottom = 1.0
-offset_left = -65.68
-offset_top = 32.0
-offset_right = -27.7599
-offset_bottom = -118.0
+offset_left = -133.68
+offset_top = 7.99997
+offset_right = 60.2401
+offset_bottom = -280.0
 grow_horizontal = 2
 grow_vertical = 2
+scale = Vector2(0.825, 0.825)
+theme = ExtResource("16_brew_theme")
 script = ExtResource("9_em5ve")
-CloseButtonPath = NodePath("Panel/Margin/VBox/Header/Close")
-BrewBoxPath = NodePath("Panel/Margin/VBox/BrewRow/BrewBoxContainer/BrewBox")
+BrewBoxPath = NodePath("BrewBox")
 IngredientSlotOnePath = NodePath("Panel/Margin/VBox/IngredientSlots/Slot1/Content/Icon")
 IngredientSlotTwoPath = NodePath("Panel/Margin/VBox/IngredientSlots/Slot2/Content/Icon")
 IngredientSlotThreePath = NodePath("Panel/Margin/VBox/IngredientSlots/Slot3/Content/Icon")
@@ -349,125 +359,198 @@ IngredientSlotThreeContainerPath = NodePath("Panel/Margin/VBox/IngredientSlots/S
 IngredientSlotOneLabelPath = NodePath("Panel/Margin/VBox/IngredientSlots/Slot1/Content/Name")
 IngredientSlotTwoLabelPath = NodePath("Panel/Margin/VBox/IngredientSlots/Slot2/Content/Name")
 IngredientSlotThreeLabelPath = NodePath("Panel/Margin/VBox/IngredientSlots/Slot3/Content/Name")
+PotionNamePreviewLabelPath = NodePath("Panel/Margin/VBox/BrewRow/Preview/Identity/TopRow/TextColumn/NameFrame/NameMargin/Name")
 ResultLabelPath = NodePath("Panel/Margin/VBox/Result")
-PricePreviewLabelPath = NodePath("Panel/Margin/VBox/BrewRow/Preview/PricePanel/PriceMargin/Price")
+PricePreviewLabelPath = NodePath("Panel/Margin/VBox/BrewRow/Preview/Identity/TopRow/TextColumn/PricePanel/PriceMargin/Price")
 TraitPreviewLabelPath = NodePath("Panel/Margin/VBox/BrewRow/Preview/Details/TraitsColumn/Traits")
 RiskPreviewLabelPath = NodePath("Panel/Margin/VBox/BrewRow/Preview/Details/RisksColumn/Risks")
+RiskStatusIconLabelPath = NodePath("Panel/Margin/VBox/BrewRow/Preview/Identity/Status/Content/Icon")
+RiskStatusLabelPath = NodePath("Panel/Margin/VBox/BrewRow/Preview/Identity/Status/Content/Text")
+IngredientCountLabelPath = NodePath("Panel/Margin/VBox/IngredientsHeader/Count")
 BrewButtonPath = NodePath("Panel/Margin/VBox/Actions/Brew")
 ClearButtonPath = NodePath("Panel/Margin/VBox/Actions/Clear")
 
 [node name="Panel" type="PanelContainer" parent="BrewPanel"]
+custom_minimum_size = Vector2(560, 0)
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -26.0
-offset_top = -116.0
-offset_right = 25.92
-offset_bottom = 116.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_type_variation = &"BrewRoot"
 
 [node name="Margin" type="MarginContainer" parent="BrewPanel/Panel"]
 layout_mode = 2
-theme_override_constants/margin_left = 14
-theme_override_constants/margin_top = 14
-theme_override_constants/margin_right = 14
-theme_override_constants/margin_bottom = 14
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
 
 [node name="VBox" type="VBoxContainer" parent="BrewPanel/Panel/Margin"]
 layout_mode = 2
-
-[node name="Header" type="HBoxContainer" parent="BrewPanel/Panel/Margin/VBox"]
-layout_mode = 2
-
-[node name="Title" type="Label" parent="BrewPanel/Panel/Margin/VBox/Header"]
-layout_mode = 2
 size_flags_horizontal = 3
-text = "Brew Potion"
-
-[node name="Close" type="Button" parent="BrewPanel/Panel/Margin/VBox/Header"]
-layout_mode = 2
-text = "Close"
+size_flags_vertical = 3
+theme_override_constants/separation = 19
 
 [node name="BrewRow" type="HBoxContainer" parent="BrewPanel/Panel/Margin/VBox"]
+custom_minimum_size = Vector2(524, 184)
 layout_mode = 2
 theme_override_constants/separation = 12
 
 [node name="Preview" type="VBoxContainer" parent="BrewPanel/Panel/Margin/VBox/BrewRow"]
-custom_minimum_size = Vector2(260, 0)
+custom_minimum_size = Vector2(332, 184)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 10
+
+[node name="Identity" type="VBoxContainer" parent="BrewPanel/Panel/Margin/VBox/BrewRow/Preview"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="TopRow" type="HBoxContainer" parent="BrewPanel/Panel/Margin/VBox/BrewRow/Preview/Identity"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 12
+
+[node name="IconFrame" type="PanelContainer" parent="BrewPanel/Panel/Margin/VBox/BrewRow/Preview/Identity/TopRow"]
+custom_minimum_size = Vector2(84, 84)
+layout_mode = 2
+theme_type_variation = &"BrewIconFrame"
+
+[node name="Icon" type="TextureRect" parent="BrewPanel/Panel/Margin/VBox/BrewRow/Preview/Identity/TopRow/IconFrame"]
+layout_mode = 2
+texture = ExtResource("17_sight_tonic")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="TextColumn" type="VBoxContainer" parent="BrewPanel/Panel/Margin/VBox/BrewRow/Preview/Identity/TopRow"]
+custom_minimum_size = Vector2(250, 0)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 6
 
-[node name="PricePanel" type="PanelContainer" parent="BrewPanel/Panel/Margin/VBox/BrewRow/Preview"]
+[node name="NameFrame" type="PanelContainer" parent="BrewPanel/Panel/Margin/VBox/BrewRow/Preview/Identity/TopRow/TextColumn"]
+custom_minimum_size = Vector2(250, 36)
+layout_mode = 2
+theme_type_variation = &"BrewInlinePanel"
+
+[node name="NameMargin" type="Control" parent="BrewPanel/Panel/Margin/VBox/BrewRow/Preview/Identity/TopRow/TextColumn/NameFrame"]
+custom_minimum_size = Vector2(250, 36)
+layout_mode = 2
+
+[node name="Name" type="Label" parent="BrewPanel/Panel/Margin/VBox/BrewRow/Preview/Identity/TopRow/TextColumn/NameFrame/NameMargin"]
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 0
+theme_override_font_sizes/font_size = 29
+text = "Add 3 ingredients to preview"
+
+[node name="PricePanel" type="PanelContainer" parent="BrewPanel/Panel/Margin/VBox/BrewRow/Preview/Identity/TopRow/TextColumn"]
 layout_mode = 2
 size_flags_horizontal = 3
+theme_type_variation = &"BrewInlinePanel"
 
-[node name="PriceMargin" type="MarginContainer" parent="BrewPanel/Panel/Margin/VBox/BrewRow/Preview/PricePanel"]
+[node name="PriceMargin" type="MarginContainer" parent="BrewPanel/Panel/Margin/VBox/BrewRow/Preview/Identity/TopRow/TextColumn/PricePanel"]
 layout_mode = 2
-theme_override_constants/margin_left = 8
-theme_override_constants/margin_top = 6
-theme_override_constants/margin_right = 8
-theme_override_constants/margin_bottom = 6
+theme_override_constants/margin_left = 0
+theme_override_constants/margin_top = 0
+theme_override_constants/margin_right = 0
+theme_override_constants/margin_bottom = 0
 
-[node name="Price" type="Label" parent="BrewPanel/Panel/Margin/VBox/BrewRow/Preview/PricePanel/PriceMargin"]
+[node name="Price" type="Label" parent="BrewPanel/Panel/Margin/VBox/BrewRow/Preview/Identity/TopRow/TextColumn/PricePanel/PriceMargin"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.94, 0.79, 0.31, 1)
-text = "Price - £0"
-horizontal_alignment = 1
+text = "Estimated Sell Price: £0"
+
+[node name="Status" type="PanelContainer" parent="BrewPanel/Panel/Margin/VBox/BrewRow/Preview/Identity"]
+layout_mode = 2
+theme_type_variation = &"BrewStatusPill"
+
+[node name="Content" type="HBoxContainer" parent="BrewPanel/Panel/Margin/VBox/BrewRow/Preview/Identity/Status"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Icon" type="Label" parent="BrewPanel/Panel/Margin/VBox/BrewRow/Preview/Identity/Status/Content"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.43, 0.83, 0.48, 1)
+text = "v"
+
+[node name="Text" type="Label" parent="BrewPanel/Panel/Margin/VBox/BrewRow/Preview/Identity/Status/Content"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.43, 0.83, 0.48, 1)
+text = "No detected risks"
+
+[node name="Separator" type="HSeparator" parent="BrewPanel/Panel/Margin/VBox/BrewRow/Preview"]
+layout_mode = 2
 
 [node name="Details" type="HBoxContainer" parent="BrewPanel/Panel/Margin/VBox/BrewRow/Preview"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 6
+theme_override_constants/separation = 12
 
 [node name="TraitsColumn" type="VBoxContainer" parent="BrewPanel/Panel/Margin/VBox/BrewRow/Preview/Details"]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 0
+theme_override_constants/separation = 6
+
+[node name="Header" type="Label" parent="BrewPanel/Panel/Margin/VBox/BrewRow/Preview/Details/TraitsColumn"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.42, 0.84, 0.46, 1)
+text = "Top Traits"
 
 [node name="Traits" type="Label" parent="BrewPanel/Panel/Margin/VBox/BrewRow/Preview/Details/TraitsColumn"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.35, 0.85, 0.35, 1)
-text = "Top Traits:
+text = "-
+-
 -"
-horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="Divider" type="VSeparator" parent="BrewPanel/Panel/Margin/VBox/BrewRow/Preview/Details"]
+layout_mode = 2
 
 [node name="RisksColumn" type="VBoxContainer" parent="BrewPanel/Panel/Margin/VBox/BrewRow/Preview/Details"]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 0
+theme_override_constants/separation = 6
+
+[node name="Header" type="Label" parent="BrewPanel/Panel/Margin/VBox/BrewRow/Preview/Details/RisksColumn"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.25, 0.25, 1)
+text = "Top Risks"
 
 [node name="Risks" type="Label" parent="BrewPanel/Panel/Margin/VBox/BrewRow/Preview/Details/RisksColumn"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.9, 0.25, 0.25, 1)
-text = "Top Risks:
--"
-horizontal_alignment = 1
+text = "-"
+autowrap_mode = 3
 
-[node name="BrewBoxContainer" type="CenterContainer" parent="BrewPanel/Panel/Margin/VBox/BrewRow"]
-layout_mode = 2
-size_flags_horizontal = 8
-
-[node name="BrewBox" type="PanelContainer" parent="BrewPanel/Panel/Margin/VBox/BrewRow/BrewBoxContainer"]
-custom_minimum_size = Vector2(220, 220)
-layout_mode = 2
-size_flags_horizontal = 4
-script = ExtResource("10_odm4o")
-
-[node name="Icon" type="TextureRect" parent="BrewPanel/Panel/Margin/VBox/BrewRow/BrewBoxContainer/BrewBox"]
-layout_mode = 2
-texture = ExtResource("13_x17d0")
-expand_mode = 1
-stretch_mode = 5
-
-[node name="IngredientSlots" type="HBoxContainer" parent="BrewPanel/Panel/Margin/VBox"]
+[node name="IngredientsHeader" type="HBoxContainer" parent="BrewPanel/Panel/Margin/VBox"]
 layout_mode = 2
 theme_override_constants/separation = 8
 
+[node name="Label" type="Label" parent="BrewPanel/Panel/Margin/VBox/IngredientsHeader"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 18
+text = "Ingredients Selected"
+
+[node name="Count" type="Label" parent="BrewPanel/Panel/Margin/VBox/IngredientsHeader"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.43, 0.83, 0.48, 1)
+theme_override_font_sizes/font_size = 18
+text = "0/3"
+
+[node name="IngredientSlots" type="HBoxContainer" parent="BrewPanel/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
 [node name="Slot1" type="PanelContainer" parent="BrewPanel/Panel/Margin/VBox/IngredientSlots"]
-custom_minimum_size = Vector2(72, 72)
+custom_minimum_size = Vector2(0, 124)
 layout_mode = 2
 size_flags_horizontal = 3
 
@@ -476,7 +559,7 @@ layout_mode = 2
 theme_override_constants/separation = 4
 
 [node name="Icon" type="TextureRect" parent="BrewPanel/Panel/Margin/VBox/IngredientSlots/Slot1/Content"]
-custom_minimum_size = Vector2(0, 48)
+custom_minimum_size = Vector2(0, 56)
 layout_mode = 2
 size_flags_vertical = 3
 expand_mode = 1
@@ -484,11 +567,12 @@ stretch_mode = 5
 
 [node name="Name" type="Label" parent="BrewPanel/Panel/Margin/VBox/IngredientSlots/Slot1/Content"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 16
 horizontal_alignment = 1
 autowrap_mode = 3
 
 [node name="Slot2" type="PanelContainer" parent="BrewPanel/Panel/Margin/VBox/IngredientSlots"]
-custom_minimum_size = Vector2(72, 72)
+custom_minimum_size = Vector2(0, 124)
 layout_mode = 2
 size_flags_horizontal = 3
 
@@ -497,7 +581,7 @@ layout_mode = 2
 theme_override_constants/separation = 4
 
 [node name="Icon" type="TextureRect" parent="BrewPanel/Panel/Margin/VBox/IngredientSlots/Slot2/Content"]
-custom_minimum_size = Vector2(0, 48)
+custom_minimum_size = Vector2(0, 56)
 layout_mode = 2
 size_flags_vertical = 3
 expand_mode = 1
@@ -505,11 +589,12 @@ stretch_mode = 5
 
 [node name="Name" type="Label" parent="BrewPanel/Panel/Margin/VBox/IngredientSlots/Slot2/Content"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 16
 horizontal_alignment = 1
 autowrap_mode = 3
 
 [node name="Slot3" type="PanelContainer" parent="BrewPanel/Panel/Margin/VBox/IngredientSlots"]
-custom_minimum_size = Vector2(72, 72)
+custom_minimum_size = Vector2(0, 124)
 layout_mode = 2
 size_flags_horizontal = 3
 
@@ -518,7 +603,7 @@ layout_mode = 2
 theme_override_constants/separation = 4
 
 [node name="Icon" type="TextureRect" parent="BrewPanel/Panel/Margin/VBox/IngredientSlots/Slot3/Content"]
-custom_minimum_size = Vector2(0, 48)
+custom_minimum_size = Vector2(0, 56)
 layout_mode = 2
 size_flags_vertical = 3
 expand_mode = 1
@@ -526,22 +611,43 @@ stretch_mode = 5
 
 [node name="Name" type="Label" parent="BrewPanel/Panel/Margin/VBox/IngredientSlots/Slot3/Content"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 16
 horizontal_alignment = 1
 autowrap_mode = 3
 
 [node name="Result" type="Label" parent="BrewPanel/Panel/Margin/VBox"]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.75, 0.76, 0.79, 1)
+autowrap_mode = 3
 
 [node name="Actions" type="HBoxContainer" parent="BrewPanel/Panel/Margin/VBox"]
 layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Spacer" type="Control" parent="BrewPanel/Panel/Margin/VBox/Actions"]
+layout_mode = 2
+size_flags_horizontal = 3
 
 [node name="Brew" type="Button" parent="BrewPanel/Panel/Margin/VBox/Actions"]
 layout_mode = 2
-text = "Brew"
+theme_type_variation = &"BrewActionButton"
+text = "Brew Potion"
 
 [node name="Clear" type="Button" parent="BrewPanel/Panel/Margin/VBox/Actions"]
 layout_mode = 2
-text = "Clear"
+text = "Clear Ingredients"
+
+[node name="BrewBox" type="PanelContainer" parent="BrewPanel"]
+visible = false
+custom_minimum_size = Vector2(180, 180)
+layout_mode = 0
+script = ExtResource("10_odm4o")
+
+[node name="Icon" type="TextureRect" parent="BrewPanel/BrewBox"]
+layout_mode = 2
+texture = ExtResource("13_x17d0")
+expand_mode = 1
+stretch_mode = 5
 
 [node name="RecipeBookPanel" type="Control" parent="."]
 layout_mode = 3
@@ -549,12 +655,13 @@ anchor_left = 0.343
 anchor_top = 0.086
 anchor_right = 0.987
 anchor_bottom = 0.975
-offset_left = 72.96
-offset_top = 0.0799942
-offset_right = -641.36
+offset_left = 752.96
+offset_top = 9.08
+offset_right = -71.36
+offset_bottom = 1617.0
 grow_horizontal = 2
 grow_vertical = 2
-scale = Vector2(0.48, 0.48)
+scale = Vector2(0.355, 0.355)
 theme = ExtResource("15_recipe_theme")
 script = ExtResource("11_q7k2n")
 CloseButtonPath = NodePath("Panel/Margin/VBox/Header/Close")
@@ -570,10 +677,10 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 56.0
+offset_left = -353.0
 offset_top = 13.0
-offset_right = 614.08
-offset_bottom = 2.44
+offset_right = 1023.0
+offset_bottom = 2.0
 grow_horizontal = 2
 grow_vertical = 2
 

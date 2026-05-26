@@ -434,7 +434,7 @@ public partial class RecipeBookPanel : Control
 				Text = line.Text
 			};
 			valueLabel.AddThemeColorOverride("font_color", line.Color);
-			valueLabel.AddThemeFontSizeOverride("font_size", 35);
+			valueLabel.AddThemeFontSizeOverride("font_size", 26);
 			column.AddChild(valueLabel);
 		}
 

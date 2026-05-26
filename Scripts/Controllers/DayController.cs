@@ -29,6 +29,7 @@ public partial class DayController : Node
 	private Godot.Timer _shopTimer = default!;
 	private readonly ShopDayStats _shopDayStats = new();
 	private int _secondsRemaining;
+	private bool _awaitingSaleResultClose;
 
 	public bool IsShopOpen { get; private set; }
 	public int SecondsRemaining => _secondsRemaining;
@@ -55,6 +56,7 @@ public partial class DayController : Node
 		_shopTimer.Timeout += OnShopTimerTick;
 
 		_customerPanel.SaleResolved += OnCustomerSaleResolved;
+		_customerPanel.SaleResultClosed += OnCustomerSaleResultClosed;
 		_customerPanel.CustomerSkipped += OnCustomerSkipped;
 		_daySummaryPanel.ContinuePressed += OnSummaryContinuePressed;
 		_daySummaryPanel.HidePanel();
@@ -70,6 +72,8 @@ public partial class DayController : Node
 			_customerPanel.CustomerSkipped -= OnCustomerSkipped;
 		if (_customerPanel != null)
 			_customerPanel.SaleResolved -= OnCustomerSaleResolved;
+		if (_customerPanel != null)
+			_customerPanel.SaleResultClosed -= OnCustomerSaleResultClosed;
 		if (_daySummaryPanel != null)
 			_daySummaryPanel.ContinuePressed -= OnSummaryContinuePressed;
 	}
@@ -81,9 +85,10 @@ public partial class DayController : Node
 
 		_daySummaryPanel.HidePanel();
 		_customerPanel.HidePanel();
-		_customerPanel.SuppressSaleResultPanel = true;
+		_customerPanel.SuppressSaleResultPanel = false;
 		_shopDayStats.Reset();
 		_secondsRemaining = ShopDurationSeconds;
+		_awaitingSaleResultClose = false;
 		IsShopOpen = true;
 		EmitShopStateChanged();
 
@@ -161,6 +166,36 @@ public partial class DayController : Node
 		else
 			_shopDayStats.FailedSales += 1;
 
+		if (_customerPanel.SuppressSaleResultPanel)
+		{
+			if (_secondsRemaining <= 0)
+			{
+				CloseShopAndShowSummary();
+				return;
+			}
+
+			if (!TryShowNextCustomer())
+				CloseShopAndShowSummary();
+			return;
+		}
+
+		if (!_shopTimer.IsStopped())
+			_shopTimer.Stop();
+
+		_awaitingSaleResultClose = true;
+		EmitShopStateChanged();
+	}
+
+	private void OnCustomerSaleResultClosed()
+	{
+		if (!IsShopOpen)
+			return;
+
+		if (!_awaitingSaleResultClose)
+			return;
+
+		_awaitingSaleResultClose = false;
+
 		if (_secondsRemaining <= 0)
 		{
 			CloseShopAndShowSummary();
@@ -168,7 +203,15 @@ public partial class DayController : Node
 		}
 
 		if (!TryShowNextCustomer())
+		{
 			CloseShopAndShowSummary();
+			return;
+		}
+
+		if (_shopTimer.IsStopped())
+			_shopTimer.Start();
+
+		EmitShopStateChanged();
 	}
 
 	private bool TryShowNextCustomer()
@@ -209,6 +252,7 @@ public partial class DayController : Node
 
 		IsShopOpen = false;
 		_secondsRemaining = 0;
+		_awaitingSaleResultClose = false;
 		_customerPanel.HidePanel();
 		_customerPanel.SuppressSaleResultPanel = false;
 		_brewPanel.HidePanel();
