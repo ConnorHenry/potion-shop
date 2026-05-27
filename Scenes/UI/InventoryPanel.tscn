@@ -24,6 +24,7 @@ IngredientsClearFilterButtonPath = NodePath("Panel/Margin/VBox/IngredientsHeader
 ItemDetailPanelPath = NodePath("../InventoryItemDetail")
 ItemDetailImagePath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/TopRow/IconFrame/Icon")
 ItemDetailNamePath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/TopRow/Identity/Name")
+ItemDetailTypeTagPath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/TopRow/Identity/TypeTag")
 ItemDetailPricePath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/TopRow/Identity/Price")
 ItemDetailTraitsHeaderPath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/StatsRow/TraitsColumn/Header")
 ItemDetailTraitsPath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/StatsRow/TraitsColumn/Traits")
@@ -118,6 +119,9 @@ text = "Ingredients"
 [node name="Clear" type="Button" parent="Panel/Margin/VBox/IngredientsHeaderRow"]
 layout_mode = 2
 text = "Clear"
+
+[node name="TypeFilter" type="OptionButton" parent="Panel/Margin/VBox/IngredientsHeaderRow"]
+layout_mode = 2
 
 [node name="TraitFilter" type="OptionButton" parent="Panel/Margin/VBox/IngredientsHeaderRow"]
 layout_mode = 2

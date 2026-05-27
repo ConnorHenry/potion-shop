@@ -18,12 +18,14 @@ public partial class InventoryPanel : Control
 	[Export] public NodePath PotionsRiskFilterPath = default!;
 	[Export] public NodePath PotionsClearFilterButtonPath = default!;
 	[Export] public NodePath IngredientsSortButtonPath = default!;
+	[Export] public NodePath IngredientsTypeFilterPath = new NodePath("");
 	[Export] public NodePath IngredientsTraitFilterPath = default!;
 	[Export] public NodePath IngredientsRiskFilterPath = default!;
 	[Export] public NodePath IngredientsClearFilterButtonPath = default!;
 	[Export] public NodePath ItemDetailPanelPath = default!;
 	[Export] public NodePath ItemDetailImagePath = default!;
 	[Export] public NodePath ItemDetailNamePath = default!;
+	[Export] public NodePath ItemDetailTypeTagPath = default!;
 	[Export] public NodePath ItemDetailPricePath = default!;
 	[Export] public NodePath ItemDetailTraitsHeaderPath = default!;
 	[Export] public NodePath ItemDetailTraitsPath = default!;
@@ -45,12 +47,14 @@ public partial class InventoryPanel : Control
 	private OptionButton? _potionsRiskFilter;
 	private Button? _potionsClearFilterButton;
 	private Button _ingredientsSortButton = default!;
+	private OptionButton? _ingredientsTypeFilter;
 	private OptionButton? _ingredientsTraitFilter;
 	private OptionButton? _ingredientsRiskFilter;
 	private Button? _ingredientsClearFilterButton;
 	private Control _itemDetailPanel = default!;
 	private TextureRect _itemDetailImage = default!;
 	private Label _itemDetailName = default!;
+	private Label _itemDetailTypeTag = default!;
 	private Label _itemDetailPrice = default!;
 	private Label _itemDetailTraitsHeader = default!;
 	private RichTextLabel _itemDetailTraits = default!;
@@ -70,9 +74,32 @@ public partial class InventoryPanel : Control
 	private string? _activePotionRiskFilter;
 	private string? _activeIngredientTraitFilter;
 	private string? _activeIngredientRiskFilter;
+	private string? _activeIngredientTypeFilter;
 	private PotionInventoryBrewService _brewService = default!;
 	private GameState _gameState = default!;
 	private ItemCatalogService _itemCatalog = default!;
+
+	private sealed class ItemTagDisplayRule
+	{
+		public string Tag { get; init; } = string.Empty;
+		public string DisplayName { get; init; } = string.Empty;
+		public bool VisibleToPlayer { get; init; }
+	}
+
+	private static readonly ItemTagDisplayRule[] ItemTagDisplayRules =
+	{
+		new() { Tag = "herb", DisplayName = "Herb", VisibleToPlayer = true },
+		new() { Tag = "liquid", DisplayName = "Liquid", VisibleToPlayer = true },
+		new() { Tag = "catalyst", DisplayName = "Catalyst", VisibleToPlayer = true },
+		new() { Tag = "ingredient", DisplayName = "Ingredient", VisibleToPlayer = false }
+	};
+
+	private static readonly List<string> IngredientTypeFilterOptions = new()
+	{
+		"Herb",
+		"Liquid",
+		"Catalyst"
+	};
 
 	public override void _Ready()
 	{
@@ -100,12 +127,17 @@ public partial class InventoryPanel : Control
 		_potionsRiskFilter = GetNodeOrNull<OptionButton>(PotionsRiskFilterPath);
 		_potionsClearFilterButton = GetNodeOrNull<Button>(PotionsClearFilterButtonPath);
 		_ingredientsSortButton = GetNode<Button>(IngredientsSortButtonPath);
+		var hasIngredientsTypeFilterPath = IngredientsTypeFilterPath is not null && !IngredientsTypeFilterPath.IsEmpty;
+		_ingredientsTypeFilter = !hasIngredientsTypeFilterPath
+			? GetNodeOrNull<OptionButton>(new NodePath("Panel/Margin/VBox/IngredientsHeaderRow/TypeFilter"))
+			: GetNodeOrNull<OptionButton>(IngredientsTypeFilterPath);
 		_ingredientsTraitFilter = GetNodeOrNull<OptionButton>(IngredientsTraitFilterPath);
 		_ingredientsRiskFilter = GetNodeOrNull<OptionButton>(IngredientsRiskFilterPath);
 		_ingredientsClearFilterButton = GetNodeOrNull<Button>(IngredientsClearFilterButtonPath);
 		_itemDetailPanel = GetNode<Control>(ItemDetailPanelPath);
 		_itemDetailImage = GetNode<TextureRect>(ItemDetailImagePath);
 		_itemDetailName = GetNode<Label>(ItemDetailNamePath);
+		_itemDetailTypeTag = GetNode<Label>(ItemDetailTypeTagPath);
 		_itemDetailPrice = GetNode<Label>(ItemDetailPricePath);
 		_itemDetailTraitsHeader = GetNode<Label>(ItemDetailTraitsHeaderPath);
 		_itemDetailTraits = GetNode<RichTextLabel>(ItemDetailTraitsPath);
@@ -117,7 +149,9 @@ public partial class InventoryPanel : Control
 		_itemDetailDescription.BbcodeEnabled = true;
 		_itemDetailBrewButton = GetNode<Button>(ItemDetailBrewButtonPath);
 		_itemDetailCloseButton = GetNode<Button>(ItemDetailCloseButtonPath);
-		_itemDetailTopCloseButton = GetNodeOrNull<Button>(ItemDetailTopCloseButtonPath);
+		_itemDetailTopCloseButton = ItemDetailTopCloseButtonPath is null || ItemDetailTopCloseButtonPath.IsEmpty
+			? null
+			: GetNodeOrNull<Button>(ItemDetailTopCloseButtonPath);
 		_brewPanel = GetNodeOrNull<BrewPanel>(new NodePath("../BrewPanel"));
 
 		MouseFilter = MouseFilterEnum.Ignore;
@@ -133,6 +167,8 @@ public partial class InventoryPanel : Control
 			_potionsClearFilterButton.Pressed += ClearPotionFilters;
 		if (_ingredientsTraitFilter is not null)
 			_ingredientsTraitFilter.ItemSelected += OnIngredientTraitSelected;
+		if (_ingredientsTypeFilter is not null)
+			_ingredientsTypeFilter.ItemSelected += OnIngredientTypeSelected;
 		if (_ingredientsRiskFilter is not null)
 			_ingredientsRiskFilter.ItemSelected += OnIngredientRiskSelected;
 		if (_ingredientsClearFilterButton is not null)
@@ -146,6 +182,7 @@ public partial class InventoryPanel : Control
 		Visible = true;
 		_itemDetailPanel.Visible = false;
 		UpdateSortButtonLabels();
+		RefreshIngredientTypeFilterOptions();
 		Refresh();
 	}
 
@@ -165,6 +202,8 @@ public partial class InventoryPanel : Control
 			_potionsClearFilterButton.Pressed -= ClearPotionFilters;
 		if (_ingredientsTraitFilter is not null)
 			_ingredientsTraitFilter.ItemSelected -= OnIngredientTraitSelected;
+		if (_ingredientsTypeFilter is not null)
+			_ingredientsTypeFilter.ItemSelected -= OnIngredientTypeSelected;
 		if (_ingredientsRiskFilter is not null)
 			_ingredientsRiskFilter.ItemSelected -= OnIngredientRiskSelected;
 		if (_ingredientsClearFilterButton is not null)
@@ -235,6 +274,14 @@ public partial class InventoryPanel : Control
 				_activeIngredientTraitFilter = null;
 		}
 
+		if (!string.IsNullOrWhiteSpace(_activeIngredientTypeFilter))
+		{
+			var activeTypeExists = IngredientTypeFilterOptions.Any(type =>
+				string.Equals(type, _activeIngredientTypeFilter, System.StringComparison.OrdinalIgnoreCase));
+			if (!activeTypeExists)
+				_activeIngredientTypeFilter = null;
+		}
+
 		if (!string.IsNullOrWhiteSpace(_activeIngredientRiskFilter))
 		{
 			var activeRiskExists = ingredientRiskNames.Any(risk =>
@@ -278,14 +325,24 @@ public partial class InventoryPanel : Control
 		{
 			_activeIngredientTraitFilter = null;
 		}
+		if (_ingredientsTypeFilter is null)
+		{
+			_activeIngredientTypeFilter = null;
+		}
 		if (_ingredientsRiskFilter is null)
 		{
 			_activeIngredientRiskFilter = null;
 		}
 
+		if (!string.IsNullOrWhiteSpace(_activeIngredientTypeFilter))
+		{
+			ingredientStacksToRender = ingredientStacks
+				.Where(stack => ItemHasIngredientType(stack.Key, _activeIngredientTypeFilter))
+				.ToList();
+		}
 		if (!string.IsNullOrWhiteSpace(_activeIngredientTraitFilter))
 		{
-			ingredientStacksToRender = ingredientStacks.Where(stack => ItemFilterUtilities.ItemHasTrait(stack.Key, _activeIngredientTraitFilter, _itemCatalog)).ToList();
+			ingredientStacksToRender = ingredientStacksToRender.Where(stack => ItemFilterUtilities.ItemHasTrait(stack.Key, _activeIngredientTraitFilter, _itemCatalog)).ToList();
 		}
 		if (!string.IsNullOrWhiteSpace(_activeIngredientRiskFilter))
 		{
@@ -305,10 +362,16 @@ public partial class InventoryPanel : Control
 
 		ItemFilterUtilities.RefreshFilterOptions(_potionsTraitFilter, potionTraitNames, "Trait", ref _activePotionTraitFilter);
 		ItemFilterUtilities.RefreshFilterOptions(_potionsRiskFilter, potionRiskNames, "Risk", ref _activePotionRiskFilter);
+		RefreshIngredientTypeFilterOptions();
 		ItemFilterUtilities.RefreshFilterOptions(_ingredientsTraitFilter, ingredientTraitNames, "Trait", ref _activeIngredientTraitFilter);
 		ItemFilterUtilities.RefreshFilterOptions(_ingredientsRiskFilter, ingredientRiskNames, "Risk", ref _activeIngredientRiskFilter);
 		RefreshCurrentItemDetail();
 		UpdateBrewButtonState();
+	}
+
+	private void RefreshIngredientTypeFilterOptions()
+	{
+		ItemFilterUtilities.RefreshFilterOptions(_ingredientsTypeFilter, IngredientTypeFilterOptions, "Type", ref _activeIngredientTypeFilter);
 	}
 
 	private void UpdateSortButtonLabels()
@@ -323,6 +386,14 @@ public partial class InventoryPanel : Control
 			return;
 
 		HandleFilterSelected(_ingredientsTraitFilter, selectedIndex, "Trait", ref _activeIngredientTraitFilter);
+	}
+
+	private void OnIngredientTypeSelected(long selectedIndex)
+	{
+		if (_ingredientsTypeFilter is null)
+			return;
+
+		HandleFilterSelected(_ingredientsTypeFilter, selectedIndex, "Type", ref _activeIngredientTypeFilter);
 	}
 
 	private void OnIngredientRiskSelected(long selectedIndex)
@@ -351,11 +422,13 @@ public partial class InventoryPanel : Control
 
 	private void ClearIngredientFilters()
 	{
-		if (_ingredientsTraitFilter is null && _ingredientsRiskFilter is null)
+		if (_ingredientsTypeFilter is null && _ingredientsTraitFilter is null && _ingredientsRiskFilter is null)
 			return;
 
-		if (string.IsNullOrWhiteSpace(_activeIngredientTraitFilter) && string.IsNullOrWhiteSpace(_activeIngredientRiskFilter))
+		if (string.IsNullOrWhiteSpace(_activeIngredientTypeFilter) && string.IsNullOrWhiteSpace(_activeIngredientTraitFilter) && string.IsNullOrWhiteSpace(_activeIngredientRiskFilter))
 		{
+			if (_ingredientsTypeFilter is not null)
+				_ingredientsTypeFilter.Selected = 0;
 			if (_ingredientsTraitFilter is not null)
 				_ingredientsTraitFilter.Selected = 0;
 			if (_ingredientsRiskFilter is not null)
@@ -363,6 +436,7 @@ public partial class InventoryPanel : Control
 			return;
 		}
 
+		_activeIngredientTypeFilter = null;
 		_activeIngredientTraitFilter = null;
 		_activeIngredientRiskFilter = null;
 		Refresh();
@@ -550,13 +624,26 @@ public partial class InventoryPanel : Control
 		if (!IsIngredient(item))
 			return;
 
+		var quantityBeforeQueue = _gameState.Inventory.GetValueOrDefault(itemId);
 		_brewPanel.TryQueueIngredient(itemId);
+		var quantityAfterQueue = _gameState.Inventory.GetValueOrDefault(itemId);
+		var queuedSuccessfully = quantityAfterQueue < quantityBeforeQueue;
+		if (!queuedSuccessfully)
+			return;
+		if (!_itemDetailPanel.Visible)
+			return;
+		if (!string.Equals(_currentItemId, itemId, System.StringComparison.OrdinalIgnoreCase))
+			return;
+
+		HideItemDetail();
 	}
 
 	private void HideItemDetail()
 	{
 		_currentItemId = null;
 		_itemDetailImage.Texture = null;
+		_itemDetailTypeTag.Text = string.Empty;
+		_itemDetailTypeTag.Visible = false;
 		_itemDetailTraits.Text = "";
 		_itemDetailRisks.Text = "";
 		_itemDetailDescription.Text = "";
@@ -578,6 +665,7 @@ public partial class InventoryPanel : Control
 
 		_itemDetailImage.Texture = UiIconLoader.LoadIcon(item.IconPath);
 		_itemDetailName.Text = DisplayName(_currentItemId, item.Name);
+		SetItemTypeTag(item);
 		_itemDetailOwned.Text = $"Owned: {_gameState.Inventory.GetValueOrDefault(_currentItemId)}";
 		_itemDetailPrice.Text = $"Sell Price: \u00A3{GetItemPrice(_currentItemId, item)}";
 		_itemDetailTraits.Text = FormatTopStats(item.Traits, 3);
@@ -709,9 +797,40 @@ public partial class InventoryPanel : Control
 		return _itemCatalog.IsIngredient(itemId);
 	}
 
+	private bool ItemHasIngredientType(string itemId, string ingredientType)
+	{
+		if (!_itemCatalog.TryGetItem(itemId, out var item))
+			return false;
+
+		return ItemCatalogService.HasTag(item, ingredientType);
+	}
+
 	private static bool IsIngredient(ItemDef item)
 	{
 		return ItemCatalogService.HasTag(item, "ingredient");
+	}
+
+	private void SetItemTypeTag(ItemDef item)
+	{
+		var displayTypeTag = TryGetVisibleTypeTag(item);
+		_itemDetailTypeTag.Visible = !string.IsNullOrWhiteSpace(displayTypeTag);
+		_itemDetailTypeTag.Text = displayTypeTag;
+	}
+
+	private static string TryGetVisibleTypeTag(ItemDef item)
+	{
+		foreach (var rule in ItemTagDisplayRules)
+		{
+			if (!rule.VisibleToPlayer)
+				continue;
+
+			if (!ItemCatalogService.HasTag(item, rule.Tag))
+				continue;
+
+			return rule.DisplayName;
+		}
+
+		return string.Empty;
 	}
 
 	private void RefreshKnownRecipes(string itemId, ItemDef item)

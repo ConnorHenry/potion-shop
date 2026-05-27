@@ -189,6 +189,12 @@ public partial class Hud : Control
 		if (_recipeBookPanel is null)
 			return;
 
+		if (_recipeBookPanel is PotionBookPanel potionBookPanel)
+		{
+			potionBookPanel.Toggle();
+			return;
+		}
+
 		_recipeBookPanel.Visible = !_recipeBookPanel.Visible;
 	}
 

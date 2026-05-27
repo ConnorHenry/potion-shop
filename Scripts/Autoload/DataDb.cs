@@ -19,12 +19,14 @@ public partial class DataDb : Node
 	public IReadOnlyList<EventCardDef> Events => _events;
 	public IReadOnlyList<CustomerInteractionDef> CustomerInteractions => _customerInteractions;
 	public IReadOnlyList<SynergyRule> Synergies => _synergies;
+	public IReadOnlyList<PotionRecipeDef> PotionRecipes => _potionRecipes;
 
 	private Dictionary<string, ItemDef> _items = new();
 	private Dictionary<string, RuleDef> _rules = new();
 	private List<EventCardDef> _events = new();
 	private List<CustomerInteractionDef> _customerInteractions = new();
 	private List<SynergyRule> _synergies = new();
+	private List<PotionRecipeDef> _potionRecipes = new();
 
 	public override void _Ready()
 	{
@@ -45,6 +47,7 @@ public partial class DataDb : Node
 			_events = new List<EventCardDef>();
 			_customerInteractions = new List<CustomerInteractionDef>();
 			_synergies = new List<SynergyRule>();
+			_potionRecipes = new List<PotionRecipeDef>();
 			return;
 		}
 
@@ -53,6 +56,7 @@ public partial class DataDb : Node
 		var eventsResource = LoadSection<AuthoredEventsResource>(authoredData.EventsPath, "events");
 		var customerInteractionsResource = LoadSection<AuthoredCustomerInteractionsResource>(authoredData.CustomerInteractionsPath, "customer interactions");
 		var synergiesResource = LoadSection<AuthoredSynergiesResource>(authoredData.SynergiesPath, "synergies");
+		var potionRecipesResource = LoadSection<AuthoredPotionRecipesResource>(authoredData.PotionRecipesPath, "potion recipes");
 
 		_items = ParseItems(itemsResource?.Entries ?? new Godot.Collections.Array())
 			.ToDictionary(x => x.Id, x => x, StringComparer.OrdinalIgnoreCase);
@@ -61,6 +65,7 @@ public partial class DataDb : Node
 		_events = ParseEvents(eventsResource?.Entries ?? new Godot.Collections.Array());
 		_customerInteractions = ParseCustomerInteractions(customerInteractionsResource?.Entries ?? new Godot.Collections.Array());
 		_synergies = ParseSynergies(synergiesResource?.Entries ?? new Godot.Collections.Array());
+		_potionRecipes = ParsePotionRecipes(potionRecipesResource?.Entries ?? new Godot.Collections.Array());
 	}
 
 	private static TSection? LoadSection<TSection>(string path, string sectionName) where TSection : Resource
@@ -220,6 +225,43 @@ public partial class DataDb : Node
 		}
 
 		return synergies;
+	}
+
+	private static List<PotionRecipeDef> ParsePotionRecipes(Godot.Collections.Array entries)
+	{
+		var recipes = new List<PotionRecipeDef>(entries.Count);
+		foreach (var entryValue in entries)
+		{
+			if (!TryReadDictionary(entryValue, out var entry))
+				continue;
+
+			var id = ReadString(entry, "id");
+			var name = ReadString(entry, "name");
+			if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(name))
+				continue;
+
+			var ingredientIds = ReadStringList(entry, "ingredientIds")
+				.Select(x => x.Trim())
+				.Where(x => !string.IsNullOrWhiteSpace(x))
+				.ToList();
+			if (ingredientIds.Count == 0)
+				continue;
+
+			var traits = ReadStringList(entry, "traits")
+				.Select(x => x.Trim().ToLowerInvariant())
+				.Where(x => !string.IsNullOrWhiteSpace(x))
+				.ToList();
+
+			recipes.Add(new PotionRecipeDef
+			{
+				Id = id,
+				Name = name,
+				IngredientIds = ingredientIds,
+				Traits = traits
+			});
+		}
+
+		return recipes;
 	}
 
 	private static List<EventChoiceDef> ParseEventChoices(Godot.Collections.Array entries)

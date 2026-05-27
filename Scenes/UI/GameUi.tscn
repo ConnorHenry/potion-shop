@@ -1,4 +1,4 @@
-[gd_scene load_steps=16 format=3 uid="uid://4hripc13we86"]
+[gd_scene load_steps=17 format=3 uid="uid://4hripc13we86"]
 
 [ext_resource type="PackedScene" uid="uid://cikvfbes8y0kf" path="res://Scenes/UI/Hud.tscn" id="1_hud"]
 [ext_resource type="Script" uid="uid://hkjdjmtp1abw" path="res://Scripts/UI/EventModal.cs" id="2_8y3f6"]
@@ -14,6 +14,7 @@
 [ext_resource type="Theme" uid="uid://dsdgpree5b8xv" path="res://Assets/UI/RecipeBookTheme.tres" id="15_recipe_theme"]
 [ext_resource type="Theme" uid="uid://bcxrpcn1ol80g" path="res://Assets/UI/BrewPanelTheme.tres" id="16_brew_theme"]
 [ext_resource type="Texture2D" uid="uid://bygvuw1k7loxa" path="res://Assets/Items/sight_tonic.svg" id="17_sight_tonic"]
+[ext_resource type="PackedScene" path="res://Scenes/UI/PotionBookPanel.tscn" id="18_potion_book"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_inventory_detail_root"]
 content_margin_left = 14.0
@@ -36,12 +37,14 @@ corner_radius_bottom_left = 16
 [node name="Hud" parent="." instance=ExtResource("1_hud")]
 offset_left = 155.0
 offset_bottom = 58.0
+RecipeBookPanelPath = NodePath("../PotionBookPanel")
 
 [node name="InventoryPanel" parent="." instance=ExtResource("5_invp")]
 offset_left = -46.0
 offset_top = 4.0
-offset_right = -22.0
+offset_right = -4.0
 offset_bottom = 4.0
+ItemDetailTopCloseButtonPath = NodePath("")
 
 [node name="InventoryItemDetail" type="Control" parent="."]
 z_index = 2000
@@ -67,7 +70,7 @@ offset_bottom = 1047.0
 theme_type_variation = &"BrewRoot"
 theme_override_styles/panel = SubResource("StyleBoxFlat_inventory_detail_root")
 script = ExtResource("12_6x1m8")
-DragHandlePath = NodePath("Margin/VBox/Header")
+DragHandlePath = NodePath("")
 
 [node name="Margin" type="MarginContainer" parent="InventoryItemDetail/Panel"]
 layout_mode = 2
@@ -81,24 +84,6 @@ layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 theme_override_constants/separation = 9
-
-[node name="Header" type="HBoxContainer" parent="InventoryItemDetail/Panel/Margin/VBox"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 8
-
-[node name="Title" type="Label" parent="InventoryItemDetail/Panel/Margin/VBox/Header"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.68, 0.7, 0.75, 1)
-theme_override_font_sizes/font_size = 13
-text = "ITEM DETAILS"
-vertical_alignment = 1
-
-[node name="Close" type="Button" parent="InventoryItemDetail/Panel/Margin/VBox/Header"]
-custom_minimum_size = Vector2(32, 32)
-layout_mode = 2
-text = "X"
 
 [node name="TopRow" type="HBoxContainer" parent="InventoryItemDetail/Panel/Margin/VBox"]
 custom_minimum_size = Vector2(0, 112)
@@ -128,6 +113,13 @@ theme_override_font_sizes/font_size = 24
 text = "Item Name"
 autowrap_mode = 3
 clip_text = true
+
+[node name="TypeTag" type="Label" parent="InventoryItemDetail/Panel/Margin/VBox/TopRow/Identity"]
+visible = false
+layout_mode = 2
+theme_override_colors/font_color = Color(0.68, 0.7, 0.75, 1)
+theme_override_font_sizes/font_size = 14
+text = "Herb"
 
 [node name="Owned" type="Label" parent="InventoryItemDetail/Panel/Margin/VBox/TopRow/Identity"]
 layout_mode = 2
@@ -822,6 +814,8 @@ layout_mode = 2
 texture = ExtResource("13_x17d0")
 expand_mode = 1
 stretch_mode = 5
+
+[node name="PotionBookPanel" parent="." instance=ExtResource("18_potion_book")]
 
 [node name="RecipeBookPanel" type="Control" parent="."]
 layout_mode = 3
