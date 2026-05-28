@@ -15,6 +15,10 @@ public partial class GameState : Node
 	public int Day { get; private set; } = 1;
 	public int Gold { get; private set; } = 50000;
 	public int Dread { get; private set; } = 0;
+	public bool TutorialRequested { get; private set; }
+	public bool TutorialCompleted { get; private set; }
+	public bool TutorialSkipped { get; private set; }
+	public int TutorialStep { get; private set; }
 
 	// itemId -> qty
 	public Dictionary<string, int> Inventory { get; } = new();
@@ -48,6 +52,10 @@ public partial class GameState : Node
 		Day = 1;
 		Gold = 50000;
 		Dread = 0;
+		TutorialRequested = false;
+		TutorialCompleted = false;
+		TutorialSkipped = false;
+		TutorialStep = 0;
 		Inventory.Clear();
 		ActiveRules.Clear();
 		KnownPotions.Clear();
@@ -69,6 +77,10 @@ public partial class GameState : Node
 			Day = Day,
 			Gold = Gold,
 			Dread = Dread,
+			TutorialRequested = TutorialRequested,
+			TutorialCompleted = TutorialCompleted,
+			TutorialSkipped = TutorialSkipped,
+			TutorialStep = TutorialStep,
 			Inventory = new Dictionary<string, int>(Inventory),
 			ActiveRules = ActiveRules.ToList(),
 			KnownPotions = KnownPotions.ToList(),
@@ -94,6 +106,10 @@ public partial class GameState : Node
 		Day = Math.Max(1, snapshot.Day);
 		Gold = Math.Max(0, snapshot.Gold);
 		Dread = Math.Clamp(snapshot.Dread, 0, 100);
+		TutorialRequested = snapshot.TutorialRequested;
+		TutorialCompleted = snapshot.TutorialCompleted;
+		TutorialSkipped = snapshot.TutorialSkipped;
+		TutorialStep = Math.Max(0, snapshot.TutorialStep);
 
 		Inventory.Clear();
 		if (snapshot.Inventory is not null)
@@ -225,6 +241,43 @@ public partial class GameState : Node
 	{
 		if (string.IsNullOrWhiteSpace(ruleId)) return;
 		ActiveRules.Add(ruleId);
+		EmitChanged();
+	}
+
+	public void RequestTutorial()
+	{
+		TutorialRequested = true;
+		TutorialCompleted = false;
+		TutorialSkipped = false;
+		TutorialStep = 0;
+		EmitChanged();
+	}
+
+	public void SkipTutorial()
+	{
+		TutorialRequested = false;
+		TutorialCompleted = false;
+		TutorialSkipped = true;
+		TutorialStep = 0;
+		EmitChanged();
+	}
+
+	public void CompleteTutorial()
+	{
+		TutorialRequested = false;
+		TutorialCompleted = true;
+		TutorialSkipped = false;
+		TutorialStep = 0;
+		EmitChanged();
+	}
+
+	public void SetTutorialStep(int step)
+	{
+		var normalizedStep = Math.Max(0, step);
+		if (TutorialStep == normalizedStep)
+			return;
+
+		TutorialStep = normalizedStep;
 		EmitChanged();
 	}
 

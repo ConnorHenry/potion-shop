@@ -47,7 +47,6 @@ layout_mode = 2
 text = "Load Game"
 
 [node name="NewGameTutorialPopup" type="Control" parent="."]
-visible = false
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -97,7 +96,7 @@ horizontal_alignment = 1
 
 [node name="Body" type="Label" parent="NewGameTutorialPopup/Panel/Margin/VBox"]
 layout_mode = 2
-text = "Would you like a short walkthrough of the core loop before your first day?"
+text = "Would you like to run through a quick tutorial?"
 horizontal_alignment = 1
 autowrap_mode = 3
 

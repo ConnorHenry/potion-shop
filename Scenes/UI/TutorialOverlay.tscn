@@ -1,0 +1,141 @@
+[gd_scene load_steps=4 format=3 uid="uid://dux1kpmnsmdmo"]
+
+[ext_resource type="Script" uid="uid://c26efro31bov1" path="res://Scripts/UI/TutorialOverlay.cs" id="1_overlay"]
+[ext_resource type="Theme" uid="uid://bcxrpcn1ol80g" path="res://Assets/UI/BrewPanelTheme.tres" id="2_theme"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_highlight"]
+bg_color = Color(0.94, 0.79, 0.31, 0.08)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.94, 0.79, 0.31, 0.96)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[node name="TutorialOverlay" type="Control"]
+visible = false
+z_index = 4000
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_theme")
+script = ExtResource("1_overlay")
+DimPath = NodePath("Dim")
+HighlightPath = NodePath("Highlight")
+PanelPath = NodePath("Panel")
+TitleLabelPath = NodePath("Panel/Margin/VBox/Title")
+BodyLabelPath = NodePath("Panel/Margin/VBox/Body")
+NextButtonPath = NodePath("Panel/Margin/VBox/Actions/NextButton")
+SkipButtonPath = NodePath("Panel/Margin/VBox/Actions/SkipButton")
+
+[node name="Dim" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 0.46)
+
+[node name="DimTop" type="ColorRect" parent="."]
+visible = false
+layout_mode = 0
+mouse_filter = 2
+color = Color(0, 0, 0, 0.46)
+
+[node name="DimBottom" type="ColorRect" parent="."]
+visible = false
+layout_mode = 0
+mouse_filter = 2
+color = Color(0, 0, 0, 0.46)
+
+[node name="DimLeft" type="ColorRect" parent="."]
+visible = false
+layout_mode = 0
+mouse_filter = 2
+color = Color(0, 0, 0, 0.46)
+
+[node name="DimRight" type="ColorRect" parent="."]
+visible = false
+layout_mode = 0
+mouse_filter = 2
+color = Color(0, 0, 0, 0.46)
+
+[node name="Highlight" type="PanelContainer" parent="."]
+visible = false
+layout_mode = 0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_highlight")
+
+[node name="SecondaryHighlight" type="PanelContainer" parent="."]
+visible = false
+layout_mode = 0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_highlight")
+
+[node name="Panel" type="PanelContainer" parent="."]
+custom_minimum_size = Vector2(520, 0)
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -260.0
+offset_top = -196.0
+offset_right = 260.0
+offset_bottom = -32.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_type_variation = &"BrewRoot"
+
+[node name="Margin" type="MarginContainer" parent="Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 14
+
+[node name="VBox" type="VBoxContainer" parent="Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Tutorial"
+horizontal_alignment = 1
+
+[node name="Body" type="RichTextLabel" parent="Panel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 74)
+layout_mode = 2
+text = "Tutorial step text."
+fit_content = true
+scroll_active = false
+
+[node name="Actions" type="HBoxContainer" parent="Panel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="SkipButton" type="Button" parent="Panel/Margin/VBox/Actions"]
+custom_minimum_size = Vector2(132, 40)
+layout_mode = 2
+text = "Skip Tutorial"
+
+[node name="Spacer" type="Control" parent="Panel/Margin/VBox/Actions"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="NextButton" type="Button" parent="Panel/Margin/VBox/Actions"]
+custom_minimum_size = Vector2(104, 40)
+layout_mode = 2
+theme_type_variation = &"BrewActionButton"
+text = "Next"

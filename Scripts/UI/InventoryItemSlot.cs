@@ -25,22 +25,23 @@ public partial class InventoryItemSlot : Button
 	public override Variant _GetDragData(Vector2 atPosition)
 	{
 		_dragStarted = true;
-
-		if (string.IsNullOrWhiteSpace(IconPath))
-			return Variant.CreateFrom(ItemId);
-
-		var preview = new TextureRect
+		var preview = new Control
 		{
-			CustomMinimumSize = new Vector2(70, 70),
-			ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
-			StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
-			MouseFilter = MouseFilterEnum.Ignore
+			Visible = false,
+			MouseFilter = MouseFilterEnum.Ignore,
+			CustomMinimumSize = Vector2.Zero
 		};
-		preview.Texture = ResourceLoader.Load<Texture2D>(IconPath);
 		SetDragPreview(preview);
-		_dragStarted = true;
 		ReleaseFocus();
 		return Variant.CreateFrom(ItemId);
+	}
+
+	public override void _Notification(int what)
+	{
+		base._Notification(what);
+
+		if (what == NotificationDragEnd)
+			_dragStarted = false;
 	}
 
 	public override void _GuiInput(InputEvent @event)

@@ -34,6 +34,8 @@ public partial class DayController : Node
 	private GameState _gameState = default!;
 	private int _secondsRemaining;
 	private bool _awaitingSaleResultClose;
+	private bool _shopClosingPending;
+	private bool _tutorialTimerPaused;
 
 	public bool IsShopOpen { get; private set; }
 	public int SecondsRemaining => _secondsRemaining;
@@ -81,6 +83,7 @@ public partial class DayController : Node
 		_daySummaryPanel.ContinuePressed += OnSummaryContinuePressed;
 		_daySummaryPanel.HidePanel();
 		_customerPanel.SuppressSaleResultPanel = false;
+		_customerPanel.SetCloseShopMode(false);
 		EmitShopStateChanged();
 	}
 
@@ -106,9 +109,12 @@ public partial class DayController : Node
 		_daySummaryPanel.HidePanel();
 		_customerPanel.HidePanel();
 		_customerPanel.SuppressSaleResultPanel = false;
+		_customerPanel.SetCloseShopMode(false);
 		_shopDayStats.Reset();
 		_secondsRemaining = ShopDurationSeconds;
 		_awaitingSaleResultClose = false;
+		_shopClosingPending = false;
+		_tutorialTimerPaused = false;
 		IsShopOpen = true;
 		EmitShopStateChanged();
 		_customerEventController.BeginShopDay();
@@ -120,6 +126,33 @@ public partial class DayController : Node
 		}
 
 		_shopTimer.Start();
+	}
+
+	public void PauseShopTimerForTutorial()
+	{
+		if (!IsShopOpen)
+			return;
+
+		if (_tutorialTimerPaused)
+			return;
+
+		_tutorialTimerPaused = true;
+		if (!_shopTimer.IsStopped())
+			_shopTimer.Stop();
+
+		EmitShopStateChanged();
+	}
+
+	public void ResumeShopTimerAfterTutorial()
+	{
+		if (!_tutorialTimerPaused)
+			return;
+
+		_tutorialTimerPaused = false;
+		if (IsShopOpen && !_awaitingSaleResultClose && _secondsRemaining > 0 && _shopTimer.IsStopped())
+			_shopTimer.Start();
+
+		EmitShopStateChanged();
 	}
 
 	public void EndDayAndRunNight()
@@ -156,10 +189,23 @@ public partial class DayController : Node
 			return;
 
 		_secondsRemaining = Math.Max(0, _secondsRemaining - 1);
-		EmitShopStateChanged();
 
 		if (_secondsRemaining <= 0)
+		{
+			_shopTimer.Stop();
+			if (_customerPanel.HasActiveInteraction || _awaitingSaleResultClose)
+			{
+				_shopClosingPending = true;
+				_customerPanel.SetCloseShopMode(true);
+				EmitShopStateChanged();
+				return;
+			}
+
 			CloseShopAndShowSummary();
+			return;
+		}
+
+		EmitShopStateChanged();
 	}
 
 	private void OnCustomerSaleResolved(bool success, int goldDelta, int dreadDelta, float finalScore, string grade)
@@ -192,6 +238,8 @@ public partial class DayController : Node
 			_shopTimer.Stop();
 
 		_awaitingSaleResultClose = true;
+		if (_shopClosingPending)
+			_customerPanel.SetCloseShopMode(true);
 		EmitShopStateChanged();
 	}
 
@@ -217,7 +265,7 @@ public partial class DayController : Node
 			return;
 		}
 
-		if (_shopTimer.IsStopped())
+		if (_shopTimer.IsStopped() && !_tutorialTimerPaused)
 			_shopTimer.Start();
 
 		EmitShopStateChanged();
@@ -262,8 +310,11 @@ public partial class DayController : Node
 		IsShopOpen = false;
 		_secondsRemaining = 0;
 		_awaitingSaleResultClose = false;
+		_shopClosingPending = false;
+		_tutorialTimerPaused = false;
 		_customerPanel.HidePanel();
 		_customerPanel.SuppressSaleResultPanel = false;
+		_customerPanel.SetCloseShopMode(false);
 		_brewPanel.HidePanel();
 		_recipeBookPanel.HidePanel();
 		_daySummaryPanel.ShowSummary(

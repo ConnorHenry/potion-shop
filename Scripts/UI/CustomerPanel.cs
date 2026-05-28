@@ -15,6 +15,10 @@ public partial class CustomerPanel : Control
 	public delegate void CustomerSkippedEventHandler();
 	[Signal]
 	public delegate void SaleResultClosedEventHandler();
+	[Signal]
+	public delegate void PotionSoldEventHandler(string itemId, bool success);
+	[Signal]
+	public delegate void InteractionShownEventHandler(string interactionId);
 
 	public bool SuppressSaleResultPanel { get; set; }
 
@@ -53,6 +57,7 @@ public partial class CustomerPanel : Control
 	private GameState _gameState = default!;
 	private DataDb _dataDb = default!;
 	private ItemCatalogService _itemCatalog = default!;
+	private bool _closeShopMode;
 	private bool _awaitingNextCustomer;
 	private const int SuccessDreadChange = -2;
 	private const int FailureDreadChange = 4;
@@ -117,6 +122,7 @@ public partial class CustomerPanel : Control
 		_sellDropBox.ItemDropped += OnItemDropped;
 		_sellDropBox.ItemHoverPreview += OnSellDropHoverPreview;
 		_sellDropBox.HoverPreviewCleared += OnSellDropHoverPreviewCleared;
+		UpdateCloseShopButtonText();
 		_portrait.Visible = false;
 		_saleResultPanel.Visible = false;
 		SetSalePendingState();
@@ -156,6 +162,20 @@ public partial class CustomerPanel : Control
 		SetPortrait(interaction.CharacterImagePath);
 		SetRequestTraits(request);
 		SetSalePendingState();
+		EmitSignal(SignalName.InteractionShown, interaction.Id);
+	}
+
+	public Button? GetNextCustomerButton()
+	{
+		return _nextCustomerButton;
+	}
+
+	public bool HasActiveInteraction => _interaction is not null;
+
+	public void SetCloseShopMode(bool closeShopMode)
+	{
+		_closeShopMode = closeShopMode;
+		UpdateCloseShopButtonText();
 	}
 
 	public void HidePanel()
@@ -206,6 +226,7 @@ public partial class CustomerPanel : Control
 				saleResult.DreadDelta,
 				brewResult.FinalScore,
 				brewResult.Grade);
+			EmitSignal(SignalName.PotionSold, itemId, saleResult.IsSuccess);
 			return;
 		}
 
@@ -217,6 +238,7 @@ public partial class CustomerPanel : Control
 			saleResult.DreadDelta,
 			brewResult.FinalScore,
 			brewResult.Grade);
+		EmitSignal(SignalName.PotionSold, itemId, saleResult.IsSuccess);
 	}
 
 	private bool TryResolvePotionScore(string itemId, out PotionResult? brewResult)
@@ -612,6 +634,17 @@ public partial class CustomerPanel : Control
 
 		if (_sellDropBox is not null)
 			_sellDropBox.MouseFilter = MouseFilterEnum.Ignore;
+	}
+
+	private void UpdateCloseShopButtonText()
+	{
+		var buttonText = _closeShopMode ? "Close Shop" : "Next customer";
+
+		if (_saleResultCloseButton is not null)
+			_saleResultCloseButton.Text = buttonText;
+
+		if (_nextCustomerButton is not null)
+			_nextCustomerButton.Text = buttonText;
 	}
 
 }
