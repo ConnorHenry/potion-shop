@@ -246,15 +246,9 @@ public partial class BrewPanel : Control
 		var followsPredefinedRecipe = MatchesAnyPredefinedRecipePrefix(queuedWithCandidate);
 		if (!followsPredefinedRecipe)
 		{
-			if (!TryGetIngredientType(item, out var newIngredientType))
+			if (!TryGetIngredientType(item, out _))
 			{
-				_resultLabel.Text = "Ingredient type is missing. Need one herb, one liquid, and one catalyst.";
-				return;
-			}
-
-			if (HasQueuedIngredientType(newIngredientType))
-			{
-				_resultLabel.Text = $"Cannot add duplicate type: {newIngredientType} (need one herb, one liquid, one catalyst)";
+				_resultLabel.Text = "Ingredient type is missing.";
 				return;
 			}
 		}
@@ -301,11 +295,6 @@ public partial class BrewPanel : Control
 
 		var combinationKey = BuildCombinationKey(_queuedIngredients);
 		var hasPredefinedRecipe = TryGetPredefinedRecipe(combinationKey, out var predefinedRecipe);
-		if (!hasPredefinedRecipe && !HasRequiredIngredientTypes(out var ingredientTypeError))
-		{
-			_resultLabel.Text = ingredientTypeError;
-			return;
-		}
 
 		if (!TryBuildIngredientDefs(_queuedIngredients, out var ingredientDefs, out var ingredientError))
 		{

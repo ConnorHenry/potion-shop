@@ -93,6 +93,10 @@ public partial class PotionBookPanel : Control
 		if (@event is not InputEventMouseButton mouseButton || !mouseButton.Pressed)
 			return;
 
+		var hoveredControl = GetViewport().GuiGetHoveredControl();
+		if (!IsHoverInsideBook(hoveredControl))
+			return;
+
 		if (mouseButton.ButtonIndex == MouseButton.WheelUp)
 		{
 			ShowPreviousPage();
@@ -105,6 +109,17 @@ public partial class PotionBookPanel : Control
 			ShowNextPage();
 			GetViewport().SetInputAsHandled();
 		}
+	}
+
+	private bool IsHoverInsideBook(Control? hoveredControl)
+	{
+		if (hoveredControl is null)
+			return false;
+
+		if (hoveredControl == this)
+			return true;
+
+		return IsAncestorOf(hoveredControl);
 	}
 
 	public void Toggle()

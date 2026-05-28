@@ -36,12 +36,12 @@ static class Program
         Run("RecipeBookPanel top-traits formatting is stable", TestRecipeBookPanelFormatTopTraits);
         Run("RecipeBookPanel entry shows traits and risks to the right of ingredients", TestRecipeBookPanelEntryShowsTraitsAndRisksToTheRightOfIngredients);
         Run("BrewPanel ingredient tag detection is case-insensitive", TestBrewPanelIsIngredient);
-        Run("BrewPanel enforces ingredient type constraints", TestBrewPanelRejectsDuplicateQueuedIngredients);
         Run("BrewPanel previews potion names before brewing", TestBrewPanelPreviewNameIsWired);
         Run("Brew and inventory price wiring stays intact", TestBrewAndInventoryPriceWiring);
         Run("Potion base price survives snapshot round-trips", TestPotionBasePriceSnapshotRoundTrip);
         Run("ItemDef price converter accepts price fields", TestItemDefPriceConverterSupportsPriceFields);
         Run("CustomerPanel creates detached ingredient snapshots", TestCustomerPanelBuildPotionIngredientDef);
+        Run("Customer events randomize shop-day order", TestCustomerEventControllerRandomizesOrder);
         Run("RuntimeContentDb stores generated items separately", TestRuntimeContentDbSeparatesRuntimeItems);
         Run("DataDb does not expose runtime registration", TestDataDbDoesNotExposeRuntimeRegistration);
         Run("DataDb reloads authored resource catalogs only", TestDataDbReloadsAuthoredResourceCatalogsOnly);
@@ -821,6 +821,18 @@ static class Program
         AssertTrue("Traits dictionary cloned", !ReferenceEquals(sourceTraits, traits));
         AssertTrue("Risks dictionary cloned", !ReferenceEquals(sourceRisks, risks));
         AssertTrue("Tags list cloned", !ReferenceEquals(sourceTags, tags));
+    }
+
+    private static void TestCustomerEventControllerRandomizesOrder()
+    {
+        var source = ReadProjectFile("Scripts/Controllers/CustomerEventController.cs");
+        var dayController = ReadProjectFile("Scripts/Controllers/DayController.cs");
+
+        AssertTrue("CustomerEventController no longer uses a fixed index walk", !source.Contains("_nextCustomerIndex"));
+        AssertTrue("CustomerEventController keeps a randomized order buffer", source.Contains("_customerOrder"));
+        AssertTrue("CustomerEventController randomizes the customer order", source.Contains("_random.Next("));
+        AssertTrue("CustomerEventController resets the order at the start of a shop day", source.Contains("BeginShopDay()"));
+        AssertTrue("DayController resets customer order when the shop opens", dayController.Contains("_customerEventController.BeginShopDay();"));
     }
 
     private static void TestRuntimeContentDbSeparatesRuntimeItems()

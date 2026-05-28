@@ -14,7 +14,7 @@
 [ext_resource type="Theme" uid="uid://dsdgpree5b8xv" path="res://Assets/UI/RecipeBookTheme.tres" id="15_recipe_theme"]
 [ext_resource type="Theme" uid="uid://bcxrpcn1ol80g" path="res://Assets/UI/BrewPanelTheme.tres" id="16_brew_theme"]
 [ext_resource type="Texture2D" uid="uid://bygvuw1k7loxa" path="res://Assets/Items/sight_tonic.svg" id="17_sight_tonic"]
-[ext_resource type="PackedScene" path="res://Scenes/UI/PotionBookPanel.tscn" id="18_potion_book"]
+[ext_resource type="PackedScene" uid="uid://q4276gq8k64i" path="res://Scenes/UI/PotionBookPanel.tscn" id="18_potion_book"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_inventory_detail_root"]
 content_margin_left = 14.0
@@ -40,10 +40,10 @@ offset_bottom = 58.0
 RecipeBookPanelPath = NodePath("../PotionBookPanel")
 
 [node name="InventoryPanel" parent="." instance=ExtResource("5_invp")]
-offset_left = -46.0
-offset_top = 4.0
-offset_right = -4.0
-offset_bottom = 4.0
+offset_left = -5.0
+offset_top = 6.0
+offset_right = -64.0
+offset_bottom = 6.0
 ItemDetailTopCloseButtonPath = NodePath("")
 
 [node name="InventoryItemDetail" type="Control" parent="."]
@@ -66,7 +66,7 @@ layout_mode = 0
 offset_left = 477.0
 offset_top = 305.0
 offset_right = 870.0
-offset_bottom = 1047.0
+offset_bottom = 648.0
 theme_type_variation = &"BrewRoot"
 theme_override_styles/panel = SubResource("StyleBoxFlat_inventory_detail_root")
 script = ExtResource("12_6x1m8")
@@ -176,25 +176,30 @@ theme_override_colors/default_color = Color(0.73, 0.74, 0.78, 1)
 text = "None"
 
 [node name="DetailsSeparator" type="HSeparator" parent="InventoryItemDetail/Panel/Margin/VBox"]
+visible = false
 layout_mode = 2
 
 [node name="DescriptionHeader" type="Label" parent="InventoryItemDetail/Panel/Margin/VBox"]
+visible = false
 layout_mode = 2
 theme_override_colors/font_color = Color(0.68, 0.7, 0.75, 1)
 text = "DESCRIPTION"
 
 [node name="Description" type="RichTextLabel" parent="InventoryItemDetail/Panel/Margin/VBox"]
+visible = false
 custom_minimum_size = Vector2(0, 126)
 layout_mode = 2
 theme_override_colors/default_color = Color(0.78, 0.79, 0.84, 1)
 text = "Description"
 
 [node name="RecipesHeader" type="Label" parent="InventoryItemDetail/Panel/Margin/VBox"]
+visible = false
 layout_mode = 2
 theme_override_colors/font_color = Color(0.68, 0.7, 0.75, 1)
 text = "KNOWN RECIPES"
 
 [node name="RecipesFrame" type="PanelContainer" parent="InventoryItemDetail/Panel/Margin/VBox"]
+visible = false
 custom_minimum_size = Vector2(0, 132)
 layout_mode = 2
 
@@ -242,15 +247,15 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -312.5
-offset_top = -192.0
-offset_right = 312.5
-offset_bottom = 192.0
+offset_left = -164.0
+offset_top = -407.0
+offset_right = 461.0
+offset_bottom = -23.0
 grow_horizontal = 2
 grow_vertical = 2
 theme = ExtResource("16_brew_theme")
 script = ExtResource("6_h1r0d")
-TitlePath = NodePath("Panel/Margin/VBox/Content/Details/Name")
+TitlePath = NodePath("")
 PortraitPath = NodePath("Panel/Margin/VBox/Content/PortraitFrame/Portrait")
 DesiredTraitsPath = NodePath("Panel/Margin/VBox/RequestTraits/DesiredColumn/DesiredTraits")
 BadTraitsPath = NodePath("Panel/Margin/VBox/RequestTraits/BadColumn/BadTraits")
@@ -260,7 +265,7 @@ SaleResultPanelPath = NodePath("../CustomerSaleResultPanel")
 SaleResultTitlePath = NodePath("../CustomerSaleResultPanel/Margin/VBox/Header/Title")
 SaleResultBodyPath = NodePath("../CustomerSaleResultPanel/Margin/VBox/Body")
 SaleResultCloseButtonPath = NodePath("../CustomerSaleResultPanel/Margin/VBox/Header/Close")
-CloseButtonPath = NodePath("Panel/Margin/VBox/Header/Close")
+CloseButtonPath = NodePath("")
 
 [node name="Panel" type="PanelContainer" parent="CustomerPanel"]
 layout_mode = 1
@@ -282,32 +287,18 @@ theme_override_constants/margin_bottom = 10
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="Header" type="HBoxContainer" parent="CustomerPanel/Panel/Margin/VBox"]
-custom_minimum_size = Vector2(0, 36)
-layout_mode = 2
-theme_override_constants/separation = 8
-
-[node name="Title" type="Label" parent="CustomerPanel/Panel/Margin/VBox/Header"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 22
-text = "Customer Request"
-vertical_alignment = 1
-
-[node name="Close" type="Button" parent="CustomerPanel/Panel/Margin/VBox/Header"]
-custom_minimum_size = Vector2(68, 32)
-layout_mode = 2
-text = "Close"
-
 [node name="Content" type="HBoxContainer" parent="CustomerPanel/Panel/Margin/VBox"]
-custom_minimum_size = Vector2(0, 128)
+custom_minimum_size = Vector2(0, 200)
 layout_mode = 2
 size_flags_horizontal = 3
+size_flags_vertical = 3
 theme_override_constants/separation = 10
 
 [node name="PortraitFrame" type="PanelContainer" parent="CustomerPanel/Panel/Margin/VBox/Content"]
 custom_minimum_size = Vector2(112, 128)
 layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
 
 [node name="Portrait" type="TextureRect" parent="CustomerPanel/Panel/Margin/VBox/Content/PortraitFrame"]
 layout_mode = 2
@@ -317,16 +308,9 @@ stretch_mode = 5
 [node name="Details" type="VBoxContainer" parent="CustomerPanel/Panel/Margin/VBox/Content"]
 layout_mode = 2
 size_flags_horizontal = 3
+size_flags_vertical = 3
+size_flags_stretch_ratio = 2.0
 theme_override_constants/separation = 6
-
-[node name="Name" type="Label" parent="CustomerPanel/Panel/Margin/VBox/Content/Details"]
-custom_minimum_size = Vector2(0, 30)
-layout_mode = 2
-theme_override_font_sizes/font_size = 24
-text = "Customer"
-vertical_alignment = 1
-autowrap_mode = 3
-clip_text = true
 
 [node name="DialogueFrame" type="PanelContainer" parent="CustomerPanel/Panel/Margin/VBox/Content/Details"]
 layout_mode = 2
@@ -441,7 +425,7 @@ text = "Sale Result"
 
 [node name="Close" type="Button" parent="CustomerSaleResultPanel/Margin/VBox/Header"]
 layout_mode = 2
-text = "Close"
+text = "Next customer"
 
 [node name="Body" type="RichTextLabel" parent="CustomerSaleResultPanel/Margin/VBox"]
 custom_minimum_size = Vector2(0, 96)
@@ -506,10 +490,10 @@ anchor_left = 0.406
 anchor_top = 0.6
 anchor_right = 0.692
 anchor_bottom = 1.0
-offset_left = 0.320007
-offset_top = 78.0
-offset_right = 216.24
-offset_bottom = -182.0
+offset_left = -370.68
+offset_top = 80.0
+offset_right = -154.76
+offset_bottom = -180.0
 grow_horizontal = 2
 grow_vertical = 2
 scale = Vector2(0.825, 0.825)
@@ -816,6 +800,11 @@ expand_mode = 1
 stretch_mode = 5
 
 [node name="PotionBookPanel" parent="." instance=ExtResource("18_potion_book")]
+offset_left = 118.0
+offset_top = -16.0
+offset_right = 978.0
+offset_bottom = 568.0
+scale = Vector2(0.845, 0.845)
 
 [node name="RecipeBookPanel" type="Control" parent="."]
 layout_mode = 3

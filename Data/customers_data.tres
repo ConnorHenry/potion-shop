@@ -144,5 +144,75 @@ Entries = [
       "mend": 2
     },
     "badTraits": {}
+  },
+  {
+    "id": "customer_requests_moonlit_rest_draught",
+    "title": "Moonlit Rest Draught",
+    "text": "A night watch clerk points to the recipe book and asks for Moonlit Rest Draught by name. They need its calm, restful dreamwork before another sleepless shift breaks them.",
+    "characterImagePath": "res://Assets/Characters/rest_draught_customer.svg",
+    "requires": {},
+    "weight": 10,
+    "desiredTraits": {
+      "rest": 5,
+      "calm": 3,
+      "dream": 2
+    },
+    "badTraits": {}
+  },
+  {
+    "id": "customer_requests_gravekeepers_balm",
+    "title": "Gravekeeper's Balm",
+    "text": "A cemetery keeper arrives with cracked hands and a stained recipe note. They ask for Gravekeeper's Balm, insisting the book says it soothes, mends, and cleanses.",
+    "characterImagePath": "res://Assets/Characters/gravekeepers_balm_customer.svg",
+    "requires": {},
+    "weight": 10,
+    "desiredTraits": {
+      "soothe": 5,
+      "mend": 3,
+      "cleanse": 2
+    },
+    "badTraits": {}
+  },
+  {
+    "id": "customer_requests_silver_focus_tonic",
+    "title": "Silver Focus Tonic",
+    "text": "A junior magistrate taps the Silver Focus Tonic entry in the recipe book. They need clarity for testimony, courage before the bench, and enough vigor to stay upright.",
+    "characterImagePath": "res://Assets/Characters/silver_focus_customer.svg",
+    "requires": {},
+    "weight": 10,
+    "desiredTraits": {
+      "clarity": 5,
+      "courage": 3,
+      "vigor": 2
+    },
+    "badTraits": {}
+  },
+  {
+    "id": "customer_requests_orchid_charm_philter",
+    "title": "Orchid Charm Philter",
+    "text": "A performer has marked Orchid Charm Philter in the recipe book and asks for that potion exactly. They want charm without losing their calm or the dreamlike edge of the stage.",
+    "characterImagePath": "res://Assets/Characters/orchid_charm_customer.svg",
+    "requires": {},
+    "weight": 10,
+    "desiredTraits": {
+      "charm": 5,
+      "calm": 3,
+      "dream": 2
+    },
+    "badTraits": {}
+  },
+  {
+    "id": "customer_requests_ravenheart_elixir",
+    "title": "Ravenheart Elixir",
+    "text": "A courier with a black sealed letter asks for Ravenheart Elixir from the recipe book. They need courage, vigor, and a little rest before crossing the old road.",
+    "characterImagePath": "res://Assets/Characters/ravenheart_customer.svg",
+    "requires": {},
+    "weight": 10,
+    "desiredTraits": {
+      "courage": 5,
+      "vigor": 3,
+      "rest": 2
+    },
+    "badTraits": {}
   }
 ]

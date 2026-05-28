@@ -1,10 +1,9 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=3 format=3 uid="uid://q4276gq8k64i"]
 
-[ext_resource type="Script" path="res://Scripts/UI/PotionBookPanel.cs" id="1_potion_book_script"]
-[ext_resource type="Theme" path="res://Assets/UI/RecipeBookTheme.tres" id="2_recipe_book_theme"]
+[ext_resource type="Script" uid="uid://67q5gi84o0db" path="res://Scripts/UI/PotionBookPanel.cs" id="1_potion_book_script"]
+[ext_resource type="Theme" uid="uid://dsdgpree5b8xv" path="res://Assets/UI/RecipeBookTheme.tres" id="2_recipe_book_theme"]
 
 [node name="PotionBookPanel" type="Control"]
-visible = false
 layout_mode = 3
 anchors_preset = 8
 anchor_left = 0.5

@@ -111,6 +111,7 @@ public partial class DayController : Node
 		_awaitingSaleResultClose = false;
 		IsShopOpen = true;
 		EmitShopStateChanged();
+		_customerEventController.BeginShopDay();
 
 		if (!TryShowNextCustomer())
 		{
