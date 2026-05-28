@@ -827,12 +827,17 @@ static class Program
     {
         var source = ReadProjectFile("Scripts/Controllers/CustomerEventController.cs");
         var dayController = ReadProjectFile("Scripts/Controllers/DayController.cs");
+        var customerPanel = ReadProjectFile("Scripts/UI/CustomerPanel.cs");
 
         AssertTrue("CustomerEventController no longer uses a fixed index walk", !source.Contains("_nextCustomerIndex"));
         AssertTrue("CustomerEventController keeps a randomized order buffer", source.Contains("_customerOrder"));
         AssertTrue("CustomerEventController randomizes the customer order", source.Contains("_random.Next("));
         AssertTrue("CustomerEventController resets the order at the start of a shop day", source.Contains("BeginShopDay()"));
         AssertTrue("DayController resets customer order when the shop opens", dayController.Contains("_customerEventController.BeginShopDay();"));
+        AssertTrue("DayController tracks when the shop should close after the current customer", dayController.Contains("_shopClosingPending"));
+        AssertTrue("DayController keeps the shop open while the current customer is active at zero seconds", dayController.Contains("_customerPanel.HasActiveInteraction || _awaitingSaleResultClose"));
+        AssertTrue("CustomerPanel exposes active interaction state", customerPanel.Contains("HasActiveInteraction => _interaction is not null"));
+        AssertTrue("CustomerPanel can switch the next button to Close Shop", customerPanel.Contains("SetCloseShopMode(bool closeShopMode)"));
     }
 
     private static void TestRuntimeContentDbSeparatesRuntimeItems()

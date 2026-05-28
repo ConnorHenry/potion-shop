@@ -10,6 +10,7 @@ public partial class Hud : Control
 	[Export] public NodePath GoldLabelPath = default!;
 	[Export] public NodePath DreadLabelPath = default!;
 	[Export] public NodePath DayLabelPath = default!;
+	[Export] public NodePath ShopTimerLabelPath = default!;
 	[Export] public NodePath GameStatePath = new("/root/GameState");
 	[Export] public NodePath SaveGameManagerPath = new("/root/SaveGameManager");
 	[Export] public NodePath DayControllerPath = new("/root/Main/DayController");
@@ -19,6 +20,7 @@ public partial class Hud : Control
 	private Label _gold = default!;
 	private Label _dread = default!;
 	private Label _day = default!;
+	private Label? _shopTimer;
 	private Button _endDayButton = default!;
 	private Button _serveCustomerButton = default!;
 	private Button _brewPotionButton = default!;
@@ -83,6 +85,12 @@ public partial class Hud : Control
 		_gold = GetNode<Label>(GoldLabelPath);
 		_dread = GetNode<Label>(DreadLabelPath);
 		_day = GetNode<Label>(DayLabelPath);
+		_shopTimer = GetNodeOrNull<Label>(ShopTimerLabelPath);
+		if (_shopTimer is null)
+			_shopTimer = GetNodeOrNull<Label>("ShopTimer");
+
+		if (_shopTimer is null)
+			GD.PushError("Hud: Shop timer label node is missing.");
 
 		_endDayButton = GetNode<Button>("EndDay");
 		_serveCustomerButton = GetNode<Button>("ServeCustomer");
@@ -241,6 +249,12 @@ public partial class Hud : Control
 			return;
 
 		var isShopOpen = _dayController.IsShopOpen;
+		var secondsRemaining = _dayController.SecondsRemaining;
+
+		if (_shopTimer is not null)
+			_shopTimer.Text = isShopOpen
+				? $"Shop Timer: {secondsRemaining}s"
+				: "Shop Timer: Closed";
 
 		_serveCustomerButton.Text = isShopOpen ? "Shop Open" : "Start Day";
 		_serveCustomerButton.Disabled = isShopOpen;

@@ -110,6 +110,7 @@ public partial class TutorialController : Node
 	public override void _ExitTree()
 	{
 		RestoreOpenBrewInputLock();
+		ResumeShopTimerAfterTutorial();
 
 		if (_overlay is not null)
 		{
@@ -193,6 +194,7 @@ public partial class TutorialController : Node
 		_isRunning = false;
 		_overlay.HideOverlay();
 		RestoreOpenBrewInputLock();
+		ResumeShopTimerAfterTutorial();
 		_gameState.SkipTutorial();
 	}
 
@@ -324,6 +326,7 @@ public partial class TutorialController : Node
 		_isRunning = false;
 		_overlay.HideOverlay();
 		RestoreOpenBrewInputLock();
+		ResumeShopTimerAfterTutorial();
 		_gameState.CompleteTutorial();
 	}
 
@@ -345,6 +348,7 @@ public partial class TutorialController : Node
 			}
 		}
 
+		UpdateShopTimerPause(step);
 		UpdateOpenBrewInputLock(step);
 		_overlay.SetSkipButtonVisible(true);
 
@@ -537,6 +541,25 @@ public partial class TutorialController : Node
 
 		_inventoryPanel.ClearPotionFiltersForTutorial();
 		return _inventoryPanel.GetVisibleItemSlot(TutorialPotionId);
+	}
+
+	private void UpdateShopTimerPause(TutorialStep step)
+	{
+		if (_dayController is null)
+			return;
+
+		if (_dayController.IsShopOpen && step is TutorialStep.SellPotion or TutorialStep.SaleResult or TutorialStep.NextCustomer or TutorialStep.AmbiguousCustomer)
+		{
+			_dayController.PauseShopTimerForTutorial();
+			return;
+		}
+
+		ResumeShopTimerAfterTutorial();
+	}
+
+	private void ResumeShopTimerAfterTutorial()
+	{
+		_dayController?.ResumeShopTimerAfterTutorial();
 	}
 
 	private Control? GetBlackIchorInventorySlot()
