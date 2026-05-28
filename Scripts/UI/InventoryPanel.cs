@@ -11,6 +11,9 @@ public partial class InventoryPanel : Control
 	private const float SlotSize = 112.0f;
 	private const float IconSize = 70.0f;
 
+	[Signal]
+	public delegate void ItemDetailShownEventHandler(string itemId);
+
 	[Export] public NodePath PotionsContainerPath = default!;
 	[Export] public NodePath IngredientsContainerPath = default!;
 	[Export] public NodePath PotionsSortButtonPath = default!;
@@ -214,6 +217,54 @@ public partial class InventoryPanel : Control
 			_itemDetailCloseButton.Pressed -= HideItemDetail;
 		if (_itemDetailTopCloseButton is not null)
 			_itemDetailTopCloseButton.Pressed -= HideItemDetail;
+	}
+
+	public Control? GetVisibleItemSlot(string itemId)
+	{
+		if (string.IsNullOrWhiteSpace(itemId))
+			return null;
+
+		return FindVisibleItemSlot(_potions, itemId) ?? FindVisibleItemSlot(_ingredients, itemId);
+	}
+
+	public void ClearPotionFiltersForTutorial()
+	{
+		if (string.IsNullOrWhiteSpace(_activePotionTraitFilter) && string.IsNullOrWhiteSpace(_activePotionRiskFilter))
+			return;
+
+		_activePotionTraitFilter = null;
+		_activePotionRiskFilter = null;
+		Refresh();
+	}
+
+	public void ClearIngredientFiltersForTutorial()
+	{
+		if (string.IsNullOrWhiteSpace(_activeIngredientTypeFilter) &&
+			string.IsNullOrWhiteSpace(_activeIngredientTraitFilter) &&
+			string.IsNullOrWhiteSpace(_activeIngredientRiskFilter))
+		{
+			return;
+		}
+
+		_activeIngredientTypeFilter = null;
+		_activeIngredientTraitFilter = null;
+		_activeIngredientRiskFilter = null;
+		Refresh();
+	}
+
+	public Control? GetItemDetailPanel()
+	{
+		return _itemDetailPanel;
+	}
+
+	public Control? GetItemDetailFrame()
+	{
+		return _itemDetailPanel.GetNodeOrNull<Control>("Panel") ?? _itemDetailPanel;
+	}
+
+	public Button? GetItemDetailBrewButton()
+	{
+		return _itemDetailBrewButton;
 	}
 
 	private void TogglePotionsSort()
@@ -611,6 +662,7 @@ public partial class InventoryPanel : Control
 		_itemDetailPanel.Visible = true;
 		_itemDetailPanel.MoveToFront();
 		UpdateBrewButtonState();
+		EmitSignal(SignalName.ItemDetailShown, itemId);
 	}
 
 	private void QueueIngredientFromSlot(string itemId)
@@ -945,6 +997,17 @@ public partial class InventoryPanel : Control
 			_itemDetailKnownRecipes.RemoveChild(child);
 			child.QueueFree();
 		}
+	}
+
+	private static Control? FindVisibleItemSlot(Node root, string itemId)
+	{
+		foreach (var child in root.GetChildren())
+		{
+			if (child is InventoryItemSlot slot && string.Equals(slot.ItemId, itemId, System.StringComparison.OrdinalIgnoreCase))
+				return slot;
+		}
+
+		return null;
 	}
 
 	private static string FormatTopStats(Dictionary<string, int> values, int maxCount, string emptyLabel = "None")

@@ -197,9 +197,28 @@ public partial class SaveGameManager : Node
 
 	public void StartNewGame()
 	{
+		StartNewGameWithTutorialState(tutorialRequested: false, tutorialSkipped: false);
+	}
+
+	public void StartNewGame(bool startTutorial)
+	{
+		StartNewGameWithTutorialState(tutorialRequested: startTutorial, tutorialSkipped: !startTutorial);
+	}
+
+	private void StartNewGameWithTutorialState(bool tutorialRequested, bool tutorialSkipped)
+	{
 		_activeSaveFilePath = null;
 		_runtimeContentDb.ClearRuntimeItems();
 		_gameState.ResetForNewGame();
+
+		if (tutorialRequested)
+		{
+			_gameState.RequestTutorial();
+			return;
+		}
+
+		if (tutorialSkipped)
+			_gameState.SkipTutorial();
 	}
 
 	private bool TryReadSaveData(string saveFilePath, out SaveFileData saveData)

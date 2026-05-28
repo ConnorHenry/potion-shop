@@ -1,4 +1,4 @@
-[gd_scene load_steps=17 format=3 uid="uid://4hripc13we86"]
+[gd_scene load_steps=18 format=3 uid="uid://4hripc13we86"]
 
 [ext_resource type="PackedScene" uid="uid://cikvfbes8y0kf" path="res://Scenes/UI/Hud.tscn" id="1_hud"]
 [ext_resource type="Script" uid="uid://hkjdjmtp1abw" path="res://Scripts/UI/EventModal.cs" id="2_8y3f6"]
@@ -15,6 +15,7 @@
 [ext_resource type="Theme" uid="uid://bcxrpcn1ol80g" path="res://Assets/UI/BrewPanelTheme.tres" id="16_brew_theme"]
 [ext_resource type="Texture2D" uid="uid://bygvuw1k7loxa" path="res://Assets/Items/sight_tonic.svg" id="17_sight_tonic"]
 [ext_resource type="PackedScene" uid="uid://q4276gq8k64i" path="res://Scenes/UI/PotionBookPanel.tscn" id="18_potion_book"]
+[ext_resource type="PackedScene" uid="uid://dux1kpmnsmdmo" path="res://Scenes/UI/TutorialOverlay.tscn" id="19_tutorial_overlay"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_inventory_detail_root"]
 content_margin_left = 14.0
@@ -40,10 +41,12 @@ offset_bottom = 58.0
 RecipeBookPanelPath = NodePath("../PotionBookPanel")
 
 [node name="InventoryPanel" parent="." instance=ExtResource("5_invp")]
-offset_left = -5.0
-offset_top = 6.0
-offset_right = -64.0
-offset_bottom = 6.0
+anchor_left = -0.004
+anchor_top = 0.008
+offset_left = 32.12
+offset_top = -0.76
+offset_right = 35.0
+offset_bottom = 5.0
 ItemDetailTopCloseButtonPath = NodePath("")
 
 [node name="InventoryItemDetail" type="Control" parent="."]
@@ -52,10 +55,10 @@ layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -50.0
-offset_top = -83.0
-offset_right = -50.0
-offset_bottom = -83.0
+offset_left = 238.0
+offset_top = 1.0
+offset_right = -651.0
+offset_bottom = -374.0
 grow_horizontal = 2
 grow_vertical = 2
 theme = ExtResource("16_brew_theme")
@@ -63,10 +66,10 @@ theme = ExtResource("16_brew_theme")
 [node name="Panel" type="PanelContainer" parent="InventoryItemDetail"]
 custom_minimum_size = Vector2(280, 280)
 layout_mode = 0
-offset_left = 477.0
-offset_top = 305.0
-offset_right = 870.0
-offset_bottom = 648.0
+offset_left = -1.0
+offset_top = -1.0
+offset_right = 392.0
+offset_bottom = 342.0
 theme_type_variation = &"BrewRoot"
 theme_override_styles/panel = SubResource("StyleBoxFlat_inventory_detail_root")
 script = ExtResource("12_6x1m8")
@@ -486,14 +489,14 @@ text = "Continue to Night"
 [node name="BrewPanel" type="Control" parent="."]
 custom_minimum_size = Vector2(560, 0)
 layout_mode = 3
-anchor_left = 0.406
-anchor_top = 0.6
-anchor_right = 0.692
+anchor_left = 0.116
+anchor_top = 1.0
+anchor_right = 0.492
 anchor_bottom = 1.0
-offset_left = -370.68
-offset_top = 80.0
-offset_right = -154.76
-offset_bottom = -180.0
+offset_left = 155.52
+offset_top = -234.0
+offset_right = 256.24
+offset_bottom = -234.0
 grow_horizontal = 2
 grow_vertical = 2
 scale = Vector2(0.825, 0.825)
@@ -526,6 +529,10 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_left = 2.42424
+offset_top = -360.0
+offset_right = 2.42432
+offset_bottom = 282.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_type_variation = &"BrewRoot"
@@ -975,3 +982,5 @@ fit_content = true
 
 [node name="Choices" type="VBoxContainer" parent="EventModal/Panel/Margin/VBox"]
 layout_mode = 2
+
+[node name="TutorialOverlay" parent="." instance=ExtResource("19_tutorial_overlay")]

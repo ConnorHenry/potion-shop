@@ -17,6 +17,10 @@ public sealed class GameStateSnapshot
 	public int Day { get; set; } = 1;
 	public int Gold { get; set; } = 0;
 	public int Dread { get; set; } = 0;
+	public bool TutorialRequested { get; set; }
+	public bool TutorialCompleted { get; set; }
+	public bool TutorialSkipped { get; set; }
+	public int TutorialStep { get; set; }
 	public Dictionary<string, int> Inventory { get; set; } = new();
 	public List<string> ActiveRules { get; set; } = new();
 	public List<string> KnownPotions { get; set; } = new();

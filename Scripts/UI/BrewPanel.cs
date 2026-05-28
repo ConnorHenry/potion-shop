@@ -10,6 +10,12 @@ namespace OccultShop.UI;
 
 public partial class BrewPanel : Control
 {
+	[Signal]
+	public delegate void IngredientQueuedEventHandler(string itemId, int queuedCount);
+
+	[Signal]
+	public delegate void PotionBrewedEventHandler(string potionItemId);
+
 	private const string DefaultPotionIconPath = "res://Assets/Items/sight_tonic.svg";
 	private const string PotionIconsDirectoryPath = "res://Assets/Potions";
 	private const int BrewedPotionOutputQuantity = 1;
@@ -274,6 +280,7 @@ public partial class BrewPanel : Control
 		_queuedIngredients.Add(itemId);
 		_resultLabel.Text = "";
 		RefreshIngredientIcons();
+		EmitSignal(SignalName.IngredientQueued, itemId, _queuedIngredients.Count);
 	}
 
 	private void ClearQueue()
@@ -352,6 +359,7 @@ public partial class BrewPanel : Control
 		_gameState.RecordPotionRecipe(potionItemId, _queuedIngredients);
 		_gameState.AddItem(potionItemId, BrewedPotionOutputQuantity);
 		_gameState.RecordPotionBatch(potionItemId, _queuedIngredients);
+		EmitSignal(SignalName.PotionBrewed, potionItemId);
 		_queuedIngredients.Clear();
 		ResetSlotDragState();
 		RefreshIngredientIcons();

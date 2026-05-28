@@ -15,6 +15,10 @@ public partial class CustomerPanel : Control
 	public delegate void CustomerSkippedEventHandler();
 	[Signal]
 	public delegate void SaleResultClosedEventHandler();
+	[Signal]
+	public delegate void PotionSoldEventHandler(string itemId, bool success);
+	[Signal]
+	public delegate void InteractionShownEventHandler(string interactionId);
 
 	public bool SuppressSaleResultPanel { get; set; }
 
@@ -156,6 +160,12 @@ public partial class CustomerPanel : Control
 		SetPortrait(interaction.CharacterImagePath);
 		SetRequestTraits(request);
 		SetSalePendingState();
+		EmitSignal(SignalName.InteractionShown, interaction.Id);
+	}
+
+	public Button? GetNextCustomerButton()
+	{
+		return _nextCustomerButton;
 	}
 
 	public void HidePanel()
@@ -206,6 +216,7 @@ public partial class CustomerPanel : Control
 				saleResult.DreadDelta,
 				brewResult.FinalScore,
 				brewResult.Grade);
+			EmitSignal(SignalName.PotionSold, itemId, saleResult.IsSuccess);
 			return;
 		}
 
@@ -217,6 +228,7 @@ public partial class CustomerPanel : Control
 			saleResult.DreadDelta,
 			brewResult.FinalScore,
 			brewResult.Grade);
+		EmitSignal(SignalName.PotionSold, itemId, saleResult.IsSuccess);
 	}
 
 	private bool TryResolvePotionScore(string itemId, out PotionResult? brewResult)

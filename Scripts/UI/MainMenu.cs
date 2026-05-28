@@ -80,13 +80,12 @@ public partial class MainMenu : Control
 
 	private void OnStartTutorialPressed()
 	{
-		// TODO: Pass tutorial intent into game state when tutorial persistence is added.
-		StartNewGame();
+		StartNewGame(startTutorial: true);
 	}
 
 	private void OnSkipTutorialPressed()
 	{
-		StartNewGame();
+		StartNewGame(startTutorial: false);
 	}
 
 	private void OnLoadButtonPressed()
@@ -117,10 +116,10 @@ public partial class MainMenu : Control
 		_startTutorialButton.GrabFocus();
 	}
 
-	private void StartNewGame()
+	private void StartNewGame(bool startTutorial)
 	{
 		_newGameTutorialPopup.Visible = false;
-		_saveGameManager.StartNewGame();
+		_saveGameManager.StartNewGame(startTutorial);
 
 		Error error = GetTree().ChangeSceneToFile("res://Main.tscn");
 		if (error != Error.Ok)
