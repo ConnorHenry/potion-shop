@@ -24,21 +24,24 @@ static class Program
         Run("Scores a clean positive brew", TestPositiveBrew);
         Run("Handles negative synergy and penalties", TestNegativeBrew);
         Run("UI classes exist and keep expected base types", TestUiClassPresenceAndBaseTypes);
+        Run("Draggable panel whole-panel drag respects child action buttons", TestDraggablePanelWholePanelDragRespectsChildButtons);
         Run("InventoryPanel splits inventory labels predictably", TestInventoryPanelSplitInventoryName);
         Run("InventoryPanel dictionary formatting is stable", TestInventoryPanelFormatDictionary);
         Run("InventoryPanel top-traits formatting is stable", TestInventoryPanelFormatTopTraits);
         Run("InventoryPanel potion filter uses only top traits", TestInventoryPanelPotionFilterUsesOnlyTopTraits);
+        Run("InventoryPanel closes detail after successful right-click queue of same ingredient", TestInventoryPanelRightClickQueueClosesMatchingDetail);
         Run("InventoryPanel risk filter is wired", TestInventoryPanelRiskFilterIsWired);
+        Run("InventoryPanel ingredient type filter is populated and fixed", TestInventoryPanelTypeFilterIsPopulatedAndFixed);
         Run("RecipeBookPanel dictionary formatting is stable", TestRecipeBookPanelFormatDictionary);
         Run("RecipeBookPanel top-traits formatting is stable", TestRecipeBookPanelFormatTopTraits);
         Run("RecipeBookPanel entry shows traits and risks to the right of ingredients", TestRecipeBookPanelEntryShowsTraitsAndRisksToTheRightOfIngredients);
         Run("BrewPanel ingredient tag detection is case-insensitive", TestBrewPanelIsIngredient);
-        Run("BrewPanel rejects duplicate queued ingredients", TestBrewPanelRejectsDuplicateQueuedIngredients);
         Run("BrewPanel previews potion names before brewing", TestBrewPanelPreviewNameIsWired);
         Run("Brew and inventory price wiring stays intact", TestBrewAndInventoryPriceWiring);
         Run("Potion base price survives snapshot round-trips", TestPotionBasePriceSnapshotRoundTrip);
         Run("ItemDef price converter accepts price fields", TestItemDefPriceConverterSupportsPriceFields);
         Run("CustomerPanel creates detached ingredient snapshots", TestCustomerPanelBuildPotionIngredientDef);
+        Run("Customer events randomize shop-day order", TestCustomerEventControllerRandomizesOrder);
         Run("RuntimeContentDb stores generated items separately", TestRuntimeContentDbSeparatesRuntimeItems);
         Run("DataDb does not expose runtime registration", TestDataDbDoesNotExposeRuntimeRegistration);
         Run("DataDb reloads authored resource catalogs only", TestDataDbReloadsAuthoredResourceCatalogsOnly);
@@ -474,6 +477,23 @@ static class Program
         AssertEqual("Empty second line", string.Empty, emptyArgs[2] as string ?? string.Empty);
     }
 
+    private static void TestDraggablePanelWholePanelDragRespectsChildButtons()
+    {
+        var draggablePanel = ReadProjectFile("Scripts/UI/DraggablePanel.cs");
+        var inventoryPanel = ReadProjectFile("Scripts/UI/InventoryPanel.cs");
+
+        AssertTrue("DraggablePanel inspects hovered GUI control before drag",
+            draggablePanel.Contains("GuiGetHoveredControl()"));
+        AssertTrue("DraggablePanel prevents whole-panel drag when a child button is hovered",
+            draggablePanel.Contains("hoveredControl is BaseButton"));
+        AssertTrue("DraggablePanel only applies button guard to its own children",
+            draggablePanel.Contains("IsAncestorOf(hoveredControl)"));
+        AssertTrue("InventoryPanel close button remains wired to hide detail",
+            inventoryPanel.Contains("_itemDetailCloseButton.Pressed += HideItemDetail;"));
+        AssertTrue("InventoryPanel add-to-brew button remains wired",
+            inventoryPanel.Contains("_itemDetailBrewButton.Pressed += TryUseSelectedItem;"));
+    }
+
     private static void TestInventoryPanelFormatDictionary()
     {
         var values = new Dictionary<string, int>
@@ -483,14 +503,14 @@ static class Program
             ["alpha"] = 4
         };
 
-        var formatted = InvokePrivateStatic<string>("OccultShop.UI.InventoryPanel", "FormatDictionary", values);
-        AssertEqual("Inventory dictionary order", "alpha: 4\nbeta: 4\nzeta: 2", formatted);
+        var formatted = InvokePrivateStatic<string>("OccultShop.UI.InventoryPanel", "FormatTopStats", values, 3, "None");
+        AssertEqual("Inventory dictionary order", "Alpha +4\nBeta +4\nZeta +2", formatted);
 
-        var empty = InvokePrivateStatic<string>("OccultShop.UI.InventoryPanel", "FormatDictionary", new Dictionary<string, int>());
-        AssertEqual("Inventory dictionary empty", "None", empty);
+        var empty = InvokePrivateStatic<string>("OccultShop.UI.InventoryPanel", "FormatTopStats", new Dictionary<string, int>(), 3, "None");
+        AssertEqual("Inventory dictionary empty", "None\n\n", empty);
 
-        var nullValue = InvokePrivateStatic<string>("OccultShop.UI.InventoryPanel", "FormatDictionary", (object?)null);
-        AssertEqual("Inventory dictionary null", "None", nullValue);
+        var nullValue = InvokePrivateStatic<string>("OccultShop.UI.InventoryPanel", "FormatTopStats", (object?)null, 3, "None");
+        AssertEqual("Inventory dictionary null", "None\n\n", nullValue);
     }
 
     private static void TestInventoryPanelFormatTopTraits()
@@ -503,11 +523,11 @@ static class Program
             ["calm"] = 2
         };
 
-        var formatted = InvokePrivateStatic<string>("OccultShop.UI.InventoryPanel", "FormatTopTraits", values, 2);
-        AssertEqual("Inventory top traits order", "focus: 5\nsleep: 5", formatted);
+        var formatted = InvokePrivateStatic<string>("OccultShop.UI.InventoryPanel", "FormatTopStats", values, 2, "None");
+        AssertEqual("Inventory top traits order", "Focus +5\nSleep +5", formatted);
 
-        var empty = InvokePrivateStatic<string>("OccultShop.UI.InventoryPanel", "FormatTopTraits", new Dictionary<string, int>(), 3);
-        AssertEqual("Inventory top traits empty", "None", empty);
+        var empty = InvokePrivateStatic<string>("OccultShop.UI.InventoryPanel", "FormatTopStats", new Dictionary<string, int>(), 3, "None");
+        AssertEqual("Inventory top traits empty", "None\n\n", empty);
     }
 
     private static void TestInventoryPanelPotionFilterUsesOnlyTopTraits()
@@ -515,11 +535,11 @@ static class Program
         var inventoryPanel = ReadProjectFile("Scripts/UI/InventoryPanel.cs");
 
         AssertTrue("InventoryPanel builds potion trait names from the top three traits only",
-            inventoryPanel.Contains("var potionTraitNames = BuildTopTraitNames(potionStacks, 3);"));
+            inventoryPanel.Contains("ItemFilterUtilities.BuildTopTraitNames(potionStacks.Select(x => x.Key), 3, _itemCatalog)"));
         AssertTrue("InventoryPanel keeps ingredient trait names unchanged",
-            inventoryPanel.Contains("var ingredientTraitNames = BuildTraitNames(ingredientStacks);"));
+            inventoryPanel.Contains("ItemFilterUtilities.BuildTraitNames(ingredientStacks.Select(x => x.Key), _itemCatalog)"));
         AssertTrue("InventoryPanel top-trait helper limits the selected traits",
-            inventoryPanel.Contains(".Take(maxCount)"));
+            ReadProjectFile("Scripts/UI/ItemFilterUtilities.cs").Contains(".Take(maxCount)"));
     }
 
     private static void TestInventoryPanelRiskFilterIsWired()
@@ -529,55 +549,85 @@ static class Program
 
         AssertTrue("InventoryPanel exports a potion risk filter path",
             inventoryPanel.Contains("PotionsRiskFilterPath"));
+        AssertTrue("InventoryPanel exports an ingredient type filter path",
+            inventoryPanel.Contains("IngredientsTypeFilterPath"));
         AssertTrue("InventoryPanel exports an ingredient risk filter path",
             inventoryPanel.Contains("IngredientsRiskFilterPath"));
+        AssertTrue("InventoryPanel keeps fixed ingredient type options",
+            inventoryPanel.Contains("IngredientTypeFilterOptions"));
+        AssertTrue("InventoryPanel filters ingredients by selected type",
+            inventoryPanel.Contains("ItemHasIngredientType(stack.Key, _activeIngredientTypeFilter)"));
         AssertTrue("InventoryPanel builds risk names",
-            inventoryPanel.Contains("BuildRiskNames(potionStacks)"));
+            inventoryPanel.Contains("ItemFilterUtilities.BuildRiskNames(potionStacks.Select(x => x.Key), _itemCatalog)"));
         AssertTrue("InventoryPanel checks potion risks",
-            inventoryPanel.Contains("ItemHasRisk(stack.Key, _activePotionRiskFilter)"));
+            inventoryPanel.Contains("ItemFilterUtilities.ItemHasRisk(stack.Key, _activePotionRiskFilter, _itemCatalog)"));
         AssertTrue("InventoryPanel checks ingredient risks",
-            inventoryPanel.Contains("ItemHasRisk(stack.Key, _activeIngredientRiskFilter)"));
+            inventoryPanel.Contains("ItemFilterUtilities.ItemHasRisk(stack.Key, _activeIngredientRiskFilter, _itemCatalog)"));
         AssertTrue("InventoryPanel defines potion risk filter in the scene",
             scene.Contains("PotionsRiskFilterPath = NodePath(\"Panel/Margin/VBox/PotionsHeaderRow/RiskFilter\")"));
+        AssertTrue("InventoryPanel type filter wiring is provided by scene path or fallback lookup",
+            scene.Contains("IngredientsTypeFilterPath = NodePath(\"Panel/Margin/VBox/IngredientsHeaderRow/TypeFilter\")")
+            || inventoryPanel.Contains("IngredientsTypeFilterPath.IsEmpty"));
         AssertTrue("InventoryPanel defines ingredient risk filter in the scene",
             scene.Contains("IngredientsRiskFilterPath = NodePath(\"Panel/Margin/VBox/IngredientsHeaderRow/RiskFilter\")"));
         AssertTrue("InventoryPanel scene places potion risk filter to the right of trait filter",
             scene.Contains("[node name=\"RiskFilter\" type=\"OptionButton\" parent=\"Panel/Margin/VBox/PotionsHeaderRow\"]"));
         AssertTrue("InventoryPanel scene places ingredient risk filter to the right of trait filter",
             scene.Contains("[node name=\"RiskFilter\" type=\"OptionButton\" parent=\"Panel/Margin/VBox/IngredientsHeaderRow\"]"));
+        AssertTrue("InventoryPanel scene includes ingredient type filter",
+            scene.Contains("[node name=\"TypeFilter\" type=\"OptionButton\" parent=\"Panel/Margin/VBox/IngredientsHeaderRow\"]"));
+    }
+
+    private static void TestInventoryPanelRightClickQueueClosesMatchingDetail()
+    {
+        var source = ReadProjectFile("Scripts/UI/InventoryPanel.cs");
+
+        AssertTrue("InventoryPanel records quantity before right-click queue attempt",
+            source.Contains("var quantityBeforeQueue = _gameState.Inventory.GetValueOrDefault(itemId);"));
+        AssertTrue("InventoryPanel records quantity after right-click queue attempt",
+            source.Contains("var quantityAfterQueue = _gameState.Inventory.GetValueOrDefault(itemId);"));
+        AssertTrue("InventoryPanel only treats queue as success when inventory decreases",
+            source.Contains("var queuedSuccessfully = quantityAfterQueue < quantityBeforeQueue;"));
+        AssertTrue("InventoryPanel only closes detail when same item is currently selected",
+            source.Contains("string.Equals(_currentItemId, itemId, System.StringComparison.OrdinalIgnoreCase)"));
+        AssertTrue("InventoryPanel hides detail after successful matching queue",
+            source.Contains("HideItemDetail();"));
+    }
+
+    private static void TestInventoryPanelTypeFilterIsPopulatedAndFixed()
+    {
+        var source = ReadProjectFile("Scripts/UI/InventoryPanel.cs");
+
+        AssertTrue("InventoryPanel keeps a fixed type options list", source.Contains("IngredientTypeFilterOptions"));
+        AssertTrue("InventoryPanel includes Herb option", source.Contains("\"Herb\""));
+        AssertTrue("InventoryPanel includes Liquid option", source.Contains("\"Liquid\""));
+        AssertTrue("InventoryPanel includes Catalyst option", source.Contains("\"Catalyst\""));
+        AssertTrue("InventoryPanel refreshes ingredient type options explicitly",
+            source.Contains("RefreshIngredientTypeFilterOptions();"));
+        AssertTrue("InventoryPanel uses TypeFilter fallback lookup when exported path is empty",
+            source.Contains("IngredientsTypeFilterPath.IsEmpty"));
+        AssertTrue("InventoryPanel fallback path targets the ingredients type filter node",
+            source.Contains("Panel/Margin/VBox/IngredientsHeaderRow/TypeFilter"));
+        AssertTrue("InventoryPanel applies the selected type filter to ingredient stacks",
+            source.Contains("ItemHasIngredientType(stack.Key, _activeIngredientTypeFilter)"));
     }
 
     private static void TestRecipeBookPanelFormatDictionary()
     {
-        var values = new Dictionary<string, int>
-        {
-            ["zeta"] = 2,
-            ["beta"] = 4,
-            ["alpha"] = 4
-        };
+        var normalized = InvokePrivateStatic<string>("OccultShop.UI.RecipeBookPanel", "ToDisplayStatName", "alpha_beta");
+        AssertEqual("Recipe stat formatter keeps stable title casing", "Alpha_Beta", normalized);
 
-        var formatted = InvokePrivateStatic<string>("OccultShop.UI.RecipeBookPanel", "FormatDictionary", values);
-        AssertEqual("Recipe dictionary order", "alpha: 4, beta: 4, zeta: 2", formatted);
-
-        var empty = InvokePrivateStatic<string>("OccultShop.UI.RecipeBookPanel", "FormatDictionary", new Dictionary<string, int>());
-        AssertEqual("Recipe dictionary empty", "None", empty);
+        var empty = InvokePrivateStatic<string>("OccultShop.UI.RecipeBookPanel", "ToDisplayStatName", "");
+        AssertEqual("Recipe stat formatter handles empty names", "Unknown", empty);
     }
 
     private static void TestRecipeBookPanelFormatTopTraits()
     {
-        var values = new Dictionary<string, int>
-        {
-            ["chaos"] = 1,
-            ["sleep"] = 5,
-            ["focus"] = 5,
-            ["calm"] = 2
-        };
+        var uppercase = InvokePrivateStatic<string>("OccultShop.UI.RecipeBookPanel", "ToDisplayStatName", "SLEEP");
+        AssertEqual("Recipe stat formatter lowers then title-cases uppercase names", "Sleep", uppercase);
 
-        var formatted = InvokePrivateStatic<string>("OccultShop.UI.RecipeBookPanel", "FormatTopTraits", values, 2);
-        AssertEqual("Recipe top traits order", "focus: 5, sleep: 5", formatted);
-
-        var empty = InvokePrivateStatic<string>("OccultShop.UI.RecipeBookPanel", "FormatTopTraits", new Dictionary<string, int>(), 3);
-        AssertEqual("Recipe top traits empty", "None", empty);
+        var spaced = InvokePrivateStatic<string>("OccultShop.UI.RecipeBookPanel", "ToDisplayStatName", "moon dust");
+        AssertEqual("Recipe stat formatter preserves multi-word title casing", "Moon Dust", spaced);
     }
 
     private static void TestRecipeBookPanelEntryShowsTraitsAndRisksToTheRightOfIngredients()
@@ -634,11 +684,15 @@ static class Program
     {
         var source = ReadProjectFile("Scripts/UI/BrewPanel.cs");
 
-        AssertTrue("BrewPanel prevents duplicate queue entries",
+        AssertTrue("BrewPanel still prevents duplicate queue entries",
             source.Contains("Each ingredient can only be used once per potion."));
-        AssertTrue("BrewPanel checks the current queue before consuming inventory",
-            source.Contains("_queuedIngredients.Any(x => string.Equals(x, itemId, System.StringComparison.OrdinalIgnoreCase))"));
-        AssertTrue("BrewPanel duplicate guard remains list-based without stack counting",
+        AssertTrue("BrewPanel blocks duplicate ingredient types with a specific message",
+            source.Contains("Cannot add duplicate type: {newIngredientType} (need one herb, one liquid, one catalyst)"));
+        AssertTrue("BrewPanel requires one of each ingredient type before brewing",
+            source.Contains("Brewing requires one herb, one liquid, and one catalyst."));
+        AssertTrue("BrewPanel resolves item types from tags",
+            source.Contains("TryGetIngredientType(ItemDef item, out string ingredientType)"));
+        AssertTrue("BrewPanel queue remains list-based without stack counting",
             source.Contains("private readonly List<string> _queuedIngredients = new();"));
         AssertTrue("Inventory drag/drop still routes through TryQueueIngredient",
             ReadProjectFile("Scripts/UI/InventoryPanel.cs").Contains("_brewPanel.TryQueueIngredient(itemId);"));
@@ -731,7 +785,8 @@ static class Program
     private static void TestCustomerPanelBuildPotionIngredientDef()
     {
         var itemDefType = GetTypeFromUiAssembly("OccultShop.Models.ItemDef");
-        var ingredientDefType = GetTypeFromUiAssembly("IngredientDef");
+        var ingredientDefType = GetTypeFromUiAssembly("OccultShop.Models.IngredientDef");
+        var ingredientFactoryType = GetTypeFromUiAssembly("OccultShop.Systems.IngredientDefFactory");
         var item = Activator.CreateInstance(itemDefType)
             ?? throw new InvalidOperationException("Failed to create ItemDef instance.");
 
@@ -746,8 +801,10 @@ static class Program
         SetProperty(item, "Risks", sourceRisks);
         SetProperty(item, "Tags", sourceTags);
 
-        var result = InvokePrivateStatic("OccultShop.UI.CustomerPanel", "BuildPotionIngredientDef", item)
-            ?? throw new InvalidOperationException("BuildPotionIngredientDef returned null.");
+        var method = ingredientFactoryType.GetMethod("FromItemDef", BindingFlags.Public | BindingFlags.Static)
+            ?? throw new InvalidOperationException("IngredientDefFactory.FromItemDef was not found.");
+        var result = method.Invoke(null, new[] { item })
+            ?? throw new InvalidOperationException("IngredientDefFactory.FromItemDef returned null.");
 
         AssertEqual("Returned type", ingredientDefType.FullName ?? "IngredientDef", result.GetType().FullName ?? string.Empty);
         AssertEqual("Ingredient id", "moon_leaf", GetProperty<string>(result, "Id"));
@@ -764,6 +821,18 @@ static class Program
         AssertTrue("Traits dictionary cloned", !ReferenceEquals(sourceTraits, traits));
         AssertTrue("Risks dictionary cloned", !ReferenceEquals(sourceRisks, risks));
         AssertTrue("Tags list cloned", !ReferenceEquals(sourceTags, tags));
+    }
+
+    private static void TestCustomerEventControllerRandomizesOrder()
+    {
+        var source = ReadProjectFile("Scripts/Controllers/CustomerEventController.cs");
+        var dayController = ReadProjectFile("Scripts/Controllers/DayController.cs");
+
+        AssertTrue("CustomerEventController no longer uses a fixed index walk", !source.Contains("_nextCustomerIndex"));
+        AssertTrue("CustomerEventController keeps a randomized order buffer", source.Contains("_customerOrder"));
+        AssertTrue("CustomerEventController randomizes the customer order", source.Contains("_random.Next("));
+        AssertTrue("CustomerEventController resets the order at the start of a shop day", source.Contains("BeginShopDay()"));
+        AssertTrue("DayController resets customer order when the shop opens", dayController.Contains("_customerEventController.BeginShopDay();"));
     }
 
     private static void TestRuntimeContentDbSeparatesRuntimeItems()
@@ -817,8 +886,10 @@ static class Program
     private static void TestUiLookupUsesRuntimeFirstCatalog()
     {
         var itemCatalog = ReadProjectFile("Scripts/Autoload/ItemCatalog.cs");
-        AssertTrue("ItemCatalog checks runtime first", itemCatalog.Contains("RuntimeContentDb.TryGetItem(itemId, out item)"));
-        AssertTrue("ItemCatalog falls back to DataDb", itemCatalog.Contains("DataDb.TryGetItem(itemId, out item)"));
+        var itemCatalogService = ReadProjectFile("Scripts/Autoload/ItemCatalogService.cs");
+        AssertTrue("ItemCatalog static wrapper delegates to the service", itemCatalog.Contains("Service.TryGetItem(itemId, out item)"));
+        AssertTrue("ItemCatalogService checks runtime first", itemCatalogService.Contains("_runtimeContentDb.TryGetItem(itemId, out item)"));
+        AssertTrue("ItemCatalogService falls back to DataDb", itemCatalogService.Contains("_dataDb.TryGetItem(itemId, out item)"));
 
         var brewPanel = ReadProjectFile("Scripts/UI/BrewPanel.cs");
         var inventoryPanel = ReadProjectFile("Scripts/UI/InventoryPanel.cs");
@@ -826,11 +897,13 @@ static class Program
         var customerPanel = ReadProjectFile("Scripts/UI/CustomerPanel.cs");
         var brewService = ReadProjectFile("Scripts/Systems/PotionInventoryBrewService.cs");
 
-        AssertTrue("BrewPanel resolves through ItemCatalog", brewPanel.Contains("ItemCatalog.TryGetItem") && brewPanel.Contains("ItemCatalog.GetItemName"));
-        AssertTrue("InventoryPanel resolves through ItemCatalog", inventoryPanel.Contains("ItemCatalog.TryGetItem") && inventoryPanel.Contains("ItemCatalog.GetItemName"));
-        AssertTrue("RecipeBookPanel resolves through ItemCatalog", recipeBookPanel.Contains("ItemCatalog.TryGetItem") && recipeBookPanel.Contains("ItemCatalog.GetItemName"));
-        AssertTrue("CustomerPanel resolves through ItemCatalog", customerPanel.Contains("ItemCatalog.TryGetItem") && customerPanel.Contains("ItemCatalog.GetItemName"));
-        AssertTrue("PotionInventoryBrewService resolves through ItemCatalog", brewService.Contains("ItemCatalog.GetItemName"));
+        AssertTrue("BrewPanel resolves ItemCatalogService through an exported path", brewPanel.Contains("GetNodeOrNull<ItemCatalogService>(ItemCatalogPath)"));
+        AssertTrue("InventoryPanel resolves ItemCatalogService through an exported path", inventoryPanel.Contains("GetNodeOrNull<ItemCatalogService>(ItemCatalogPath)"));
+        AssertTrue("InventoryPanel exposes item type tag path for detail view", ReadProjectFile("Scenes/UI/InventoryPanel.tscn").Contains("ItemDetailTypeTagPath = NodePath(\"../InventoryItemDetail/Panel/Margin/VBox/TopRow/Identity/TypeTag\")"));
+        AssertTrue("InventoryPanel uses player-visible tag rules for item type text", inventoryPanel.Contains("ItemTagDisplayRules"));
+        AssertTrue("RecipeBookPanel resolves ItemCatalogService through an exported path", recipeBookPanel.Contains("GetNodeOrNull<ItemCatalogService>(ItemCatalogPath)"));
+        AssertTrue("CustomerPanel resolves ItemCatalogService through an exported path", customerPanel.Contains("GetNodeOrNull<ItemCatalogService>(ItemCatalogPath)"));
+        AssertTrue("PotionInventoryBrewService uses constructor-injected ItemCatalogService", brewService.Contains("PotionInventoryBrewService(GameState gameState, ItemCatalogService itemCatalog)"));
         AssertTrue("BrewPanel still registers runtime potions separately", brewPanel.Contains("RegisterRuntimePotionItem"));
     }
 
@@ -889,10 +962,10 @@ static class Program
         AssertTrue("RecipeBookPanel exports a risk filter path", source.Contains("RiskFilterPath"));
         AssertTrue("RecipeBookPanel wires the reset button handler", source.Contains("_resetButton.Pressed += ClearFilters"));
         AssertTrue("RecipeBookPanel reset button clears filters", source.Contains("private void ClearFilters()"));
-        AssertTrue("RecipeBookPanel builds trait filter options from learned potions", source.Contains("BuildTopTraitNames(learnedPotionIds, 3)"));
-        AssertTrue("RecipeBookPanel builds risk filter options from learned potions", source.Contains("BuildRiskNames(learnedPotionIds)"));
-        AssertTrue("RecipeBookPanel filters by traits", source.Contains("ItemHasTrait(entry.PotionId, _activeTraitFilter)"));
-        AssertTrue("RecipeBookPanel filters by risks", source.Contains("ItemHasRisk(entry.PotionId, _activeRiskFilter)"));
+        AssertTrue("RecipeBookPanel builds trait filter options from learned potions", source.Contains("ItemFilterUtilities.BuildTopTraitNames"));
+        AssertTrue("RecipeBookPanel builds risk filter options from learned potions", source.Contains("ItemFilterUtilities.BuildRiskNames"));
+        AssertTrue("RecipeBookPanel filters by traits", source.Contains("ItemFilterUtilities.ItemHasTrait"));
+        AssertTrue("RecipeBookPanel filters by risks", source.Contains("ItemFilterUtilities.ItemHasRisk"));
         AssertTrue("RecipeBookPanel scene wires reset button path", scene.Contains("ResetButtonPath = NodePath(\"Panel/Margin/VBox/Header/SearchRow/ResetFilters\")"));
         AssertTrue("RecipeBookPanel scene wires search input path", scene.Contains("SearchInputPath = NodePath(\"Panel/Margin/VBox/Header/SearchRow/SearchInput\")"));
         AssertTrue("RecipeBookPanel scene wires sort filter path", scene.Contains("SortFilterPath = NodePath(\"Panel/Margin/VBox/Header/FilterRow/SortFilter\")"));

@@ -19,4 +19,7 @@ public partial class AuthoredDataResource : Resource
 
 	[Export]
 	public string SynergiesPath { get; set; } = "res://Data/synergies_data.tres";
+
+	[Export]
+	public string PotionRecipesPath { get; set; } = "res://Data/potion_recipes_data.tres";
 }

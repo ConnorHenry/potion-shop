@@ -13,6 +13,9 @@ public partial class BrewPanel : Control
 	private const string DefaultPotionIconPath = "res://Assets/Items/sight_tonic.svg";
 	private const string PotionIconsDirectoryPath = "res://Assets/Potions";
 	private const int BrewedPotionOutputQuantity = 1;
+	private const string HerbTypeTag = "herb";
+	private const string LiquidTypeTag = "liquid";
+	private const string CatalystTypeTag = "catalyst";
 
 	[Export] public NodePath BrewBoxPath = default!;
 	[Export] public NodePath IngredientSlotOnePath = default!;
@@ -34,6 +37,10 @@ public partial class BrewPanel : Control
 	[Export] public NodePath IngredientCountLabelPath = default!;
 	[Export] public NodePath BrewButtonPath = default!;
 	[Export] public NodePath ClearButtonPath = default!;
+	[Export] public NodePath RuntimeContentDbPath = new("/root/RuntimeContentDb");
+	[Export] public NodePath DataDbPath = new("/root/DataDb");
+	[Export] public NodePath GameStatePath = new("/root/GameState");
+	[Export] public NodePath ItemCatalogPath = new("/root/ItemCatalog");
 
 	private Button _closeButton = default!;
 	private BrewDropBox _brewBox = default!;
@@ -59,7 +66,9 @@ public partial class BrewPanel : Control
 	private RuntimeContentDb _runtimeContentDb = default!;
 	private DataDb _dataDb = default!;
 	private GameState _gameState = default!;
+	private ItemCatalogService _itemCatalog = default!;
 	private readonly List<string> _queuedIngredients = new();
+	private readonly Dictionary<string, PotionRecipeDef> _predefinedPotionRecipesByCombination = new(System.StringComparer.OrdinalIgnoreCase);
 	private readonly PotionBrewingService _brewingService = new();
 	private string _previewPotionCombinationKey = string.Empty;
 	private string _previewPotionName = string.Empty;
@@ -72,30 +81,39 @@ public partial class BrewPanel : Control
 
 	public override void _Ready()
 	{
-		var runtimeContentDb = GetNodeOrNull<RuntimeContentDb>("/root/RuntimeContentDb");
+		var runtimeContentDb = GetNodeOrNull<RuntimeContentDb>(RuntimeContentDbPath);
 		if (runtimeContentDb is null)
 		{
-			GD.PushError("BrewPanel: /root/RuntimeContentDb was not found.");
+			GD.PushError($"BrewPanel: RuntimeContentDb was not found at '{RuntimeContentDbPath}'.");
 			return;
 		}
 
-		var dataDb = GetNodeOrNull<DataDb>("/root/DataDb");
+		var dataDb = GetNodeOrNull<DataDb>(DataDbPath);
 		if (dataDb is null)
 		{
-			GD.PushError("BrewPanel: /root/DataDb was not found.");
+			GD.PushError($"BrewPanel: DataDb was not found at '{DataDbPath}'.");
 			return;
 		}
 
-		var gameState = GetNodeOrNull<GameState>("/root/GameState");
+		var gameState = GetNodeOrNull<GameState>(GameStatePath);
 		if (gameState is null)
 		{
-			GD.PushError("BrewPanel: /root/GameState was not found.");
+			GD.PushError($"BrewPanel: GameState was not found at '{GameStatePath}'.");
+			return;
+		}
+
+		var itemCatalog = GetNodeOrNull<ItemCatalogService>(ItemCatalogPath);
+		if (itemCatalog is null)
+		{
+			GD.PushError($"BrewPanel: ItemCatalog was not found at '{ItemCatalogPath}'.");
 			return;
 		}
 
 		_runtimeContentDb = runtimeContentDb;
 		_dataDb = dataDb;
 		_gameState = gameState;
+		_itemCatalog = itemCatalog;
+		RebuildPredefinedPotionRecipeLookup();
 
 		_brewBox = GetNode<BrewDropBox>(BrewBoxPath);
 		_ingredientSlotOne = GetNode<TextureRect>(IngredientSlotOnePath);
@@ -200,7 +218,7 @@ public partial class BrewPanel : Control
 
 	public void TryQueueIngredient(string itemId)
 	{
-		if (!ItemCatalog.TryGetItem(itemId, out var item))
+		if (!_itemCatalog.TryGetItem(itemId, out var item))
 		{
 			_resultLabel.Text = "That item is not recognized.";
 			return;
@@ -218,6 +236,21 @@ public partial class BrewPanel : Control
 		{
 			_resultLabel.Text = "Each ingredient can only be used once per potion.";
 			return;
+		}
+
+		var queuedWithCandidate = new List<string>(_queuedIngredients)
+		{
+			itemId
+		};
+
+		var followsPredefinedRecipe = MatchesAnyPredefinedRecipePrefix(queuedWithCandidate);
+		if (!followsPredefinedRecipe)
+		{
+			if (!TryGetIngredientType(item, out _))
+			{
+				_resultLabel.Text = "Ingredient type is missing.";
+				return;
+			}
 		}
 
 		if (_queuedIngredients.Count >= 3)
@@ -260,6 +293,9 @@ public partial class BrewPanel : Control
 			return;
 		}
 
+		var combinationKey = BuildCombinationKey(_queuedIngredients);
+		var hasPredefinedRecipe = TryGetPredefinedRecipe(combinationKey, out var predefinedRecipe);
+
 		if (!TryBuildIngredientDefs(_queuedIngredients, out var ingredientDefs, out var ingredientError))
 		{
 			_resultLabel.Text = ingredientError;
@@ -281,13 +317,17 @@ public partial class BrewPanel : Control
 
 		_gameState.AddGold(-brewCost);
 
-		var combinationKey = BuildCombinationKey(_queuedIngredients);
 		var potionDisplayName = GetPreviewPotionName(combinationKey);
+		if (hasPredefinedRecipe)
+			potionDisplayName = predefinedRecipe.Name;
 		var isNewCombination = !_gameState.TryGetPotionForCombination(combinationKey, out var potionItemId);
 		if (isNewCombination)
 		{
-			potionItemId = $"brew_{_gameState.PotionDisplayNames.Count + 1}";
+			potionItemId = hasPredefinedRecipe
+				? BuildPredefinedPotionItemId(predefinedRecipe.Id)
+				: $"brew_{_gameState.PotionDisplayNames.Count + 1}";
 			var iconPath = ResolvePotionIconPath();
+			var potionTraits = BuildPotionTraitsForRegistration(brewResult, hasPredefinedRecipe ? predefinedRecipe : null);
 
 			_runtimeContentDb.RegisterRuntimePotionItem(
 				potionItemId,
@@ -295,11 +335,15 @@ public partial class BrewPanel : Control
 				iconPath,
 				potionBasePrice,
 				brewResult.IngredientQualityScore,
-				new Dictionary<string, int>(brewResult.Traits),
+				potionTraits,
 				new Dictionary<string, int>(brewResult.Risks));
 
 			_gameState.SetPotionForCombination(combinationKey, potionItemId);
 			_gameState.SetPotionDisplayName(potionItemId, potionDisplayName);
+		}
+		else if (hasPredefinedRecipe)
+		{
+			_gameState.SetPotionDisplayName(potionItemId, predefinedRecipe.Name);
 		}
 
 		_gameState.RegisterPotionBasePrice(potionItemId, potionBasePrice);
@@ -398,14 +442,14 @@ public partial class BrewPanel : Control
 			}
 
 			var ingredientId = _queuedIngredients[i];
-			if (!ItemCatalog.TryGetItem(ingredientId, out var item))
+			if (!_itemCatalog.TryGetItem(ingredientId, out var item))
 			{
 				slots[i].Texture = null;
 				labels[i].Text = string.Empty;
 				continue;
 			}
 
-			slots[i].Texture = LoadIcon(item.IconPath);
+			slots[i].Texture = UiIconLoader.LoadIcon(item.IconPath);
 			labels[i].Text = ItemName(ingredientId);
 		}
 
@@ -501,9 +545,121 @@ public partial class BrewPanel : Control
 			return _previewPotionName;
 		}
 
+		if (TryGetPredefinedRecipe(combinationKey, out var predefinedRecipe))
+		{
+			_previewPotionCombinationKey = combinationKey;
+			_previewPotionName = predefinedRecipe.Name;
+			return _previewPotionName;
+		}
+
 		_previewPotionCombinationKey = combinationKey;
 		_previewPotionName = GeneratePotionName();
 		return _previewPotionName;
+	}
+
+	private bool TryGetPredefinedRecipe(string combinationKey, out PotionRecipeDef recipe)
+	{
+		return _predefinedPotionRecipesByCombination.TryGetValue(combinationKey, out recipe!);
+	}
+
+	private void RebuildPredefinedPotionRecipeLookup()
+	{
+		_predefinedPotionRecipesByCombination.Clear();
+
+		foreach (var recipe in _dataDb.PotionRecipes)
+		{
+			if (recipe is null || string.IsNullOrWhiteSpace(recipe.Id) || string.IsNullOrWhiteSpace(recipe.Name))
+				continue;
+			if (recipe.IngredientIds is null || recipe.IngredientIds.Count != 3)
+			{
+				GD.PushError($"BrewPanel: Predefined recipe '{recipe.Id}' must define exactly 3 ingredients.");
+				continue;
+			}
+
+			var normalizedIngredientIds = recipe.IngredientIds
+				.Where(id => !string.IsNullOrWhiteSpace(id))
+				.Select(id => id.Trim())
+				.Distinct(System.StringComparer.OrdinalIgnoreCase)
+				.ToList();
+			if (normalizedIngredientIds.Count != 3)
+			{
+				GD.PushError($"BrewPanel: Predefined recipe '{recipe.Id}' includes duplicate or empty ingredient ids.");
+				continue;
+			}
+
+			var hasUnknownIngredient = false;
+			foreach (var ingredientId in normalizedIngredientIds)
+			{
+				if (!_itemCatalog.TryGetItem(ingredientId, out var ingredientItem) || !IsIngredient(ingredientItem))
+				{
+					GD.PushError($"BrewPanel: Predefined recipe '{recipe.Id}' references unknown ingredient '{ingredientId}'.");
+					hasUnknownIngredient = true;
+					break;
+				}
+			}
+
+			if (hasUnknownIngredient)
+				continue;
+
+			var combinationKey = BuildCombinationKey(normalizedIngredientIds);
+			if (_predefinedPotionRecipesByCombination.ContainsKey(combinationKey))
+			{
+				GD.PushError($"BrewPanel: Duplicate predefined recipe combination '{combinationKey}'.");
+				continue;
+			}
+
+			_predefinedPotionRecipesByCombination[combinationKey] = recipe;
+		}
+	}
+
+	private bool MatchesAnyPredefinedRecipePrefix(IReadOnlyList<string> ingredientIds)
+	{
+		if (ingredientIds.Count == 0)
+			return false;
+
+		foreach (var recipe in _predefinedPotionRecipesByCombination.Values)
+		{
+			var matches = true;
+			foreach (var ingredientId in ingredientIds)
+			{
+				if (!recipe.IngredientIds.Any(x => string.Equals(x, ingredientId, System.StringComparison.OrdinalIgnoreCase)))
+				{
+					matches = false;
+					break;
+				}
+			}
+
+			if (matches)
+				return true;
+		}
+
+		return false;
+	}
+
+	private static string BuildPredefinedPotionItemId(string recipeId)
+	{
+		return $"potion_{recipeId}";
+	}
+
+	private static Dictionary<string, int> BuildPotionTraitsForRegistration(PotionResult brewResult, PotionRecipeDef? predefinedRecipe)
+	{
+		if (predefinedRecipe is null || predefinedRecipe.Traits is null || predefinedRecipe.Traits.Count == 0)
+			return new Dictionary<string, int>(brewResult.Traits);
+
+		var traits = new Dictionary<string, int>(System.StringComparer.OrdinalIgnoreCase);
+		foreach (var trait in predefinedRecipe.Traits)
+		{
+			if (string.IsNullOrWhiteSpace(trait))
+				continue;
+			if (!brewResult.Traits.TryGetValue(trait, out var strength))
+				continue;
+
+			traits[trait] = strength;
+		}
+
+		return traits.Count > 0
+			? traits
+			: new Dictionary<string, int>(brewResult.Traits);
 	}
 
 	private static string BuildStatListText(IReadOnlyDictionary<string, int> values, int maxCount)
@@ -522,14 +678,6 @@ public partial class BrewPanel : Control
 			return "None detected";
 
 		return string.Join("\n", lines);
-	}
-
-	private static Texture2D? LoadIcon(string? iconPath)
-	{
-		if (string.IsNullOrWhiteSpace(iconPath))
-			return null;
-
-		return ResourceLoader.Load<Texture2D>(iconPath);
 	}
 
 	private static void SetInteractiveCursor(Control control)
@@ -556,17 +704,95 @@ public partial class BrewPanel : Control
 
 	private string DefaultItemName(string itemId)
 	{
-		return ItemCatalog.GetItemName(itemId);
+		return _itemCatalog.GetItemName(itemId);
 	}
 
 	private bool IsPotion(string itemId)
 	{
-		return ItemCatalog.IsPotion(itemId);
+		return _itemCatalog.IsPotion(itemId);
 	}
 
 	private static bool IsIngredient(ItemDef item)
 	{
-		return item.Tags.Any(tag => string.Equals(tag, "ingredient", System.StringComparison.OrdinalIgnoreCase));
+		return ItemCatalogService.HasTag(item, "ingredient");
+	}
+
+	private bool HasQueuedIngredientType(string ingredientType)
+	{
+		foreach (var queuedItemId in _queuedIngredients)
+		{
+			if (!_itemCatalog.TryGetItem(queuedItemId, out var queuedItem))
+				continue;
+
+			if (!TryGetIngredientType(queuedItem, out var queuedType))
+				continue;
+
+			if (string.Equals(queuedType, ingredientType, System.StringComparison.OrdinalIgnoreCase))
+				return true;
+		}
+
+		return false;
+	}
+
+	private bool HasRequiredIngredientTypes(out string error)
+	{
+		var requiredTypes = new Dictionary<string, int>(System.StringComparer.OrdinalIgnoreCase)
+		{
+			[HerbTypeTag] = 0,
+			[LiquidTypeTag] = 0,
+			[CatalystTypeTag] = 0
+		};
+
+		foreach (var queuedItemId in _queuedIngredients)
+		{
+			if (!_itemCatalog.TryGetItem(queuedItemId, out var queuedItem))
+			{
+				error = $"Unknown ingredient: {queuedItemId}";
+				return false;
+			}
+
+			if (!TryGetIngredientType(queuedItem, out var queuedType))
+			{
+				error = "Ingredient type is missing. Need one herb, one liquid, and one catalyst.";
+				return false;
+			}
+
+			requiredTypes[queuedType] += 1;
+		}
+
+		if (requiredTypes[HerbTypeTag] != 1 || requiredTypes[LiquidTypeTag] != 1 || requiredTypes[CatalystTypeTag] != 1)
+		{
+			error = "Brewing requires one herb, one liquid, and one catalyst.";
+			return false;
+		}
+
+		error = string.Empty;
+		return true;
+	}
+
+	private static bool TryGetIngredientType(ItemDef item, out string ingredientType)
+	{
+		ingredientType = string.Empty;
+
+		if (ItemCatalogService.HasTag(item, HerbTypeTag))
+		{
+			ingredientType = HerbTypeTag;
+			return true;
+		}
+
+		if (ItemCatalogService.HasTag(item, LiquidTypeTag))
+		{
+			ingredientType = LiquidTypeTag;
+			return true;
+		}
+
+		if (ItemCatalogService.HasTag(item, CatalystTypeTag))
+		{
+			ingredientType = CatalystTypeTag;
+			return true;
+		}
+
+		return false;
 	}
 
 	private string GeneratePotionName()
@@ -651,13 +877,13 @@ public partial class BrewPanel : Control
 		return Math.Max(5, rawCost);
 	}
 
-	private static int CalculateIngredientTotalPrice(IReadOnlyList<string> ingredientIds)
+	private int CalculateIngredientTotalPrice(IReadOnlyList<string> ingredientIds)
 	{
 		var totalPrice = 0;
 
 		foreach (var itemId in ingredientIds)
 		{
-			if (!ItemCatalog.TryGetItem(itemId, out var item))
+			if (!_itemCatalog.TryGetItem(itemId, out var item))
 				continue;
 
 			totalPrice += Math.Max(0, item.BasePrice);
@@ -705,21 +931,13 @@ public partial class BrewPanel : Control
 
 		foreach (var itemId in ingredientIds)
 		{
-			if (!ItemCatalog.TryGetItem(itemId, out var item))
+			if (!_itemCatalog.TryGetItem(itemId, out var item))
 			{
 				error = $"Unknown ingredient: {itemId}";
 				return false;
 			}
 
-			var ingredient = new IngredientDef
-			{
-				Id = item.Id,
-				Name = item.Name,
-				Quality = item.Quality,
-				Traits = new Dictionary<string, int>(item.Traits),
-				Risks = new Dictionary<string, int>(item.Risks),
-				Tags = [.. item.Tags]
-			};
+			var ingredient = IngredientDefFactory.FromItemDef(item);
 
 			ingredients.Add(ingredient);
 		}

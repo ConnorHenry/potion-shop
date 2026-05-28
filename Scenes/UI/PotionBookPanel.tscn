@@ -1,0 +1,164 @@
+[gd_scene load_steps=3 format=3 uid="uid://q4276gq8k64i"]
+
+[ext_resource type="Script" uid="uid://67q5gi84o0db" path="res://Scripts/UI/PotionBookPanel.cs" id="1_potion_book_script"]
+[ext_resource type="Theme" uid="uid://dsdgpree5b8xv" path="res://Assets/UI/RecipeBookTheme.tres" id="2_recipe_book_theme"]
+
+[node name="PotionBookPanel" type="Control"]
+layout_mode = 3
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -430.0
+offset_top = -292.0
+offset_right = 430.0
+offset_bottom = 292.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_recipe_book_theme")
+script = ExtResource("1_potion_book_script")
+LeftArrowButtonPath = NodePath("BookRow/LeftArrow")
+RightArrowButtonPath = NodePath("BookRow/RightArrow")
+PageTitleLabelPath = NodePath("BookRow/BookPanel/Margin/VBox/PageTitle")
+IntroLabelPath = NodePath("BookRow/BookPanel/Margin/VBox/Intro")
+RecipeContentPath = NodePath("BookRow/BookPanel/Margin/VBox/RecipeContent")
+IngredientsLabelPath = NodePath("BookRow/BookPanel/Margin/VBox/RecipeContent/Columns/IngredientsColumn/Ingredients")
+TraitsLabelPath = NodePath("BookRow/BookPanel/Margin/VBox/RecipeContent/Columns/TraitsColumn/Traits")
+PageIndicatorLabelPath = NodePath("BookRow/BookPanel/Margin/VBox/Header/PageIndicator")
+CloseButtonPath = NodePath("BookRow/BookPanel/Margin/VBox/Header/Close")
+
+[node name="BookRow" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 14
+
+[node name="LeftArrow" type="Button" parent="BookRow"]
+custom_minimum_size = Vector2(66, 92)
+layout_mode = 2
+theme_override_font_sizes/font_size = 34
+text = "<"
+
+[node name="BookPanel" type="PanelContainer" parent="BookRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="Margin" type="MarginContainer" parent="BookRow/BookPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 16
+
+[node name="VBox" type="VBoxContainer" parent="BookRow/BookPanel/Margin"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 12
+
+[node name="Header" type="HBoxContainer" parent="BookRow/BookPanel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 34)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="PageIndicator" type="Label" parent="BookRow/BookPanel/Margin/VBox/Header"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.74, 0.77, 0.82, 1)
+theme_override_font_sizes/font_size = 16
+text = "Page 1/1"
+vertical_alignment = 1
+
+[node name="Spacer" type="Control" parent="BookRow/BookPanel/Margin/VBox/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Close" type="Button" parent="BookRow/BookPanel/Margin/VBox/Header"]
+custom_minimum_size = Vector2(70, 34)
+layout_mode = 2
+text = "Close"
+
+[node name="PageTitle" type="Label" parent="BookRow/BookPanel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+theme_override_font_sizes/font_size = 34
+text = "Potion Book"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Intro" type="Label" parent="BookRow/BookPanel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 90)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.83, 0.88, 1)
+theme_override_font_sizes/font_size = 18
+text = "Turn the page to browse the potions you can brew."
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="RecipeContent" type="VBoxContainer" parent="BookRow/BookPanel/Margin/VBox"]
+visible = false
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 10
+
+[node name="Columns" type="HBoxContainer" parent="BookRow/BookPanel/Margin/VBox/RecipeContent"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 12
+
+[node name="IngredientsColumn" type="VBoxContainer" parent="BookRow/BookPanel/Margin/VBox/RecipeContent/Columns"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 8
+
+[node name="Header" type="Label" parent="BookRow/BookPanel/Margin/VBox/RecipeContent/Columns/IngredientsColumn"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.45, 0.83, 0.52, 1)
+theme_override_font_sizes/font_size = 20
+text = "Ingredients"
+
+[node name="Ingredients" type="Label" parent="BookRow/BookPanel/Margin/VBox/RecipeContent/Columns/IngredientsColumn"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 18
+text = "-"
+autowrap_mode = 3
+
+[node name="Divider" type="VSeparator" parent="BookRow/BookPanel/Margin/VBox/RecipeContent/Columns"]
+layout_mode = 2
+
+[node name="TraitsColumn" type="VBoxContainer" parent="BookRow/BookPanel/Margin/VBox/RecipeContent/Columns"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 8
+
+[node name="Header" type="Label" parent="BookRow/BookPanel/Margin/VBox/RecipeContent/Columns/TraitsColumn"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.44, 0.71, 0.96, 1)
+theme_override_font_sizes/font_size = 20
+text = "Traits"
+
+[node name="Traits" type="Label" parent="BookRow/BookPanel/Margin/VBox/RecipeContent/Columns/TraitsColumn"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 18
+text = "-"
+autowrap_mode = 3
+
+[node name="RightArrow" type="Button" parent="BookRow"]
+custom_minimum_size = Vector2(66, 92)
+layout_mode = 2
+theme_override_font_sizes/font_size = 34
+text = ">"

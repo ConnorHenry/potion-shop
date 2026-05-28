@@ -69,7 +69,7 @@ layout_mode = 0
 offset_left = 850.0
 offset_right = 980.0
 offset_bottom = 40.0
-text = "Recipe Book"
+text = "Potion Book"
 
 [node name="MainMenu" type="Button" parent="."]
 layout_mode = 0

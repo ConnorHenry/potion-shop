@@ -1,12 +1,20 @@
 using System.Collections.Generic;
 using System.Linq;
-using Godot;
 using OccultShop.Autoload;
 
 namespace OccultShop.Systems;
 
 public sealed class PotionInventoryBrewService
 {
+	private readonly GameState _gameState;
+	private readonly ItemCatalogService _itemCatalog;
+
+	public PotionInventoryBrewService(GameState gameState, ItemCatalogService itemCatalog)
+	{
+		_gameState = gameState;
+		_itemCatalog = itemCatalog;
+	}
+
 	public bool TryGetRequiredIngredients(string potionItemId, out Dictionary<string, int> requiredIngredients, out string error)
 	{
 		requiredIngredients = new Dictionary<string, int>(System.StringComparer.OrdinalIgnoreCase);
@@ -17,7 +25,7 @@ public sealed class PotionInventoryBrewService
 			return false;
 		}
 
-		if (!GameState.TryGetPotionRecipe(potionItemId, out var ingredientIds) || ingredientIds.Count == 0)
+		if (!_gameState.TryGetPotionRecipe(potionItemId, out var ingredientIds) || ingredientIds.Count == 0)
 		{
 			error = "Recipe not discovered yet.";
 			return false;
@@ -45,7 +53,7 @@ public sealed class PotionInventoryBrewService
 	{
 		foreach (var pair in requiredIngredients)
 		{
-			if (!GameState.HasItem(pair.Key, pair.Value))
+			if (!_gameState.HasItem(pair.Key, pair.Value))
 				return false;
 		}
 
@@ -67,14 +75,14 @@ public sealed class PotionInventoryBrewService
 
 		foreach (var pair in requiredIngredients)
 		{
-			if (!GameState.ConsumeItem(pair.Key, pair.Value))
+			if (!_gameState.ConsumeItem(pair.Key, pair.Value))
 			{
 				error = $"Failed to consume {pair.Key} x{pair.Value}.";
 				return false;
 			}
 		}
 
-		GameState.AddItem(potionItemId, 1);
+		_gameState.AddItem(potionItemId, 1);
 		return true;
 	}
 
@@ -104,7 +112,7 @@ public sealed class PotionInventoryBrewService
 
 		foreach (var pair in requiredIngredients.OrderBy(x => ItemName(x.Key)).ThenBy(x => x.Key))
 		{
-			var have = GameState.Inventory.GetValueOrDefault(pair.Key);
+			var have = _gameState.Inventory.GetValueOrDefault(pair.Key);
 			var hasEnough = have >= pair.Value;
 			var color = hasEnough ? "#B7F59C" : "#B9B9B9";
 			lines.Add($"[color={color}]{ItemName(pair.Key)} x{pair.Value}[/color]");
@@ -119,7 +127,7 @@ public sealed class PotionInventoryBrewService
 
 		foreach (var pair in requiredIngredients.OrderBy(x => ItemName(x.Key)).ThenBy(x => x.Key))
 		{
-			var have = GameState.Inventory.GetValueOrDefault(pair.Key);
+			var have = _gameState.Inventory.GetValueOrDefault(pair.Key);
 			if (have >= pair.Value)
 				continue;
 
@@ -131,10 +139,8 @@ public sealed class PotionInventoryBrewService
 			: $"Missing: {string.Join(", ", missing)}";
 	}
 
-	private static string ItemName(string itemId)
+	private string ItemName(string itemId)
 	{
-		return ItemCatalog.GetItemName(itemId);
+		return _itemCatalog.GetItemName(itemId);
 	}
-
-	private static GameState GameState => (GameState)((SceneTree)Engine.GetMainLoop()).Root.GetNode("/root/GameState");
 }

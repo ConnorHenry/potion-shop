@@ -1,0 +1,57 @@
+[gd_resource type="Resource" script_class="AuthoredPotionRecipesResource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Models/AuthoredPotionRecipesResource.cs" id="1"]
+
+[resource]
+script = ExtResource("1")
+Entries = [{
+"id": "moonlit_rest_draught",
+"ingredientIds": ["mooncap_mushroom", "black_ichor", "lavender_ash"],
+"name": "Moonlit Rest Draught",
+"traits": ["calm", "rest", "dream"]
+}, {
+"id": "gravekeepers_balm",
+"ingredientIds": ["grave_mint", "obsidian_resin", "iron_lullaby_root"],
+"name": "Gravekeeper's Balm",
+"traits": ["soothe", "mend", "cleanse"]
+}, {
+"id": "silver_focus_tonic",
+"ingredientIds": ["silver_thorn_bloom", "raven_ash_peony", "amber_nightshade"],
+"name": "Silver Focus Tonic",
+"traits": ["clarity", "courage", "vigor"]
+}, {
+"id": "orchid_charm_philter",
+"ingredientIds": ["moonwhisper_orchid", "mooncap_mushroom", "lavender_ash"],
+"name": "Orchid Charm Philter",
+"traits": ["charm", "calm", "dream"]
+}, {
+"id": "ravenheart_elixir",
+"ingredientIds": ["raven_ash_peony", "amber_nightshade", "black_ichor"],
+"name": "Ravenheart Elixir",
+"traits": ["courage", "vigor", "rest"]
+}, {
+"id": "obsidian_mending_draught",
+"ingredientIds": ["obsidian_resin", "grave_mint", "silver_thorn_bloom"],
+"name": "Obsidian Mending Draught",
+"traits": ["mend", "soothe", "clarity"]
+}, {
+"id": "nightshade_reverie",
+"ingredientIds": ["amber_nightshade", "lavender_ash", "moonwhisper_orchid"],
+"name": "Nightshade Reverie",
+"traits": ["vigor", "dream", "charm"]
+}, {
+"id": "iron_sleep_balm",
+"ingredientIds": ["iron_lullaby_root", "black_ichor", "mooncap_mushroom"],
+"name": "Iron Sleep Balm",
+"traits": ["cleanse", "rest", "calm"]
+}, {
+"id": "funeral_bloom_tonic",
+"ingredientIds": ["grave_mint", "raven_ash_peony", "lavender_ash"],
+"name": "Funeral Bloom Tonic",
+"traits": ["soothe", "courage", "dream"]
+}, {
+"id": "clear_moon_elixir",
+"ingredientIds": ["silver_thorn_bloom", "mooncap_mushroom", "obsidian_resin"],
+"name": "Clear Moon Elixir",
+"traits": ["clarity", "calm", "mend"]
+}]

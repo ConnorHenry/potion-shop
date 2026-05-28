@@ -24,6 +24,7 @@ IngredientsClearFilterButtonPath = NodePath("Panel/Margin/VBox/IngredientsHeader
 ItemDetailPanelPath = NodePath("../InventoryItemDetail")
 ItemDetailImagePath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/TopRow/IconFrame/Icon")
 ItemDetailNamePath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/TopRow/Identity/Name")
+ItemDetailTypeTagPath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/TopRow/Identity/TypeTag")
 ItemDetailPricePath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/TopRow/Identity/Price")
 ItemDetailTraitsHeaderPath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/StatsRow/TraitsColumn/Header")
 ItemDetailTraitsPath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/StatsRow/TraitsColumn/Traits")
@@ -41,10 +42,9 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 45.0
-offset_top = -4.0
-offset_right = 75.0
-offset_bottom = -4.0
+offset_top = -3.0
+offset_right = 91.0
+offset_bottom = -3.0
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -74,6 +74,7 @@ layout_mode = 2
 size_flags_horizontal = 3
 
 [node name="PotionsHeader" type="Label" parent="Panel/Margin/VBox/PotionsHeaderRow"]
+visible = false
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Potions"
@@ -111,6 +112,7 @@ layout_mode = 2
 size_flags_horizontal = 3
 
 [node name="IngredientsHeader" type="Label" parent="Panel/Margin/VBox/IngredientsHeaderRow"]
+visible = false
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Ingredients"
@@ -118,6 +120,9 @@ text = "Ingredients"
 [node name="Clear" type="Button" parent="Panel/Margin/VBox/IngredientsHeaderRow"]
 layout_mode = 2
 text = "Clear"
+
+[node name="TypeFilter" type="OptionButton" parent="Panel/Margin/VBox/IngredientsHeaderRow"]
+layout_mode = 2
 
 [node name="TraitFilter" type="OptionButton" parent="Panel/Margin/VBox/IngredientsHeaderRow"]
 layout_mode = 2

@@ -17,6 +17,8 @@ public partial class DayController : Node
 	[Export] public NodePath BrewPanelPath = default!;
 	[Export] public NodePath RecipeBookPanelPath = default!;
 	[Export] public NodePath DaySummaryPanelPath = default!;
+	[Export] public NodePath DataDbPath = new("/root/DataDb");
+	[Export] public NodePath GameStatePath = new("/root/GameState");
 
 	private UI.EventModal _eventModal = default!;
 	private EventController _eventController = default!;
@@ -28,6 +30,8 @@ public partial class DayController : Node
 	private UI.DaySummaryPanel _daySummaryPanel = default!;
 	private Godot.Timer _shopTimer = default!;
 	private readonly ShopDayStats _shopDayStats = new();
+	private DataDb _dataDb = default!;
+	private GameState _gameState = default!;
 	private int _secondsRemaining;
 	private bool _awaitingSaleResultClose;
 
@@ -45,6 +49,22 @@ public partial class DayController : Node
 		_brewPanel = GetNode<UI.BrewPanel>(BrewPanelPath);
 		_recipeBookPanel = GetNode<UI.RecipeBookPanel>(RecipeBookPanelPath);
 		_daySummaryPanel = GetNode<UI.DaySummaryPanel>(DaySummaryPanelPath);
+		var dataDb = GetNodeOrNull<DataDb>(DataDbPath);
+		if (dataDb is null)
+		{
+			GD.PushError($"DayController: DataDb was not found at '{DataDbPath}'.");
+			return;
+		}
+
+		var gameState = GetNodeOrNull<GameState>(GameStatePath);
+		if (gameState is null)
+		{
+			GD.PushError($"DayController: GameState was not found at '{GameStatePath}'.");
+			return;
+		}
+
+		_dataDb = dataDb;
+		_gameState = gameState;
 
 		_shopTimer = new Godot.Timer
 		{
@@ -91,6 +111,7 @@ public partial class DayController : Node
 		_awaitingSaleResultClose = false;
 		IsShopOpen = true;
 		EmitShopStateChanged();
+		_customerEventController.BeginShopDay();
 
 		if (!TryShowNextCustomer())
 		{
@@ -99,18 +120,6 @@ public partial class DayController : Node
 		}
 
 		_shopTimer.Start();
-	}
-
-	public void ServeCustomer()
-	{
-		var interaction = _customerEventController.DrawShopDayCustomerInteraction(DataDb, GameState);
-		if (interaction is null)
-		{
-			_customerPanel.HidePanel();
-			return;
-		}
-
-		_customerPanel.ShowInteraction(interaction);
 	}
 
 	public void EndDayAndRunNight()
@@ -127,14 +136,14 @@ public partial class DayController : Node
 		_recipeBookPanel.HidePanel();
 
 		// Example of an escalating rule that modifies events.
-		if (GameState.ActiveRules.Contains("thin_veil"))
-			GameState.AddDread(2);
+		if (_gameState.ActiveRules.Contains("thin_veil"))
+			_gameState.AddDread(2);
 
-		var card = _eventController.DrawNightEvent(DataDb, GameState);
+		var card = _eventController.DrawNightEvent(_dataDb, _gameState);
 		if (card is null)
 		{
-			GameState.AddDread(1);
-			GameState.NextDay();
+			_gameState.AddDread(1);
+			_gameState.NextDay();
 			return;
 		}
 
@@ -219,7 +228,7 @@ public partial class DayController : Node
 		if (!IsShopOpen)
 			return false;
 
-		var interaction = _customerEventController.DrawShopDayCustomerInteraction(DataDb, GameState);
+		var interaction = _customerEventController.DrawShopDayCustomerInteraction(_dataDb, _gameState);
 		if (interaction is null)
 		{
 			_customerPanel.HidePanel();
@@ -258,14 +267,14 @@ public partial class DayController : Node
 		_brewPanel.HidePanel();
 		_recipeBookPanel.HidePanel();
 		_daySummaryPanel.ShowSummary(
-			GameState.Day,
+			_gameState.Day,
 			_shopDayStats.CustomersServed,
 			_shopDayStats.SuccessfulSales,
 			_shopDayStats.FailedSales,
 			_shopDayStats.GoldEarned,
 			_shopDayStats.DreadChange,
-			GameState.Gold,
-			GameState.Dread);
+			_gameState.Gold,
+			_gameState.Dread);
 
 		EmitShopStateChanged();
 	}
@@ -280,10 +289,6 @@ public partial class DayController : Node
 	{
 		ShopStateChanged?.Invoke();
 	}
-
-	// Convenience accessors to autoloads
-	private static DataDb DataDb => (DataDb)((SceneTree)Engine.GetMainLoop()).Root.GetNode("/root/DataDb");
-	private static GameState GameState => (GameState)((SceneTree)Engine.GetMainLoop()).Root.GetNode("/root/GameState");
 
 	private sealed class ShopDayStats
 	{

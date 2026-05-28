@@ -8,18 +8,25 @@ public partial class MainMenu : Control
 	[Export] public NodePath StartButtonPath = default!;
 	[Export] public NodePath NewGameButtonPath = default!;
 	[Export] public NodePath LoadButtonPath = default!;
+	[Export] public NodePath NewGameTutorialPopupPath = default!;
+	[Export] public NodePath StartTutorialButtonPath = default!;
+	[Export] public NodePath SkipTutorialButtonPath = default!;
+	[Export] public NodePath SaveGameManagerPath = new("/root/SaveGameManager");
 
 	private Button _startButton = default!;
 	private Button _newGameButton = default!;
 	private Button _loadButton = default!;
+	private Control _newGameTutorialPopup = default!;
+	private Button _startTutorialButton = default!;
+	private Button _skipTutorialButton = default!;
 	private SaveGameManager _saveGameManager = default!;
 
 	public override void _Ready()
 	{
-		var saveGameManager = GetNodeOrNull<SaveGameManager>("/root/SaveGameManager");
+		var saveGameManager = GetNodeOrNull<SaveGameManager>(SaveGameManagerPath);
 		if (saveGameManager is null)
 		{
-			GD.PushError("MainMenu: /root/SaveGameManager was not found.");
+			GD.PushError($"MainMenu: SaveGameManager was not found at '{SaveGameManagerPath}'.");
 			return;
 		}
 		_saveGameManager = saveGameManager;
@@ -30,12 +37,21 @@ public partial class MainMenu : Control
 			return;
 		if (!TryGetRequiredButton(LoadButtonPath, nameof(LoadButtonPath), out _loadButton))
 			return;
+		if (!TryGetRequiredControl(NewGameTutorialPopupPath, nameof(NewGameTutorialPopupPath), out _newGameTutorialPopup))
+			return;
+		if (!TryGetRequiredButton(StartTutorialButtonPath, nameof(StartTutorialButtonPath), out _startTutorialButton))
+			return;
+		if (!TryGetRequiredButton(SkipTutorialButtonPath, nameof(SkipTutorialButtonPath), out _skipTutorialButton))
+			return;
 
 		UpdateButtonLabels();
 		UpdateContinueButtonVisibility();
+		_newGameTutorialPopup.Visible = false;
 		_startButton.Pressed += OnStartButtonPressed;
 		_newGameButton.Pressed += OnNewGamePressed;
 		_loadButton.Pressed += OnLoadButtonPressed;
+		_startTutorialButton.Pressed += OnStartTutorialPressed;
+		_skipTutorialButton.Pressed += OnSkipTutorialPressed;
 	}
 
 	private void OnStartButtonPressed()
@@ -51,9 +67,24 @@ public partial class MainMenu : Control
 			_newGameButton.Pressed -= OnNewGamePressed;
 		if (_loadButton is not null)
 			_loadButton.Pressed -= OnLoadButtonPressed;
+		if (_startTutorialButton is not null)
+			_startTutorialButton.Pressed -= OnStartTutorialPressed;
+		if (_skipTutorialButton is not null)
+			_skipTutorialButton.Pressed -= OnSkipTutorialPressed;
 	}
 
 	private void OnNewGamePressed()
+	{
+		ShowNewGameTutorialPopup();
+	}
+
+	private void OnStartTutorialPressed()
+	{
+		// TODO: Pass tutorial intent into game state when tutorial persistence is added.
+		StartNewGame();
+	}
+
+	private void OnSkipTutorialPressed()
 	{
 		StartNewGame();
 	}
@@ -79,8 +110,16 @@ public partial class MainMenu : Control
 		_startButton.Visible = _saveGameManager.HasSavedGames();
 	}
 
+	private void ShowNewGameTutorialPopup()
+	{
+		_newGameTutorialPopup.Visible = true;
+		_newGameTutorialPopup.MoveToFront();
+		_startTutorialButton.GrabFocus();
+	}
+
 	private void StartNewGame()
 	{
+		_newGameTutorialPopup.Visible = false;
 		_saveGameManager.StartNewGame();
 
 		Error error = GetTree().ChangeSceneToFile("res://Main.tscn");
@@ -119,6 +158,27 @@ public partial class MainMenu : Control
 			return false;
 		}
 		button = resolvedButton;
+
+		return true;
+	}
+
+	private bool TryGetRequiredControl(NodePath path, string exportName, out Control control)
+	{
+		control = default!;
+
+		if (path.IsEmpty)
+		{
+			GD.PushError($"MainMenu: {exportName} is not assigned.");
+			return false;
+		}
+
+		var resolvedControl = GetNodeOrNull<Control>(path);
+		if (resolvedControl is null)
+		{
+			GD.PushError($"MainMenu: Control not found at '{path}'.");
+			return false;
+		}
+		control = resolvedControl;
 
 		return true;
 	}

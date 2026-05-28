@@ -11,6 +11,7 @@ public partial class EventModal : Control
     [Export] public NodePath BodyLabelPath = default!;
     [Export] public NodePath ChoicesContainerPath = default!;
     [Export] public NodePath CharacterImagePath = default!;
+    [Export] public NodePath GameStatePath = new("/root/GameState");
 
     private Label _title = default!;
     private RichTextLabel _body = default!;
@@ -22,10 +23,10 @@ public partial class EventModal : Control
 
     public override void _Ready()
     {
-        var gameState = GetNodeOrNull<GameState>("/root/GameState");
+        var gameState = GetNodeOrNull<GameState>(GameStatePath);
         if (gameState is null)
         {
-            GD.PushError("EventModal: /root/GameState was not found.");
+            GD.PushError($"EventModal: GameState was not found at '{GameStatePath}'.");
             return;
         }
         _gameState = gameState;
