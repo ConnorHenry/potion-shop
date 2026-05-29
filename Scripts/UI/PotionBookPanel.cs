@@ -20,6 +20,7 @@ public partial class PotionBookPanel : Control
 	[Export] public NodePath PageIndicatorLabelPath = default!;
 	[Export] public NodePath CloseButtonPath = default!;
 	[Export] public NodePath DataDbPath = new("/root/DataDb");
+	[Export] public NodePath GameStatePath = new("/root/GameState");
 	[Export] public NodePath ItemCatalogPath = new("/root/ItemCatalog");
 
 	private Button _leftArrowButton = default!;
@@ -32,6 +33,7 @@ public partial class PotionBookPanel : Control
 	private Label _pageIndicatorLabel = default!;
 	private Button _closeButton = default!;
 	private DataDb _dataDb = default!;
+	private GameState _gameState = default!;
 	private ItemCatalogService _itemCatalog = default!;
 	private readonly List<PotionRecipeDef> _recipes = new();
 	private int _currentPageIndex;
@@ -52,7 +54,15 @@ public partial class PotionBookPanel : Control
 			return;
 		}
 
+		var gameState = GetNodeOrNull<GameState>(GameStatePath);
+		if (gameState is null)
+		{
+			GD.PushError($"PotionBookPanel: GameState was not found at '{GameStatePath}'.");
+			return;
+		}
+
 		_dataDb = dataDb;
+		_gameState = gameState;
 		_itemCatalog = itemCatalog;
 
 		_leftArrowButton = GetNode<Button>(LeftArrowButtonPath);
@@ -68,6 +78,7 @@ public partial class PotionBookPanel : Control
 		_leftArrowButton.Pressed += OnPreviousPagePressed;
 		_rightArrowButton.Pressed += OnNextPagePressed;
 		_closeButton.Pressed += HidePanel;
+		_gameState.Changed += OnGameStateChanged;
 
 		_currentPageIndex = 0;
 		RebuildRecipePages();
@@ -83,6 +94,8 @@ public partial class PotionBookPanel : Control
 			_rightArrowButton.Pressed -= OnNextPagePressed;
 		if (_closeButton is not null)
 			_closeButton.Pressed -= HidePanel;
+		if (_gameState is not null)
+			_gameState.Changed -= OnGameStateChanged;
 	}
 
 	public override void _Input(InputEvent @event)
@@ -133,6 +146,14 @@ public partial class PotionBookPanel : Control
 		RefreshPage();
 	}
 
+	private void OnGameStateChanged()
+	{
+		RebuildRecipePages();
+		_currentPageIndex = Math.Clamp(_currentPageIndex, 0, Math.Max(0, TotalPages - 1));
+		if (Visible)
+			RefreshPage();
+	}
+
 	private int TotalPages => _recipes.Count + 1;
 
 	private void HidePanel()
@@ -171,36 +192,81 @@ public partial class PotionBookPanel : Control
 	private void RebuildRecipePages()
 	{
 		_recipes.Clear();
+		var authoredPotionIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
 		foreach (var recipe in _dataDb.PotionRecipes)
 		{
-			if (recipe is null || string.IsNullOrWhiteSpace(recipe.Name))
-				continue;
-			if (recipe.IngredientIds is null || recipe.IngredientIds.Count == 0)
-				continue;
-
-			var ingredientIds = recipe.IngredientIds
-				.Where(id => !string.IsNullOrWhiteSpace(id))
-				.Select(id => id.Trim())
-				.ToList();
-			if (ingredientIds.Count == 0)
-				continue;
-
-			var traits = recipe.Traits is null
-				? new List<string>()
-				: recipe.Traits
-					.Where(trait => !string.IsNullOrWhiteSpace(trait))
-					.Select(trait => trait.Trim())
-					.ToList();
-
-			_recipes.Add(new PotionRecipeDef
-			{
-				Id = recipe.Id,
-				Name = recipe.Name,
-				IngredientIds = ingredientIds,
-				Traits = traits
-			});
+			AddAuthoredRecipePage(recipe, authoredPotionIds);
 		}
+
+		foreach (var potionId in _gameState.KnownPotionOrder)
+			AddLearnedPotionPage(potionId, authoredPotionIds);
+	}
+
+	private void AddAuthoredRecipePage(PotionRecipeDef? recipe, HashSet<string> authoredPotionIds)
+	{
+		if (recipe is null || string.IsNullOrWhiteSpace(recipe.Id) || string.IsNullOrWhiteSpace(recipe.Name))
+			return;
+		if (recipe.IngredientIds is null || recipe.IngredientIds.Count == 0)
+			return;
+
+		var ingredientIds = recipe.IngredientIds
+			.Where(id => !string.IsNullOrWhiteSpace(id))
+			.Select(id => id.Trim())
+			.ToList();
+		if (ingredientIds.Count == 0)
+			return;
+
+		var traits = recipe.Traits.Count == 0
+			? new List<string>()
+			: recipe.Traits
+				.Where(trait => !string.IsNullOrWhiteSpace(trait))
+				.Select(trait => trait.Trim())
+				.ToList();
+
+		_recipes.Add(new PotionRecipeDef
+		{
+			Id = recipe.Id,
+			Name = recipe.Name,
+			IngredientIds = ingredientIds,
+			Traits = traits
+		});
+		authoredPotionIds.Add(recipe.Id);
+		authoredPotionIds.Add(BuildPredefinedPotionItemId(recipe.Id));
+	}
+
+	private void AddLearnedPotionPage(string potionId, HashSet<string> authoredPotionIds)
+	{
+		if (string.IsNullOrWhiteSpace(potionId))
+			return;
+		if (authoredPotionIds.Contains(potionId))
+			return;
+		if (!_gameState.TryGetPotionRecipe(potionId, out var ingredientIds) || ingredientIds.Count == 0)
+			return;
+		if (!_itemCatalog.TryGetItem(potionId, out var potion))
+			return;
+
+		var sanitizedIngredientIds = ingredientIds
+			.Where(id => !string.IsNullOrWhiteSpace(id))
+			.Select(id => id.Trim())
+			.ToList();
+		if (sanitizedIngredientIds.Count == 0)
+			return;
+
+		var traits = potion.Traits.Count == 0
+			? new List<string>()
+			: potion.Traits
+				.Where(trait => !string.IsNullOrWhiteSpace(trait.Key))
+				.Select(trait => trait.Key.Trim())
+				.ToList();
+
+		_recipes.Add(new PotionRecipeDef
+		{
+			Id = potionId,
+			Name = GetPotionDisplayName(potionId, potion.Name),
+			IngredientIds = sanitizedIngredientIds,
+			Traits = traits
+		});
 	}
 
 	private void RefreshPage()
@@ -260,5 +326,16 @@ public partial class PotionBookPanel : Control
 
 		var normalized = rawValue.Trim().Replace('_', ' ').ToLowerInvariant();
 		return CultureInfo.InvariantCulture.TextInfo.ToTitleCase(normalized);
+	}
+
+	private string GetPotionDisplayName(string potionId, string fallbackName)
+	{
+		var customName = _gameState.GetPotionDisplayName(potionId);
+		return string.IsNullOrWhiteSpace(customName) ? fallbackName : customName;
+	}
+
+	private static string BuildPredefinedPotionItemId(string recipeId)
+	{
+		return $"potion_{recipeId}";
 	}
 }

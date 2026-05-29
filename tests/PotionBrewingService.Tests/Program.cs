@@ -35,6 +35,7 @@ static class Program
         Run("RecipeBookPanel dictionary formatting is stable", TestRecipeBookPanelFormatDictionary);
         Run("RecipeBookPanel top-traits formatting is stable", TestRecipeBookPanelFormatTopTraits);
         Run("RecipeBookPanel entry shows traits and risks to the right of ingredients", TestRecipeBookPanelEntryShowsTraitsAndRisksToTheRightOfIngredients);
+        Run("PotionBookPanel appends learned runtime potions to the end", TestPotionBookPanelAppendsLearnedRuntimePotionsToTheEnd);
         Run("BrewPanel ingredient tag detection is case-insensitive", TestBrewPanelIsIngredient);
         Run("BrewPanel previews potion names before brewing", TestBrewPanelPreviewNameIsWired);
         Run("Brew and inventory price wiring stays intact", TestBrewAndInventoryPriceWiring);
@@ -42,6 +43,8 @@ static class Program
         Run("ItemDef price converter accepts price fields", TestItemDefPriceConverterSupportsPriceFields);
         Run("CustomerPanel creates detached ingredient snapshots", TestCustomerPanelBuildPotionIngredientDef);
         Run("Customer events randomize shop-day order", TestCustomerEventControllerRandomizesOrder);
+        Run("Customer events respect scheduling and story outcomes", TestCustomerEventSchedulingAndStoryOutcomes);
+        Run("Customer drop box stays disabled until next customer", TestCustomerDropBoxDisablesAfterSale);
         Run("RuntimeContentDb stores generated items separately", TestRuntimeContentDbSeparatesRuntimeItems);
         Run("DataDb does not expose runtime registration", TestDataDbDoesNotExposeRuntimeRegistration);
         Run("DataDb reloads authored resource catalogs only", TestDataDbReloadsAuthoredResourceCatalogsOnly);
@@ -662,6 +665,30 @@ static class Program
             source.Contains("Missing {missingCount}"));
     }
 
+    private static void TestPotionBookPanelAppendsLearnedRuntimePotionsToTheEnd()
+    {
+        var source = ReadProjectFile("Scripts/UI/PotionBookPanel.cs");
+        var gameStateSource = ReadProjectFile("Scripts/Autoload/GameState.cs");
+        var saveDataSource = ReadProjectFile("Scripts/Persistence/SaveData.cs");
+
+        AssertTrue("PotionBookPanel resolves GameState through an exported path",
+            source.Contains("GameStatePath = new(\"/root/GameState\")"));
+        AssertTrue("PotionBookPanel subscribes to GameState changes",
+            source.Contains("_gameState.Changed += OnGameStateChanged"));
+        AssertTrue("PotionBookPanel reads learned potion order from GameState",
+            source.Contains("foreach (var potionId in _gameState.KnownPotionOrder)"));
+        AssertTrue("PotionBookPanel skips authored potion item ids when appending learned entries",
+            source.Contains("if (authoredPotionIds.Contains(potionId))"));
+        AssertTrue("PotionBookPanel registers both recipe ids and potion item ids as authored",
+            source.Contains("authoredPotionIds.Add(BuildPredefinedPotionItemId(recipe.Id));"));
+        AssertTrue("GameState tracks learned potion order",
+            gameStateSource.Contains("public List<string> KnownPotionOrder { get; } = new();"));
+        AssertTrue("GameState appends newly learned potions to the order list",
+            gameStateSource.Contains("KnownPotionOrder.Add(potionId)"));
+        AssertTrue("Save data persists learned potion order",
+            saveDataSource.Contains("KnownPotionOrder"));
+    }
+
     private static void TestBrewPanelIsIngredient()
     {
         var itemDefType = GetTypeFromUiAssembly("OccultShop.Models.ItemDef");
@@ -838,6 +865,49 @@ static class Program
         AssertTrue("DayController keeps the shop open while the current customer is active at zero seconds", dayController.Contains("_customerPanel.HasActiveInteraction || _awaitingSaleResultClose"));
         AssertTrue("CustomerPanel exposes active interaction state", customerPanel.Contains("HasActiveInteraction => _interaction is not null"));
         AssertTrue("CustomerPanel can switch the next button to Close Shop", customerPanel.Contains("SetCloseShopMode(bool closeShopMode)"));
+    }
+
+    private static void TestCustomerEventSchedulingAndStoryOutcomes()
+    {
+        var customerController = ReadProjectFile("Scripts/Controllers/CustomerEventController.cs");
+        var dataDb = ReadProjectFile("Scripts/Autoload/DataDb.cs");
+        var gameState = ReadProjectFile("Scripts/Autoload/GameState.cs");
+        var requirements = ReadProjectFile("Scripts/Systems/Requirements.cs");
+        var effects = ReadProjectFile("Scripts/Systems/EffectApplier.cs");
+        var customerPanel = ReadProjectFile("Scripts/UI/CustomerPanel.cs");
+        var customers = ReadProjectFile("Data/customers_data.tres");
+
+        AssertTrue("Customer draws filter by requirements", customerController.Contains("Requirements.Met(state, interaction.Requires)"));
+        AssertTrue("Customer draws use weighted selection", customerController.Contains("PickWeightedIndex"));
+        AssertTrue("DataDb parses customer difficulty", dataDb.Contains("Difficulty = Math.Max(1, ReadInt(entry, \"difficulty\", 1))"));
+        AssertTrue("DataDb parses customer outcome effects", dataDb.Contains("OnSuccessEffects = ParseEffects(ReadArray(entry, \"onSuccessEffects\"))"));
+        AssertTrue("DataDb parses day requirements", dataDb.Contains("DayMin = ReadNullableInt(entry, \"dayMin\")"));
+        AssertTrue("DataDb parses story flag requirements", dataDb.Contains("HasStoryFlag = ReadNullableString(entry, \"hasStoryFlag\")"));
+        AssertTrue("GameState stores story flags", gameState.Contains("HashSet<string> StoryFlags"));
+        AssertTrue("Requirements check story flags", requirements.Contains("state.HasStoryFlag(req.HasStoryFlag!)"));
+        AssertTrue("Effects can add story flags", effects.Contains("state.AddStoryFlag(e.AddStoryFlag!)"));
+        AssertTrue("CustomerPanel applies success and failure effects", customerPanel.Contains("ApplyOutcomeEffects(isSuccess ? _interaction?.OnSuccessEffects : _interaction?.OnFailureEffects)"));
+        AssertTrue("CustomerPanel applies skip effects", customerPanel.Contains("ApplyOutcomeEffects(_interaction.OnSkipEffects)"));
+        AssertTrue("Authored customer data includes early pool", customers.Contains("\"pool\": \"early\""));
+        AssertTrue("Authored customer data gates early customers by day", customers.Contains("\"dayMax\": 4"));
+        AssertTrue("Authored customer data includes recipe pool", customers.Contains("\"pool\": \"recipe\""));
+    }
+
+    private static void TestCustomerDropBoxDisablesAfterSale()
+    {
+        var customerPanel = ReadProjectFile("Scripts/UI/CustomerPanel.cs");
+        var dropBox = ReadProjectFile("Scripts/UI/CustomerSellDropBox.cs");
+
+        AssertTrue("CustomerPanel enables dropbox during pending sale state",
+            customerPanel.Contains("_sellDropBox.SetAcceptDrops(true);"));
+        AssertTrue("CustomerPanel disables dropbox during resolved sale state",
+            customerPanel.Contains("_sellDropBox.SetAcceptDrops(false);"));
+        AssertTrue("CustomerSellDropBox exposes an explicit accept-drops toggle",
+            dropBox.Contains("SetAcceptDrops(bool acceptDrops)"));
+        AssertTrue("CustomerSellDropBox refuses hover previews while disabled",
+            dropBox.Contains("if (!_acceptDrops)") && dropBox.Contains("return false;"));
+        AssertTrue("CustomerSellDropBox refuses drops while disabled",
+            dropBox.Contains("if (!_acceptDrops)") && dropBox.Contains("return;"));
     }
 
     private static void TestRuntimeContentDbSeparatesRuntimeItems()

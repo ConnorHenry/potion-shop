@@ -23,7 +23,9 @@ public partial class GameState : Node
 	// itemId -> qty
 	public Dictionary<string, int> Inventory { get; } = new();
 	public HashSet<string> ActiveRules { get; } = new();
+	public HashSet<string> StoryFlags { get; } = new(StringComparer.OrdinalIgnoreCase);
 	public HashSet<string> KnownPotions { get; } = new();
+	public List<string> KnownPotionOrder { get; } = new();
 	public Dictionary<string, string> PotionDisplayNames { get; } = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Dictionary<string, int> _potionBasePrices = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Dictionary<string, List<string>> _potionRecipes = new(StringComparer.OrdinalIgnoreCase);
@@ -58,7 +60,9 @@ public partial class GameState : Node
 		TutorialStep = 0;
 		Inventory.Clear();
 		ActiveRules.Clear();
+		StoryFlags.Clear();
 		KnownPotions.Clear();
+		KnownPotionOrder.Clear();
 		PotionDisplayNames.Clear();
 		_potionBasePrices.Clear();
 		_potionRecipes.Clear();
@@ -83,7 +87,9 @@ public partial class GameState : Node
 			TutorialStep = TutorialStep,
 			Inventory = new Dictionary<string, int>(Inventory),
 			ActiveRules = ActiveRules.ToList(),
-			KnownPotions = KnownPotions.ToList(),
+			StoryFlags = StoryFlags.ToList(),
+			KnownPotions = KnownPotionOrder.Count > 0 ? new List<string>(KnownPotionOrder) : KnownPotions.ToList(),
+			KnownPotionOrder = new List<string>(KnownPotionOrder),
 			PotionDisplayNames = new Dictionary<string, string>(PotionDisplayNames, StringComparer.OrdinalIgnoreCase),
 			PotionBasePrices = new Dictionary<string, int>(_potionBasePrices, StringComparer.OrdinalIgnoreCase),
 			PotionRecipes = ClonePotionRecipes(),
@@ -135,6 +141,16 @@ public partial class GameState : Node
 			}
 		}
 
+		StoryFlags.Clear();
+		if (snapshot.StoryFlags is not null)
+		{
+			foreach (var storyFlag in snapshot.StoryFlags)
+			{
+				if (!string.IsNullOrWhiteSpace(storyFlag))
+					StoryFlags.Add(storyFlag);
+			}
+		}
+
 		KnownPotions.Clear();
 		if (snapshot.KnownPotions is not null)
 		{
@@ -143,6 +159,33 @@ public partial class GameState : Node
 				if (!string.IsNullOrWhiteSpace(potionId))
 					KnownPotions.Add(potionId);
 			}
+		}
+
+		KnownPotionOrder.Clear();
+		var potionOrderSource = snapshot.KnownPotionOrder is { Count: > 0 }
+			? snapshot.KnownPotionOrder
+			: snapshot.KnownPotions;
+		if (potionOrderSource is not null)
+		{
+			foreach (var potionId in potionOrderSource)
+			{
+				if (string.IsNullOrWhiteSpace(potionId))
+					continue;
+				if (!KnownPotions.Contains(potionId))
+					continue;
+				if (KnownPotionOrder.Contains(potionId))
+					continue;
+
+				KnownPotionOrder.Add(potionId);
+			}
+		}
+
+		foreach (var potionId in KnownPotions)
+		{
+			if (KnownPotionOrder.Contains(potionId))
+				continue;
+
+			KnownPotionOrder.Add(potionId);
 		}
 
 		PotionDisplayNames.Clear();
@@ -244,6 +287,29 @@ public partial class GameState : Node
 		EmitChanged();
 	}
 
+	public bool HasStoryFlag(string storyFlag)
+	{
+		return !string.IsNullOrWhiteSpace(storyFlag) && StoryFlags.Contains(storyFlag);
+	}
+
+	public void AddStoryFlag(string storyFlag)
+	{
+		if (string.IsNullOrWhiteSpace(storyFlag))
+			return;
+
+		if (StoryFlags.Add(storyFlag))
+			EmitChanged();
+	}
+
+	public void RemoveStoryFlag(string storyFlag)
+	{
+		if (string.IsNullOrWhiteSpace(storyFlag))
+			return;
+
+		if (StoryFlags.Remove(storyFlag))
+			EmitChanged();
+	}
+
 	public void RequestTutorial()
 	{
 		TutorialRequested = true;
@@ -311,8 +377,18 @@ public partial class GameState : Node
 
 	public void LearnPotion(string potionId)
 	{
-		if (string.IsNullOrWhiteSpace(potionId)) return;
-		if (KnownPotions.Add(potionId))
+		if (string.IsNullOrWhiteSpace(potionId))
+			return;
+
+		var knownPotionAdded = KnownPotions.Add(potionId);
+		var orderAdded = false;
+		if (!KnownPotionOrder.Contains(potionId))
+		{
+			KnownPotionOrder.Add(potionId);
+			orderAdded = true;
+		}
+
+		if (knownPotionAdded || orderAdded)
 			EmitChanged();
 	}
 

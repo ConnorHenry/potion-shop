@@ -6,6 +6,8 @@ public sealed class EffectDef
     public int? AddGold { get; set; }
     public int? AddDread { get; set; }
     public string? AddRule { get; set; }
+    public string? AddStoryFlag { get; set; }
+    public string? RemoveStoryFlag { get; set; }
 
     public string? AddItemId { get; set; }
     public int? AddItemQty { get; set; }
@@ -13,4 +15,3 @@ public sealed class EffectDef
     public string? ConsumeItemId { get; set; }
     public int? ConsumeItemQty { get; set; }
 }
-

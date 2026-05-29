@@ -189,10 +189,17 @@ public partial class DataDb : Node
 				Title = ReadString(entry, "title"),
 				Text = ReadString(entry, "text"),
 				CharacterImagePath = ReadNullableString(entry, "characterImagePath"),
+				Pool = ReadString(entry, "pool"),
+				Difficulty = Math.Max(1, ReadInt(entry, "difficulty", 1)),
+				StoryCharacterId = ReadString(entry, "storyCharacterId"),
+				VisitId = ReadString(entry, "visitId"),
 				Requires = ParseRequirements(ReadDictionary(entry, "requires")),
 				Weight = ReadInt(entry, "weight", 1),
 				DesiredTraits = ReadStringIntDictionary(entry, "desiredTraits"),
-				BadTraits = ReadStringIntDictionary(entry, "badTraits")
+				BadTraits = ReadStringIntDictionary(entry, "badTraits"),
+				OnSuccessEffects = ParseEffects(ReadArray(entry, "onSuccessEffects")),
+				OnFailureEffects = ParseEffects(ReadArray(entry, "onFailureEffects")),
+				OnSkipEffects = ParseEffects(ReadArray(entry, "onSkipEffects"))
 			});
 		}
 
@@ -300,6 +307,8 @@ public partial class DataDb : Node
 				AddGold = ReadNullableInt(entry, "addGold"),
 				AddDread = ReadNullableInt(entry, "addDread"),
 				AddRule = ReadNullableString(entry, "addRule"),
+				AddStoryFlag = ReadNullableString(entry, "addStoryFlag"),
+				RemoveStoryFlag = ReadNullableString(entry, "removeStoryFlag"),
 				AddItemId = ReadNullableString(entry, "addItemId"),
 				AddItemQty = ReadNullableInt(entry, "addItemQty"),
 				ConsumeItemId = ReadNullableString(entry, "consumeItemId"),
@@ -320,15 +329,25 @@ public partial class DataDb : Node
 			GoldMin = ReadNullableInt(entry, "goldMin"),
 			DreadMin = ReadNullableInt(entry, "dreadMin"),
 			DreadMax = ReadNullableInt(entry, "dreadMax"),
+			DayMin = ReadNullableInt(entry, "dayMin"),
+			DayMax = ReadNullableInt(entry, "dayMax"),
+			DayExact = ReadNullableInt(entry, "dayExact"),
 			HasItemId = ReadNullableString(entry, "hasItemId"),
-			HasItemQty = ReadNullableInt(entry, "hasItemQty")
+			HasItemQty = ReadNullableInt(entry, "hasItemQty"),
+			HasStoryFlag = ReadNullableString(entry, "hasStoryFlag"),
+			MissingStoryFlag = ReadNullableString(entry, "missingStoryFlag")
 		};
 
 		if (requirements.GoldMin is null &&
 			requirements.DreadMin is null &&
 			requirements.DreadMax is null &&
+			requirements.DayMin is null &&
+			requirements.DayMax is null &&
+			requirements.DayExact is null &&
 			string.IsNullOrWhiteSpace(requirements.HasItemId) &&
-			requirements.HasItemQty is null)
+			requirements.HasItemQty is null &&
+			string.IsNullOrWhiteSpace(requirements.HasStoryFlag) &&
+			string.IsNullOrWhiteSpace(requirements.MissingStoryFlag))
 		{
 			return null;
 		}

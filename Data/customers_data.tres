@@ -10,7 +10,12 @@ Entries = [
     "title": "Sleep Draught",
     "text": "A tired customer rubs their eyes and says they have not slept properly in days. They need something to help their body settle and their mind drift away.",
     "characterImagePath": "res://Assets/Characters/store_customer.svg",
-    "requires": {},
+    "pool": "early",
+    "difficulty": 1,
+    "requires": {
+      "dayMin": 1,
+      "dayMax": 4
+    },
     "weight": 10,
     "desiredTraits": {
       "rest": 5,
@@ -24,7 +29,12 @@ Entries = [
     "title": "Nightmare Ward",
     "text": "A nervous customer says the same nightmare waits for them every night. They are afraid to close their eyes and need something to help them face their dreams.",
     "characterImagePath": "res://Assets/Characters/store_customer.svg",
-    "requires": {},
+    "pool": "mid",
+    "difficulty": 2,
+    "requires": {
+      "dayMin": 3,
+      "dayMax": 8
+    },
     "weight": 10,
     "desiredTraits": {
       "dream": 5,
@@ -38,7 +48,12 @@ Entries = [
     "title": "Pain Relief Tonic",
     "text": "A weary labourer clutches their back and says every step hurts after a week of hauling crates. They need something to ease the pain and help them recover.",
     "characterImagePath": "res://Assets/Characters/store_customer.svg",
-    "requires": {},
+    "pool": "early",
+    "difficulty": 1,
+    "requires": {
+      "dayMin": 1,
+      "dayMax": 4
+    },
     "weight": 10,
     "desiredTraits": {
       "soothe": 5,
@@ -52,7 +67,12 @@ Entries = [
     "title": "Love Philter",
     "text": "A hopeful customer admits they want to be noticed at the dance tonight. They need something to make them feel appealing, warm, and impossible to ignore.",
     "characterImagePath": "res://Assets/Characters/store_customer.svg",
-    "requires": {},
+    "pool": "mid",
+    "difficulty": 2,
+    "requires": {
+      "dayMin": 3,
+      "dayMax": 8
+    },
     "weight": 10,
     "desiredTraits": {
       "charm": 5,
@@ -66,7 +86,12 @@ Entries = [
     "title": "Focus Elixir",
     "text": "A student arrives in a panic and says their exam is tomorrow, but their thoughts feel thick and useless. They need something to help them think clearly and stay alert.",
     "characterImagePath": "res://Assets/Characters/store_customer.svg",
-    "requires": {},
+    "pool": "early",
+    "difficulty": 1,
+    "requires": {
+      "dayMin": 1,
+      "dayMax": 4
+    },
     "weight": 10,
     "desiredTraits": {
       "clarity": 5,
@@ -80,7 +105,11 @@ Entries = [
     "title": "Curse Cleanser",
     "text": "A frightened customer whispers that something foul has followed them home. Bad luck clings to them, and they need something to drive it out.",
     "characterImagePath": "res://Assets/Characters/store_customer.svg",
-    "requires": {},
+    "pool": "late",
+    "difficulty": 3,
+    "requires": {
+      "dayMin": 5
+    },
     "weight": 10,
     "desiredTraits": {
       "cleanse": 5,
@@ -94,7 +123,12 @@ Entries = [
     "title": "Recovery Brew",
     "text": "A pale customer says they have been sick for days. The fever has passed, but their body still feels weak and slow to heal.",
     "characterImagePath": "res://Assets/Characters/store_customer.svg",
-    "requires": {},
+    "pool": "mid",
+    "difficulty": 2,
+    "requires": {
+      "dayMin": 3,
+      "dayMax": 8
+    },
     "weight": 10,
     "desiredTraits": {
       "mend": 5,
@@ -108,7 +142,12 @@ Entries = [
     "title": "Confidence Draught",
     "text": "A customer admits they must give a speech before the council, but the thought of everyone staring at them makes their hands shake.",
     "characterImagePath": "res://Assets/Characters/store_customer.svg",
-    "requires": {},
+    "pool": "mid",
+    "difficulty": 2,
+    "requires": {
+      "dayMin": 3,
+      "dayMax": 8
+    },
     "weight": 10,
     "desiredTraits": {
       "courage": 5,
@@ -122,7 +161,12 @@ Entries = [
     "title": "Inspiration Tonic",
     "text": "A tired artist says their work has gone lifeless. They need something to stir the imagination and bring energy back to their ideas.",
     "characterImagePath": "res://Assets/Characters/store_customer.svg",
-    "requires": {},
+    "pool": "mid",
+    "difficulty": 2,
+    "requires": {
+      "dayMin": 3,
+      "dayMax": 8
+    },
     "weight": 10,
     "desiredTraits": {
       "dream": 5,
@@ -136,7 +180,12 @@ Entries = [
     "title": "Antidote Potion",
     "text": "A queasy customer says they drank something strange at the tavern and now their stomach is turning. They need something to purge the poison and settle the damage.",
     "characterImagePath": "res://Assets/Characters/store_customer.svg",
-    "requires": {},
+    "pool": "mid",
+    "difficulty": 2,
+    "requires": {
+      "dayMin": 3,
+      "dayMax": 8
+    },
     "weight": 10,
     "desiredTraits": {
       "cleanse": 5,
@@ -150,7 +199,11 @@ Entries = [
     "title": "Moonlit Rest Draught",
     "text": "A night watch clerk points to the recipe book and asks for Moonlit Rest Draught by name. They need its calm, restful dreamwork before another sleepless shift breaks them.",
     "characterImagePath": "res://Assets/Characters/rest_draught_customer.svg",
-    "requires": {},
+    "pool": "recipe",
+    "difficulty": 3,
+    "requires": {
+      "dayMin": 5
+    },
     "weight": 10,
     "desiredTraits": {
       "rest": 5,
@@ -164,7 +217,11 @@ Entries = [
     "title": "Gravekeeper's Balm",
     "text": "A cemetery keeper arrives with cracked hands and a stained recipe note. They ask for Gravekeeper's Balm, insisting the book says it soothes, mends, and cleanses.",
     "characterImagePath": "res://Assets/Characters/gravekeepers_balm_customer.svg",
-    "requires": {},
+    "pool": "recipe",
+    "difficulty": 3,
+    "requires": {
+      "dayMin": 5
+    },
     "weight": 10,
     "desiredTraits": {
       "soothe": 5,
@@ -178,7 +235,11 @@ Entries = [
     "title": "Silver Focus Tonic",
     "text": "A junior magistrate taps the Silver Focus Tonic entry in the recipe book. They need clarity for testimony, courage before the bench, and enough vigor to stay upright.",
     "characterImagePath": "res://Assets/Characters/silver_focus_customer.svg",
-    "requires": {},
+    "pool": "recipe",
+    "difficulty": 3,
+    "requires": {
+      "dayMin": 5
+    },
     "weight": 10,
     "desiredTraits": {
       "clarity": 5,
@@ -192,7 +253,11 @@ Entries = [
     "title": "Orchid Charm Philter",
     "text": "A performer has marked Orchid Charm Philter in the recipe book and asks for that potion exactly. They want charm without losing their calm or the dreamlike edge of the stage.",
     "characterImagePath": "res://Assets/Characters/orchid_charm_customer.svg",
-    "requires": {},
+    "pool": "recipe",
+    "difficulty": 3,
+    "requires": {
+      "dayMin": 5
+    },
     "weight": 10,
     "desiredTraits": {
       "charm": 5,
@@ -206,7 +271,11 @@ Entries = [
     "title": "Ravenheart Elixir",
     "text": "A courier with a black sealed letter asks for Ravenheart Elixir from the recipe book. They need courage, vigor, and a little rest before crossing the old road.",
     "characterImagePath": "res://Assets/Characters/ravenheart_customer.svg",
-    "requires": {},
+    "pool": "recipe",
+    "difficulty": 3,
+    "requires": {
+      "dayMin": 5
+    },
     "weight": 10,
     "desiredTraits": {
       "courage": 5,

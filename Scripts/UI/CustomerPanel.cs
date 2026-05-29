@@ -292,6 +292,7 @@ public partial class CustomerPanel : Control
 		_gameState.AddDread(dreadDelta);
 
 		_gameState.ConsumeItem(itemId, 1);
+		ApplyOutcomeEffects(isSuccess ? _interaction?.OnSuccessEffects : _interaction?.OnFailureEffects);
 		return (isSuccess, goldDelta, dreadDelta);
 	}
 
@@ -336,31 +337,45 @@ public partial class CustomerPanel : Control
 		var isSuccess = request is not null && HasAllDesiredTraitsPresent(request, brewResult.Traits);
 		lines.Add($"Sale: {(isSuccess ? "Success" : "Failure")}");
 		lines.Add(string.Empty);
-		lines.Add("Desired Traits:");
-		lines.Add(FormatTraitDictionaryForResult(request?.DesiredTraits));
-		lines.Add(string.Empty);
-		lines.Add("Potion Traits:");
-		lines.Add(FormatTraitDictionaryForResult(brewResult.Traits));
+		var matchedDesiredTraitCount = request is null
+			? 0
+			: CountMatchedDesiredTraits(request, brewResult.Traits);
+		lines.Add($"Customer response: {GetCustomerResponseText(matchedDesiredTraitCount)}");
 
 		return string.Join("\n", lines);
 	}
 
-	private static string FormatTraitDictionaryForResult(IReadOnlyDictionary<string, int>? values)
+	private static string GetCustomerResponseText(int matchedDesiredTraitCount)
 	{
-		if (values is null || values.Count == 0)
-			return "None";
+		if (matchedDesiredTraitCount >= 3)
+			return "The customer is happy";
 
-		var lines = values
-			.Where(pair => !string.IsNullOrWhiteSpace(pair.Key))
-			.OrderByDescending(pair => pair.Value)
-			.ThenBy(pair => pair.Key)
-			.Select(pair => $"- {pair.Key}: {pair.Value}")
-			.ToList();
+		if (matchedDesiredTraitCount == 2)
+			return "The customer is satisfied";
 
-		if (lines.Count == 0)
-			return "None";
+		return "The customer is disappointed";
+	}
 
-		return string.Join("\n", lines);
+	private static int CountMatchedDesiredTraits(
+		CustomerRequestDef request,
+		IReadOnlyDictionary<string, int> producedTraits)
+	{
+		var matchedDesiredTraitCount = 0;
+		foreach (var desiredTrait in request.DesiredTraits)
+		{
+			if (string.IsNullOrWhiteSpace(desiredTrait.Key))
+				continue;
+
+			if (!TryGetValueIgnoreCase(producedTraits, desiredTrait.Key, out var producedValue))
+				continue;
+
+			if (producedValue <= 0)
+				continue;
+
+			matchedDesiredTraitCount += 1;
+		}
+
+		return matchedDesiredTraitCount;
 	}
 
 	private void SetRequestTraits(CustomerRequestDef request)
@@ -476,24 +491,8 @@ public partial class CustomerPanel : Control
 
 	private static bool HasAllDesiredTraitsPresent(CustomerRequestDef request, IReadOnlyDictionary<string, int> producedTraits)
 	{
-		var totalDesiredTraitCount = 0;
-		var matchedDesiredTraitCount = 0;
-
-		foreach (var desiredTrait in request.DesiredTraits)
-		{
-			if (string.IsNullOrWhiteSpace(desiredTrait.Key))
-				continue;
-
-			totalDesiredTraitCount += 1;
-
-			if (!TryGetValueIgnoreCase(producedTraits, desiredTrait.Key, out var producedValue))
-				continue;
-
-			if (producedValue <= 0)
-				continue;
-
-			matchedDesiredTraitCount += 1;
-		}
+		var totalDesiredTraitCount = request.DesiredTraits.Count(pair => !string.IsNullOrWhiteSpace(pair.Key));
+		var matchedDesiredTraitCount = CountMatchedDesiredTraits(request, producedTraits);
 
 		if (totalDesiredTraitCount == 0)
 			return true;
@@ -543,8 +542,18 @@ public partial class CustomerPanel : Control
 		if (_interaction is null)
 			return;
 
+		ApplyOutcomeEffects(_interaction.OnSkipEffects);
 		HidePanel();
 		EmitSignal(SignalName.CustomerSkipped);
+	}
+
+	private void ApplyOutcomeEffects(IReadOnlyList<EffectDef>? effects)
+	{
+		if (effects is null || effects.Count == 0)
+			return;
+
+		foreach (var effect in effects)
+			EffectApplier.Apply(_gameState, effect);
 	}
 
 	private void BindOrCreateSkipButtons()
@@ -618,7 +627,10 @@ public partial class CustomerPanel : Control
 			_nextCustomerButton.Visible = false;
 
 		if (_sellDropBox is not null)
+		{
 			_sellDropBox.MouseFilter = MouseFilterEnum.Stop;
+			_sellDropBox.SetAcceptDrops(true);
+		}
 	}
 
 	private void SetSaleResolvedState()
@@ -633,7 +645,10 @@ public partial class CustomerPanel : Control
 			_nextCustomerButton.Visible = true;
 
 		if (_sellDropBox is not null)
+		{
 			_sellDropBox.MouseFilter = MouseFilterEnum.Ignore;
+			_sellDropBox.SetAcceptDrops(false);
+		}
 	}
 
 	private void UpdateCloseShopButtonText()

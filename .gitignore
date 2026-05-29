@@ -25,6 +25,7 @@ obj/
 *.rsuser
 *.suo
 *.userprefs
+GAME_DESIGN.md
 
 # Android export build directory
 /android/

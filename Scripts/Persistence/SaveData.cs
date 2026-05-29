@@ -23,7 +23,9 @@ public sealed class GameStateSnapshot
 	public int TutorialStep { get; set; }
 	public Dictionary<string, int> Inventory { get; set; } = new();
 	public List<string> ActiveRules { get; set; } = new();
+	public List<string> StoryFlags { get; set; } = new();
 	public List<string> KnownPotions { get; set; } = new();
+	public List<string> KnownPotionOrder { get; set; } = new();
 	public Dictionary<string, string> PotionDisplayNames { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 	public Dictionary<string, int> PotionBasePrices { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 	public Dictionary<string, List<string>> PotionRecipes { get; set; } = new(StringComparer.OrdinalIgnoreCase);

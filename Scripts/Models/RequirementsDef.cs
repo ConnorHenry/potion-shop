@@ -9,4 +9,10 @@ public sealed class RequirementsDef
     // Simple inventory gate (extend later)
     public string? HasItemId { get; set; }
     public int? HasItemQty { get; set; }
+
+    public int? DayMin { get; set; }
+    public int? DayMax { get; set; }
+    public int? DayExact { get; set; }
+    public string? HasStoryFlag { get; set; }
+    public string? MissingStoryFlag { get; set; }
 }
