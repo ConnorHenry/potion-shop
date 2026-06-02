@@ -79,6 +79,7 @@ public partial class DayController : Node
 
 		_customerPanel.SaleResolved += OnCustomerSaleResolved;
 		_customerPanel.SaleResultClosed += OnCustomerSaleResultClosed;
+		_customerPanel.DialogueResolved += OnCustomerDialogueResolved;
 		_customerPanel.CustomerSkipped += OnCustomerSkipped;
 		_daySummaryPanel.ContinuePressed += OnSummaryContinuePressed;
 		_daySummaryPanel.HidePanel();
@@ -97,6 +98,8 @@ public partial class DayController : Node
 			_customerPanel.SaleResolved -= OnCustomerSaleResolved;
 		if (_customerPanel != null)
 			_customerPanel.SaleResultClosed -= OnCustomerSaleResultClosed;
+		if (_customerPanel != null)
+			_customerPanel.DialogueResolved -= OnCustomerDialogueResolved;
 		if (_daySummaryPanel != null)
 			_daySummaryPanel.ContinuePressed -= OnSummaryContinuePressed;
 	}
@@ -158,22 +161,50 @@ public partial class DayController : Node
 
 	public void ForceShopTimerToZeroForTutorial()
 	{
+		TrySetShopTimerSecondsRemaining(0);
+	}
+
+	public bool TrySetShopTimerSecondsRemaining(int secondsRemaining)
+	{
 		if (!IsShopOpen)
-			return;
+			return false;
 
-		_secondsRemaining = 0;
-		if (!_shopTimer.IsStopped())
-			_shopTimer.Stop();
+		_secondsRemaining = Math.Max(0, secondsRemaining);
 
-		if (_customerPanel.HasActiveInteraction || _awaitingSaleResultClose)
+		if (_secondsRemaining <= 0)
 		{
-			_shopClosingPending = true;
-			_customerPanel.SetCloseShopMode(true);
-			EmitShopStateChanged();
-			return;
+			if (!_shopTimer.IsStopped())
+				_shopTimer.Stop();
+
+			if (_customerPanel.HasActiveInteraction || _awaitingSaleResultClose)
+			{
+				_shopClosingPending = true;
+				_customerPanel.SetCloseShopMode(true);
+				EmitShopStateChanged();
+				return true;
+			}
+
+			CloseShopAndShowSummary();
+			return true;
 		}
 
-		CloseShopAndShowSummary();
+		if (_tutorialTimerPaused)
+		{
+			EmitShopStateChanged();
+			return true;
+		}
+
+		if (_awaitingSaleResultClose)
+		{
+			EmitShopStateChanged();
+			return true;
+		}
+
+		if (_shopTimer.IsStopped())
+			_shopTimer.Start();
+
+		EmitShopStateChanged();
+		return true;
 	}
 
 	public void EndDayAndRunNight()
@@ -288,6 +319,21 @@ public partial class DayController : Node
 
 		if (_shopTimer.IsStopped() && !_tutorialTimerPaused)
 			_shopTimer.Start();
+
+		EmitShopStateChanged();
+	}
+
+	private void OnCustomerDialogueResolved()
+	{
+		if (!IsShopOpen)
+			return;
+
+		if (!_shopTimer.IsStopped())
+			_shopTimer.Stop();
+
+		_awaitingSaleResultClose = true;
+		if (_shopClosingPending)
+			_customerPanel.SetCloseShopMode(true);
 
 		EmitShopStateChanged();
 	}

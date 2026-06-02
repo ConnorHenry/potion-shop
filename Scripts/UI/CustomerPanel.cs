@@ -19,6 +19,8 @@ public partial class CustomerPanel : Control
 	public delegate void PotionSoldEventHandler(string itemId, bool success);
 	[Signal]
 	public delegate void InteractionShownEventHandler(string interactionId);
+	[Signal]
+	public delegate void DialogueResolvedEventHandler();
 
 	public bool SuppressSaleResultPanel { get; set; }
 
@@ -59,6 +61,7 @@ public partial class CustomerPanel : Control
 	private ItemCatalogService _itemCatalog = default!;
 	private bool _closeShopMode;
 	private bool _awaitingNextCustomer;
+	private string _activeDialogueNodeId = string.Empty;
 	private const int SuccessDreadChange = -2;
 	private const int FailureDreadChange = 4;
 	private const string MatchedDesiredColorHex = "#59D959";
@@ -110,10 +113,10 @@ public partial class CustomerPanel : Control
 		MouseFilter = MouseFilterEnum.Ignore;
 		//_closeButton.Pressed += HidePanel;
 		if (_comeBackTomorrowButton is not null)
-			_comeBackTomorrowButton.Pressed += OnSkipCustomerPressed;
+			_comeBackTomorrowButton.Pressed += OnFirstCustomerActionPressed;
 
 		if (_sorryCantHelpYouButton is not null)
-			_sorryCantHelpYouButton.Pressed += OnSkipCustomerPressed;
+			_sorryCantHelpYouButton.Pressed += OnSecondCustomerActionPressed;
 		if (_nextCustomerButton is not null)
 			_nextCustomerButton.Pressed += OnSaleResultClosePressed;
 
@@ -146,9 +149,9 @@ public partial class CustomerPanel : Control
 		if (_closeButton is not null)
 			_closeButton.Pressed -= HidePanel;
 		if (_comeBackTomorrowButton is not null)
-			_comeBackTomorrowButton.Pressed -= OnSkipCustomerPressed;
+			_comeBackTomorrowButton.Pressed -= OnFirstCustomerActionPressed;
 		if (_sorryCantHelpYouButton is not null)
-			_sorryCantHelpYouButton.Pressed -= OnSkipCustomerPressed;
+			_sorryCantHelpYouButton.Pressed -= OnSecondCustomerActionPressed;
 		if (_nextCustomerButton is not null)
 			_nextCustomerButton.Pressed -= OnSaleResultClosePressed;
 		if (_saleResultCloseButton is not null)
@@ -166,6 +169,7 @@ public partial class CustomerPanel : Control
 		HideSaleResult();
 		_interaction = interaction;
 		_awaitingNextCustomer = false;
+		_activeDialogueNodeId = string.Empty;
 		var request = interaction.BuildRequest();
 		_gameState.SetActiveCustomerRequest(request);
 		Visible = true;
@@ -173,7 +177,8 @@ public partial class CustomerPanel : Control
 		_dialogue.Text = interaction.Text;
 		SetPortrait(interaction.CharacterImagePath);
 		SetRequestTraits(request);
-		SetSalePendingState();
+		if (!TryShowDialogueStart())
+			SetSalePendingState();
 		EmitSignal(SignalName.InteractionShown, interaction.Id);
 	}
 
@@ -202,6 +207,7 @@ public partial class CustomerPanel : Control
 		_badTraits.Text = "";
 		_dialogue.Text = "";
 		_awaitingNextCustomer = false;
+		_activeDialogueNodeId = string.Empty;
 		SetSalePendingState();
 		HideSaleResult();
 		Visible = false;
@@ -344,6 +350,7 @@ public partial class CustomerPanel : Control
 		_awaitingNextCustomer = false;
 		HideSaleResult();
 		_interaction = null;
+		_activeDialogueNodeId = string.Empty;
 		EmitSignal(SignalName.SaleResultClosed);
 	}
 
@@ -574,6 +581,127 @@ public partial class CustomerPanel : Control
 			.Replace("]", "[rb]");
 	}
 
+	private void OnFirstCustomerActionPressed()
+	{
+		if (TrySelectDialogueOption(0))
+			return;
+
+		OnSkipCustomerPressed();
+	}
+
+	private void OnSecondCustomerActionPressed()
+	{
+		if (TrySelectDialogueOption(1))
+			return;
+
+		OnSkipCustomerPressed();
+	}
+
+	private bool TryShowDialogueStart()
+	{
+		if (!HasActiveDialogueInteraction())
+			return false;
+
+		var startNode = _interaction?.GetDialogueNode(string.Empty);
+		if (startNode is null)
+		{
+			GD.PushError($"CustomerPanel: Story customer '{_interaction?.Id}' has dialogue data but no valid start node.");
+			return false;
+		}
+
+		ShowDialogueNode(startNode);
+		return true;
+	}
+
+	private bool TrySelectDialogueOption(int optionIndex)
+	{
+		if (!HasActiveDialogueInteraction())
+			return false;
+
+		var node = _interaction?.GetDialogueNode(_activeDialogueNodeId);
+		if (node is null)
+		{
+			GD.PushError($"CustomerPanel: Active dialogue node '{_activeDialogueNodeId}' was not found.");
+			return true;
+		}
+
+		if (optionIndex < 0 || optionIndex >= node.Options.Count)
+			return true;
+
+		var option = node.Options[optionIndex];
+		ApplyOutcomeEffects(option.Effects);
+
+		if (option.EndsInteraction)
+		{
+			if (!string.IsNullOrWhiteSpace(option.ResponseText))
+				_dialogue.Text = option.ResponseText;
+
+			CompleteDialogueInteraction(option);
+			return true;
+		}
+
+		if (!string.IsNullOrWhiteSpace(option.NextNodeId))
+		{
+			var nextNode = _interaction?.GetDialogueNode(option.NextNodeId);
+			if (nextNode is null)
+			{
+				GD.PushError($"CustomerPanel: Dialogue option '{option.Id}' points to missing node '{option.NextNodeId}'.");
+				CompleteDialogueInteraction(option);
+				return true;
+			}
+
+			ShowDialogueNode(nextNode);
+			return true;
+		}
+
+		if (!string.IsNullOrWhiteSpace(option.ResponseText))
+			_dialogue.Text = option.ResponseText;
+
+		CompleteDialogueInteraction(option);
+		return true;
+	}
+
+	private bool HasActiveDialogueInteraction()
+	{
+		return _interaction is not null &&
+			_interaction.IsStoryInteraction &&
+			_interaction.HasDialogueTree;
+	}
+
+	private void ShowDialogueNode(CustomerDialogueNodeDef node)
+	{
+		_activeDialogueNodeId = node.Id;
+		if (!string.IsNullOrWhiteSpace(node.Text))
+			_dialogue.Text = node.Text;
+
+		if (node.Options.Count == 0)
+		{
+			CompleteDialogueInteraction("dialogue_complete");
+			return;
+		}
+
+		SetDialogueOptionState(node);
+	}
+
+	private void CompleteDialogueInteraction(CustomerDialogueOptionDef option)
+	{
+		var outcomeId = string.IsNullOrWhiteSpace(option.Id) ? option.Label : option.Id;
+		CompleteDialogueInteraction($"dialogue:{outcomeId}");
+	}
+
+	private void CompleteDialogueInteraction(string outcome)
+	{
+		if (_interaction is null)
+			return;
+
+		_gameState.RecordStoryCustomerInteractionOutcome(_interaction, outcome);
+		_gameState.ClearActiveCustomerRequest();
+		_activeDialogueNodeId = string.Empty;
+		_awaitingNextCustomer = true;
+		SetSaleResolvedState();
+		EmitSignal(SignalName.DialogueResolved);
+	}
+
 	private void OnSkipCustomerPressed()
 	{
 		if (_interaction is null)
@@ -656,10 +784,16 @@ public partial class CustomerPanel : Control
 	private void SetSalePendingState()
 	{
 		if (_comeBackTomorrowButton is not null)
+		{
+			_comeBackTomorrowButton.Text = "Come back tomorrow";
 			_comeBackTomorrowButton.Visible = true;
+		}
 
 		if (_sorryCantHelpYouButton is not null)
+		{
+			_sorryCantHelpYouButton.Text = "Sorry can't help you";
 			_sorryCantHelpYouButton.Visible = true;
+		}
 
 		if (_nextCustomerButton is not null)
 			_nextCustomerButton.Visible = false;
@@ -671,6 +805,38 @@ public partial class CustomerPanel : Control
 			_sellDropBox.SetAcceptDrops(true);
 			_sellDropBox.SetHoverHighlight(false);
 		}
+	}
+
+	private void SetDialogueOptionState(CustomerDialogueNodeDef node)
+	{
+		SetDialogueOptionButton(_comeBackTomorrowButton, node, 0);
+		SetDialogueOptionButton(_sorryCantHelpYouButton, node, 1);
+
+		if (_nextCustomerButton is not null)
+			_nextCustomerButton.Visible = false;
+
+		if (_sellDropBox is not null)
+		{
+			_sellDropBox.SetDisabledVisual(true);
+			_sellDropBox.MouseFilter = MouseFilterEnum.Ignore;
+			_sellDropBox.SetAcceptDrops(false);
+			_sellDropBox.SetHoverHighlight(false);
+		}
+	}
+
+	private static void SetDialogueOptionButton(Button? button, CustomerDialogueNodeDef node, int optionIndex)
+	{
+		if (button is null)
+			return;
+
+		if (optionIndex < 0 || optionIndex >= node.Options.Count)
+		{
+			button.Visible = false;
+			return;
+		}
+
+		button.Text = node.Options[optionIndex].Label;
+		button.Visible = true;
 	}
 
 	private void SetSaleResolvedState()

@@ -14,6 +14,8 @@ public partial class GameState : Node
 	public const string StoryCustomerOutcomeSuccess = "success";
 	public const string StoryCustomerOutcomeFailure = "failure";
 	public const string StoryCustomerOutcomeSkipped = "skipped";
+	public const int StartingGardenPotCount = 3;
+	public const int DefaultGardenHarvestYield = 2;
 
 	[Export] public NodePath DataDbPath { get; set; } = new("/root/DataDb");
 	[Export] public NodePath ItemCatalogPath { get; set; } = new("/root/ItemCatalog");
@@ -35,6 +37,9 @@ public partial class GameState : Node
 	public HashSet<string> KnownPotions { get; } = new();
 	public List<string> KnownPotionOrder { get; } = new();
 	public Dictionary<string, string> PotionDisplayNames { get; } = new(StringComparer.OrdinalIgnoreCase);
+	public IReadOnlyDictionary<string, int> SeedInventory => _seedInventory;
+	public IReadOnlyList<GardenPotState> GardenPots => _gardenPots;
+	public IReadOnlyList<GardenCropDef> GardenCrops => GardenCropDefinitions;
 	private static readonly (string ItemId, int Quantity)[] StartingInventory =
 	{
 		("grave_mint", 1),
@@ -54,11 +59,37 @@ public partial class GameState : Node
 		("moonwhisper_orchid", 1),
 		("raven_ash_peony", 1)
 	};
+	private static readonly GardenCropDef[] GardenCropDefinitions =
+	{
+		CreateGardenCrop("amber_nightshade", growthDays: 1),
+		CreateGardenCrop("obsidian_resin", growthDays: 2),
+		CreateGardenCrop("iron_lullaby_root", growthDays: 3),
+		CreateGardenCrop("mooncap_mushroom", growthDays: 1),
+		CreateGardenCrop("grave_mint", growthDays: 2),
+		CreateGardenCrop("black_ichor", growthDays: 1),
+		CreateGardenCrop("lavender_ash", growthDays: 3),
+		CreateGardenCrop("silver_thorn_bloom", growthDays: 2),
+		CreateGardenCrop("moonwhisper_orchid", growthDays: 3),
+		CreateGardenCrop("raven_ash_peony", growthDays: 1)
+	};
+	private static readonly Dictionary<string, GardenCropDef> GardenCropsByIngredientId = GardenCropDefinitions
+		.ToDictionary(x => x.IngredientId, x => x, StringComparer.OrdinalIgnoreCase);
+	private static readonly Dictionary<string, GardenCropDef> GardenCropsBySeedId = GardenCropDefinitions
+		.ToDictionary(x => x.SeedId, x => x, StringComparer.OrdinalIgnoreCase);
+	private static readonly (string SeedId, int Quantity)[] StartingSeedInventory =
+	{
+		("seed_amber_nightshade", 1),
+		("seed_obsidian_resin", 1),
+		("seed_iron_lullaby_root", 1)
+	};
 	private readonly Dictionary<string, int> _potionBasePrices = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Dictionary<string, List<string>> _potionRecipes = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Dictionary<string, string> _combinationPotionItems = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Dictionary<string, Queue<List<string>>> _potionBatches = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Dictionary<string, StoryCustomerVisitRecord> _storyCustomerVisits = new(StringComparer.OrdinalIgnoreCase);
+	private readonly Dictionary<string, int> _seedInventory = new(StringComparer.OrdinalIgnoreCase);
+	private readonly List<GardenPotState> _gardenPots = new();
+	private readonly Random _gardenYieldRandom = new();
 	public CustomerRequestDef? ActiveCustomerRequest { get; private set; }
 
 	public event Action? Changed;
@@ -95,9 +126,13 @@ public partial class GameState : Node
 		_potionRecipes.Clear();
 		_combinationPotionItems.Clear();
 		_potionBatches.Clear();
+		_seedInventory.Clear();
+		_gardenPots.Clear();
 		ActiveCustomerRequest = null;
 
 		SeedStartingInventory();
+		EnsureGardenPotCount(StartingGardenPotCount);
+		SeedStartingSeedInventory();
 		EmitChanged();
 	}
 
@@ -147,6 +182,10 @@ public partial class GameState : Node
 			PotionRecipes = ClonePotionRecipes(),
 			CombinationPotionItems = new Dictionary<string, string>(_combinationPotionItems, StringComparer.OrdinalIgnoreCase),
 			PotionBatches = ClonePotionBatches(),
+			GardenInitialized = true,
+			GardenPotCount = _gardenPots.Count,
+			SeedInventory = new Dictionary<string, int>(_seedInventory, StringComparer.OrdinalIgnoreCase),
+			GardenPots = CloneGardenPots(),
 			StoryCustomerVisits = CloneStoryCustomerVisits(),
 			ActiveCustomerRequest = CloneCustomerRequest(ActiveCustomerRequest)
 		};
@@ -319,12 +358,26 @@ public partial class GameState : Node
 			}
 		}
 
+		_seedInventory.Clear();
+		_gardenPots.Clear();
+		if (snapshot.GardenInitialized)
+		{
+			RestoreSeedInventory(snapshot.SeedInventory);
+			RestoreGardenPots(snapshot.GardenPots, snapshot.GardenPotCount);
+		}
+		else
+		{
+			EnsureGardenPotCount(StartingGardenPotCount);
+			SeedStartingSeedInventory();
+		}
+
 		ActiveCustomerRequest = CloneCustomerRequest(snapshot.ActiveCustomerRequest);
 		EmitChanged();
 	}
 
 	public void NextDay()
 	{
+		AdvanceGardenGrowth();
 		Day += 1;
 		EmitChanged();
 	}
@@ -497,6 +550,129 @@ public partial class GameState : Node
 		return true;
 	}
 
+	public static string BuildSeedId(string ingredientId)
+	{
+		return string.IsNullOrWhiteSpace(ingredientId)
+			? string.Empty
+			: $"seed_{ingredientId.Trim()}";
+	}
+
+	public bool TryGetGardenCropBySeedId(string seedId, out GardenCropDef crop)
+	{
+		return GardenCropsBySeedId.TryGetValue(seedId, out crop!);
+	}
+
+	public bool TryGetGardenCropByIngredientId(string ingredientId, out GardenCropDef crop)
+	{
+		return GardenCropsByIngredientId.TryGetValue(ingredientId, out crop!);
+	}
+
+	public int GetSeedQuantity(string seedId)
+	{
+		return _seedInventory.TryGetValue(seedId, out var quantity) ? quantity : 0;
+	}
+
+	public void AddSeed(string seedId, int quantity)
+	{
+		if (quantity <= 0 || string.IsNullOrWhiteSpace(seedId))
+			return;
+		if (!GardenCropsBySeedId.ContainsKey(seedId))
+		{
+			GD.PushError($"GameState: Cannot add unknown garden seed '{seedId}'.");
+			return;
+		}
+
+		AddSeedStack(seedId, quantity);
+		EmitChanged();
+	}
+
+	public bool TryPlantSeed(int potIndex, string seedId, out string error)
+	{
+		error = string.Empty;
+		if (!TryGetGardenPot(potIndex, out var pot))
+		{
+			error = "Garden pot is missing.";
+			return false;
+		}
+
+		if (!pot.IsEmpty)
+		{
+			error = "Garden pot is already planted.";
+			return false;
+		}
+
+		if (!GardenCropsBySeedId.TryGetValue(seedId, out var crop))
+		{
+			error = "Seed cannot be planted.";
+			return false;
+		}
+
+		if (GetSeedQuantity(seedId) <= 0)
+		{
+			error = "No seeds available.";
+			return false;
+		}
+
+		ConsumeSeed(seedId, 1);
+		pot.SeedId = crop.SeedId;
+		pot.IngredientId = crop.IngredientId;
+		pot.PlantedDay = Day;
+		pot.DaysGrown = 0;
+		pot.RequiredGrowthDays = Math.Max(1, crop.GrowthDays);
+		pot.HarvestYieldMin = Math.Max(1, crop.HarvestYieldMin);
+		pot.HarvestYieldMax = Math.Max(pot.HarvestYieldMin, crop.HarvestYieldMax);
+
+		EmitChanged();
+		return true;
+	}
+
+	public bool TryHarvestGardenPot(int potIndex, out string error)
+	{
+		error = string.Empty;
+		if (!TryGetGardenPot(potIndex, out var pot))
+		{
+			error = "Garden pot is missing.";
+			return false;
+		}
+
+		if (pot.IsEmpty)
+		{
+			error = "Garden pot is empty.";
+			return false;
+		}
+
+		if (!pot.IsReady)
+		{
+			error = "Ingredient is still growing.";
+			return false;
+		}
+
+		if (!_itemCatalog.TryGetItem(pot.IngredientId, out _))
+		{
+			error = "Harvest ingredient is missing from the item catalog.";
+			GD.PushError($"GameState: Cannot harvest unknown ingredient '{pot.IngredientId}'.");
+			return false;
+		}
+
+		var harvestYield = ResolveHarvestYield(pot);
+		Inventory[pot.IngredientId] = Inventory.GetValueOrDefault(pot.IngredientId) + harvestYield;
+		AddSeedStack(pot.SeedId, 1);
+		ClearGardenPot(pot);
+
+		EmitChanged();
+		return true;
+	}
+
+	public void SetUnlockedGardenPotCount(int potCount)
+	{
+		var normalizedPotCount = Math.Max(StartingGardenPotCount, potCount);
+		if (_gardenPots.Count >= normalizedPotCount)
+			return;
+
+		EnsureGardenPotCount(normalizedPotCount);
+		EmitChanged();
+	}
+
 	public void LearnPotion(string potionId)
 	{
 		if (string.IsNullOrWhiteSpace(potionId))
@@ -620,6 +796,166 @@ public partial class GameState : Node
 		EmitChanged();
 	}
 
+	private static GardenCropDef CreateGardenCrop(string ingredientId, int growthDays)
+	{
+		return new GardenCropDef
+		{
+			IngredientId = ingredientId,
+			SeedId = BuildSeedId(ingredientId),
+			GrowthDays = Math.Max(1, growthDays),
+			HarvestYieldMin = DefaultGardenHarvestYield,
+			HarvestYieldMax = DefaultGardenHarvestYield
+		};
+	}
+
+	private void SeedStartingSeedInventory()
+	{
+		foreach (var (seedId, quantity) in StartingSeedInventory)
+			AddSeedStack(seedId, quantity);
+	}
+
+	private void AddSeedStack(string seedId, int quantity)
+	{
+		if (quantity <= 0 || string.IsNullOrWhiteSpace(seedId))
+			return;
+		if (!GardenCropsBySeedId.ContainsKey(seedId))
+			return;
+
+		_seedInventory[seedId] = _seedInventory.GetValueOrDefault(seedId) + quantity;
+	}
+
+	private bool ConsumeSeed(string seedId, int quantity)
+	{
+		if (quantity <= 0)
+			return true;
+		if (!_seedInventory.TryGetValue(seedId, out var existing) || existing < quantity)
+			return false;
+
+		var remaining = existing - quantity;
+		if (remaining <= 0)
+			_seedInventory.Remove(seedId);
+		else
+			_seedInventory[seedId] = remaining;
+
+		return true;
+	}
+
+	private bool TryGetGardenPot(int potIndex, out GardenPotState pot)
+	{
+		pot = default!;
+		if (potIndex < 0 || potIndex >= _gardenPots.Count)
+			return false;
+
+		pot = _gardenPots[potIndex];
+		return true;
+	}
+
+	private void ClearGardenPot(GardenPotState pot)
+	{
+		pot.SeedId = string.Empty;
+		pot.IngredientId = string.Empty;
+		pot.PlantedDay = 0;
+		pot.DaysGrown = 0;
+		pot.RequiredGrowthDays = 0;
+		pot.HarvestYieldMin = 0;
+		pot.HarvestYieldMax = 0;
+	}
+
+	private void AdvanceGardenGrowth()
+	{
+		foreach (var pot in _gardenPots)
+		{
+			if (pot.IsEmpty)
+				continue;
+			if (pot.DaysGrown >= pot.RequiredGrowthDays)
+				continue;
+
+			pot.DaysGrown += 1;
+		}
+	}
+
+	private int ResolveHarvestYield(GardenPotState pot)
+	{
+		var minYield = Math.Max(1, pot.HarvestYieldMin);
+		var maxYield = Math.Max(minYield, pot.HarvestYieldMax);
+		return minYield == maxYield ? minYield : _gardenYieldRandom.Next(minYield, maxYield + 1);
+	}
+
+	private void EnsureGardenPotCount(int potCount)
+	{
+		var targetCount = Math.Max(StartingGardenPotCount, potCount);
+		while (_gardenPots.Count < targetCount)
+		{
+			_gardenPots.Add(new GardenPotState
+			{
+				PotIndex = _gardenPots.Count
+			});
+		}
+	}
+
+	private void RestoreSeedInventory(Dictionary<string, int>? seedInventory)
+	{
+		if (seedInventory is null)
+			return;
+
+		foreach (var pair in seedInventory)
+		{
+			if (string.IsNullOrWhiteSpace(pair.Key) || pair.Value <= 0)
+				continue;
+			if (!GardenCropsBySeedId.ContainsKey(pair.Key))
+				continue;
+
+			_seedInventory[pair.Key] = pair.Value;
+		}
+	}
+
+	private void RestoreGardenPots(List<GardenPotState>? gardenPots, int savedPotCount)
+	{
+		var targetPotCount = Math.Max(StartingGardenPotCount, savedPotCount);
+		if (gardenPots is not null && gardenPots.Count > targetPotCount)
+			targetPotCount = gardenPots.Count;
+
+		EnsureGardenPotCount(targetPotCount);
+		if (gardenPots is null)
+			return;
+
+		foreach (var savedPot in gardenPots)
+		{
+			if (savedPot is null)
+				continue;
+			if (savedPot.PotIndex < 0 || savedPot.PotIndex >= _gardenPots.Count)
+				continue;
+
+			_gardenPots[savedPot.PotIndex] = NormalizeGardenPot(savedPot);
+		}
+	}
+
+	private static GardenPotState NormalizeGardenPot(GardenPotState savedPot)
+	{
+		var pot = new GardenPotState
+		{
+			PotIndex = Math.Max(0, savedPot.PotIndex)
+		};
+
+		if (string.IsNullOrWhiteSpace(savedPot.IngredientId))
+			return pot;
+
+		if (!GardenCropsByIngredientId.TryGetValue(savedPot.IngredientId, out var crop))
+			return pot;
+
+		pot.SeedId = string.IsNullOrWhiteSpace(savedPot.SeedId) || !GardenCropsBySeedId.ContainsKey(savedPot.SeedId)
+			? crop.SeedId
+			: savedPot.SeedId;
+		pot.IngredientId = crop.IngredientId;
+		pot.PlantedDay = Math.Max(1, savedPot.PlantedDay);
+		pot.DaysGrown = Math.Max(0, savedPot.DaysGrown);
+		pot.RequiredGrowthDays = Math.Max(1, savedPot.RequiredGrowthDays > 0 ? savedPot.RequiredGrowthDays : crop.GrowthDays);
+		pot.HarvestYieldMin = Math.Max(1, savedPot.HarvestYieldMin > 0 ? savedPot.HarvestYieldMin : crop.HarvestYieldMin);
+		var savedMax = savedPot.HarvestYieldMax > 0 ? savedPot.HarvestYieldMax : crop.HarvestYieldMax;
+		pot.HarvestYieldMax = Math.Max(pot.HarvestYieldMin, savedMax);
+		return pot;
+	}
+
 	private void EmitChanged() => Changed?.Invoke();
 
 	private void SeedStartingInventory()
@@ -674,6 +1010,30 @@ public partial class GameState : Node
 			copy[pair.Key] = pair.Value.Select(batch => new List<string>(batch)).ToList();
 
 		return copy;
+	}
+
+	private List<GardenPotState> CloneGardenPots()
+	{
+		var pots = new List<GardenPotState>(_gardenPots.Count);
+		foreach (var pot in _gardenPots)
+			pots.Add(CloneGardenPot(pot));
+
+		return pots;
+	}
+
+	private static GardenPotState CloneGardenPot(GardenPotState pot)
+	{
+		return new GardenPotState
+		{
+			PotIndex = pot.PotIndex,
+			SeedId = pot.SeedId,
+			IngredientId = pot.IngredientId,
+			PlantedDay = pot.PlantedDay,
+			DaysGrown = pot.DaysGrown,
+			RequiredGrowthDays = pot.RequiredGrowthDays,
+			HarvestYieldMin = pot.HarvestYieldMin,
+			HarvestYieldMax = pot.HarvestYieldMax
+		};
 	}
 
 	private List<StoryCustomerVisitRecord> CloneStoryCustomerVisits()

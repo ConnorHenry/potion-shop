@@ -31,7 +31,7 @@ static class Program
         Run("InventoryPanel potion filter uses only top traits", TestInventoryPanelPotionFilterUsesOnlyTopTraits);
         Run("InventoryPanel closes detail after successful right-click queue of same ingredient", TestInventoryPanelRightClickQueueClosesMatchingDetail);
         Run("InventoryPanel risk filter is wired", TestInventoryPanelRiskFilterIsWired);
-        Run("InventoryPanel clear buttons stay hidden until filters are active", TestInventoryPanelClearButtonsStayHiddenUntilFiltersAreActive);
+        Run("InventoryPanel clear buttons reserve layout space until filters are active", TestInventoryPanelClearButtonsReserveLayoutSpaceUntilFiltersAreActive);
         Run("InventoryPanel ingredient type filter is populated and fixed", TestInventoryPanelTypeFilterIsPopulatedAndFixed);
         Run("RecipeBookPanel dictionary formatting is stable", TestRecipeBookPanelFormatDictionary);
         Run("RecipeBookPanel top-traits formatting is stable", TestRecipeBookPanelFormatTopTraits);
@@ -45,6 +45,7 @@ static class Program
         Run("CustomerPanel creates detached ingredient snapshots", TestCustomerPanelBuildPotionIngredientDef);
         Run("Customer events randomize shop-day order", TestCustomerEventControllerRandomizesOrder);
         Run("Customer events respect scheduling and story outcomes", TestCustomerEventSchedulingAndStoryOutcomes);
+        Run("Story customer dialogue options replace skip actions", TestStoryCustomerDialogueOptionsReplaceSkipActions);
         Run("Customer drop box stays disabled until next customer", TestCustomerDropBoxDisablesAfterSale);
         Run("RuntimeContentDb stores generated items separately", TestRuntimeContentDbSeparatesRuntimeItems);
         Run("DataDb does not expose runtime registration", TestDataDbDoesNotExposeRuntimeRegistration);
@@ -57,6 +58,9 @@ static class Program
         Run("Recipe book clear button is wired", TestRecipeBookClearButtonIsWired);
         Run("SaveGameManager stores saves in a dedicated directory", TestSaveGameManagerUsesSaveDirectory);
         Run("GameState seeds only the starter potion ingredients", TestStartingInventorySeedsOnlyTutorialRecipeItems);
+        Run("Garden crop definitions cover authored ingredients", TestGardenCropDefinitionsCoverAuthoredIngredients);
+        Run("Garden state persists seeds and pots", TestGardenStatePersistenceWiring);
+        Run("Garden scene and HUD navigation are wired", TestGardenSceneAndHudNavigation);
         Run("Tutorial game state transitions stay stable", TestTutorialGameStateTransitions);
         Run("Tutorial snapshot round-trip stays stable", TestTutorialSnapshotRoundTrip);
         Run("Main scene wires tutorial controller", TestMainSceneWiresTutorialController);
@@ -65,6 +69,7 @@ static class Program
         Run("Tutorial next-customer inventory seed stays curated", TestTutorialNextCustomerInventorySeedIsCurated);
         Run("Tutorial sale review feedback uses request wording", TestTutorialSaleReviewFeedbackUsesRequestWording);
         Run("Tutorial overlay keeps one dimming strategy", TestTutorialOverlayUsesDynamicCutoutsOnly);
+        Run("Scenario debugger can set the shop stop timer", TestScenarioDebuggerStopTimerControls);
         Run("Hud return-to-menu does not auto-save", TestHudReturnToMainMenuDoesNotAutoSave);
         Run("Hud settings panel closes on outside click", TestHudSettingsPanelClosesOnOutsideClick);
         Run("Persistence boundary stays separated", TestPersistenceBoundaryIsDocumented);
@@ -456,6 +461,7 @@ static class Program
             ["OccultShop.UI.InventoryItemSlot"] = "Button",
             ["OccultShop.UI.InventoryPanel"] = "Control",
             ["OccultShop.UI.RecipeBookPanel"] = "Control",
+            ["OccultShop.UI.Garden"] = "Control",
             ["MainMenu"] = "Control"
         };
 
@@ -592,29 +598,34 @@ static class Program
             scene.Contains("[node name=\"TypeFilter\" type=\"OptionButton\" parent=\"Panel/Margin/VBox/IngredientsHeaderRow\"]"));
     }
 
-    private static void TestInventoryPanelClearButtonsStayHiddenUntilFiltersAreActive()
+    private static void TestInventoryPanelClearButtonsReserveLayoutSpaceUntilFiltersAreActive()
     {
         var source = ReadProjectFile("Scripts/UI/InventoryPanel.cs");
         var scene = ReadProjectFile("Scenes/UI/InventoryPanel.tscn");
-        var potionClearButtonHidden =
-            scene.Contains($"[node name=\"Clear\" type=\"Button\" parent=\"Panel/Margin/VBox/PotionsHeaderRow\"]{Environment.NewLine}visible = false") ||
-            scene.Contains("[node name=\"Clear\" type=\"Button\" parent=\"Panel/Margin/VBox/PotionsHeaderRow\"]\nvisible = false");
-        var ingredientClearButtonHidden =
-            scene.Contains($"[node name=\"Clear\" type=\"Button\" parent=\"Panel/Margin/VBox/IngredientsHeaderRow\"]{Environment.NewLine}visible = false") ||
-            scene.Contains("[node name=\"Clear\" type=\"Button\" parent=\"Panel/Margin/VBox/IngredientsHeaderRow\"]\nvisible = false");
+        var potionClearButtonReservesSpace =
+            scene.Contains($"[node name=\"Clear\" type=\"Button\" parent=\"Panel/Margin/VBox/PotionsHeaderRow\"]{Environment.NewLine}visible = false{Environment.NewLine}custom_minimum_size = Vector2(64, 0)") ||
+            scene.Contains("[node name=\"Clear\" type=\"Button\" parent=\"Panel/Margin/VBox/PotionsHeaderRow\"]\nvisible = false\ncustom_minimum_size = Vector2(64, 0)");
+        var ingredientClearButtonReservesSpace =
+            scene.Contains($"[node name=\"Clear\" type=\"Button\" parent=\"Panel/Margin/VBox/IngredientsHeaderRow\"]{Environment.NewLine}visible = false{Environment.NewLine}custom_minimum_size = Vector2(64, 0)") ||
+            scene.Contains("[node name=\"Clear\" type=\"Button\" parent=\"Panel/Margin/VBox/IngredientsHeaderRow\"]\nvisible = false\ncustom_minimum_size = Vector2(64, 0)");
 
-        AssertTrue("InventoryPanel sets clear button visibility from potion filter state",
+        AssertTrue("InventoryPanel keeps potion clear button layout stable from filter state",
             source.Contains("UpdateClearFilterButtonVisibility();") &&
-            source.Contains("_potionsClearFilterButton.Visible =") &&
+            source.Contains("ApplyClearFilterButtonState(_potionsClearFilterButton, hasActivePotionFilter)") &&
             source.Contains("_activePotionTraitFilter") &&
             source.Contains("_activePotionRiskFilter"));
-        AssertTrue("InventoryPanel sets clear button visibility from ingredient filter state",
-            source.Contains("_ingredientsClearFilterButton.Visible =") &&
+        AssertTrue("InventoryPanel keeps ingredient clear button layout stable from filter state",
+            source.Contains("ApplyClearFilterButtonState(_ingredientsClearFilterButton, hasActiveIngredientFilter)") &&
             source.Contains("_activeIngredientTypeFilter") &&
             source.Contains("_activeIngredientTraitFilter") &&
             source.Contains("_activeIngredientRiskFilter"));
-        AssertTrue("InventoryPanel scene starts the potion clear button hidden", potionClearButtonHidden);
-        AssertTrue("InventoryPanel scene starts the ingredient clear button hidden", ingredientClearButtonHidden);
+        AssertTrue("InventoryPanel reserves width for the potion clear button", potionClearButtonReservesSpace);
+        AssertTrue("InventoryPanel reserves width for the ingredient clear button", ingredientClearButtonReservesSpace);
+        AssertTrue("InventoryPanel inactive clear buttons stay in layout but non-interactive",
+            source.Contains("button.Visible = true") &&
+            source.Contains("button.Disabled = !isActive") &&
+            source.Contains("button.MouseFilter = isActive ? MouseFilterEnum.Stop : MouseFilterEnum.Ignore") &&
+            source.Contains("button.Modulate = isActive ? Colors.White : new Color(1f, 1f, 1f, 0f)"));
     }
 
     private static void TestInventoryPanelRightClickQueueClosesMatchingDetail()
@@ -722,6 +733,24 @@ static class Program
             source.Contains("if (authoredPotionIds.Contains(potionId))"));
         AssertTrue("PotionBookPanel registers both recipe ids and potion item ids as authored",
             source.Contains("authoredPotionIds.Add(BuildPredefinedPotionItemId(recipe.Id));"));
+        AssertTrue("PotionBookPanel exports a brew button path",
+            source.Contains("BrewButtonPath"));
+        AssertTrue("PotionBookPanel wires the brew button press",
+            source.Contains("_brewButton.Pressed += TryBrewCurrentPagePotion"));
+        AssertTrue("PotionBookPanel only enables brewing for known potion item ids",
+            source.Contains("_gameState.KnowsPotion(candidatePotionItemId)"));
+        AssertTrue("PotionBookPanel uses the shared inventory brew service",
+            source.Contains("PotionInventoryBrewService"));
+        AssertTrue("PotionBookPanel scene defines the brew button path",
+            ReadProjectFile("Scenes/UI/PotionBookPanel.tscn").Contains("BrewButtonPath = NodePath(\"BookRow/BookPanel/Margin/VBox/RecipeContent/Brew\")"));
+        AssertTrue("PotionBookPanel inspects hovered GUI controls before dragging",
+            source.Contains("GuiGetHoveredControl()"));
+        AssertTrue("PotionBookPanel blocks whole-panel drag when a child button is hovered",
+            source.Contains("hoveredControl is BaseButton"));
+        AssertTrue("PotionBookPanel converts centered anchors to absolute positioning for dragging",
+            source.Contains("Convert from centered anchors to absolute positioning so the book can be dragged freely."));
+        AssertTrue("PotionBookPanel updates its position from mouse motion while dragging",
+            source.Contains("Position = mouseMotion.GlobalPosition - _dragOffset;"));
         AssertTrue("GameState tracks learned potion order",
             gameStateSource.Contains("public List<string> KnownPotionOrder { get; } = new();"));
         AssertTrue("GameState appends newly learned potions to the order list",
@@ -944,6 +973,80 @@ static class Program
         AssertTrue("Authored customer data includes early pool", customers.Contains("\"pool\": \"early\""));
         AssertTrue("Authored customer data gates early customers by day", customers.Contains("\"dayMax\": 4"));
         AssertTrue("Authored customer data includes recipe pool", customers.Contains("\"pool\": \"recipe\""));
+    }
+
+    private static void TestStoryCustomerDialogueOptionsReplaceSkipActions()
+    {
+        var customerDef = ReadProjectFile("Scripts/Models/CustomerInteractionDef.cs");
+        var dataDb = ReadProjectFile("Scripts/Autoload/DataDb.cs");
+        var customerPanel = ReadProjectFile("Scripts/UI/CustomerPanel.cs");
+        var dayController = ReadProjectFile("Scripts/Controllers/DayController.cs");
+        var customers = ReadProjectFile("Data/customers_data.tres");
+
+        AssertTrue("Customer interaction stores a dialogue start node",
+            customerDef.Contains("DialogueStartNodeId"));
+        AssertTrue("Customer interaction stores dialogue nodes",
+            customerDef.Contains("List<CustomerDialogueNodeDef> DialogueNodes"));
+        AssertTrue("Customer interaction exposes dialogue tree presence",
+            customerDef.Contains("HasDialogueTree"));
+        AssertTrue("Dialogue nodes store player options",
+            customerDef.Contains("public sealed class CustomerDialogueNodeDef") &&
+            customerDef.Contains("List<CustomerDialogueOptionDef> Options"));
+        AssertTrue("Dialogue options can advance or end the tree",
+            customerDef.Contains("NextNodeId") &&
+            customerDef.Contains("EndsInteraction"));
+        AssertTrue("Dialogue options can apply authored effects",
+            customerDef.Contains("List<EffectDef> Effects"));
+
+        AssertTrue("DataDb parses customer dialogue start node",
+            dataDb.Contains("DialogueStartNodeId = ReadString(entry, \"dialogueStartNodeId\")"));
+        AssertTrue("DataDb parses customer dialogue nodes",
+            dataDb.Contains("ParseCustomerDialogueNodes(ReadArray(entry, \"dialogueNodes\"))"));
+        AssertTrue("DataDb parses customer dialogue options",
+            dataDb.Contains("ParseCustomerDialogueOptions(ReadArray(entry, \"options\"))"));
+        AssertTrue("DataDb parses dialogue option effects",
+            dataDb.Contains("Effects = ParseEffects(ReadArray(entry, \"effects\"))"));
+
+        AssertTrue("CustomerPanel starts story dialogue instead of sale pending state",
+            customerPanel.Contains("TryShowDialogueStart()"));
+        AssertTrue("CustomerPanel routes first action button through dialogue option zero",
+            customerPanel.Contains("OnFirstCustomerActionPressed") &&
+            customerPanel.Contains("TrySelectDialogueOption(0)"));
+        AssertTrue("CustomerPanel routes second action button through dialogue option one",
+            customerPanel.Contains("OnSecondCustomerActionPressed") &&
+            customerPanel.Contains("TrySelectDialogueOption(1)"));
+        AssertTrue("CustomerPanel replaces skip button text with dialogue option labels",
+            customerPanel.Contains("SetDialogueOptionButton") &&
+            customerPanel.Contains("button.Text = node.Options[optionIndex].Label"));
+        AssertTrue("CustomerPanel disables potion drops during dialogue",
+            customerPanel.Contains("SetDialogueOptionState") &&
+            customerPanel.Contains("_sellDropBox.SetAcceptDrops(false);"));
+        AssertTrue("CustomerPanel restores normal skip button labels for regular customers",
+            customerPanel.Contains("_comeBackTomorrowButton.Text = \"Come back tomorrow\"") &&
+            customerPanel.Contains("_sorryCantHelpYouButton.Text = \"Sorry can't help you\""));
+        AssertTrue("CustomerPanel records terminal dialogue choices as story outcomes",
+            customerPanel.Contains("RecordStoryCustomerInteractionOutcome(_interaction, outcome)") &&
+            customerPanel.Contains("dialogue:"));
+        AssertTrue("CustomerPanel signals completed dialogue flow",
+            customerPanel.Contains("DialogueResolvedEventHandler") &&
+            customerPanel.Contains("EmitSignal(SignalName.DialogueResolved)"));
+        AssertTrue("DayController waits for completed dialogue to be closed",
+            dayController.Contains("_customerPanel.DialogueResolved += OnCustomerDialogueResolved") &&
+            dayController.Contains("private void OnCustomerDialogueResolved()") &&
+            dayController.Contains("_awaitingSaleResultClose = true;"));
+        AssertTrue("Authored data includes the day-two police constable story customer",
+            customers.Contains("\"id\": \"police_constable_day_2_warning\"") &&
+            customers.Contains("\"storyCharacterId\": \"police_constable\"") &&
+            customers.Contains("\"visitId\": \"day_2_warning\"") &&
+            customers.Contains("\"dayExact\": 2"));
+        AssertTrue("Police constable dialogue offers positive and negative replies",
+            customers.Contains("\"id\": \"positive_reply\"") &&
+            customers.Contains("\"id\": \"negative_reply\"") &&
+            customers.Contains("\"label\": \"Answer politely\"") &&
+            customers.Contains("\"label\": \"Answer sharply\""));
+        AssertTrue("Police constable dialogue records the player's reply tone",
+            customers.Contains("\"addStoryFlag\": \"police_constable_positive_reply\"") &&
+            customers.Contains("\"addStoryFlag\": \"police_constable_negative_reply\""));
     }
 
     private static void TestCustomerDropBoxDisablesAfterSale()
@@ -1176,6 +1279,103 @@ static class Program
             !source.Contains("IsIngredient(item)"));
     }
 
+    private static void TestGardenCropDefinitionsCoverAuthoredIngredients()
+    {
+        var source = ReadProjectFile("Scripts/Autoload/GameState.cs");
+
+        AssertTrue("GameState defines three starting garden pots", source.Contains("public const int StartingGardenPotCount = 3;"));
+        AssertTrue("Garden harvest yield starts fixed at two", source.Contains("public const int DefaultGardenHarvestYield = 2;"));
+        AssertTrue("GameState defines garden crop definitions", source.Contains("private static readonly GardenCropDef[] GardenCropDefinitions"));
+
+        var expectedCrops = new Dictionary<string, int>
+        {
+            ["amber_nightshade"] = 1,
+            ["obsidian_resin"] = 2,
+            ["iron_lullaby_root"] = 3,
+            ["mooncap_mushroom"] = 1,
+            ["grave_mint"] = 2,
+            ["black_ichor"] = 1,
+            ["lavender_ash"] = 3,
+            ["silver_thorn_bloom"] = 2,
+            ["moonwhisper_orchid"] = 3,
+            ["raven_ash_peony"] = 1
+        };
+
+        foreach (var crop in expectedCrops)
+        {
+            AssertTrue($"{crop.Key} crop definition exists",
+                source.Contains($"CreateGardenCrop(\"{crop.Key}\", growthDays: {crop.Value})"));
+            AssertTrue($"{crop.Key} authored item exists",
+                ReadProjectFile("Data/items_data.tres").Contains($"\"id\": \"{crop.Key}\""));
+        }
+
+        AssertTrue("Starter seed inventory includes amber nightshade",
+            source.Contains("(\"seed_amber_nightshade\", 1)"));
+        AssertTrue("Starter seed inventory includes obsidian resin",
+            source.Contains("(\"seed_obsidian_resin\", 1)"));
+        AssertTrue("Starter seed inventory includes iron lullaby root",
+            source.Contains("(\"seed_iron_lullaby_root\", 1)"));
+    }
+
+    private static void TestGardenStatePersistenceWiring()
+    {
+        var gameStateSource = ReadProjectFile("Scripts/Autoload/GameState.cs");
+        var saveDataSource = ReadProjectFile("Scripts/Persistence/SaveData.cs");
+        var saveManagerSource = ReadProjectFile("Scripts/Autoload/SaveGameManager.cs");
+        var cropDefSource = ReadProjectFile("Scripts/Models/GardenCropDef.cs");
+        var potStateSource = ReadProjectFile("Scripts/Models/GardenPotState.cs");
+
+        AssertTrue("Save files use version two for garden state", saveDataSource.Contains("public int Version { get; set; } = 2;"));
+        AssertTrue("Save manager accepts garden save version", saveManagerSource.Contains("private const int CurrentSaveVersion = 2;"));
+        AssertTrue("Snapshot includes garden initialization marker", saveDataSource.Contains("public bool GardenInitialized { get; set; }"));
+        AssertTrue("Snapshot includes garden pot count", saveDataSource.Contains("public int GardenPotCount { get; set; }"));
+        AssertTrue("Snapshot includes seed inventory", saveDataSource.Contains("public Dictionary<string, int> SeedInventory"));
+        AssertTrue("Snapshot includes garden pots", saveDataSource.Contains("public List<GardenPotState> GardenPots"));
+
+        AssertTrue("GameState exposes seed inventory", gameStateSource.Contains("public IReadOnlyDictionary<string, int> SeedInventory"));
+        AssertTrue("GameState exposes garden pots", gameStateSource.Contains("public IReadOnlyList<GardenPotState> GardenPots"));
+        AssertTrue("GameState seeds starting garden pots", gameStateSource.Contains("EnsureGardenPotCount(StartingGardenPotCount);"));
+        AssertTrue("GameState seeds starter seed inventory", gameStateSource.Contains("SeedStartingSeedInventory();"));
+        AssertTrue("GameState migrates old saves into a garden state", gameStateSource.Contains("if (snapshot.GardenInitialized)") && gameStateSource.Contains("else") && gameStateSource.Contains("SeedStartingSeedInventory();"));
+        AssertTrue("GameState snapshots garden state", gameStateSource.Contains("GardenInitialized = true") && gameStateSource.Contains("GardenPots = CloneGardenPots()"));
+        AssertTrue("GameState advances garden growth on next day", gameStateSource.Contains("public void NextDay()") && gameStateSource.Contains("AdvanceGardenGrowth();"));
+        AssertTrue("GameState can plant seeds", gameStateSource.Contains("public bool TryPlantSeed(int potIndex, string seedId, out string error)"));
+        AssertTrue("GameState can harvest garden pots", gameStateSource.Contains("public bool TryHarvestGardenPot(int potIndex, out string error)"));
+        AssertTrue("Harvest adds ingredient and returns seed", gameStateSource.Contains("Inventory[pot.IngredientId]") && gameStateSource.Contains("AddSeedStack(pot.SeedId, 1);"));
+        AssertTrue("Garden pot upgrades are supported", gameStateSource.Contains("public void SetUnlockedGardenPotCount(int potCount)"));
+
+        AssertTrue("Crop def stores yield range", cropDefSource.Contains("HarvestYieldMin") && cropDefSource.Contains("HarvestYieldMax"));
+        AssertTrue("Pot state stores growth progress", potStateSource.Contains("DaysGrown") && potStateSource.Contains("RequiredGrowthDays"));
+        AssertTrue("Pot state exposes ready status", potStateSource.Contains("public bool IsReady"));
+    }
+
+    private static void TestGardenSceneAndHudNavigation()
+    {
+        var hudSource = ReadProjectFile("Scripts/UI/Hud.cs");
+        var hudScene = ReadProjectFile("Scenes/UI/Hud.tscn");
+        var gardenSource = ReadProjectFile("Scripts/UI/Garden.cs");
+        var gardenScene = ReadProjectFile("Scenes/Main/Garden.tscn");
+
+        AssertTrue("Hud points to the garden scene", hudSource.Contains("res://Scenes/Main/Garden.tscn"));
+        AssertTrue("Hud has a garden button field", hudSource.Contains("private Button _gardenButton"));
+        AssertTrue("Hud resolves the garden button", hudSource.Contains("GetNode<Button>(\"Garden\")"));
+        AssertTrue("Hud disables garden while shop is open", hudSource.Contains("_gardenButton.Disabled = isShopOpen;"));
+        AssertTrue("Hud autosaves before entering garden", hudSource.Contains("TryAutoSave(\"entering the garden\")"));
+        AssertTrue("Hud scene includes Garden button", hudScene.Contains("[node name=\"Garden\" type=\"Button\" parent=\".\"]"));
+        AssertTrue("Garden button is beside potion book", hudScene.Contains("text = \"Potion Book\"") && hudScene.Contains("text = \"Garden\""));
+
+        AssertTrue("Garden script exists", gardenSource.Contains("public partial class Garden : Control"));
+        AssertTrue("Garden script returns to main scene", gardenSource.Contains("res://Main.tscn"));
+        AssertTrue("Garden autosaves on entry", gardenSource.Contains("TryAutoSave(\"entering the garden\")"));
+        AssertTrue("Garden autosaves after planting", gardenSource.Contains("TryAutoSave(\"planting a seed\")"));
+        AssertTrue("Garden autosaves after harvesting", gardenSource.Contains("TryAutoSave(\"harvesting a crop\")"));
+        AssertTrue("Garden autosaves before leaving", gardenSource.Contains("TryAutoSave(\"leaving the garden\")"));
+        AssertTrue("Garden scene uses the garden script", gardenScene.Contains("path=\"res://Scripts/UI/Garden.cs\""));
+        AssertTrue("Garden scene wires pots container", gardenScene.Contains("PotsContainerPath = NodePath(\"Root/Margin/Main/Content/PotsColumn/Pots\")"));
+        AssertTrue("Garden scene wires seeds container", gardenScene.Contains("SeedsContainerPath = NodePath(\"Root/Margin/Main/Content/SeedsColumn/Seeds\")"));
+        AssertTrue("Garden scene wires back button", gardenScene.Contains("BackButtonPath = NodePath(\"Root/Margin/Main/Header/Back\")"));
+    }
+
     private static void TestTutorialGameStateTransitions()
     {
         var source = ReadProjectFile("Scripts/Autoload/GameState.cs");
@@ -1347,6 +1547,25 @@ static class Program
         AssertTrue("Hud return-to-menu handler exists", source.Contains("OnReturnToMainMenuPressed"));
         AssertTrue("Hud return-to-menu still changes scenes", source.Contains("ChangeSceneToFile(\"res://MainMenu.tscn\")"));
         AssertTrue("Hud return-to-menu no longer auto-saves", !source.Contains("Could not save before returning to main menu"));
+    }
+
+    private static void TestScenarioDebuggerStopTimerControls()
+    {
+        var runtimeDebug = ReadProjectFile("Scripts/Debug/RuntimeDebugImGui.cs");
+        var dayController = ReadProjectFile("Scripts/Controllers/DayController.cs");
+
+        AssertTrue("Scenario debugger wires the day controller",
+            runtimeDebug.Contains("DayControllerPath = new(\"../DayController\")"));
+        AssertTrue("Scenario debugger exposes a stop timer input",
+            runtimeDebug.Contains("Stop Timer Seconds"));
+        AssertTrue("Scenario debugger exposes an end-day shortcut",
+            runtimeDebug.Contains("End Day Now"));
+        AssertTrue("Scenario debugger applies the stop timer through DayController",
+            runtimeDebug.Contains("TrySetShopTimerSecondsRemaining"));
+        AssertTrue("DayController exposes a debug timer setter",
+            dayController.Contains("public bool TrySetShopTimerSecondsRemaining(int secondsRemaining)"));
+        AssertTrue("DayController can force the stop timer to zero through the shared setter",
+            dayController.Contains("ForceShopTimerToZeroForTutorial()") && dayController.Contains("TrySetShopTimerSecondsRemaining(0)"));
     }
 
     private static void TestHudSettingsPanelClosesOnOutsideClick()

@@ -9,7 +9,7 @@ anchor_right = 1.0
 offset_left = 16.0
 offset_top = 16.0
 offset_right = -16.0
-offset_bottom = 96.0
+offset_bottom = 133.0
 script = ExtResource("1_khu2m")
 GoldLabelPath = NodePath("Gold")
 DreadLabelPath = NodePath("Dread")
@@ -37,49 +37,56 @@ text = "Day:"
 
 [node name="ShopTimer" type="Label" parent="."]
 layout_mode = 0
-offset_left = 164.0
-offset_top = 52.0
-offset_right = 384.0
-offset_bottom = 76.0
+offset_left = -1.0
+offset_top = 79.0
+offset_right = 219.0
+offset_bottom = 103.0
 text = "Shop Timer:"
 
 [node name="EndDay" type="Button" parent="."]
 layout_mode = 0
-offset_left = 460.0
-offset_right = 570.0
+offset_left = 315.0
+offset_right = 425.0
 offset_bottom = 40.0
 text = "End Day"
 
 [node name="ServeCustomer" type="Button" parent="."]
 layout_mode = 0
-offset_left = 580.0
-offset_right = 710.0
+offset_left = 440.0
+offset_right = 570.0
 offset_bottom = 40.0
 text = "Start Day"
 
 [node name="BrewPotion" type="Button" parent="."]
 layout_mode = 0
-offset_left = 720.0
-offset_right = 840.0
+offset_left = 580.0
+offset_right = 700.0
 offset_bottom = 40.0
 text = "Brew Potion"
 
 [node name="RecipeBook" type="Button" parent="."]
 layout_mode = 0
-offset_left = 850.0
-offset_right = 980.0
+offset_left = 710.0
+offset_right = 840.0
 offset_bottom = 40.0
 text = "Potion Book"
 
-[node name="MainMenu" type="Button" parent="."]
+[node name="Garden" type="Button" parent="."]
 layout_mode = 0
+offset_left = 850.0
+offset_right = 950.0
+offset_bottom = 40.0
+text = "Garden"
+
+[node name="MainMenu" type="Button" parent="."]
+layout_mode = 1
+anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -54.0
-offset_right = -16.0
+offset_left = -109.0
+offset_right = -71.0
 offset_bottom = 40.0
 grow_horizontal = 0
-grow_vertical = 0
 text = "⚙"
 
 [node name="SettingsPanel" type="PanelContainer" parent="."]

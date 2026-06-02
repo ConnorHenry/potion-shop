@@ -11,6 +11,7 @@ public partial class Hud : Control
 	private const string SaveGameButtonDefaultText = "Save Game";
 	private const string SaveGameButtonSavingText = "Saving Game...";
 	private const string SaveGameButtonSavedText = "Game Saved!";
+	private const string GardenScenePath = "res://Scenes/Main/Garden.tscn";
 
 	[Export] public NodePath GoldLabelPath = default!;
 	[Export] public NodePath DreadLabelPath = default!;
@@ -30,6 +31,7 @@ public partial class Hud : Control
 	private Button _serveCustomerButton = default!;
 	private Button _brewPotionButton = default!;
 	private Button _recipeBookButton = default!;
+	private Button _gardenButton = default!;
 	private Button _settingsButton = default!;
 	private Button _returnToMainMenuButton = default!;
 	private Button _saveGameButton = default!;
@@ -99,6 +101,7 @@ public partial class Hud : Control
 		_serveCustomerButton = GetNode<Button>("ServeCustomer");
 		_brewPotionButton = GetNode<Button>("BrewPotion");
 		_recipeBookButton = GetNode<Button>("RecipeBook");
+		_gardenButton = GetNode<Button>("Garden");
 		_settingsButton = GetNode<Button>("MainMenu");
 		_returnToMainMenuButton = GetNode<Button>("SettingsPanel/Margin/VBox/ReturnToMainMenu");
 		_saveGameButton = GetNode<Button>("SettingsPanel/Margin/VBox/SaveGame");
@@ -112,6 +115,7 @@ public partial class Hud : Control
 		_serveCustomerButton.Pressed += OnStartDayPressed;
 		_brewPotionButton.Pressed += OnBrewPotionPressed;
 		_recipeBookButton.Pressed += OnRecipeBookPressed;
+		_gardenButton.Pressed += OnGardenPressed;
 		_settingsButton.Pressed += OnSettingsPressed;
 		_returnToMainMenuButton.Pressed += OnReturnToMainMenuPressed;
 		_saveGameButton.Pressed += OnSaveGamePressed;
@@ -140,6 +144,8 @@ public partial class Hud : Control
 			_brewPotionButton.Pressed -= OnBrewPotionPressed;
 		if (_recipeBookButton is not null)
 			_recipeBookButton.Pressed -= OnRecipeBookPressed;
+		if (_gardenButton is not null)
+			_gardenButton.Pressed -= OnGardenPressed;
 		if (_settingsButton is not null)
 			_settingsButton.Pressed -= OnSettingsPressed;
 		if (_returnToMainMenuButton is not null)
@@ -217,6 +223,21 @@ public partial class Hud : Control
 		_recipeBookPanel.Visible = !_recipeBookPanel.Visible;
 	}
 
+	private void OnGardenPressed()
+	{
+		if (_dayController is null)
+			return;
+		if (_dayController.IsShopOpen)
+			return;
+
+		TryAutoSave("entering the garden");
+		Error error = GetTree().ChangeSceneToFile(GardenScenePath);
+		if (error != Error.Ok)
+		{
+			GD.PushError($"Hud: Failed to load garden scene. Error: {error}");
+		}
+	}
+
 	private void OnSettingsPressed()
 	{
 		SetSettingsPanelVisible(!_settingsPanel.Visible);
@@ -255,6 +276,18 @@ public partial class Hud : Control
 			GD.PushError("Hud: Save failed.");
 
 		FinishSaveGame(saveSucceeded);
+	}
+
+	private bool TryAutoSave(string context)
+	{
+		if (_saveGameManager is null)
+			return false;
+
+		var saveSucceeded = _saveGameManager.SaveGame();
+		if (!saveSucceeded)
+			GD.PushError($"Hud: Auto-save failed before {context}.");
+
+		return saveSucceeded;
 	}
 
 	private void OnToggleDebugPanelPressed()
@@ -313,5 +346,6 @@ public partial class Hud : Control
 		_serveCustomerButton.Text = isShopOpen ? "Shop Open" : "Start Day";
 		_serveCustomerButton.Disabled = isShopOpen;
 		_endDayButton.Disabled = isShopOpen;
+		_gardenButton.Disabled = isShopOpen;
 	}
 }

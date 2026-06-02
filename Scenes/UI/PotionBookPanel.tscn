@@ -25,6 +25,7 @@ IntroLabelPath = NodePath("BookRow/BookPanel/Margin/VBox/Intro")
 RecipeContentPath = NodePath("BookRow/BookPanel/Margin/VBox/RecipeContent")
 IngredientsLabelPath = NodePath("BookRow/BookPanel/Margin/VBox/RecipeContent/Columns/IngredientsColumn/Ingredients")
 TraitsLabelPath = NodePath("BookRow/BookPanel/Margin/VBox/RecipeContent/Columns/TraitsColumn/Traits")
+BrewButtonPath = NodePath("BookRow/BookPanel/Margin/VBox/RecipeContent/Brew")
 PageIndicatorLabelPath = NodePath("BookRow/BookPanel/Margin/VBox/Header/PageIndicator")
 CloseButtonPath = NodePath("BookRow/BookPanel/Margin/VBox/Header/Close")
 
@@ -156,6 +157,13 @@ size_flags_vertical = 3
 theme_override_font_sizes/font_size = 18
 text = "-"
 autowrap_mode = 3
+
+[node name="Brew" type="Button" parent="BookRow/BookPanel/Margin/VBox/RecipeContent"]
+custom_minimum_size = Vector2(128, 42)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_font_sizes/font_size = 18
+text = "Brew"
 
 [node name="RightArrow" type="Button" parent="BookRow"]
 custom_minimum_size = Vector2(66, 92)

@@ -8,8 +8,11 @@ namespace OccultShop.UI;
 
 public partial class InventoryPanel : Control
 {
-	private const float SlotSize = 112.0f;
-	private const float IconSize = 70.0f;
+	private const float SlotWidth = 112.0f;
+	private const float SlotHeight = 154.0f;
+	private const float IconSize = 62.0f;
+	private const float SlotTraitTagHeight = 22.0f;
+	private const float InventoryPanelMinimumWidth = 450.0f;
 	private static bool ShowInventorySlotTooltips = false;
 
 	[Signal]
@@ -17,6 +20,10 @@ public partial class InventoryPanel : Control
 
 	[Export] public NodePath PotionsContainerPath = default!;
 	[Export] public NodePath IngredientsContainerPath = default!;
+	[Export] public NodePath PotionsSectionHeaderPath = new("Panel/Margin/VBox/PotionsSectionHeader");
+	[Export] public NodePath IngredientsSectionHeaderPath = new("Panel/Margin/VBox/IngredientsSectionHeader");
+	[Export] public NodePath PotionsScrollPath = new("Panel/Margin/VBox/PotionsScroll");
+	[Export] public NodePath IngredientsScrollPath = new("Panel/Margin/VBox/IngredientsScroll");
 	[Export] public NodePath PotionsSortButtonPath = default!;
 	[Export] public NodePath PotionsTraitFilterPath = default!;
 	[Export] public NodePath PotionsRiskFilterPath = default!;
@@ -46,6 +53,10 @@ public partial class InventoryPanel : Control
 
 	private GridContainer _potions = default!;
 	private GridContainer _ingredients = default!;
+	private Button? _potionsSectionHeader;
+	private Button? _ingredientsSectionHeader;
+	private Control? _potionsScroll;
+	private Control? _ingredientsScroll;
 	private Button _potionsSortButton = default!;
 	private OptionButton? _potionsTraitFilter;
 	private OptionButton? _potionsRiskFilter;
@@ -79,6 +90,8 @@ public partial class InventoryPanel : Control
 	private string? _activeIngredientTraitFilter;
 	private string? _activeIngredientRiskFilter;
 	private string? _activeIngredientTypeFilter;
+	private bool _potionsCollapsed;
+	private bool _ingredientsCollapsed;
 	private PotionInventoryBrewService _brewService = default!;
 	private GameState _gameState = default!;
 	private ItemCatalogService _itemCatalog = default!;
@@ -123,9 +136,14 @@ public partial class InventoryPanel : Control
 		_gameState = gameState;
 		_itemCatalog = itemCatalog;
 		_brewService = new PotionInventoryBrewService(_gameState, _itemCatalog);
+		ApplyMinimumPanelWidth();
 
 		_potions = GetNode<GridContainer>(PotionsContainerPath);
 		_ingredients = GetNode<GridContainer>(IngredientsContainerPath);
+		_potionsSectionHeader = GetNodeOrNull<Button>(PotionsSectionHeaderPath);
+		_ingredientsSectionHeader = GetNodeOrNull<Button>(IngredientsSectionHeaderPath);
+		_potionsScroll = GetNodeOrNull<Control>(PotionsScrollPath);
+		_ingredientsScroll = GetNodeOrNull<Control>(IngredientsScrollPath);
 		_potionsSortButton = GetNode<Button>(PotionsSortButtonPath);
 		_potionsTraitFilter = GetNodeOrNull<OptionButton>(PotionsTraitFilterPath);
 		_potionsRiskFilter = GetNodeOrNull<OptionButton>(PotionsRiskFilterPath);
@@ -161,6 +179,10 @@ public partial class InventoryPanel : Control
 		MouseFilter = MouseFilterEnum.Ignore;
 		_itemDetailPanel.MouseFilter = MouseFilterEnum.Ignore;
 		_itemDetailPanel.ZIndex = 2000;
+		if (_potionsSectionHeader is not null)
+			_potionsSectionHeader.Pressed += TogglePotionsSection;
+		if (_ingredientsSectionHeader is not null)
+			_ingredientsSectionHeader.Pressed += ToggleIngredientsSection;
 		_potionsSortButton.Pressed += TogglePotionsSort;
 		_ingredientsSortButton.Pressed += ToggleIngredientsSort;
 		if (_potionsTraitFilter is not null)
@@ -195,6 +217,10 @@ public partial class InventoryPanel : Control
 	{
 		if (_gameState is not null)
 			_gameState.Changed -= Refresh;
+		if (_potionsSectionHeader is not null)
+			_potionsSectionHeader.Pressed -= TogglePotionsSection;
+		if (_ingredientsSectionHeader is not null)
+			_ingredientsSectionHeader.Pressed -= ToggleIngredientsSection;
 		if (_potionsSortButton is not null)
 			_potionsSortButton.Pressed -= TogglePotionsSort;
 		if (_ingredientsSortButton is not null)
@@ -281,6 +307,18 @@ public partial class InventoryPanel : Control
 		_ingredientsAscending = !_ingredientsAscending;
 		UpdateSortButtonLabels();
 		Refresh();
+	}
+
+	private void TogglePotionsSection()
+	{
+		_potionsCollapsed = !_potionsCollapsed;
+		UpdateSectionVisibility();
+	}
+
+	private void ToggleIngredientsSection()
+	{
+		_ingredientsCollapsed = !_ingredientsCollapsed;
+		UpdateSectionVisibility();
 	}
 
 	private void Refresh()
@@ -413,6 +451,8 @@ public partial class InventoryPanel : Control
 				_ingredients.AddChild(CreateSlot(stack.Key, stack.Value));
 		}
 
+		UpdateSectionHeaders(potionStacksToRender.Count, ingredientStacksToRender.Count);
+		UpdateSectionVisibility();
 		ItemFilterUtilities.RefreshFilterOptions(_potionsTraitFilter, potionTraitNames, "Trait", ref _activePotionTraitFilter);
 		ItemFilterUtilities.RefreshFilterOptions(_potionsRiskFilter, potionRiskNames, "Risk", ref _activePotionRiskFilter);
 		RefreshIngredientTypeFilterOptions();
@@ -434,22 +474,58 @@ public partial class InventoryPanel : Control
 		_ingredientsSortButton.Text = _ingredientsAscending ? "A-Z" : "Z-A";
 	}
 
+	private void UpdateSectionHeaders(int visiblePotionCount, int visibleIngredientCount)
+	{
+		if (_potionsSectionHeader is not null)
+			_potionsSectionHeader.Text = $"{(_potionsCollapsed ? ">" : "v")} Potions ({visiblePotionCount})";
+
+		if (_ingredientsSectionHeader is not null)
+			_ingredientsSectionHeader.Text = $"{(_ingredientsCollapsed ? ">" : "v")} Ingredients ({visibleIngredientCount})";
+	}
+
+	private void UpdateSectionVisibility()
+	{
+		if (_potionsScroll is not null)
+			_potionsScroll.Visible = !_potionsCollapsed;
+
+		if (_ingredientsScroll is not null)
+			_ingredientsScroll.Visible = !_ingredientsCollapsed;
+	}
+
 	private void UpdateClearFilterButtonVisibility()
 	{
 		if (_potionsClearFilterButton is not null)
 		{
-			_potionsClearFilterButton.Visible =
+			var hasActivePotionFilter =
 				!string.IsNullOrWhiteSpace(_activePotionTraitFilter) ||
 				!string.IsNullOrWhiteSpace(_activePotionRiskFilter);
+			ApplyClearFilterButtonState(_potionsClearFilterButton, hasActivePotionFilter);
 		}
 
 		if (_ingredientsClearFilterButton is not null)
 		{
-			_ingredientsClearFilterButton.Visible =
+			var hasActiveIngredientFilter =
 				!string.IsNullOrWhiteSpace(_activeIngredientTypeFilter) ||
 				!string.IsNullOrWhiteSpace(_activeIngredientTraitFilter) ||
 				!string.IsNullOrWhiteSpace(_activeIngredientRiskFilter);
+			ApplyClearFilterButtonState(_ingredientsClearFilterButton, hasActiveIngredientFilter);
 		}
+	}
+
+	private void ApplyMinimumPanelWidth()
+	{
+		CustomMinimumSize = new Vector2(InventoryPanelMinimumWidth, CustomMinimumSize.Y);
+
+		if (Size.X < InventoryPanelMinimumWidth)
+			Size = new Vector2(InventoryPanelMinimumWidth, Size.Y);
+	}
+
+	private static void ApplyClearFilterButtonState(Button button, bool isActive)
+	{
+		button.Visible = true;
+		button.Disabled = !isActive;
+		button.MouseFilter = isActive ? MouseFilterEnum.Stop : MouseFilterEnum.Ignore;
+		button.Modulate = isActive ? Colors.White : new Color(1f, 1f, 1f, 0f);
 	}
 
 	private void OnIngredientTraitSelected(long selectedIndex)
@@ -571,15 +647,19 @@ public partial class InventoryPanel : Control
 
 		var slot = new InventoryItemSlot
 		{
-			CustomMinimumSize = new Vector2(SlotSize, SlotSize),
+			CustomMinimumSize = new Vector2(SlotWidth, SlotHeight),
 			TooltipText = GetInventorySlotTooltipText(itemName),
 			MouseFilter = MouseFilterEnum.Stop,
-			Flat = true,
+			Flat = false,
 			ItemId = itemId,
 			ItemName = itemName,
 			IconPath = item?.IconPath,
 			Quantity = quantity
 		};
+		slot.AddThemeStyleboxOverride("normal", CreateSlotStyleBox(new Color(0.082f, 0.092f, 0.103f, 0.92f), new Color(0.24f, 0.26f, 0.29f, 0.94f)));
+		slot.AddThemeStyleboxOverride("hover", CreateSlotStyleBox(new Color(0.11f, 0.125f, 0.142f, 0.96f), new Color(0.34f, 0.37f, 0.41f, 0.98f)));
+		slot.AddThemeStyleboxOverride("pressed", CreateSlotStyleBox(new Color(0.06f, 0.069f, 0.079f, 0.98f), new Color(0.19f, 0.21f, 0.23f, 0.98f)));
+		slot.AddThemeStyleboxOverride("disabled", CreateSlotStyleBox(new Color(0.07f, 0.078f, 0.088f, 0.75f), new Color(0.18f, 0.2f, 0.22f, 0.78f)));
 		slot.SlotActivated += ShowItemDetail;
 		slot.IngredientRequested += QueueIngredientFromSlot;
 
@@ -594,14 +674,16 @@ public partial class InventoryPanel : Control
 
 		var content = new Control
 		{
-			CustomMinimumSize = new Vector2(SlotSize, SlotSize),
+			CustomMinimumSize = new Vector2(SlotWidth, SlotHeight),
+			Size = new Vector2(SlotWidth, SlotHeight),
 			MouseFilter = MouseFilterEnum.Ignore
 		};
 
 		var icon = new TextureRect
 		{
-			Position = new Vector2(21, 6),
+			Position = new Vector2((SlotWidth - IconSize) * 0.5f, 28),
 			CustomMinimumSize = new Vector2(IconSize, IconSize),
+			Size = new Vector2(IconSize, IconSize),
 			ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
 			StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
 			MouseFilter = MouseFilterEnum.Ignore
@@ -611,7 +693,7 @@ public partial class InventoryPanel : Control
 		var qty = new Label
 		{
 			Text = quantity.ToString(),
-			Position = new Vector2(4, 2),
+			Position = new Vector2(8, 6),
 			MouseFilter = MouseFilterEnum.Ignore
 		};
 
@@ -620,9 +702,10 @@ public partial class InventoryPanel : Control
 		{
 			var price = new Label
 			{
-				Text = $"£{GetItemPrice(itemId, item)}",
-				Position = new Vector2(50, 2),
-				CustomMinimumSize = new Vector2(58, 0),
+				Text = $"\u00A3{GetItemPrice(itemId, item)}",
+				Position = new Vector2(48, 6),
+				CustomMinimumSize = new Vector2(56, 0),
+				Size = new Vector2(56, 22),
 				MouseFilter = MouseFilterEnum.Ignore,
 				HorizontalAlignment = HorizontalAlignment.Right
 			};
@@ -642,15 +725,17 @@ public partial class InventoryPanel : Control
 
 		var nameBlock = new Control
 		{
-			Position = new Vector2(4, 70),
-			CustomMinimumSize = new Vector2(SlotSize - 8, 34),
+			Position = new Vector2(6, 92),
+			CustomMinimumSize = new Vector2(SlotWidth - 12, 34),
+			Size = new Vector2(SlotWidth - 12, 34),
 			MouseFilter = MouseFilterEnum.Ignore
 		};
 
 		SplitInventoryName(itemName, out var firstLine, out var secondLine);
 		name.Text = firstLine;
 		name.Position = new Vector2(0, 0);
-		name.CustomMinimumSize = new Vector2(SlotSize - 8, 0);
+		name.CustomMinimumSize = new Vector2(SlotWidth - 12, 0);
+		name.Size = new Vector2(SlotWidth - 12, 18);
 
 		nameBlock.AddChild(name);
 
@@ -660,7 +745,8 @@ public partial class InventoryPanel : Control
 			{
 				Text = secondLine,
 				Position = new Vector2(0, 15),
-				CustomMinimumSize = new Vector2(SlotSize - 8, 0),
+				CustomMinimumSize = new Vector2(SlotWidth - 12, 0),
+				Size = new Vector2(SlotWidth - 12, 18),
 				MouseFilter = MouseFilterEnum.Ignore,
 				HorizontalAlignment = HorizontalAlignment.Center,
 				VerticalAlignment = VerticalAlignment.Center,
@@ -674,9 +760,89 @@ public partial class InventoryPanel : Control
 		content.AddChild(icon);
 		content.AddChild(qty);
 		content.AddChild(nameBlock);
+		var topTraitText = BuildSlotTraitText(item);
+		if (!string.IsNullOrWhiteSpace(topTraitText))
+			content.AddChild(CreateSlotTraitTag(topTraitText));
+
 		slot.AddChild(content);
 		slot.AddChild(hoverOutline);
 		return slot;
+	}
+
+	private static PanelContainer CreateSlotTraitTag(string text)
+	{
+		var tag = new PanelContainer
+		{
+			Position = new Vector2(12, 126),
+			CustomMinimumSize = new Vector2(SlotWidth - 24, SlotTraitTagHeight),
+			Size = new Vector2(SlotWidth - 24, SlotTraitTagHeight),
+			MouseFilter = MouseFilterEnum.Ignore
+		};
+		tag.AddThemeStyleboxOverride("panel", CreateTraitTagStyleBox());
+
+		var label = new Label
+		{
+			Text = text,
+			MouseFilter = MouseFilterEnum.Ignore,
+			HorizontalAlignment = HorizontalAlignment.Center,
+			VerticalAlignment = VerticalAlignment.Center
+		};
+		label.AddThemeColorOverride("font_color", new Color(0.55f, 0.95f, 0.58f, 1f));
+		label.AddThemeFontSizeOverride("font_size", 13);
+		tag.AddChild(label);
+
+		return tag;
+	}
+
+	private static string BuildSlotTraitText(ItemDef? item)
+	{
+		if (item?.Traits is null)
+			return string.Empty;
+
+		var topTrait = item.Traits
+			.Where(x => !string.IsNullOrWhiteSpace(x.Key) && x.Value > 0)
+			.OrderByDescending(x => x.Value)
+			.ThenBy(x => x.Key)
+			.FirstOrDefault();
+
+		if (string.IsNullOrWhiteSpace(topTrait.Key) || topTrait.Value <= 0)
+			return string.Empty;
+
+		return $"{DisplayStatName(topTrait.Key)} +{topTrait.Value}";
+	}
+
+	private static StyleBoxFlat CreateSlotStyleBox(Color fillColor, Color borderColor)
+	{
+		return new StyleBoxFlat
+		{
+			BgColor = fillColor,
+			BorderWidthLeft = 1,
+			BorderWidthTop = 1,
+			BorderWidthRight = 1,
+			BorderWidthBottom = 1,
+			BorderColor = borderColor,
+			CornerRadiusTopLeft = 6,
+			CornerRadiusTopRight = 6,
+			CornerRadiusBottomRight = 6,
+			CornerRadiusBottomLeft = 6
+		};
+	}
+
+	private static StyleBoxFlat CreateTraitTagStyleBox()
+	{
+		return new StyleBoxFlat
+		{
+			BgColor = new Color(0.08f, 0.18f, 0.1f, 0.82f),
+			BorderWidthLeft = 1,
+			BorderWidthTop = 1,
+			BorderWidthRight = 1,
+			BorderWidthBottom = 1,
+			BorderColor = new Color(0.28f, 0.62f, 0.32f, 0.9f),
+			CornerRadiusTopLeft = 4,
+			CornerRadiusTopRight = 4,
+			CornerRadiusBottomRight = 4,
+			CornerRadiusBottomLeft = 4
+		};
 	}
 
 	private static StyleBoxFlat CreateHoverOutlineStyleBox()

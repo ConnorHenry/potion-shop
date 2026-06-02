@@ -193,6 +193,8 @@ public partial class DataDb : Node
 				Difficulty = Math.Max(1, ReadInt(entry, "difficulty", 1)),
 				StoryCharacterId = ReadString(entry, "storyCharacterId"),
 				VisitId = ReadString(entry, "visitId"),
+				DialogueStartNodeId = ReadString(entry, "dialogueStartNodeId"),
+				DialogueNodes = ParseCustomerDialogueNodes(ReadArray(entry, "dialogueNodes")),
 				Requires = ParseRequirements(ReadDictionary(entry, "requires")),
 				Weight = ReadInt(entry, "weight", 1),
 				DesiredTraits = ReadStringIntDictionary(entry, "desiredTraits"),
@@ -204,6 +206,55 @@ public partial class DataDb : Node
 		}
 
 		return interactions;
+	}
+
+	private static List<CustomerDialogueNodeDef> ParseCustomerDialogueNodes(Godot.Collections.Array entries)
+	{
+		var nodes = new List<CustomerDialogueNodeDef>(entries.Count);
+		foreach (var entryValue in entries)
+		{
+			if (!TryReadDictionary(entryValue, out var entry))
+				continue;
+
+			var id = ReadString(entry, "id");
+			if (string.IsNullOrWhiteSpace(id))
+				continue;
+
+			nodes.Add(new CustomerDialogueNodeDef
+			{
+				Id = id,
+				Text = ReadString(entry, "text"),
+				Options = ParseCustomerDialogueOptions(ReadArray(entry, "options"))
+			});
+		}
+
+		return nodes;
+	}
+
+	private static List<CustomerDialogueOptionDef> ParseCustomerDialogueOptions(Godot.Collections.Array entries)
+	{
+		var options = new List<CustomerDialogueOptionDef>(entries.Count);
+		foreach (var entryValue in entries)
+		{
+			if (!TryReadDictionary(entryValue, out var entry))
+				continue;
+
+			var label = ReadString(entry, "label");
+			if (string.IsNullOrWhiteSpace(label))
+				continue;
+
+			options.Add(new CustomerDialogueOptionDef
+			{
+				Id = ReadString(entry, "id", label),
+				Label = label,
+				ResponseText = ReadString(entry, "responseText"),
+				NextNodeId = ReadString(entry, "nextNodeId"),
+				EndsInteraction = ReadBool(entry, "endsInteraction"),
+				Effects = ParseEffects(ReadArray(entry, "effects"))
+			});
+		}
+
+		return options;
 	}
 
 	private static List<SynergyRule> ParseSynergies(Godot.Collections.Array entries)
@@ -447,6 +498,25 @@ public partial class DataDb : Node
 			return null;
 
 		return TryConvertToInt(source[key], out var value) ? value : null;
+	}
+
+	private static bool ReadBool(Godot.Collections.Dictionary source, string key, bool fallback = false)
+	{
+		if (!source.ContainsKey(key))
+			return fallback;
+
+		var value = source[key];
+		if (value.VariantType == Variant.Type.Bool)
+			return value.As<bool>();
+
+		var text = ReadVariantString(value);
+		if (bool.TryParse(text, out var boolValue))
+			return boolValue;
+
+		if (TryConvertToInt(value, out var intValue))
+			return intValue != 0;
+
+		return fallback;
 	}
 
 	private static bool TryReadDictionary(Variant value, out Godot.Collections.Dictionary dictionary)

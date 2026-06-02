@@ -14,7 +14,7 @@ public partial class SaveGameManager : Node
 {
 	private const string SaveDirectoryPath = "user://saves";
 	private const string SaveFilePrefix = "save_";
-	private const int CurrentSaveVersion = 1;
+	private const int CurrentSaveVersion = 2;
 
 	[Export] public NodePath GameStatePath { get; set; } = new("/root/GameState");
 	[Export] public NodePath RuntimeContentDbPath { get; set; } = new("/root/RuntimeContentDb");

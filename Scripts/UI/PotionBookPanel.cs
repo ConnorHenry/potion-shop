@@ -5,6 +5,7 @@ using System.Linq;
 using Godot;
 using OccultShop.Autoload;
 using OccultShop.Models;
+using OccultShop.Systems;
 
 namespace OccultShop.UI;
 
@@ -17,6 +18,7 @@ public partial class PotionBookPanel : Control
 	[Export] public NodePath RecipeContentPath = default!;
 	[Export] public NodePath IngredientsLabelPath = default!;
 	[Export] public NodePath TraitsLabelPath = default!;
+	[Export] public NodePath BrewButtonPath = default!;
 	[Export] public NodePath PageIndicatorLabelPath = default!;
 	[Export] public NodePath CloseButtonPath = default!;
 	[Export] public NodePath DataDbPath = new("/root/DataDb");
@@ -30,16 +32,33 @@ public partial class PotionBookPanel : Control
 	private Control _recipeContent = default!;
 	private Label _ingredientsLabel = default!;
 	private Label _traitsLabel = default!;
+	private Button _brewButton = default!;
 	private Label _pageIndicatorLabel = default!;
 	private Button _closeButton = default!;
 	private DataDb _dataDb = default!;
 	private GameState _gameState = default!;
 	private ItemCatalogService _itemCatalog = default!;
+	private PotionInventoryBrewService _brewService = default!;
 	private readonly List<PotionRecipeDef> _recipes = new();
 	private int _currentPageIndex;
+	private bool _dragFromWholePanel;
+	private bool _dragging;
+	private Vector2 _dragOffset;
 
 	public override void _Ready()
 	{
+		_dragFromWholePanel = true;
+		SetProcessInput(true);
+
+		// Convert from centered anchors to absolute positioning so the book can be dragged freely.
+		var rect = GetGlobalRect();
+		AnchorLeft = 0.0f;
+		AnchorTop = 0.0f;
+		AnchorRight = 0.0f;
+		AnchorBottom = 0.0f;
+		Position = rect.Position;
+		Size = rect.Size;
+
 		var dataDb = GetNodeOrNull<DataDb>(DataDbPath);
 		if (dataDb is null)
 		{
@@ -64,6 +83,7 @@ public partial class PotionBookPanel : Control
 		_dataDb = dataDb;
 		_gameState = gameState;
 		_itemCatalog = itemCatalog;
+		_brewService = new PotionInventoryBrewService(_gameState, _itemCatalog);
 
 		_leftArrowButton = GetNode<Button>(LeftArrowButtonPath);
 		_rightArrowButton = GetNode<Button>(RightArrowButtonPath);
@@ -72,11 +92,13 @@ public partial class PotionBookPanel : Control
 		_recipeContent = GetNode<Control>(RecipeContentPath);
 		_ingredientsLabel = GetNode<Label>(IngredientsLabelPath);
 		_traitsLabel = GetNode<Label>(TraitsLabelPath);
+		_brewButton = GetNode<Button>(BrewButtonPath);
 		_pageIndicatorLabel = GetNode<Label>(PageIndicatorLabelPath);
 		_closeButton = GetNode<Button>(CloseButtonPath);
 
 		_leftArrowButton.Pressed += OnPreviousPagePressed;
 		_rightArrowButton.Pressed += OnNextPagePressed;
+		_brewButton.Pressed += TryBrewCurrentPagePotion;
 		_closeButton.Pressed += HidePanel;
 		_gameState.Changed += OnGameStateChanged;
 
@@ -92,6 +114,8 @@ public partial class PotionBookPanel : Control
 			_leftArrowButton.Pressed -= OnPreviousPagePressed;
 		if (_rightArrowButton is not null)
 			_rightArrowButton.Pressed -= OnNextPagePressed;
+		if (_brewButton is not null)
+			_brewButton.Pressed -= TryBrewCurrentPagePotion;
 		if (_closeButton is not null)
 			_closeButton.Pressed -= HidePanel;
 		if (_gameState is not null)
@@ -101,6 +125,9 @@ public partial class PotionBookPanel : Control
 	public override void _Input(InputEvent @event)
 	{
 		if (!Visible)
+			return;
+
+		if (HandleWholePanelDragInput(@event))
 			return;
 
 		if (@event is not InputEventMouseButton mouseButton || !mouseButton.Pressed)
@@ -124,6 +151,44 @@ public partial class PotionBookPanel : Control
 		}
 	}
 
+	private bool HandleWholePanelDragInput(InputEvent @event)
+	{
+		if (!_dragFromWholePanel)
+			return false;
+
+		if (@event is InputEventMouseButton mouseButton && mouseButton.ButtonIndex == MouseButton.Left)
+		{
+			if (mouseButton.Pressed)
+			{
+				if (!GetGlobalRect().HasPoint(mouseButton.GlobalPosition))
+					return false;
+				if (IsPressOnInteractiveChildControl())
+					return false;
+
+				_dragging = true;
+				_dragOffset = mouseButton.GlobalPosition - Position;
+				AcceptEvent();
+				return true;
+			}
+
+			if (!_dragging)
+				return false;
+
+			_dragging = false;
+			AcceptEvent();
+			return true;
+		}
+
+		if (_dragging && @event is InputEventMouseMotion mouseMotion)
+		{
+			Position = mouseMotion.GlobalPosition - _dragOffset;
+			AcceptEvent();
+			return true;
+		}
+
+		return false;
+	}
+
 	private bool IsHoverInsideBook(Control? hoveredControl)
 	{
 		if (hoveredControl is null)
@@ -133,6 +198,19 @@ public partial class PotionBookPanel : Control
 			return true;
 
 		return IsAncestorOf(hoveredControl);
+	}
+
+	private bool IsPressOnInteractiveChildControl()
+	{
+		var hoveredControl = GetViewport().GuiGetHoveredControl();
+		if (hoveredControl is null)
+			return false;
+		if (hoveredControl == this)
+			return false;
+		if (!IsAncestorOf(hoveredControl))
+			return false;
+
+		return hoveredControl is BaseButton;
 	}
 
 	public void Toggle()
@@ -299,6 +377,7 @@ public partial class PotionBookPanel : Control
 		_recipeContent.Visible = true;
 		_ingredientsLabel.Text = BuildIngredientsText(recipe);
 		_traitsLabel.Text = BuildTraitsText(recipe);
+		UpdateBrewButtonState(recipe);
 	}
 
 	private string BuildIngredientsText(PotionRecipeDef recipe)
@@ -336,6 +415,77 @@ public partial class PotionBookPanel : Control
 	{
 		var customName = _gameState.GetPotionDisplayName(potionId);
 		return string.IsNullOrWhiteSpace(customName) ? fallbackName : customName;
+	}
+
+	private void UpdateBrewButtonState(PotionRecipeDef recipe)
+	{
+		_brewButton.Text = "Brew";
+		_brewButton.Visible = true;
+
+		if (!TryResolveKnownPotionItemId(recipe, out var potionItemId))
+		{
+			_brewButton.Disabled = true;
+			_brewButton.TooltipText = "Brew this potion once before using the potion book shortcut.";
+			return;
+		}
+
+		if (!_brewService.TryGetRequiredIngredients(potionItemId, out var requiredIngredients, out var error))
+		{
+			_brewButton.Disabled = true;
+			_brewButton.TooltipText = error;
+			return;
+		}
+
+		var hasIngredients = _brewService.HasRequiredIngredients(requiredIngredients);
+		_brewButton.Disabled = !hasIngredients;
+		_brewButton.TooltipText = hasIngredients
+			? "Brew this potion from discovered ingredients."
+			: _brewService.BuildMissingIngredientsText(requiredIngredients);
+	}
+
+	private void TryBrewCurrentPagePotion()
+	{
+		if (_currentPageIndex <= 0 || _currentPageIndex > _recipes.Count)
+			return;
+
+		var recipe = _recipes[_currentPageIndex - 1];
+		if (!TryResolveKnownPotionItemId(recipe, out var potionItemId))
+		{
+			GD.PushError("PotionBookPanel: Potion has not been brewed before.");
+			return;
+		}
+
+		if (_brewService.TryBrewPotion(potionItemId, out var error))
+			return;
+
+		GD.PushError(error);
+		RefreshPage();
+	}
+
+	private bool TryResolveKnownPotionItemId(PotionRecipeDef recipe, out string potionItemId)
+	{
+		potionItemId = string.Empty;
+
+		if (TryUseKnownPotionItemId(recipe.Id, out potionItemId))
+			return true;
+
+		return TryUseKnownPotionItemId(BuildPredefinedPotionItemId(recipe.Id), out potionItemId);
+	}
+
+	private bool TryUseKnownPotionItemId(string candidatePotionItemId, out string potionItemId)
+	{
+		potionItemId = string.Empty;
+		if (string.IsNullOrWhiteSpace(candidatePotionItemId))
+			return false;
+		if (!_gameState.KnowsPotion(candidatePotionItemId))
+			return false;
+		if (!_itemCatalog.IsPotion(candidatePotionItemId))
+			return false;
+		if (!_gameState.TryGetPotionRecipe(candidatePotionItemId, out var ingredientIds) || ingredientIds.Count == 0)
+			return false;
+
+		potionItemId = candidatePotionItemId;
+		return true;
 	}
 
 	private static string BuildPredefinedPotionItemId(string recipeId)

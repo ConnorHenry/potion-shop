@@ -283,5 +283,57 @@ Entries = [
       "rest": 2
     },
     "badTraits": {}
+  },
+  {
+    "id": "police_constable_day_2_warning",
+    "title": "Police Constable",
+    "text": "A police constable steps into the shop and keeps one hand near his notebook. He says he has received word that you are doing illegal activities and selling illegal substances to the public.",
+    "pool": "story",
+    "difficulty": 1,
+    "storyCharacterId": "police_constable",
+    "visitId": "day_2_warning",
+    "dialogueStartNodeId": "start",
+    "requires": {
+      "dayExact": 2
+    },
+    "weight": 100,
+    "desiredTraits": {},
+    "badTraits": {},
+    "dialogueNodes": [
+      {
+        "id": "start",
+        "text": "A police constable steps into the shop and keeps one hand near his notebook. 'I have received word that you are doing illegal activities and selling illegal substances to the public,' he says. 'Care to explain yourself?'",
+        "options": [
+          {
+            "id": "positive_reply",
+            "label": "Answer politely",
+            "responseText": "The constable studies you for a long moment, then closes his notebook. 'Cooperation is noted. I will be checking in again if more reports reach my desk. Good day.' He gives a curt nod and leaves.",
+            "endsInteraction": true,
+            "effects": [
+              {
+                "addStoryFlag": "police_constable_day_2_met"
+              },
+              {
+                "addStoryFlag": "police_constable_positive_reply"
+              }
+            ]
+          },
+          {
+            "id": "negative_reply",
+            "label": "Answer sharply",
+            "responseText": "The constable's expression hardens. 'That tone does you no favors. I will remember it, and I will be watching this shop more closely. Good day.' He turns on his heel and leaves.",
+            "endsInteraction": true,
+            "effects": [
+              {
+                "addStoryFlag": "police_constable_day_2_met"
+              },
+              {
+                "addStoryFlag": "police_constable_negative_reply"
+              }
+            ]
+          }
+        ]
+      }
+    ]
   }
 ]

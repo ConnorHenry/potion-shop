@@ -7,7 +7,7 @@ namespace OccultShop.Persistence;
 
 public sealed class SaveFileData
 {
-	public int Version { get; set; } = 1;
+	public int Version { get; set; } = 2;
 	public DateTime SavedAtUtc { get; set; } = DateTime.UtcNow;
 	public GameStateSnapshot GameState { get; set; } = new();
 	public List<ItemDef> RuntimeItems { get; set; } = new();
@@ -34,6 +34,10 @@ public sealed class GameStateSnapshot
 	public Dictionary<string, List<string>> PotionRecipes { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 	public Dictionary<string, string> CombinationPotionItems { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 	public Dictionary<string, List<List<string>>> PotionBatches { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+	public bool GardenInitialized { get; set; }
+	public int GardenPotCount { get; set; }
+	public Dictionary<string, int> SeedInventory { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+	public List<GardenPotState> GardenPots { get; set; } = new();
 	public CustomerRequestDef? ActiveCustomerRequest { get; set; }
 	public List<StoryCustomerVisitRecord> StoryCustomerVisits { get; set; } = new();
 }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Godot;
 using ImGuiGodot;
 using ImGuiNET;
+using OccultShop.Controllers;
 using OccultShop.Autoload;
 using OccultShop.Models;
 using Vector2 = System.Numerics.Vector2;
@@ -19,9 +20,11 @@ public partial class RuntimeDebugImGui : Node
 	private GameState _gameState = default!;
 	private DataDb _dataDb = default!;
 	private RuntimeContentDb _runtimeContentDb = default!;
+	private DayController? _dayController;
 
 	private int _goldInput;
 	private int _dreadInput;
+	private int _shopTimerSecondsInput = 60;
 	private int _addPotionQuantity = 1;
 	private int _removePotionQuantity = 1;
 	private int _traitItemQuantity = 1;
@@ -41,6 +44,7 @@ public partial class RuntimeDebugImGui : Node
 	private int _runtimeItemStartingQuantity = 1;
 	private bool _runtimeItemTagIngredient = true;
 	private bool _runtimeItemTagPotion;
+	[Export] public NodePath DayControllerPath = new("../DayController");
 
 	public override void _Ready()
 	{
@@ -65,15 +69,24 @@ public partial class RuntimeDebugImGui : Node
 			return;
 		}
 
+		_dayController = GetNodeOrNull<DayController>(DayControllerPath);
+		if (_dayController is null)
+		{
+			GD.PushError($"RuntimeDebugImGui: DayController was not found at '{DayControllerPath}'.");
+		}
+
 		_gameState = gameState;
 		_dataDb = dataDb;
 		_runtimeContentDb = runtimeContentDb;
 
 		_goldInput = _gameState.Gold;
 		_dreadInput = _gameState.Dread;
+		SyncShopTimerInputFromController();
 
 		RebuildDebugCatalog();
 		_runtimeContentDb.Changed += OnRuntimeContentChanged;
+		if (_dayController is not null)
+			_dayController.ShopStateChanged += OnDayControllerShopStateChanged;
 
 		ImGuiGD.Connect(DrawDebugWindow);
 		ImGuiGD.Visible = true;
@@ -83,6 +96,8 @@ public partial class RuntimeDebugImGui : Node
 	{
 		if (_runtimeContentDb is not null)
 			_runtimeContentDb.Changed -= OnRuntimeContentChanged;
+		if (_dayController is not null)
+			_dayController.ShopStateChanged -= OnDayControllerShopStateChanged;
 	}
 
 	private void DrawDebugWindow()
@@ -169,6 +184,25 @@ public partial class RuntimeDebugImGui : Node
 			for (var i = 0; i < 5; i++)
 				_gameState.NextDay();
 			_statusMessage = $"Advanced to day {_gameState.Day}.";
+		}
+
+		ImGui.Separator();
+		ImGui.Text($"Shop Timer: {_shopTimerSecondsInput} seconds");
+		ImGui.InputInt("Stop Timer Seconds", ref _shopTimerSecondsInput);
+		if (_shopTimerSecondsInput < 0)
+			_shopTimerSecondsInput = 0;
+
+		if (ImGui.Button("Apply Stop Timer"))
+		{
+			if (!TrySetShopTimerSeconds(_shopTimerSecondsInput))
+				return;
+		}
+
+		ImGui.SameLine();
+		if (ImGui.SmallButton("End Day Now"))
+		{
+			_shopTimerSecondsInput = 0;
+			TrySetShopTimerSeconds(0);
 		}
 	}
 
@@ -489,6 +523,41 @@ public partial class RuntimeDebugImGui : Node
 	private void OnRuntimeContentChanged()
 	{
 		RebuildDebugCatalog();
+	}
+
+	private void OnDayControllerShopStateChanged()
+	{
+		SyncShopTimerInputFromController();
+	}
+
+	private void SyncShopTimerInputFromController()
+	{
+		if (_dayController is null)
+			return;
+
+		_shopTimerSecondsInput = Math.Max(0, _dayController.SecondsRemaining);
+	}
+
+	private bool TrySetShopTimerSeconds(int seconds)
+	{
+		if (_dayController is null)
+		{
+			_statusMessage = "DayController is unavailable, so the stop timer cannot be changed.";
+			return false;
+		}
+
+		var applied = _dayController.TrySetShopTimerSecondsRemaining(seconds);
+
+		if (!applied)
+		{
+			_statusMessage = "DayController is unavailable or the shop is closed, so the stop timer cannot be changed.";
+			return false;
+		}
+
+		_statusMessage = seconds <= 0
+			? "Stop timer set to 0 seconds and the shop will close."
+			: $"Stop timer set to {seconds} seconds.";
+		return true;
 	}
 
 	private void RebuildDebugCatalog()
