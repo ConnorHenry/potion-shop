@@ -15,11 +15,29 @@ public partial class InventoryItemSlot : Button
 	public string? IconPath { get; set; }
 	public int Quantity { get; set; }
 
+	private PanelContainer? _hoverOutline;
 	private bool _dragStarted;
+	private bool _isHovered;
 
 	public override void _Ready()
 	{
 		MouseDefaultCursorShape = CursorShape.PointingHand;
+		FocusMode = FocusModeEnum.None;
+		MouseEntered += OnMouseEntered;
+		MouseExited += OnMouseExited;
+		UpdateHoverOutline();
+	}
+
+	public override void _ExitTree()
+	{
+		MouseEntered -= OnMouseEntered;
+		MouseExited -= OnMouseExited;
+	}
+
+	public void SetHoverOutline(PanelContainer hoverOutline)
+	{
+		_hoverOutline = hoverOutline;
+		UpdateHoverOutline();
 	}
 
 	public override Variant _GetDragData(Vector2 atPosition)
@@ -68,5 +86,23 @@ public partial class InventoryItemSlot : Button
 		}
 
 		base._GuiInput(@event);
+	}
+
+	private void OnMouseEntered()
+	{
+		_isHovered = true;
+		UpdateHoverOutline();
+	}
+
+	private void OnMouseExited()
+	{
+		_isHovered = false;
+		UpdateHoverOutline();
+	}
+
+	private void UpdateHoverOutline()
+	{
+		if (_hoverOutline is not null)
+			_hoverOutline.Visible = _isHovered;
 	}
 }

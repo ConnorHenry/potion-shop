@@ -20,7 +20,15 @@ This project targets **Godot 4.4 + C# (.NET 8)**.
 - `Scripts/Systems`: Core domain systems (brewing, effects, requirements).
 - `Scripts/Models`: Data model types for runtime content.
 - `Scripts/Persistence`: Save/load data contracts.
+- `Scripts/Tutorial`: Tutorial domain/presentation flow (`TutorialStateMachine`, `TutorialContentResource`, step/status enums).
 - `Scripts/UI`: UI behavior scripts.
+
+## Tutorial Architecture
+
+- `Scripts/Controllers/TutorialController.cs`: Runtime orchestration only (signal wiring + scene integration).
+- `Scripts/Tutorial/TutorialStateMachine.cs`: Pure C# transition rules for tutorial progression.
+- `Scripts/Tutorial/TutorialContentResource.cs`: Tutorial copy/IDs as resource-backed configuration.
+- `Scripts/Tutorial/Presentation/*`: Overlay rendering and interaction gate helpers.
 
 ## Source Of Truth vs Generated Artifacts
 

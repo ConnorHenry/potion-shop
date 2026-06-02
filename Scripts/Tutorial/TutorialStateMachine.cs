@@ -1,0 +1,138 @@
+using System;
+
+namespace OccultShop.Tutorial;
+
+public sealed class TutorialStateMachine
+{
+	private readonly string _graveMintId;
+	private readonly string _obsidianResinId;
+	private readonly string _ironLullabyRootId;
+	private readonly string _blackIchorId;
+	private readonly string _tutorialPotionId;
+	private readonly string _ambiguousCustomerId;
+
+	public TutorialStateMachine(TutorialContentResource content)
+	{
+		ArgumentNullException.ThrowIfNull(content);
+
+		_graveMintId = content.GraveMintId;
+		_obsidianResinId = content.ObsidianResinId;
+		_ironLullabyRootId = content.IronLullabyRootId;
+		_blackIchorId = content.BlackIchorId;
+		_tutorialPotionId = content.TutorialPotionId;
+		_ambiguousCustomerId = content.AmbiguousTutorialCustomerId;
+	}
+
+	public TutorialStepId ClampStep(int rawStep)
+	{
+		if (rawStep <= (int)TutorialStepId.Welcome)
+			return TutorialStepId.Welcome;
+
+		if (rawStep >= (int)TutorialStepId.CloseShop)
+			return TutorialStepId.CloseShop;
+
+		return (TutorialStepId)rawStep;
+	}
+
+	public TutorialTransition EvaluateNextPressed(TutorialStepId step)
+	{
+		return step switch
+		{
+			TutorialStepId.Welcome => TutorialTransition.To(TutorialStepId.Status),
+			TutorialStepId.Status => TutorialTransition.To(TutorialStepId.OpenBrewPanel),
+			TutorialStepId.SaleResult => TutorialTransition.To(TutorialStepId.NextCustomer),
+			TutorialStepId.AmbiguousCustomer => TutorialTransition.To(TutorialStepId.InspectBlackIchor),
+			TutorialStepId.BlackIchorRestTrait => TutorialTransition.To(TutorialStepId.AddBlackIchorToBrew),
+			_ => TutorialTransition.None
+		};
+	}
+
+	public TutorialTransition EvaluateIngredientQueued(TutorialStepId step, string itemId, int queuedCount)
+	{
+		if (step == TutorialStepId.QueueGraveMint && IsItem(itemId, _graveMintId))
+			return TutorialTransition.To(TutorialStepId.QueueObsidianResin);
+
+		if (step == TutorialStepId.QueueObsidianResin && IsItem(itemId, _obsidianResinId))
+			return TutorialTransition.To(TutorialStepId.QueueIronLullabyRoot);
+
+		if (step == TutorialStepId.QueueIronLullabyRoot && IsItem(itemId, _ironLullabyRootId))
+			return TutorialTransition.To(TutorialStepId.BrewPotion);
+
+		if (step == TutorialStepId.AddBlackIchorToBrew && IsItem(itemId, _blackIchorId))
+			return TutorialTransition.To(TutorialStepId.AddTwoMoreSleepIngredients);
+
+		return TutorialTransition.None;
+	}
+
+	public TutorialTransition EvaluateItemDetailShown(TutorialStepId step, string itemId)
+	{
+		if (step == TutorialStepId.InspectBlackIchor && IsItem(itemId, _blackIchorId))
+			return TutorialTransition.To(TutorialStepId.BlackIchorRestTrait);
+
+		return TutorialTransition.None;
+	}
+
+	public TutorialTransition EvaluatePotionBrewed(TutorialStepId step, string potionItemId)
+	{
+		if (step == TutorialStepId.BrewPotion && IsItem(potionItemId, _tutorialPotionId))
+			return TutorialTransition.To(TutorialStepId.StartDay);
+
+		return TutorialTransition.None;
+	}
+
+	public TutorialTransition EvaluateShopStateChanged(TutorialStepId step, bool isShopOpen)
+	{
+		if (step == TutorialStepId.StartDay && isShopOpen)
+			return TutorialTransition.To(TutorialStepId.SellPotion);
+
+		if (step == TutorialStepId.CloseShop && !isShopOpen)
+			return TutorialTransition.Complete();
+
+		return TutorialTransition.None;
+	}
+
+	public TutorialTransition EvaluateCloseShopPrompt(TutorialStepId step, bool hasSoldPotion, bool isCloseShopMode)
+	{
+		if (step == TutorialStepId.AddTwoMoreSleepIngredients && hasSoldPotion && isCloseShopMode)
+			return TutorialTransition.To(TutorialStepId.CloseShop);
+
+		return TutorialTransition.None;
+	}
+
+	public TutorialTransition EvaluatePotionSold(TutorialStepId step, string itemId)
+	{
+		if (step == TutorialStepId.SellPotion && IsItem(itemId, _tutorialPotionId))
+			return TutorialTransition.To(TutorialStepId.SaleResult);
+
+		return TutorialTransition.None;
+	}
+
+	public TutorialTransition EvaluateCustomerInteractionShown(TutorialStepId step, string interactionId)
+	{
+		if (step == TutorialStepId.NextCustomer && IsItem(interactionId, _ambiguousCustomerId))
+			return TutorialTransition.To(TutorialStepId.AmbiguousCustomer);
+
+		return TutorialTransition.None;
+	}
+
+	public TutorialTransition EvaluateOpenBrewPanelState(TutorialStepId step, bool isBrewPanelVisible)
+	{
+		if (step == TutorialStepId.OpenBrewPanel && isBrewPanelVisible)
+			return TutorialTransition.To(TutorialStepId.QueueGraveMint);
+
+		return TutorialTransition.None;
+	}
+
+	public TutorialTransition EvaluateAmbiguousCustomerState(TutorialStepId step, string? activeCustomerRequestId)
+	{
+		if (step == TutorialStepId.NextCustomer && IsItem(activeCustomerRequestId ?? string.Empty, _ambiguousCustomerId))
+			return TutorialTransition.To(TutorialStepId.AmbiguousCustomer);
+
+		return TutorialTransition.None;
+	}
+
+	private static bool IsItem(string actualItemId, string expectedItemId)
+	{
+		return string.Equals(actualItemId, expectedItemId, StringComparison.OrdinalIgnoreCase);
+	}
+}

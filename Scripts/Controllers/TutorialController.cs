@@ -1,21 +1,13 @@
-using System;
-using System.Collections.Generic;
 using Godot;
 using OccultShop.Autoload;
+using OccultShop.Tutorial;
+using OccultShop.Tutorial.Presentation;
 using OccultShop.UI;
 
 namespace OccultShop.Controllers;
 
 public partial class TutorialController : Node
 {
-	private const string GraveMintId = "grave_mint";
-	private const string ObsidianResinId = "obsidian_resin";
-	private const string IronLullabyRootId = "iron_lullaby_root";
-	private const string BlackIchorId = "black_ichor";
-	private const string TutorialPotionId = "potion_gravekeepers_balm";
-	private const string TutorialCustomerId = "customer_requests_gravekeepers_balm";
-	private const string AmbiguousTutorialCustomerId = "customer_requests_sleep_draught";
-
 	[Export] public NodePath TutorialOverlayPath = default!;
 	[Export] public NodePath HudPath = default!;
 	[Export] public NodePath InventoryPanelPath = default!;
@@ -28,10 +20,18 @@ public partial class TutorialController : Node
 	[Export] public NodePath HudStartDayButtonPath = new("ServeCustomer");
 	[Export] public NodePath HudSettingsButtonPath = new("MainMenu");
 	[Export] public NodePath BrewPanelFramePath = new("Panel");
+	[Export] public TutorialContentResource TutorialContent = new();
 
 	private GameState _gameState = default!;
 	private TutorialOverlay _overlay = default!;
+	private TutorialOverlayPresenter _overlayPresenter = default!;
+	private TutorialContentResource _tutorialContent = default!;
+	private TutorialStateMachine _stateMachine = default!;
+	private readonly TutorialInteractionGate _interactionGate = new();
+
 	private Control? _hud;
+	private Label? _hudDayLabel;
+	private Label? _hudShopTimerLabel;
 	private InventoryPanel? _inventoryPanel;
 	private BrewPanel? _brewPanel;
 	private Control? _brewPanelFrame;
@@ -41,29 +41,10 @@ public partial class TutorialController : Node
 	private Button? _brewButton;
 	private Button? _startDayButton;
 	private Button? _settingsButton;
-	private readonly Dictionary<BaseButton, bool> _openBrewButtonDisabledStates = new();
+
 	private bool _isRunning;
 	private bool _lastTutorialSaleSucceeded;
-
-	private enum TutorialStep
-	{
-		Welcome = 0,
-		Status = 1,
-		OpenBrewPanel = 2,
-		QueueGraveMint = 3,
-		QueueObsidianResin = 4,
-		QueueIronLullabyRoot = 5,
-		BrewPotion = 6,
-		StartDay = 7,
-		SellPotion = 8,
-		SaleResult = 9,
-		NextCustomer = 10,
-		AmbiguousCustomer = 11,
-		InspectBlackIchor = 12,
-		BlackIchorRestTrait = 13,
-		AddBlackIchorToBrew = 14,
-		AddTwoMoreSleepIngredients = 15
-	}
+	private bool _sleepCustomerPotionSold;
 
 	public override void _Ready()
 	{
@@ -82,6 +63,12 @@ public partial class TutorialController : Node
 		_brewButton = GetOptionalHudButton(HudBrewButtonPath, nameof(HudBrewButtonPath));
 		_startDayButton = GetOptionalHudButton(HudStartDayButtonPath, nameof(HudStartDayButtonPath));
 		_settingsButton = GetOptionalHudButton(HudSettingsButtonPath, nameof(HudSettingsButtonPath));
+		_hudDayLabel = GetOptionalHudLabel("Day");
+		_hudShopTimerLabel = GetOptionalHudLabel("ShopTimer");
+
+		_tutorialContent = TutorialContent ?? new TutorialContentResource();
+		_stateMachine = new TutorialStateMachine(_tutorialContent);
+		_overlayPresenter = new TutorialOverlayPresenter(_overlay);
 
 		_overlay.NextPressed += OnNextPressed;
 		_overlay.SkipPressed += OnSkipPressed;
@@ -103,13 +90,13 @@ public partial class TutorialController : Node
 			_customerPanel.InteractionShown += OnCustomerInteractionShown;
 		}
 
-		_overlay.HideOverlay();
+		_overlayPresenter.Hide();
 		Callable.From(StartTutorialIfRequested).CallDeferred();
 	}
 
 	public override void _ExitTree()
 	{
-		RestoreOpenBrewInputLock();
+		_interactionGate.Restore();
 		ResumeShopTimerAfterTutorial();
 
 		if (_overlay is not null)
@@ -142,7 +129,10 @@ public partial class TutorialController : Node
 			return;
 
 		_isRunning = true;
-		ShowStep(ClampStep(_gameState.TutorialStep));
+		ResetLastTutorialSaleFeedback();
+		ResetCloseShopTutorialState();
+		UpdateShopTimerPause();
+		ShowStep(CurrentStep());
 	}
 
 	private void OnNextPressed()
@@ -150,39 +140,7 @@ public partial class TutorialController : Node
 		if (!_isRunning)
 			return;
 
-		var step = ClampStep(_gameState.TutorialStep);
-		if (step == TutorialStep.Welcome)
-		{
-			AdvanceTo(TutorialStep.Status);
-			return;
-		}
-
-		if (step == TutorialStep.Status)
-		{
-			AdvanceTo(TutorialStep.OpenBrewPanel);
-			return;
-		}
-
-		if (step == TutorialStep.SaleResult)
-		{
-			AdvanceTo(TutorialStep.NextCustomer);
-			return;
-		}
-
-		if (step == TutorialStep.AmbiguousCustomer)
-		{
-			AdvanceTo(TutorialStep.InspectBlackIchor);
-			return;
-		}
-
-		if (step == TutorialStep.BlackIchorRestTrait)
-		{
-			AdvanceTo(TutorialStep.AddBlackIchorToBrew);
-			return;
-		}
-
-		if (step == TutorialStep.AddTwoMoreSleepIngredients)
-			CompleteTutorial();
+		ApplyTransition(_stateMachine.EvaluateNextPressed(CurrentStep()));
 	}
 
 	private void OnSkipPressed()
@@ -192,15 +150,17 @@ public partial class TutorialController : Node
 
 		_customerEventController?.ForceNextCustomerInteraction(string.Empty);
 		_isRunning = false;
-		_overlay.HideOverlay();
-		RestoreOpenBrewInputLock();
+		_overlayPresenter.Hide();
+		_interactionGate.Restore();
 		ResumeShopTimerAfterTutorial();
+		ResetLastTutorialSaleFeedback();
+		ResetCloseShopTutorialState();
 		_gameState.SkipTutorial();
 	}
 
 	private void OnBrewButtonPressed()
 	{
-		if (!_isRunning || ClampStep(_gameState.TutorialStep) != TutorialStep.OpenBrewPanel)
+		if (!_isRunning || CurrentStep() != TutorialStepId.OpenBrewPanel)
 			return;
 
 		Callable.From(AdvanceIfBrewPanelIsOpen).CallDeferred();
@@ -211,77 +171,63 @@ public partial class TutorialController : Node
 		if (!_isRunning)
 			return;
 
-		var step = ClampStep(_gameState.TutorialStep);
-		if (step == TutorialStep.QueueGraveMint && IsItem(itemId, GraveMintId))
-		{
-			AdvanceTo(TutorialStep.QueueObsidianResin);
-			return;
-		}
-
-		if (step == TutorialStep.QueueObsidianResin && IsItem(itemId, ObsidianResinId))
-		{
-			AdvanceTo(TutorialStep.QueueIronLullabyRoot);
-			return;
-		}
-
-		if (step == TutorialStep.QueueIronLullabyRoot && IsItem(itemId, IronLullabyRootId))
-		{
-			AdvanceTo(TutorialStep.BrewPotion);
-			return;
-		}
-
-		if (step == TutorialStep.AddBlackIchorToBrew && IsItem(itemId, BlackIchorId))
-		{
-			AdvanceTo(TutorialStep.AddTwoMoreSleepIngredients);
-			return;
-		}
-
-		if (step == TutorialStep.AddTwoMoreSleepIngredients && queuedCount >= 3)
-			CompleteTutorial();
+		ApplyTransition(_stateMachine.EvaluateIngredientQueued(CurrentStep(), itemId, queuedCount));
 	}
 
 	private void OnItemDetailShown(string itemId)
 	{
-		if (!_isRunning || ClampStep(_gameState.TutorialStep) != TutorialStep.InspectBlackIchor)
+		if (!_isRunning)
 			return;
 
-		if (IsItem(itemId, BlackIchorId))
-			AdvanceTo(TutorialStep.BlackIchorRestTrait);
+		ApplyTransition(_stateMachine.EvaluateItemDetailShown(CurrentStep(), itemId));
 	}
 
 	private void OnPotionBrewed(string potionItemId)
 	{
-		if (!_isRunning || ClampStep(_gameState.TutorialStep) != TutorialStep.BrewPotion)
+		if (!_isRunning)
 			return;
 
-		if (IsItem(potionItemId, TutorialPotionId))
-			AdvanceTo(TutorialStep.StartDay);
+		ApplyTransition(_stateMachine.EvaluatePotionBrewed(CurrentStep(), potionItemId));
 	}
 
 	private void OnShopStateChanged()
 	{
-		if (!_isRunning || ClampStep(_gameState.TutorialStep) != TutorialStep.StartDay)
+		if (!_isRunning)
 			return;
 
-		if (_dayController is not null && _dayController.IsShopOpen)
-			AdvanceTo(TutorialStep.SellPotion);
+		var currentStep = CurrentStep();
+		ApplyTransition(_stateMachine.EvaluateShopStateChanged(currentStep, _dayController is not null && _dayController.IsShopOpen));
+		ApplyTransition(_stateMachine.EvaluateCloseShopPrompt(
+			currentStep,
+			_sleepCustomerPotionSold,
+			_customerPanel is not null && _customerPanel.IsCloseShopMode));
 	}
 
 	private void OnPotionSold(string itemId, bool success)
 	{
-		if (!_isRunning || ClampStep(_gameState.TutorialStep) != TutorialStep.SellPotion)
+		if (!_isRunning)
 			return;
 
-		if (!IsItem(itemId, TutorialPotionId))
-			return;
+		var currentStep = CurrentStep();
+		var transition = _stateMachine.EvaluatePotionSold(currentStep, itemId);
+		if (transition.HasNextStep && transition.NextStep == TutorialStepId.SaleResult)
+			_lastTutorialSaleSucceeded = success;
 
-		_lastTutorialSaleSucceeded = success;
-		AdvanceTo(TutorialStep.SaleResult);
+		if (currentStep == TutorialStepId.AddTwoMoreSleepIngredients)
+		{
+			_sleepCustomerPotionSold = true;
+			ApplyTransition(_stateMachine.EvaluateCloseShopPrompt(
+				currentStep,
+				_sleepCustomerPotionSold,
+				_customerPanel is not null && _customerPanel.IsCloseShopMode));
+		}
+
+		ApplyTransition(transition);
 	}
 
 	private void OnSaleResultClosed()
 	{
-		if (!_isRunning || ClampStep(_gameState.TutorialStep) != TutorialStep.NextCustomer)
+		if (!_isRunning || CurrentStep() != TutorialStepId.NextCustomer)
 			return;
 
 		Callable.From(AdvanceIfAmbiguousCustomerIsActive).CallDeferred();
@@ -289,33 +235,47 @@ public partial class TutorialController : Node
 
 	private void OnCustomerInteractionShown(string interactionId)
 	{
-		if (!_isRunning || ClampStep(_gameState.TutorialStep) != TutorialStep.NextCustomer)
+		if (!_isRunning)
 			return;
 
-		if (IsItem(interactionId, AmbiguousTutorialCustomerId))
-			AdvanceTo(TutorialStep.AmbiguousCustomer);
+		ApplyTransition(_stateMachine.EvaluateCustomerInteractionShown(CurrentStep(), interactionId));
 	}
 
 	private void AdvanceIfBrewPanelIsOpen()
 	{
-		if (!_isRunning || ClampStep(_gameState.TutorialStep) != TutorialStep.OpenBrewPanel)
+		if (!_isRunning)
 			return;
 
-		if (_brewPanel is not null && _brewPanel.Visible)
-			AdvanceTo(TutorialStep.QueueGraveMint);
+		ApplyTransition(_stateMachine.EvaluateOpenBrewPanelState(CurrentStep(), _brewPanel is not null && _brewPanel.Visible));
 	}
 
 	private void AdvanceIfAmbiguousCustomerIsActive()
 	{
-		if (!_isRunning || ClampStep(_gameState.TutorialStep) != TutorialStep.NextCustomer)
+		if (!_isRunning)
 			return;
 
-		if (IsItem(_gameState.ActiveCustomerRequest?.Id ?? string.Empty, AmbiguousTutorialCustomerId))
-			AdvanceTo(TutorialStep.AmbiguousCustomer);
+		ApplyTransition(_stateMachine.EvaluateAmbiguousCustomerState(CurrentStep(), _gameState.ActiveCustomerRequest?.Id));
 	}
 
-	private void AdvanceTo(TutorialStep step)
+	private void ApplyTransition(TutorialTransition transition)
 	{
+		if (transition.ShouldComplete)
+		{
+			CompleteTutorial();
+			return;
+		}
+
+		if (!transition.HasNextStep)
+			return;
+
+		AdvanceTo(transition.NextStep);
+	}
+
+	private void AdvanceTo(TutorialStepId step)
+	{
+		if (step == TutorialStepId.AddTwoMoreSleepIngredients)
+			_dayController?.ForceShopTimerToZeroForTutorial();
+
 		_gameState.SetTutorialStep((int)step);
 		ShowStep(step);
 	}
@@ -324,237 +284,196 @@ public partial class TutorialController : Node
 	{
 		_customerEventController?.ForceNextCustomerInteraction(string.Empty);
 		_isRunning = false;
-		_overlay.HideOverlay();
-		RestoreOpenBrewInputLock();
+		_overlayPresenter.Hide();
+		_interactionGate.Restore();
 		ResumeShopTimerAfterTutorial();
+		ResetLastTutorialSaleFeedback();
+		ResetCloseShopTutorialState();
 		_gameState.CompleteTutorial();
 	}
 
-	private void ShowStep(TutorialStep step)
+	private void ShowStep(TutorialStepId step)
 	{
-		if (step == TutorialStep.OpenBrewPanel && _brewPanel is not null && _brewPanel.Visible)
+		var brewPanelTransition = _stateMachine.EvaluateOpenBrewPanelState(step, _brewPanel is not null && _brewPanel.Visible);
+		if (brewPanelTransition.HasNextStep || brewPanelTransition.ShouldComplete)
 		{
-			AdvanceTo(TutorialStep.QueueGraveMint);
+			ApplyTransition(brewPanelTransition);
 			return;
 		}
 
-		if (step == TutorialStep.StartDay)
+		if (step == TutorialStepId.StartDay)
 		{
-			_customerEventController?.ForceNextCustomerInteraction(TutorialCustomerId);
-			if (_dayController is not null && _dayController.IsShopOpen)
+			_customerEventController?.ForceNextCustomerInteraction(_tutorialContent.TutorialCustomerId);
+			var shopStateTransition = _stateMachine.EvaluateShopStateChanged(step, _dayController is not null && _dayController.IsShopOpen);
+			if (shopStateTransition.HasNextStep || shopStateTransition.ShouldComplete)
 			{
-				AdvanceTo(TutorialStep.SellPotion);
+				ApplyTransition(shopStateTransition);
 				return;
 			}
 		}
 
-		UpdateShopTimerPause(step);
-		UpdateOpenBrewInputLock(step);
-		_overlay.SetSkipButtonVisible(true);
+		var stepContent = _tutorialContent.GetStepContent(step);
+		UpdateShopTimerPause();
+		UpdateTutorialButtonLock(stepContent, GetAllowedButtonsForStep(step));
+		_overlayPresenter.SetSkipButtonVisible(true);
 
 		switch (step)
 		{
-			case TutorialStep.Welcome:
-				ShowManualStep(
-					"Welcome to the Shop",
-					"This tutorial walks through your stock, brewing your first potion, Gravekeeper's Balm, and selling it to your first customer.",
-					"Next",
-					panelAtTop: false,
-					target: null);
+			case TutorialStepId.Welcome:
+				_overlayPresenter.ShowMessage(stepContent);
 				break;
-			case TutorialStep.Status:
-				ShowManualStep(
-					"Gold, Dread, and Day",
-					"Gold pays for brewing. Dread tracks how dangerous the shop has become. Day shows your current run progress.",
-					"Next",
-					panelAtTop: false,
-					target: _hud);
+			case TutorialStepId.Status:
+				if (TryGetStatusHighlightRect(out var statusHighlightRect))
+				{
+					_overlayPresenter.ShowForHighlightRect(stepContent, statusHighlightRect);
+					break;
+				}
+
+				_overlayPresenter.ShowForTarget(stepContent, _hud);
 				break;
-			case TutorialStep.OpenBrewPanel:
-				ShowActionStep(
-					"Open the Brew Panel",
-					"Click Brew Potion to open the cauldron controls.",
-					_brewButton,
-					panelAtTop: false);
+			case TutorialStepId.OpenBrewPanel:
+				_overlayPresenter.ShowForTarget(stepContent, _brewButton);
 				break;
-			case TutorialStep.QueueGraveMint:
-				ShowActionStep(
-					"Add Grave Mint",
-					"Add Grave Mint to the brew. You can right-click an ingredient slot or drag it out if you add the wrong item.",
-					_inventoryPanel,
-					panelAtTop: true);
+			case TutorialStepId.QueueGraveMint:
+				ShowIngredientQueueStep(stepContent, _tutorialContent.GraveMintId);
 				break;
-			case TutorialStep.QueueObsidianResin:
-				ShowActionStep(
-					"Add Obsidian Resin",
-					"Add Obsidian Resin as the second ingredient.",
-					_inventoryPanel,
-					panelAtTop: true);
+			case TutorialStepId.QueueObsidianResin:
+				ShowIngredientQueueStep(stepContent, _tutorialContent.ObsidianResinId);
 				break;
-			case TutorialStep.QueueIronLullabyRoot:
-				ShowActionStep(
-					"Add Iron Lullaby Root",
-					"Add Iron Lullaby Root as the third ingredient. The preview should show Gravekeeper's Balm.",
-					_inventoryPanel,
-					panelAtTop: true);
+			case TutorialStepId.QueueIronLullabyRoot:
+				ShowIngredientQueueStep(stepContent, _tutorialContent.IronLullabyRootId);
 				break;
-			case TutorialStep.BrewPotion:
-				ShowActionStep(
-					"Brew Gravekeeper's Balm",
-					"Click Brew Potion in the brew panel to create Gravekeeper's Balm. It will appear in your inventory.",
-					_brewPanelFrame ?? _brewPanel,
-					panelAtTop: true);
+			case TutorialStepId.BrewPotion:
+				_overlayPresenter.ShowForTarget(stepContent, _brewPanelFrame ?? _brewPanel);
 				break;
-			case TutorialStep.StartDay:
-				ShowActionStep(
-					"Open the Shop",
-					"Click Start Day. The tutorial will send in a customer who wants Gravekeeper's Balm.",
-					_startDayButton,
-					panelAtTop: false);
+			case TutorialStepId.StartDay:
+				_overlayPresenter.ShowForTarget(stepContent, _startDayButton);
 				break;
-			case TutorialStep.SellPotion:
-				ShowActionStepForTargets(
-					"Sell the Potion",
-					"Drag Gravekeeper's Balm from your inventory to the customer's Drop potion here box.",
-					false,
-					GetTutorialPotionInventorySlot(),
-					_customerPanel);
+			case TutorialStepId.SellPotion:
+				_overlayPresenter.ShowForTargets(stepContent, null, FocusTutorialPotionInventorySlot(), _customerPanel);
 				break;
-			case TutorialStep.SaleResult:
-				ShowManualStep(
-					"Sale Complete",
-					_lastTutorialSaleSucceeded
-						? "The sale succeeded because Gravekeeper's Balm matched the customer's desired traits. Not every customer will ask for a potion by name, so the next request needs more interpretation."
-						: "The sale finished. Finish the tutorial to continue the day.",
-					"Next",
-					panelAtTop: false,
-					target: _customerPanel);
+			case TutorialStepId.SaleResult:
+				_overlayPresenter.ShowForTarget(
+					stepContent,
+					_customerPanel,
+					_tutorialContent.BuildSaleResultBody(_lastTutorialSaleSucceeded));
 				break;
-			case TutorialStep.NextCustomer:
-				_customerEventController?.ForceNextCustomerInteraction(AmbiguousTutorialCustomerId);
-				ShowActionStep(
-					"Let in the Next Customer",
-					"Click Next customer to bring in the next request.",
-					_customerPanel?.GetNextCustomerButton(),
-					panelAtTop: false);
+			case TutorialStepId.NextCustomer:
+				_gameState.SeedNextCustomerTutorialInventory();
+				_customerEventController?.ForceNextCustomerInteraction(_tutorialContent.AmbiguousTutorialCustomerId);
+				_overlayPresenter.ShowForTarget(stepContent, _customerPanel?.GetNextCustomerButton());
 				break;
-			case TutorialStep.AmbiguousCustomer:
-				ShowManualStep(
-					"Read the Request Carefully",
-					"This customer cannot sleep, but they are not asking for a potion by name. Read the customer request carefully and choose ingredients whose traits best match what they need.",
-					"Next",
-					panelAtTop: false,
-					target: _customerPanel);
+			case TutorialStepId.AmbiguousCustomer:
+				_overlayPresenter.ShowForTarget(stepContent, _customerPanel);
 				break;
-			case TutorialStep.InspectBlackIchor:
-				ShowActionStep(
-					"Inspect Black Ichor",
-					"Left-click Black Ichor in the inventory to view its details.",
-					GetBlackIchorInventorySlot(),
-					panelAtTop: false);
+			case TutorialStepId.InspectBlackIchor:
+				_overlayPresenter.ShowForTarget(stepContent, FocusBlackIchorInventorySlot());
 				break;
-			case TutorialStep.BlackIchorRestTrait:
-				ShowManualStep(
-					"Rest Helps Sleepless Customers",
-					"Black Ichor has a strong Rest trait. That would probably suit a customer who cannot sleep.",
-					"Next",
-					panelAtTop: false,
-					target: _inventoryPanel?.GetItemDetailFrame());
+			case TutorialStepId.BlackIchorRestTrait:
+				_overlayPresenter.ShowForTarget(stepContent, _inventoryPanel?.GetItemDetailFrame());
 				break;
-			case TutorialStep.AddBlackIchorToBrew:
-				ShowActionStep(
-					"Add Black Ichor",
-					"Click Add to Brew to use Black Ichor as the first ingredient for this customer's potion.",
-					_inventoryPanel?.GetItemDetailBrewButton(),
-					panelAtTop: false);
+			case TutorialStepId.AddBlackIchorToBrew:
+				_overlayPresenter.ShowForTarget(stepContent, _inventoryPanel?.GetItemDetailBrewButton());
 				break;
-			case TutorialStep.AddTwoMoreSleepIngredients:
-				ShowActionStepWithoutDim(
-					"Choose Two More Ingredients",
-					"Add two more ingredients that may suit the customer's need for rest, calm, or dreams.",
-					panelAtTop: true);
+			case TutorialStepId.AddTwoMoreSleepIngredients:
+				_overlayPresenter.ShowMessage(stepContent);
+				break;
+			case TutorialStepId.CloseShop:
+				_overlayPresenter.ShowForTarget(stepContent, _customerPanel?.GetNextCustomerButton());
 				break;
 		}
 	}
 
-	private void ShowManualStep(string title, string body, string nextButtonText, bool panelAtTop, Control? target)
+	private void ShowIngredientQueueStep(TutorialStepContentResource stepContent, string itemId)
 	{
-		SetOverlayButtons(nextVisible: true, nextButtonText);
-		SetOverlayPanelPlacement(panelAtTop);
-		ShowOverlay(title, body, target);
-	}
-
-	private void ShowActionStep(string title, string body, Control? target, bool panelAtTop)
-	{
-		SetOverlayButtons(nextVisible: false, "Next");
-		SetOverlayPanelPlacement(panelAtTop);
-		ShowOverlay(title, body, target);
-	}
-
-	private void ShowActionStepForTargets(string title, string body, bool panelAtTop, params Control?[] targets)
-	{
-		SetOverlayButtons(nextVisible: false, "Next");
-		SetOverlayPanelPlacement(panelAtTop);
-		_overlay.ShowForTargets(title, body, targets);
-	}
-
-	private void ShowActionStepWithoutDim(string title, string body, bool panelAtTop)
-	{
-		SetOverlayButtons(nextVisible: false, "Next");
-		SetOverlayPanelPlacement(panelAtTop);
-		_overlay.ShowMessageWithoutDim(title, body);
-	}
-
-	private void SetOverlayButtons(bool nextVisible, string nextButtonText)
-	{
-		_overlay.SetNextButtonVisible(nextVisible);
-		_overlay.SetNextButtonEnabled(true);
-		_overlay.SetNextButtonText(nextButtonText);
-	}
-
-	private void SetOverlayPanelPlacement(bool panelAtTop)
-	{
-		if (panelAtTop)
+		var expectedStep = CurrentStep();
+		Callable.From(() =>
 		{
-			_overlay.PlacePanelAtTop();
-			return;
-		}
+			if (!_isRunning || CurrentStep() != expectedStep)
+				return;
 
-		_overlay.PlacePanelAtBottom();
+			_overlayPresenter.ShowForTargets(
+				stepContent,
+				null,
+				FocusTutorialIngredientInventorySlot(itemId),
+				FocusTutorialBrewPanel());
+		}).CallDeferred();
 	}
 
-	private void ShowOverlay(string title, string body, Control? target)
+	private TutorialStepId CurrentStep()
 	{
-		if (target is null)
-		{
-			_overlay.ShowMessage(title, body);
-			return;
-		}
-
-		_overlay.ShowForTarget(title, body, target);
+		return _stateMachine.ClampStep(_gameState.TutorialStep);
 	}
 
-	private Control? GetTutorialPotionInventorySlot()
+	private Control? FocusTutorialPotionInventorySlot()
 	{
 		if (_inventoryPanel is null)
 			return null;
 
 		_inventoryPanel.ClearPotionFiltersForTutorial();
-		return _inventoryPanel.GetVisibleItemSlot(TutorialPotionId);
+		return _inventoryPanel.GetVisibleItemSlot(_tutorialContent.TutorialPotionId);
 	}
 
-	private void UpdateShopTimerPause(TutorialStep step)
+	private bool TryGetStatusHighlightRect(out Rect2 highlightRect)
 	{
-		if (_dayController is null)
-			return;
+		highlightRect = default;
 
-		if (_dayController.IsShopOpen && step is TutorialStep.SellPotion or TutorialStep.SaleResult or TutorialStep.NextCustomer or TutorialStep.AmbiguousCustomer)
+		if (_hud is null)
+			return false;
+
+		var hasHighlightRect = false;
+		foreach (var control in new Control?[] { _hud, _hudDayLabel, _hudShopTimerLabel })
 		{
-			_dayController.PauseShopTimerForTutorial();
-			return;
+			if (control is null)
+				continue;
+
+			var rect = control.GetGlobalRect();
+			if (!hasHighlightRect)
+			{
+				highlightRect = rect;
+				hasHighlightRect = true;
+				continue;
+			}
+
+			var left = Mathf.Min(highlightRect.Position.X, rect.Position.X);
+			var top = Mathf.Min(highlightRect.Position.Y, rect.Position.Y);
+			var right = Mathf.Max(highlightRect.Position.X + highlightRect.Size.X, rect.Position.X + rect.Size.X);
+			var bottom = Mathf.Max(highlightRect.Position.Y + highlightRect.Size.Y, rect.Position.Y + rect.Size.Y);
+			highlightRect = new Rect2(new Vector2(left, top), new Vector2(right - left, bottom - top));
 		}
 
-		ResumeShopTimerAfterTutorial();
+		return hasHighlightRect;
+	}
+
+	private Control? FocusBlackIchorInventorySlot()
+	{
+		if (_inventoryPanel is null)
+			return null;
+
+		_inventoryPanel.ClearIngredientFiltersForTutorial();
+		return _inventoryPanel.GetVisibleItemSlot(_tutorialContent.BlackIchorId);
+	}
+
+	private Control? FocusTutorialIngredientInventorySlot(string itemId)
+	{
+		if (_inventoryPanel is null)
+			return null;
+
+		_inventoryPanel.ClearIngredientFiltersForTutorial();
+		return _inventoryPanel.GetVisibleItemSlot(itemId);
+	}
+
+	private Control? FocusTutorialBrewPanel()
+	{
+		return _brewPanelFrame ?? _brewPanel;
+	}
+
+	private void UpdateShopTimerPause()
+	{
+		if (_dayController is null || !_isRunning)
+			return;
+
+		_dayController.PauseShopTimerForTutorial();
 	}
 
 	private void ResumeShopTimerAfterTutorial()
@@ -562,86 +481,51 @@ public partial class TutorialController : Node
 		_dayController?.ResumeShopTimerAfterTutorial();
 	}
 
-	private Control? GetBlackIchorInventorySlot()
+	private void UpdateTutorialButtonLock(TutorialStepContentResource stepContent, params BaseButton?[] allowedButtons)
 	{
-		if (_inventoryPanel is null)
-			return null;
-
-		_inventoryPanel.ClearIngredientFiltersForTutorial();
-		return _inventoryPanel.GetVisibleItemSlot(BlackIchorId);
-	}
-
-	private void UpdateOpenBrewInputLock(TutorialStep step)
-	{
-		if (step == TutorialStep.OpenBrewPanel)
+		if (!stepContent.LockOtherButtons)
 		{
-			ApplyOpenBrewInputLock();
+			_interactionGate.Restore();
 			return;
 		}
 
-		RestoreOpenBrewInputLock();
+		_interactionGate.Apply(
+			new Node?[] { _hud, _inventoryPanel, _brewPanel, _customerPanel },
+			allowedButtons);
 	}
 
-	private void ApplyOpenBrewInputLock()
+	private BaseButton?[] GetAllowedButtonsForStep(TutorialStepId step)
 	{
-		DisableButtonsExceptAllowed(_hud);
-		DisableButtonsExceptAllowed(_inventoryPanel);
-		DisableButtonsExceptAllowed(_brewPanel);
-		DisableButtonsExceptAllowed(_customerPanel);
-	}
-
-	private void RestoreOpenBrewInputLock()
-	{
-		foreach (var pair in _openBrewButtonDisabledStates)
+		return step switch
 		{
-			if (!GodotObject.IsInstanceValid(pair.Key))
-				continue;
-
-			pair.Key.Disabled = pair.Value;
-		}
-
-		_openBrewButtonDisabledStates.Clear();
+			TutorialStepId.OpenBrewPanel => new BaseButton?[] { _brewButton, _settingsButton },
+			TutorialStepId.QueueGraveMint => new BaseButton?[] { GetAllowedButton(FocusTutorialIngredientInventorySlot(_tutorialContent.GraveMintId)) },
+			TutorialStepId.QueueObsidianResin => new BaseButton?[] { GetAllowedButton(FocusTutorialIngredientInventorySlot(_tutorialContent.ObsidianResinId)) },
+			TutorialStepId.QueueIronLullabyRoot => new BaseButton?[] { GetAllowedButton(FocusTutorialIngredientInventorySlot(_tutorialContent.IronLullabyRootId)) },
+			TutorialStepId.BrewPotion => new BaseButton?[] { _brewPanel?.GetBrewButton() },
+			TutorialStepId.StartDay => new BaseButton?[] { _startDayButton },
+			TutorialStepId.SellPotion => new BaseButton?[] { GetAllowedButton(FocusTutorialPotionInventorySlot()) },
+			TutorialStepId.NextCustomer => new BaseButton?[] { _customerPanel?.GetNextCustomerButton() },
+			TutorialStepId.InspectBlackIchor => new BaseButton?[] { GetAllowedButton(FocusBlackIchorInventorySlot()) },
+			TutorialStepId.AddBlackIchorToBrew => new BaseButton?[] { _inventoryPanel?.GetItemDetailBrewButton() },
+			TutorialStepId.CloseShop => new BaseButton?[] { _customerPanel?.GetNextCustomerButton() },
+			_ => new BaseButton?[] { }
+		};
 	}
 
-	private void DisableButtonsExceptAllowed(Node? root)
+	private static BaseButton? GetAllowedButton(Control? control)
 	{
-		if (root is null)
-			return;
-
-		foreach (var child in root.GetChildren())
-		{
-			if (child is BaseButton button)
-				DisableButtonExceptAllowed(button);
-
-			DisableButtonsExceptAllowed(child);
-		}
+		return control as BaseButton;
 	}
 
-	private void DisableButtonExceptAllowed(BaseButton button)
+	private void ResetLastTutorialSaleFeedback()
 	{
-		if (button == _brewButton || button == _settingsButton)
-			return;
-
-		if (!_openBrewButtonDisabledStates.ContainsKey(button))
-			_openBrewButtonDisabledStates[button] = button.Disabled;
-
-		button.Disabled = true;
+		_lastTutorialSaleSucceeded = false;
 	}
 
-	private static TutorialStep ClampStep(int rawStep)
+	private void ResetCloseShopTutorialState()
 	{
-		if (rawStep <= (int)TutorialStep.Welcome)
-			return TutorialStep.Welcome;
-
-		if (rawStep >= (int)TutorialStep.AddTwoMoreSleepIngredients)
-			return TutorialStep.AddTwoMoreSleepIngredients;
-
-		return (TutorialStep)rawStep;
-	}
-
-	private static bool IsItem(string actualItemId, string expectedItemId)
-	{
-		return string.Equals(actualItemId, expectedItemId, StringComparison.OrdinalIgnoreCase);
+		_sleepCustomerPotionSold = false;
 	}
 
 	private bool TryGetRequiredNode<TNode>(NodePath path, string exportName, out TNode node) where TNode : Node
@@ -700,6 +584,18 @@ public partial class TutorialController : Node
 			GD.PushError($"TutorialController: HUD button was not found at '{path}'.");
 
 		return button;
+	}
+
+	private Label? GetOptionalHudLabel(string labelName)
+	{
+		if (_hud is null)
+			return null;
+
+		var label = _hud.GetNodeOrNull<Label>(labelName);
+		if (label is null)
+			GD.PushError($"TutorialController: HUD label was not found at '{labelName}'.");
+
+		return label;
 	}
 
 	private Control? GetOptionalBrewPanelControl(NodePath path, string exportName)

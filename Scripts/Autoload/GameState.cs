@@ -4,33 +4,61 @@ using System.Linq;
 using Godot;
 using OccultShop.Models;
 using OccultShop.Persistence;
+using OccultShop.Tutorial;
 
 namespace OccultShop.Autoload;
 
 public partial class GameState : Node
 {
+	public const string StoryCustomerOutcomeArrived = "arrived";
+	public const string StoryCustomerOutcomeSuccess = "success";
+	public const string StoryCustomerOutcomeFailure = "failure";
+	public const string StoryCustomerOutcomeSkipped = "skipped";
+
 	[Export] public NodePath DataDbPath { get; set; } = new("/root/DataDb");
 	[Export] public NodePath ItemCatalogPath { get; set; } = new("/root/ItemCatalog");
 
 	public int Day { get; private set; } = 1;
 	public int Gold { get; private set; } = 50000;
 	public int Dread { get; private set; } = 0;
-	public bool TutorialRequested { get; private set; }
-	public bool TutorialCompleted { get; private set; }
-	public bool TutorialSkipped { get; private set; }
+	public TutorialStatus TutorialProgressStatus { get; private set; } = TutorialStatus.NotStarted;
+	public bool TutorialRequested => TutorialProgressStatus == TutorialStatus.InProgress;
+	public bool TutorialCompleted => TutorialProgressStatus == TutorialStatus.Completed;
+	public bool TutorialSkipped => TutorialProgressStatus == TutorialStatus.Skipped;
 	public int TutorialStep { get; private set; }
 
 	// itemId -> qty
 	public Dictionary<string, int> Inventory { get; } = new();
 	public HashSet<string> ActiveRules { get; } = new();
 	public HashSet<string> StoryFlags { get; } = new(StringComparer.OrdinalIgnoreCase);
+	public IReadOnlyDictionary<string, StoryCustomerVisitRecord> StoryCustomerVisits => _storyCustomerVisits;
 	public HashSet<string> KnownPotions { get; } = new();
 	public List<string> KnownPotionOrder { get; } = new();
 	public Dictionary<string, string> PotionDisplayNames { get; } = new(StringComparer.OrdinalIgnoreCase);
+	private static readonly (string ItemId, int Quantity)[] StartingInventory =
+	{
+		("grave_mint", 1),
+		("obsidian_resin", 1),
+		("iron_lullaby_root", 1)
+	};
+	private static readonly (string ItemId, int Quantity)[] NextCustomerTutorialInventory =
+	{
+		("grave_mint", 1),
+		("obsidian_resin", 1),
+		("iron_lullaby_root", 1),
+		("black_ichor", 1),
+		("lavender_ash", 1),
+		("mooncap_mushroom", 1),
+		("amber_nightshade", 1),
+		("silver_thorn_bloom", 1),
+		("moonwhisper_orchid", 1),
+		("raven_ash_peony", 1)
+	};
 	private readonly Dictionary<string, int> _potionBasePrices = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Dictionary<string, List<string>> _potionRecipes = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Dictionary<string, string> _combinationPotionItems = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Dictionary<string, Queue<List<string>>> _potionBatches = new(StringComparer.OrdinalIgnoreCase);
+	private readonly Dictionary<string, StoryCustomerVisitRecord> _storyCustomerVisits = new(StringComparer.OrdinalIgnoreCase);
 	public CustomerRequestDef? ActiveCustomerRequest { get; private set; }
 
 	public event Action? Changed;
@@ -54,13 +82,12 @@ public partial class GameState : Node
 		Day = 1;
 		Gold = 50000;
 		Dread = 0;
-		TutorialRequested = false;
-		TutorialCompleted = false;
-		TutorialSkipped = false;
+		TutorialProgressStatus = TutorialStatus.NotStarted;
 		TutorialStep = 0;
 		Inventory.Clear();
 		ActiveRules.Clear();
 		StoryFlags.Clear();
+		_storyCustomerVisits.Clear();
 		KnownPotions.Clear();
 		KnownPotionOrder.Clear();
 		PotionDisplayNames.Clear();
@@ -74,6 +101,29 @@ public partial class GameState : Node
 		EmitChanged();
 	}
 
+	public void SeedNextCustomerTutorialInventory()
+	{
+		if (_itemCatalog is null)
+		{
+			GD.PushError("GameState: ItemCatalog is missing. Tutorial inventory could not be seeded.");
+			return;
+		}
+
+		Inventory.Clear();
+		foreach (var (itemId, qty) in NextCustomerTutorialInventory)
+		{
+			if (!_itemCatalog.TryGetItem(itemId, out _))
+			{
+				GD.PushError($"GameState: Cannot seed unknown tutorial item '{itemId}'.");
+				continue;
+			}
+
+			AddStartingStack(itemId, qty);
+		}
+
+		EmitChanged();
+	}
+
 	public GameStateSnapshot BuildSnapshot()
 	{
 		var snapshot = new GameStateSnapshot
@@ -81,6 +131,8 @@ public partial class GameState : Node
 			Day = Day,
 			Gold = Gold,
 			Dread = Dread,
+			TutorialStatus = TutorialProgressStatus,
+			TutorialStepIndex = TutorialStep,
 			TutorialRequested = TutorialRequested,
 			TutorialCompleted = TutorialCompleted,
 			TutorialSkipped = TutorialSkipped,
@@ -95,6 +147,7 @@ public partial class GameState : Node
 			PotionRecipes = ClonePotionRecipes(),
 			CombinationPotionItems = new Dictionary<string, string>(_combinationPotionItems, StringComparer.OrdinalIgnoreCase),
 			PotionBatches = ClonePotionBatches(),
+			StoryCustomerVisits = CloneStoryCustomerVisits(),
 			ActiveCustomerRequest = CloneCustomerRequest(ActiveCustomerRequest)
 		};
 
@@ -112,10 +165,11 @@ public partial class GameState : Node
 		Day = Math.Max(1, snapshot.Day);
 		Gold = Math.Max(0, snapshot.Gold);
 		Dread = Math.Clamp(snapshot.Dread, 0, 100);
-		TutorialRequested = snapshot.TutorialRequested;
-		TutorialCompleted = snapshot.TutorialCompleted;
-		TutorialSkipped = snapshot.TutorialSkipped;
-		TutorialStep = Math.Max(0, snapshot.TutorialStep);
+		TutorialProgressStatus = ResolveTutorialStatus(snapshot);
+		var restoredStep = snapshot.TutorialStepIndex > 0
+			? snapshot.TutorialStepIndex
+			: snapshot.TutorialStep;
+		TutorialStep = Math.Max(0, restoredStep);
 
 		Inventory.Clear();
 		if (snapshot.Inventory is not null)
@@ -149,6 +203,13 @@ public partial class GameState : Node
 				if (!string.IsNullOrWhiteSpace(storyFlag))
 					StoryFlags.Add(storyFlag);
 			}
+		}
+
+		_storyCustomerVisits.Clear();
+		if (snapshot.StoryCustomerVisits is not null)
+		{
+			foreach (var visit in snapshot.StoryCustomerVisits)
+				RestoreStoryCustomerVisit(visit);
 		}
 
 		KnownPotions.Clear();
@@ -310,29 +371,64 @@ public partial class GameState : Node
 			EmitChanged();
 	}
 
+	public bool HasStoryCustomerVisitArrived(CustomerInteractionDef interaction)
+	{
+		var visitKey = BuildStoryCustomerVisitKey(interaction);
+		return !string.IsNullOrWhiteSpace(visitKey) &&
+			_storyCustomerVisits.TryGetValue(visitKey, out var visit) &&
+			visit.HasArrived;
+	}
+
+	public void RecordStoryCustomerArrived(CustomerInteractionDef interaction)
+	{
+		var visitKey = BuildStoryCustomerVisitKey(interaction);
+		if (string.IsNullOrWhiteSpace(visitKey))
+			return;
+
+		var visit = GetOrCreateStoryCustomerVisit(interaction, visitKey);
+		visit.HasArrived = true;
+		if (visit.ArrivalDay <= 0)
+			visit.ArrivalDay = Day;
+		if (string.IsNullOrWhiteSpace(visit.LastOutcome))
+			visit.LastOutcome = StoryCustomerOutcomeArrived;
+
+		EmitChanged();
+	}
+
+	public void RecordStoryCustomerInteractionOutcome(CustomerInteractionDef interaction, string outcome)
+	{
+		var visitKey = BuildStoryCustomerVisitKey(interaction);
+		if (string.IsNullOrWhiteSpace(visitKey))
+			return;
+
+		var normalizedOutcome = NormalizeStoryCustomerOutcome(outcome);
+		var visit = GetOrCreateStoryCustomerVisit(interaction, visitKey);
+		visit.HasArrived = true;
+		if (visit.ArrivalDay <= 0)
+			visit.ArrivalDay = Day;
+		visit.LastOutcome = normalizedOutcome;
+		visit.OutcomeDay = Day;
+
+		EmitChanged();
+	}
+
 	public void RequestTutorial()
 	{
-		TutorialRequested = true;
-		TutorialCompleted = false;
-		TutorialSkipped = false;
+		TutorialProgressStatus = TutorialStatus.InProgress;
 		TutorialStep = 0;
 		EmitChanged();
 	}
 
 	public void SkipTutorial()
 	{
-		TutorialRequested = false;
-		TutorialCompleted = false;
-		TutorialSkipped = true;
+		TutorialProgressStatus = TutorialStatus.Skipped;
 		TutorialStep = 0;
 		EmitChanged();
 	}
 
 	public void CompleteTutorial()
 	{
-		TutorialRequested = false;
-		TutorialCompleted = true;
-		TutorialSkipped = false;
+		TutorialProgressStatus = TutorialStatus.Completed;
 		TutorialStep = 0;
 		EmitChanged();
 	}
@@ -345,6 +441,32 @@ public partial class GameState : Node
 
 		TutorialStep = normalizedStep;
 		EmitChanged();
+	}
+
+	private static TutorialStatus ResolveTutorialStatus(GameStateSnapshot snapshot)
+	{
+		if (snapshot.TutorialStatus is TutorialStatus explicitStatus)
+			return NormalizeTutorialStatus(explicitStatus);
+
+		if (snapshot.TutorialCompleted)
+			return TutorialStatus.Completed;
+		if (snapshot.TutorialSkipped)
+			return TutorialStatus.Skipped;
+		if (snapshot.TutorialRequested)
+			return TutorialStatus.InProgress;
+
+		return TutorialStatus.NotStarted;
+	}
+
+	private static TutorialStatus NormalizeTutorialStatus(TutorialStatus status)
+	{
+		return status switch
+		{
+			TutorialStatus.InProgress => TutorialStatus.InProgress,
+			TutorialStatus.Completed => TutorialStatus.Completed,
+			TutorialStatus.Skipped => TutorialStatus.Skipped,
+			_ => TutorialStatus.NotStarted
+		};
 	}
 
 	public bool HasItem(string itemId, int qty)
@@ -502,19 +624,21 @@ public partial class GameState : Node
 
 	private void SeedStartingInventory()
 	{
-		var dataDb = GetNodeOrNull<DataDb>(DataDbPath);
-		if (dataDb is null)
+		if (_itemCatalog is null)
 		{
-			GD.PushError($"GameState: DataDb was not found at '{DataDbPath}'. Starting inventory could not be seeded.");
+			GD.PushError("GameState: ItemCatalog is missing. Starting inventory could not be seeded.");
 			return;
 		}
 
-		foreach (var item in dataDb.Items.Values.OrderBy(x => x.Id, StringComparer.OrdinalIgnoreCase))
+		foreach (var (itemId, qty) in StartingInventory)
 		{
-			if (!IsIngredient(item))
+			if (!_itemCatalog.TryGetItem(itemId, out _))
+			{
+				GD.PushError($"GameState: Cannot seed unknown starting item '{itemId}'.");
 				continue;
+			}
 
-			AddStartingStack(item.Id, 10);
+			AddStartingStack(itemId, qty);
 		}
 	}
 
@@ -550,6 +674,111 @@ public partial class GameState : Node
 			copy[pair.Key] = pair.Value.Select(batch => new List<string>(batch)).ToList();
 
 		return copy;
+	}
+
+	private List<StoryCustomerVisitRecord> CloneStoryCustomerVisits()
+	{
+		var visits = new List<StoryCustomerVisitRecord>(_storyCustomerVisits.Count);
+		foreach (var visit in _storyCustomerVisits.Values)
+			visits.Add(CloneStoryCustomerVisit(visit));
+
+		return visits;
+	}
+
+	private static StoryCustomerVisitRecord CloneStoryCustomerVisit(StoryCustomerVisitRecord visit)
+	{
+		return new StoryCustomerVisitRecord
+		{
+			VisitKey = visit.VisitKey,
+			StoryCharacterId = visit.StoryCharacterId,
+			VisitId = visit.VisitId,
+			InteractionId = visit.InteractionId,
+			ScheduledDay = visit.ScheduledDay,
+			HasArrived = visit.HasArrived,
+			ArrivalDay = visit.ArrivalDay,
+			LastOutcome = visit.LastOutcome,
+			OutcomeDay = visit.OutcomeDay
+		};
+	}
+
+	private void RestoreStoryCustomerVisit(StoryCustomerVisitRecord? visit)
+	{
+		if (visit is null)
+			return;
+
+		var visitKey = string.IsNullOrWhiteSpace(visit.VisitKey)
+			? BuildStoryCustomerVisitKey(visit.StoryCharacterId, visit.VisitId, visit.InteractionId)
+			: visit.VisitKey;
+		if (string.IsNullOrWhiteSpace(visitKey))
+			return;
+
+		_storyCustomerVisits[visitKey] = new StoryCustomerVisitRecord
+		{
+			VisitKey = visitKey,
+			StoryCharacterId = visit.StoryCharacterId,
+			VisitId = string.IsNullOrWhiteSpace(visit.VisitId) ? visit.InteractionId : visit.VisitId,
+			InteractionId = visit.InteractionId,
+			ScheduledDay = Math.Max(0, visit.ScheduledDay),
+			HasArrived = visit.HasArrived,
+			ArrivalDay = Math.Max(0, visit.ArrivalDay),
+			LastOutcome = NormalizeStoryCustomerOutcome(visit.LastOutcome),
+			OutcomeDay = Math.Max(0, visit.OutcomeDay)
+		};
+	}
+
+	private StoryCustomerVisitRecord GetOrCreateStoryCustomerVisit(CustomerInteractionDef interaction, string visitKey)
+	{
+		if (_storyCustomerVisits.TryGetValue(visitKey, out var visit))
+			return visit;
+
+		visit = new StoryCustomerVisitRecord
+		{
+			VisitKey = visitKey,
+			StoryCharacterId = interaction.StoryCharacterId,
+			VisitId = interaction.GetStoryVisitId(),
+			InteractionId = interaction.Id,
+			ScheduledDay = ResolveStoryCustomerScheduledDay(interaction)
+		};
+		_storyCustomerVisits[visitKey] = visit;
+		return visit;
+	}
+
+	private int ResolveStoryCustomerScheduledDay(CustomerInteractionDef interaction)
+	{
+		if (interaction.Requires?.DayExact is int dayExact)
+			return Math.Max(1, dayExact);
+		if (interaction.Requires?.DayMin is int dayMin)
+			return Math.Max(1, dayMin);
+
+		return Day;
+	}
+
+	private static string BuildStoryCustomerVisitKey(CustomerInteractionDef interaction)
+	{
+		if (!interaction.IsStoryInteraction)
+			return string.Empty;
+
+		return BuildStoryCustomerVisitKey(interaction.StoryCharacterId, interaction.GetStoryVisitId(), interaction.Id);
+	}
+
+	private static string BuildStoryCustomerVisitKey(string storyCharacterId, string visitId, string interactionId)
+	{
+		if (string.IsNullOrWhiteSpace(storyCharacterId))
+			return string.Empty;
+
+		var resolvedVisitId = string.IsNullOrWhiteSpace(visitId) ? interactionId : visitId;
+		if (string.IsNullOrWhiteSpace(resolvedVisitId))
+			return string.Empty;
+
+		return $"{storyCharacterId.Trim()}:{resolvedVisitId.Trim()}";
+	}
+
+	private static string NormalizeStoryCustomerOutcome(string? outcome)
+	{
+		if (string.IsNullOrWhiteSpace(outcome))
+			return StoryCustomerOutcomeArrived;
+
+		return outcome.Trim().ToLowerInvariant();
 	}
 
 	private static CustomerRequestDef? CloneCustomerRequest(CustomerRequestDef? request)

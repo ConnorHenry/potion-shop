@@ -20,6 +20,13 @@ public sealed class CustomerInteractionDef
     public List<EffectDef> OnFailureEffects { get; set; } = new();
     public List<EffectDef> OnSkipEffects { get; set; } = new();
 
+    public bool IsStoryInteraction => !string.IsNullOrWhiteSpace(StoryCharacterId);
+
+    public string GetStoryVisitId()
+    {
+        return string.IsNullOrWhiteSpace(VisitId) ? Id : VisitId;
+    }
+
     public CustomerRequestDef BuildRequest()
     {
         return new CustomerRequestDef

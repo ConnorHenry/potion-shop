@@ -125,7 +125,8 @@ public partial class DayController : Node
 			return;
 		}
 
-		_shopTimer.Start();
+		if (!_tutorialTimerPaused)
+			_shopTimer.Start();
 	}
 
 	public void PauseShopTimerForTutorial()
@@ -153,6 +154,26 @@ public partial class DayController : Node
 			_shopTimer.Start();
 
 		EmitShopStateChanged();
+	}
+
+	public void ForceShopTimerToZeroForTutorial()
+	{
+		if (!IsShopOpen)
+			return;
+
+		_secondsRemaining = 0;
+		if (!_shopTimer.IsStopped())
+			_shopTimer.Stop();
+
+		if (_customerPanel.HasActiveInteraction || _awaitingSaleResultClose)
+		{
+			_shopClosingPending = true;
+			_customerPanel.SetCloseShopMode(true);
+			EmitShopStateChanged();
+			return;
+		}
+
+		CloseShopAndShowSummary();
 	}
 
 	public void EndDayAndRunNight()

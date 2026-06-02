@@ -37,7 +37,7 @@ public partial class CustomerPanel : Control
 	[Export] public NodePath DataDbPath = new("/root/DataDb");
 	[Export] public NodePath ItemCatalogPath = new("/root/ItemCatalog");
 
-	private Label _title = default!;
+	private Label? _title;
 	private TextureRect _portrait = default!;
 	private RichTextLabel _desiredTraits = default!;
 	private RichTextLabel _badTraits = default!;
@@ -47,7 +47,7 @@ public partial class CustomerPanel : Control
 	private Label _saleResultTitle = default!;
 	private RichTextLabel _saleResultBody = default!;
 	private Button _saleResultCloseButton = default!;
-	private Button _closeButton = default!;
+	private Button? _closeButton;
 	private HBoxContainer _customerActions = default!;
 	private Button _comeBackTomorrowButton = default!;
 	private Button _sorryCantHelpYouButton = default!;
@@ -91,7 +91,7 @@ public partial class CustomerPanel : Control
 		_dataDb = dataDb;
 		_itemCatalog = itemCatalog;
 
-		_title = GetNode<Label>(TitlePath);
+		_title = ResolveOptionalNode(TitlePath, "TitlePath", GetNodeOrNull<Label>);
 		_portrait = GetNode<TextureRect>(PortraitPath);
 		_desiredTraits = GetNode<RichTextLabel>(DesiredTraitsPath);
 		_badTraits = GetNode<RichTextLabel>(BadTraitsPath);
@@ -101,7 +101,7 @@ public partial class CustomerPanel : Control
 		_saleResultTitle = GetNode<Label>(SaleResultTitlePath);
 		_saleResultBody = GetNode<RichTextLabel>(SaleResultBodyPath);
 		_saleResultCloseButton = GetNode<Button>(SaleResultCloseButtonPath);
-		_closeButton = GetNode<Button>(CloseButtonPath);
+		_closeButton = ResolveOptionalNode(CloseButtonPath, "CloseButtonPath", GetNodeOrNull<Button>);
 		BindOrCreateSkipButtons();
 
 		_desiredTraits.BbcodeEnabled = true;
@@ -127,6 +127,18 @@ public partial class CustomerPanel : Control
 		_saleResultPanel.Visible = false;
 		SetSalePendingState();
 		Visible = false;
+	}
+
+	private T? ResolveOptionalNode<T>(NodePath path, string pathName, System.Func<NodePath, T?> resolver) where T : class
+	{
+		if (string.IsNullOrWhiteSpace(path.ToString()))
+			return null;
+
+		var node = resolver(path);
+		if (node is null)
+			GD.PushError($"CustomerPanel: {pathName} was set but node was not found at '{path}'.");
+
+		return node;
 	}
 
 	public override void _ExitTree()
@@ -169,6 +181,8 @@ public partial class CustomerPanel : Control
 	{
 		return _nextCustomerButton;
 	}
+
+	public bool IsCloseShopMode => _closeShopMode;
 
 	public bool HasActiveInteraction => _interaction is not null;
 
@@ -293,6 +307,14 @@ public partial class CustomerPanel : Control
 
 		_gameState.ConsumeItem(itemId, 1);
 		ApplyOutcomeEffects(isSuccess ? _interaction?.OnSuccessEffects : _interaction?.OnFailureEffects);
+		if (_interaction is not null)
+		{
+			var outcome = isSuccess
+				? GameState.StoryCustomerOutcomeSuccess
+				: GameState.StoryCustomerOutcomeFailure;
+			_gameState.RecordStoryCustomerInteractionOutcome(_interaction, outcome);
+		}
+
 		return (isSuccess, goldDelta, dreadDelta);
 	}
 
@@ -320,7 +342,6 @@ public partial class CustomerPanel : Control
 			return;
 
 		_awaitingNextCustomer = false;
-		SetSalePendingState();
 		HideSaleResult();
 		_interaction = null;
 		EmitSignal(SignalName.SaleResultClosed);
@@ -426,27 +447,43 @@ public partial class CustomerPanel : Control
 	private void OnSellDropHoverPreview(string itemId)
 	{
 		if (_interaction is null)
+		{
+			_sellDropBox.SetHoverHighlight(false);
 			return;
+		}
+
+		var request = _interaction.BuildRequest();
+
+		if (!IsPotionItem(itemId))
+		{
+			_sellDropBox.SetHoverHighlight(false);
+			SetRequestTraits(request);
+			return;
+		}
 
 		if (!TryResolvePotionScore(itemId, out var brewResult))
 		{
-			SetRequestTraits(_interaction.BuildRequest());
+			_sellDropBox.SetHoverHighlight(false);
+			SetRequestTraits(request);
 			return;
 		}
 
 		if (brewResult is null)
 		{
-			SetRequestTraits(_interaction.BuildRequest());
+			_sellDropBox.SetHoverHighlight(false);
+			SetRequestTraits(request);
 			return;
 		}
 
-		var request = _interaction.BuildRequest();
+		_sellDropBox.SetHoverHighlight(true);
 		_desiredTraits.Text = FormatTraitListWithMatches(request.DesiredTraits, brewResult.Traits, MatchedDesiredColorHex);
 		_badTraits.Text = FormatTraitListWithMatches(request.BadTraits, brewResult.Risks, MatchedRiskColorHex);
 	}
 
 	private void OnSellDropHoverPreviewCleared()
 	{
+		_sellDropBox.SetHoverHighlight(false);
+
 		if (_interaction is null)
 			return;
 
@@ -543,6 +580,7 @@ public partial class CustomerPanel : Control
 			return;
 
 		ApplyOutcomeEffects(_interaction.OnSkipEffects);
+		_gameState.RecordStoryCustomerInteractionOutcome(_interaction, GameState.StoryCustomerOutcomeSkipped);
 		HidePanel();
 		EmitSignal(SignalName.CustomerSkipped);
 	}
@@ -628,8 +666,10 @@ public partial class CustomerPanel : Control
 
 		if (_sellDropBox is not null)
 		{
+			_sellDropBox.SetDisabledVisual(false);
 			_sellDropBox.MouseFilter = MouseFilterEnum.Stop;
 			_sellDropBox.SetAcceptDrops(true);
+			_sellDropBox.SetHoverHighlight(false);
 		}
 	}
 
@@ -646,8 +686,10 @@ public partial class CustomerPanel : Control
 
 		if (_sellDropBox is not null)
 		{
+			_sellDropBox.SetDisabledVisual(true);
 			_sellDropBox.MouseFilter = MouseFilterEnum.Ignore;
 			_sellDropBox.SetAcceptDrops(false);
+			_sellDropBox.SetHoverHighlight(false);
 		}
 	}
 

@@ -178,7 +178,25 @@ public partial class BrewPanel : Control
 
 	public void Toggle()
 	{
-		Visible = !Visible;
+		if (Visible)
+		{
+			HidePanel();
+			return;
+		}
+
+		ShowPanel();
+	}
+
+	public void ShowPanel()
+	{
+		Visible = true;
+		MoveToFront();
+		RefreshIngredientIcons();
+	}
+
+	public Button? GetBrewButton()
+	{
+		return _brewButton;
 	}
 
 	public void HidePanel()

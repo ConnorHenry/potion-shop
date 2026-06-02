@@ -44,30 +44,6 @@ grow_vertical = 2
 mouse_filter = 2
 color = Color(0, 0, 0, 0.46)
 
-[node name="DimTop" type="ColorRect" parent="."]
-visible = false
-layout_mode = 0
-mouse_filter = 2
-color = Color(0, 0, 0, 0.46)
-
-[node name="DimBottom" type="ColorRect" parent="."]
-visible = false
-layout_mode = 0
-mouse_filter = 2
-color = Color(0, 0, 0, 0.46)
-
-[node name="DimLeft" type="ColorRect" parent="."]
-visible = false
-layout_mode = 0
-mouse_filter = 2
-color = Color(0, 0, 0, 0.46)
-
-[node name="DimRight" type="ColorRect" parent="."]
-visible = false
-layout_mode = 0
-mouse_filter = 2
-color = Color(0, 0, 0, 0.46)
-
 [node name="Highlight" type="PanelContainer" parent="."]
 visible = false
 layout_mode = 0

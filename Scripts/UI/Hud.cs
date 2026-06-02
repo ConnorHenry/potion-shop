@@ -7,6 +7,11 @@ namespace OccultShop.UI;
 
 public partial class Hud : Control
 {
+	private const int SettingsPanelZIndex = 4096;
+	private const string SaveGameButtonDefaultText = "Save Game";
+	private const string SaveGameButtonSavingText = "Saving Game...";
+	private const string SaveGameButtonSavedText = "Game Saved!";
+
 	[Export] public NodePath GoldLabelPath = default!;
 	[Export] public NodePath DreadLabelPath = default!;
 	[Export] public NodePath DayLabelPath = default!;
@@ -29,15 +34,13 @@ public partial class Hud : Control
 	private Button _returnToMainMenuButton = default!;
 	private Button _saveGameButton = default!;
 	private Button _toggleDebugPanelButton = default!;
-	private Control _saveConfirmationPanel = default!;
-	private Label _saveConfirmationLabel = default!;
-	private Button _saveConfirmationCloseButton = default!;
 	private GameState? _gameState;
 	private SaveGameManager? _saveGameManager;
 	private DayController? _dayController;
 	private Control? _brewPanel;
 	private Control? _recipeBookPanel;
 	private Control _settingsPanel = default!;
+	private bool _isSavingGame;
 
 	public override void _Ready()
 	{
@@ -100,10 +103,10 @@ public partial class Hud : Control
 		_returnToMainMenuButton = GetNode<Button>("SettingsPanel/Margin/VBox/ReturnToMainMenu");
 		_saveGameButton = GetNode<Button>("SettingsPanel/Margin/VBox/SaveGame");
 		_toggleDebugPanelButton = GetNode<Button>("SettingsPanel/Margin/VBox/ToggleDebugPanel");
-		_saveConfirmationPanel = GetNode<Control>("SaveConfirmationPanel");
-		_saveConfirmationLabel = GetNode<Label>("SaveConfirmationPanel/Panel/Margin/VBox/Message");
-		_saveConfirmationCloseButton = GetNode<Button>("SaveConfirmationPanel/Panel/Margin/VBox/Close");
 		_settingsPanel = GetNode<Control>("SettingsPanel");
+
+		_settingsPanel.ZIndex = SettingsPanelZIndex;
+		SetProcessInput(true);
 
 		_endDayButton.Pressed += OnEndDayPressed;
 		_serveCustomerButton.Pressed += OnStartDayPressed;
@@ -113,14 +116,14 @@ public partial class Hud : Control
 		_returnToMainMenuButton.Pressed += OnReturnToMainMenuPressed;
 		_saveGameButton.Pressed += OnSaveGamePressed;
 		_toggleDebugPanelButton.Pressed += OnToggleDebugPanelPressed;
-		_saveConfirmationCloseButton.Pressed += HideSaveConfirmation;
 
 		_gameState.Changed += Refresh;
 		_dayController.ShopStateChanged += RefreshShopState;
 		_toggleDebugPanelButton.Text = ImGuiGD.Visible ? "Debug Panel: On" : "Debug Panel: Off";
+		SetSettingsPanelVisible(false);
 		Refresh();
 		RefreshShopState();
-		HideSaveConfirmation();
+		_saveGameButton.Text = SaveGameButtonDefaultText;
 	}
 
 	public override void _ExitTree()
@@ -145,8 +148,24 @@ public partial class Hud : Control
 			_saveGameButton.Pressed -= OnSaveGamePressed;
 		if (_toggleDebugPanelButton is not null)
 			_toggleDebugPanelButton.Pressed -= OnToggleDebugPanelPressed;
-		if (_saveConfirmationCloseButton is not null)
-			_saveConfirmationCloseButton.Pressed -= HideSaveConfirmation;
+	}
+
+	public override void _Input(InputEvent @event)
+	{
+		if (!_settingsPanel.Visible)
+			return;
+
+		if (@event is not InputEventMouseButton mouseButton)
+			return;
+
+		if (mouseButton.ButtonIndex != MouseButton.Left || !mouseButton.Pressed)
+			return;
+
+		if (_settingsPanel.GetGlobalRect().HasPoint(mouseButton.GlobalPosition))
+			return;
+
+		AcceptEvent();
+		SetSettingsPanelVisible(false);
 	}
 
 	private void Refresh()
@@ -200,7 +219,7 @@ public partial class Hud : Control
 
 	private void OnSettingsPressed()
 	{
-		_settingsPanel.Visible = !_settingsPanel.Visible;
+		SetSettingsPanelVisible(!_settingsPanel.Visible);
 	}
 
 	private void OnReturnToMainMenuPressed()
@@ -214,16 +233,28 @@ public partial class Hud : Control
 
 	private void OnSaveGamePressed()
 	{
-		if (_saveGameManager is null)
+		if (_saveGameManager is null || _isSavingGame)
 			return;
 
-		if (!_saveGameManager.SaveGame())
+		_isSavingGame = true;
+		_saveGameButton.Disabled = true;
+		_saveGameButton.Text = SaveGameButtonSavingText;
+		Callable.From(PerformSaveGame).CallDeferred();
+	}
+
+	private void PerformSaveGame()
+	{
+		if (_saveGameManager is null)
 		{
-			GD.PushError("Hud: Save failed.");
+			FinishSaveGame(saveSucceeded: false);
 			return;
 		}
 
-		ShowSaveConfirmation("Game saved successfully.");
+		var saveSucceeded = _saveGameManager.SaveGame();
+		if (!saveSucceeded)
+			GD.PushError("Hud: Save failed.");
+
+		FinishSaveGame(saveSucceeded);
 	}
 
 	private void OnToggleDebugPanelPressed()
@@ -232,15 +263,38 @@ public partial class Hud : Control
 		_toggleDebugPanelButton.Text = ImGuiGD.Visible ? "Debug Panel: On" : "Debug Panel: Off";
 	}
 
-	private void ShowSaveConfirmation(string message)
+	private void FinishSaveGame(bool saveSucceeded)
 	{
-		_saveConfirmationLabel.Text = message;
-		_saveConfirmationPanel.Visible = true;
+		_isSavingGame = false;
+		_saveGameButton.Disabled = false;
+
+		if (!_settingsPanel.Visible)
+		{
+			_saveGameButton.Text = SaveGameButtonDefaultText;
+			return;
+		}
+
+		_saveGameButton.Text = saveSucceeded
+			? SaveGameButtonSavedText
+			: SaveGameButtonDefaultText;
 	}
 
-	private void HideSaveConfirmation()
+	private void ResetSaveGameButtonText()
 	{
-		_saveConfirmationPanel.Visible = false;
+		_saveGameButton.Text = SaveGameButtonDefaultText;
+		if (!_isSavingGame)
+			_saveGameButton.Disabled = false;
+	}
+
+	private void SetSettingsPanelVisible(bool visible)
+	{
+		_settingsPanel.Visible = visible;
+
+		if (visible)
+			_settingsPanel.MoveToFront();
+
+		if (!visible)
+			ResetSaveGameButtonText();
 	}
 
 	private void RefreshShopState()

@@ -141,15 +141,17 @@ public partial class PotionBookPanel : Control
 		if (!Visible)
 			return;
 
+		var currentPotionId = GetCurrentPotionId();
 		RebuildRecipePages();
-		_currentPageIndex = Math.Clamp(_currentPageIndex, 0, Math.Max(0, TotalPages - 1));
+		_currentPageIndex = ResolvePageIndex(currentPotionId);
 		RefreshPage();
 	}
 
 	private void OnGameStateChanged()
 	{
+		var currentPotionId = GetCurrentPotionId();
 		RebuildRecipePages();
-		_currentPageIndex = Math.Clamp(_currentPageIndex, 0, Math.Max(0, TotalPages - 1));
+		_currentPageIndex = ResolvePageIndex(currentPotionId);
 		if (Visible)
 			RefreshPage();
 	}
@@ -201,6 +203,8 @@ public partial class PotionBookPanel : Control
 
 		foreach (var potionId in _gameState.KnownPotionOrder)
 			AddLearnedPotionPage(potionId, authoredPotionIds);
+
+		_recipes.Sort(CompareRecipesByName);
 	}
 
 	private void AddAuthoredRecipePage(PotionRecipeDef? recipe, HashSet<string> authoredPotionIds)
@@ -337,5 +341,38 @@ public partial class PotionBookPanel : Control
 	private static string BuildPredefinedPotionItemId(string recipeId)
 	{
 		return $"potion_{recipeId}";
+	}
+
+	private string? GetCurrentPotionId()
+	{
+		if (_currentPageIndex <= 0 || _currentPageIndex > _recipes.Count)
+			return null;
+
+		return _recipes[_currentPageIndex - 1].Id;
+	}
+
+	private int ResolvePageIndex(string? preferredPotionId)
+	{
+		if (string.IsNullOrWhiteSpace(preferredPotionId))
+			return Math.Clamp(_currentPageIndex, 0, Math.Max(0, TotalPages - 1));
+
+		for (var i = 0; i < _recipes.Count; i++)
+		{
+			if (!string.Equals(_recipes[i].Id, preferredPotionId, StringComparison.OrdinalIgnoreCase))
+				continue;
+
+			return i + 1;
+		}
+
+		return Math.Clamp(_currentPageIndex, 0, Math.Max(0, TotalPages - 1));
+	}
+
+	private static int CompareRecipesByName(PotionRecipeDef left, PotionRecipeDef right)
+	{
+		var nameComparison = string.Compare(left.Name, right.Name, StringComparison.CurrentCultureIgnoreCase);
+		if (nameComparison != 0)
+			return nameComparison;
+
+		return string.Compare(left.Id, right.Id, StringComparison.OrdinalIgnoreCase);
 	}
 }

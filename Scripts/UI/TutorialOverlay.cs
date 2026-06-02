@@ -22,10 +22,6 @@ public partial class TutorialOverlay : Control
 	[Export] public NodePath SkipButtonPath = default!;
 
 	private ColorRect _dim = default!;
-	private ColorRect? _dimTop;
-	private ColorRect? _dimBottom;
-	private ColorRect? _dimLeft;
-	private ColorRect? _dimRight;
 	private Control _highlight = default!;
 	private Control? _secondaryHighlight;
 	private Control _panel = default!;
@@ -55,10 +51,6 @@ public partial class TutorialOverlay : Control
 
 		MouseFilter = MouseFilterEnum.Ignore;
 		_dim.MouseFilter = MouseFilterEnum.Ignore;
-		_dimTop = GetOptionalDimRect("DimTop");
-		_dimBottom = GetOptionalDimRect("DimBottom");
-		_dimLeft = GetOptionalDimRect("DimLeft");
-		_dimRight = GetOptionalDimRect("DimRight");
 		_secondaryHighlight = GetNodeOrNull<Control>("SecondaryHighlight");
 		_highlight.MouseFilter = MouseFilterEnum.Ignore;
 		if (_secondaryHighlight is not null)
@@ -66,14 +58,6 @@ public partial class TutorialOverlay : Control
 		_panel.MouseFilter = MouseFilterEnum.Stop;
 		_body.BbcodeEnabled = true;
 		_dim.ZIndex = 0;
-		if (_dimTop is not null)
-			_dimTop.ZIndex = 0;
-		if (_dimBottom is not null)
-			_dimBottom.ZIndex = 0;
-		if (_dimLeft is not null)
-			_dimLeft.ZIndex = 0;
-		if (_dimRight is not null)
-			_dimRight.ZIndex = 0;
 		_highlight.ZIndex = 1;
 		if (_secondaryHighlight is not null)
 			_secondaryHighlight.ZIndex = 1;
@@ -219,7 +203,6 @@ public partial class TutorialOverlay : Control
 	private void SetHighlightRects(IReadOnlyList<Rect2> globalRects)
 	{
 		_dim.Visible = false;
-		HideDimCutout();
 
 		var highlightRects = new List<Rect2>();
 		foreach (var globalRect in globalRects)
@@ -262,7 +245,6 @@ public partial class TutorialOverlay : Control
 			return;
 
 		_dim.Visible = true;
-		HideDimCutout();
 		HideDynamicDimRects();
 		foreach (var highlightControl in _highlightControls)
 			HideHighlightControl(highlightControl);
@@ -396,34 +378,6 @@ public partial class TutorialOverlay : Control
 		return false;
 	}
 
-	private void UpdateDimCutout(Rect2 highlightRect)
-	{
-		if (_dimTop is null || _dimBottom is null || _dimLeft is null || _dimRight is null)
-			return;
-
-		var overlaySize = Size;
-		if (overlaySize.X <= 0.0f || overlaySize.Y <= 0.0f)
-			overlaySize = GetViewportRect().Size;
-
-		var left = Mathf.Clamp(highlightRect.Position.X, 0.0f, overlaySize.X);
-		var top = Mathf.Clamp(highlightRect.Position.Y, 0.0f, overlaySize.Y);
-		var right = Mathf.Clamp(highlightRect.Position.X + highlightRect.Size.X, 0.0f, overlaySize.X);
-		var bottom = Mathf.Clamp(highlightRect.Position.Y + highlightRect.Size.Y, 0.0f, overlaySize.Y);
-
-		SetDimRect(_dimTop, new Rect2(Vector2.Zero, new Vector2(overlaySize.X, top)));
-		SetDimRect(_dimBottom, new Rect2(new Vector2(0.0f, bottom), new Vector2(overlaySize.X, overlaySize.Y - bottom)));
-		SetDimRect(_dimLeft, new Rect2(new Vector2(0.0f, top), new Vector2(left, bottom - top)));
-		SetDimRect(_dimRight, new Rect2(new Vector2(right, top), new Vector2(overlaySize.X - right, bottom - top)));
-	}
-
-	private void HideDimCutout()
-	{
-		SetDimRect(_dimTop, new Rect2());
-		SetDimRect(_dimBottom, new Rect2());
-		SetDimRect(_dimLeft, new Rect2());
-		SetDimRect(_dimRight, new Rect2());
-	}
-
 	private static void SetDimRect(ColorRect? dimRect, Rect2 rect)
 	{
 		if (dimRect is null)
@@ -432,15 +386,6 @@ public partial class TutorialOverlay : Control
 		dimRect.Position = rect.Position;
 		dimRect.Size = rect.Size;
 		dimRect.Visible = rect.Size.X > 0.0f && rect.Size.Y > 0.0f;
-	}
-
-	private ColorRect? GetOptionalDimRect(NodePath path)
-	{
-		var dimRect = GetNodeOrNull<ColorRect>(path);
-		if (dimRect is not null)
-			dimRect.MouseFilter = MouseFilterEnum.Ignore;
-
-		return dimRect;
 	}
 
 	private void OnNextButtonPressed()

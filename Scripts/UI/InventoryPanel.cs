@@ -10,6 +10,7 @@ public partial class InventoryPanel : Control
 {
 	private const float SlotSize = 112.0f;
 	private const float IconSize = 70.0f;
+	private static bool ShowInventorySlotTooltips = false;
 
 	[Signal]
 	public delegate void ItemDetailShownEventHandler(string itemId);
@@ -184,6 +185,7 @@ public partial class InventoryPanel : Control
 
 		Visible = true;
 		_itemDetailPanel.Visible = false;
+		UpdateClearFilterButtonVisibility();
 		UpdateSortButtonLabels();
 		RefreshIngredientTypeFilterOptions();
 		Refresh();
@@ -417,6 +419,7 @@ public partial class InventoryPanel : Control
 		ItemFilterUtilities.RefreshFilterOptions(_ingredientsTraitFilter, ingredientTraitNames, "Trait", ref _activeIngredientTraitFilter);
 		ItemFilterUtilities.RefreshFilterOptions(_ingredientsRiskFilter, ingredientRiskNames, "Risk", ref _activeIngredientRiskFilter);
 		RefreshCurrentItemDetail();
+		UpdateClearFilterButtonVisibility();
 		UpdateBrewButtonState();
 	}
 
@@ -429,6 +432,24 @@ public partial class InventoryPanel : Control
 	{
 		_potionsSortButton.Text = _potionsAscending ? "A-Z" : "Z-A";
 		_ingredientsSortButton.Text = _ingredientsAscending ? "A-Z" : "Z-A";
+	}
+
+	private void UpdateClearFilterButtonVisibility()
+	{
+		if (_potionsClearFilterButton is not null)
+		{
+			_potionsClearFilterButton.Visible =
+				!string.IsNullOrWhiteSpace(_activePotionTraitFilter) ||
+				!string.IsNullOrWhiteSpace(_activePotionRiskFilter);
+		}
+
+		if (_ingredientsClearFilterButton is not null)
+		{
+			_ingredientsClearFilterButton.Visible =
+				!string.IsNullOrWhiteSpace(_activeIngredientTypeFilter) ||
+				!string.IsNullOrWhiteSpace(_activeIngredientTraitFilter) ||
+				!string.IsNullOrWhiteSpace(_activeIngredientRiskFilter);
+		}
 	}
 
 	private void OnIngredientTraitSelected(long selectedIndex)
@@ -484,6 +505,7 @@ public partial class InventoryPanel : Control
 				_ingredientsTraitFilter.Selected = 0;
 			if (_ingredientsRiskFilter is not null)
 				_ingredientsRiskFilter.Selected = 0;
+			UpdateClearFilterButtonVisibility();
 			return;
 		}
 
@@ -504,6 +526,7 @@ public partial class InventoryPanel : Control
 				_potionsTraitFilter.Selected = 0;
 			if (_potionsRiskFilter is not null)
 				_potionsRiskFilter.Selected = 0;
+			UpdateClearFilterButtonVisibility();
 			return;
 		}
 
@@ -549,7 +572,7 @@ public partial class InventoryPanel : Control
 		var slot = new InventoryItemSlot
 		{
 			CustomMinimumSize = new Vector2(SlotSize, SlotSize),
-			TooltipText = itemName,
+			TooltipText = GetInventorySlotTooltipText(itemName),
 			MouseFilter = MouseFilterEnum.Stop,
 			Flat = true,
 			ItemId = itemId,
@@ -559,6 +582,15 @@ public partial class InventoryPanel : Control
 		};
 		slot.SlotActivated += ShowItemDetail;
 		slot.IngredientRequested += QueueIngredientFromSlot;
+
+		var hoverOutline = new PanelContainer
+		{
+			MouseFilter = MouseFilterEnum.Ignore,
+			Visible = false
+		};
+		hoverOutline.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+		hoverOutline.AddThemeStyleboxOverride("panel", CreateHoverOutlineStyleBox());
+		slot.SetHoverOutline(hoverOutline);
 
 		var content = new Control
 		{
@@ -643,7 +675,33 @@ public partial class InventoryPanel : Control
 		content.AddChild(qty);
 		content.AddChild(nameBlock);
 		slot.AddChild(content);
+		slot.AddChild(hoverOutline);
 		return slot;
+	}
+
+	private static StyleBoxFlat CreateHoverOutlineStyleBox()
+	{
+		return new StyleBoxFlat
+		{
+			BgColor = new Color(1f, 1f, 1f, 0f),
+			BorderWidthLeft = 2,
+			BorderWidthTop = 2,
+			BorderWidthRight = 2,
+			BorderWidthBottom = 2,
+			BorderColor = Colors.White,
+			CornerRadiusTopLeft = 6,
+			CornerRadiusTopRight = 6,
+			CornerRadiusBottomRight = 6,
+			CornerRadiusBottomLeft = 6
+		};
+	}
+
+	private static string GetInventorySlotTooltipText(string itemName)
+	{
+		if (!ShowInventorySlotTooltips)
+			return string.Empty;
+
+		return itemName;
 	}
 
 	private void ShowItemDetail(string itemId)
@@ -667,7 +725,7 @@ public partial class InventoryPanel : Control
 
 	private void QueueIngredientFromSlot(string itemId)
 	{
-		if (_brewPanel is null || !_brewPanel.Visible)
+		if (_brewPanel is null)
 			return;
 
 		if (!_itemCatalog.TryGetItem(itemId, out var item))
@@ -675,6 +733,9 @@ public partial class InventoryPanel : Control
 
 		if (!IsIngredient(item))
 			return;
+
+		if (!_brewPanel.Visible)
+			_brewPanel.ShowPanel();
 
 		var quantityBeforeQueue = _gameState.Inventory.GetValueOrDefault(itemId);
 		_brewPanel.TryQueueIngredient(itemId);
@@ -740,6 +801,9 @@ public partial class InventoryPanel : Control
 				GD.PushError("InventoryPanel: Brew panel was not found.");
 				return;
 			}
+
+			if (!_brewPanel.Visible)
+				_brewPanel.ShowPanel();
 
 			_brewPanel.TryQueueIngredient(_currentItemId);
 			HideItemDetail();

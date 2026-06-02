@@ -34,11 +34,12 @@ public partial class CustomerEventController : Node
         if (interactions.Count == 0)
             return null;
 
-        if (TryDrawForcedInteraction(interactions, out var forcedInteraction))
+        if (TryDrawForcedInteraction(interactions, state, out var forcedInteraction))
             return forcedInteraction;
 
         var eligibleInteractions = interactions
             .Where(interaction => Requirements.Met(state, interaction.Requires))
+            .Where(interaction => IsCustomerVisitAvailable(state, interaction))
             .ToList();
         if (eligibleInteractions.Count == 0)
             return null;
@@ -52,7 +53,7 @@ public partial class CustomerEventController : Node
         foreach (var candidate in eligibleInteractions)
         {
             if (string.Equals(candidate.Id, selectedId, StringComparison.OrdinalIgnoreCase))
-                return candidate;
+                return MarkCustomerArrival(candidate, state);
         }
 
         GD.PushError($"CustomerEventController: Scheduled customer interaction '{selectedId}' was not eligible.");
@@ -66,6 +67,7 @@ public partial class CustomerEventController : Node
 
     private bool TryDrawForcedInteraction(
         IReadOnlyList<CustomerInteractionDef> interactions,
+        GameState state,
         out CustomerInteractionDef? interaction)
     {
         interaction = null;
@@ -80,12 +82,29 @@ public partial class CustomerEventController : Node
             if (!string.Equals(candidate.Id, forcedInteractionId, StringComparison.OrdinalIgnoreCase))
                 continue;
 
-            interaction = candidate;
+            if (!IsCustomerVisitAvailable(state, candidate))
+            {
+                GD.PushError($"CustomerEventController: Forced story customer interaction '{forcedInteractionId}' has already arrived.");
+                return false;
+            }
+
+            interaction = MarkCustomerArrival(candidate, state);
             return true;
         }
 
         GD.PushError($"CustomerEventController: Forced customer interaction '{forcedInteractionId}' was not found.");
         return false;
+    }
+
+    private static bool IsCustomerVisitAvailable(GameState state, CustomerInteractionDef interaction)
+    {
+        return !interaction.IsStoryInteraction || !state.HasStoryCustomerVisitArrived(interaction);
+    }
+
+    private static CustomerInteractionDef MarkCustomerArrival(CustomerInteractionDef interaction, GameState state)
+    {
+        state.RecordStoryCustomerArrived(interaction);
+        return interaction;
     }
 
     private bool IsCustomerOrderCurrent(IReadOnlyList<CustomerInteractionDef> eligibleInteractions)

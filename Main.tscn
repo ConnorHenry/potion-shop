@@ -52,7 +52,6 @@ mouse_filter = 2
 script = ExtResource("11_drag_preview")
 
 [node name="Icon" type="TextureRect" parent="DragPreviewLayer/InventoryDragPreview"]
-visible = false
 custom_minimum_size = Vector2(70, 70)
 layout_mode = 0
 mouse_filter = 2

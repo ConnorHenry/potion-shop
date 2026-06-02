@@ -4,7 +4,7 @@
 
 [node name="InventoryPanel" type="Control"]
 layout_mode = 3
-anchor_left = 0.0265625
+anchor_left = 0.00625
 anchor_top = 0.00416667
 anchor_right = 0.179688
 anchor_bottom = 1.00417
@@ -75,6 +75,7 @@ text = "Inventory"
 [node name="PotionsHeaderRow" type="HBoxContainer" parent="Panel/Margin/VBox"]
 layout_mode = 2
 size_flags_horizontal = 3
+alignment = 2
 
 [node name="PotionsHeader" type="Label" parent="Panel/Margin/VBox/PotionsHeaderRow"]
 visible = false
@@ -83,6 +84,7 @@ size_flags_horizontal = 3
 text = "Potions"
 
 [node name="Clear" type="Button" parent="Panel/Margin/VBox/PotionsHeaderRow"]
+visible = false
 layout_mode = 2
 text = "Clear"
 
@@ -113,6 +115,7 @@ columns = 3
 [node name="IngredientsHeaderRow" type="HBoxContainer" parent="Panel/Margin/VBox"]
 layout_mode = 2
 size_flags_horizontal = 3
+alignment = 2
 
 [node name="IngredientsHeader" type="Label" parent="Panel/Margin/VBox/IngredientsHeaderRow"]
 visible = false
@@ -121,6 +124,7 @@ size_flags_horizontal = 3
 text = "Ingredients"
 
 [node name="Clear" type="Button" parent="Panel/Margin/VBox/IngredientsHeaderRow"]
+visible = false
 layout_mode = 2
 text = "Clear"
 

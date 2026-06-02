@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using OccultShop.Models;
+using OccultShop.Tutorial;
 
 namespace OccultShop.Persistence;
 
@@ -17,6 +18,8 @@ public sealed class GameStateSnapshot
 	public int Day { get; set; } = 1;
 	public int Gold { get; set; } = 0;
 	public int Dread { get; set; } = 0;
+	public TutorialStatus? TutorialStatus { get; set; }
+	public int TutorialStepIndex { get; set; }
 	public bool TutorialRequested { get; set; }
 	public bool TutorialCompleted { get; set; }
 	public bool TutorialSkipped { get; set; }
@@ -32,4 +35,5 @@ public sealed class GameStateSnapshot
 	public Dictionary<string, string> CombinationPotionItems { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 	public Dictionary<string, List<List<string>>> PotionBatches { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 	public CustomerRequestDef? ActiveCustomerRequest { get; set; }
+	public List<StoryCustomerVisitRecord> StoryCustomerVisits { get; set; } = new();
 }

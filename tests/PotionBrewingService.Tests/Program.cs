@@ -31,6 +31,7 @@ static class Program
         Run("InventoryPanel potion filter uses only top traits", TestInventoryPanelPotionFilterUsesOnlyTopTraits);
         Run("InventoryPanel closes detail after successful right-click queue of same ingredient", TestInventoryPanelRightClickQueueClosesMatchingDetail);
         Run("InventoryPanel risk filter is wired", TestInventoryPanelRiskFilterIsWired);
+        Run("InventoryPanel clear buttons stay hidden until filters are active", TestInventoryPanelClearButtonsStayHiddenUntilFiltersAreActive);
         Run("InventoryPanel ingredient type filter is populated and fixed", TestInventoryPanelTypeFilterIsPopulatedAndFixed);
         Run("RecipeBookPanel dictionary formatting is stable", TestRecipeBookPanelFormatDictionary);
         Run("RecipeBookPanel top-traits formatting is stable", TestRecipeBookPanelFormatTopTraits);
@@ -55,7 +56,17 @@ static class Program
         Run("Recipe book filters are wired", TestRecipeBookFiltersAreWired);
         Run("Recipe book clear button is wired", TestRecipeBookClearButtonIsWired);
         Run("SaveGameManager stores saves in a dedicated directory", TestSaveGameManagerUsesSaveDirectory);
+        Run("GameState seeds only the starter potion ingredients", TestStartingInventorySeedsOnlyTutorialRecipeItems);
+        Run("Tutorial game state transitions stay stable", TestTutorialGameStateTransitions);
+        Run("Tutorial snapshot round-trip stays stable", TestTutorialSnapshotRoundTrip);
+        Run("Main scene wires tutorial controller", TestMainSceneWiresTutorialController);
+        Run("Tutorial overlay scene wiring stays intact", TestTutorialOverlaySceneWiring);
+        Run("Tutorial architecture extraction stays intact", TestTutorialArchitectureExtraction);
+        Run("Tutorial next-customer inventory seed stays curated", TestTutorialNextCustomerInventorySeedIsCurated);
+        Run("Tutorial sale review feedback uses request wording", TestTutorialSaleReviewFeedbackUsesRequestWording);
+        Run("Tutorial overlay keeps one dimming strategy", TestTutorialOverlayUsesDynamicCutoutsOnly);
         Run("Hud return-to-menu does not auto-save", TestHudReturnToMainMenuDoesNotAutoSave);
+        Run("Hud settings panel closes on outside click", TestHudSettingsPanelClosesOnOutsideClick);
         Run("Persistence boundary stays separated", TestPersistenceBoundaryIsDocumented);
 
         if (_failures > 0)
@@ -581,9 +592,35 @@ static class Program
             scene.Contains("[node name=\"TypeFilter\" type=\"OptionButton\" parent=\"Panel/Margin/VBox/IngredientsHeaderRow\"]"));
     }
 
+    private static void TestInventoryPanelClearButtonsStayHiddenUntilFiltersAreActive()
+    {
+        var source = ReadProjectFile("Scripts/UI/InventoryPanel.cs");
+        var scene = ReadProjectFile("Scenes/UI/InventoryPanel.tscn");
+        var potionClearButtonHidden =
+            scene.Contains($"[node name=\"Clear\" type=\"Button\" parent=\"Panel/Margin/VBox/PotionsHeaderRow\"]{Environment.NewLine}visible = false") ||
+            scene.Contains("[node name=\"Clear\" type=\"Button\" parent=\"Panel/Margin/VBox/PotionsHeaderRow\"]\nvisible = false");
+        var ingredientClearButtonHidden =
+            scene.Contains($"[node name=\"Clear\" type=\"Button\" parent=\"Panel/Margin/VBox/IngredientsHeaderRow\"]{Environment.NewLine}visible = false") ||
+            scene.Contains("[node name=\"Clear\" type=\"Button\" parent=\"Panel/Margin/VBox/IngredientsHeaderRow\"]\nvisible = false");
+
+        AssertTrue("InventoryPanel sets clear button visibility from potion filter state",
+            source.Contains("UpdateClearFilterButtonVisibility();") &&
+            source.Contains("_potionsClearFilterButton.Visible =") &&
+            source.Contains("_activePotionTraitFilter") &&
+            source.Contains("_activePotionRiskFilter"));
+        AssertTrue("InventoryPanel sets clear button visibility from ingredient filter state",
+            source.Contains("_ingredientsClearFilterButton.Visible =") &&
+            source.Contains("_activeIngredientTypeFilter") &&
+            source.Contains("_activeIngredientTraitFilter") &&
+            source.Contains("_activeIngredientRiskFilter"));
+        AssertTrue("InventoryPanel scene starts the potion clear button hidden", potionClearButtonHidden);
+        AssertTrue("InventoryPanel scene starts the ingredient clear button hidden", ingredientClearButtonHidden);
+    }
+
     private static void TestInventoryPanelRightClickQueueClosesMatchingDetail()
     {
         var source = ReadProjectFile("Scripts/UI/InventoryPanel.cs");
+        var brewPanel = ReadProjectFile("Scripts/UI/BrewPanel.cs");
 
         AssertTrue("InventoryPanel records quantity before right-click queue attempt",
             source.Contains("var quantityBeforeQueue = _gameState.Inventory.GetValueOrDefault(itemId);"));
@@ -591,6 +628,10 @@ static class Program
             source.Contains("var quantityAfterQueue = _gameState.Inventory.GetValueOrDefault(itemId);"));
         AssertTrue("InventoryPanel only treats queue as success when inventory decreases",
             source.Contains("var queuedSuccessfully = quantityAfterQueue < quantityBeforeQueue;"));
+        AssertTrue("InventoryPanel opens the brew panel before queueing a right-click ingredient",
+            source.Contains("_brewPanel.ShowPanel();"));
+        AssertTrue("BrewPanel exposes an explicit show method for ingredient adds",
+            brewPanel.Contains("public void ShowPanel()"));
         AssertTrue("InventoryPanel only closes detail when same item is currently selected",
             source.Contains("string.Equals(_currentItemId, itemId, System.StringComparison.OrdinalIgnoreCase)"));
         AssertTrue("InventoryPanel hides detail after successful matching queue",
@@ -865,6 +906,7 @@ static class Program
         AssertTrue("DayController keeps the shop open while the current customer is active at zero seconds", dayController.Contains("_customerPanel.HasActiveInteraction || _awaitingSaleResultClose"));
         AssertTrue("CustomerPanel exposes active interaction state", customerPanel.Contains("HasActiveInteraction => _interaction is not null"));
         AssertTrue("CustomerPanel can switch the next button to Close Shop", customerPanel.Contains("SetCloseShopMode(bool closeShopMode)"));
+        AssertTrue("CustomerPanel exposes close shop mode state", customerPanel.Contains("IsCloseShopMode => _closeShopMode"));
     }
 
     private static void TestCustomerEventSchedulingAndStoryOutcomes()
@@ -872,9 +914,11 @@ static class Program
         var customerController = ReadProjectFile("Scripts/Controllers/CustomerEventController.cs");
         var dataDb = ReadProjectFile("Scripts/Autoload/DataDb.cs");
         var gameState = ReadProjectFile("Scripts/Autoload/GameState.cs");
+        var saveData = ReadProjectFile("Scripts/Persistence/SaveData.cs");
         var requirements = ReadProjectFile("Scripts/Systems/Requirements.cs");
         var effects = ReadProjectFile("Scripts/Systems/EffectApplier.cs");
         var customerPanel = ReadProjectFile("Scripts/UI/CustomerPanel.cs");
+        var storyVisit = ReadProjectFile("Scripts/Models/StoryCustomerVisitRecord.cs");
         var customers = ReadProjectFile("Data/customers_data.tres");
 
         AssertTrue("Customer draws filter by requirements", customerController.Contains("Requirements.Met(state, interaction.Requires)"));
@@ -884,10 +928,19 @@ static class Program
         AssertTrue("DataDb parses day requirements", dataDb.Contains("DayMin = ReadNullableInt(entry, \"dayMin\")"));
         AssertTrue("DataDb parses story flag requirements", dataDb.Contains("HasStoryFlag = ReadNullableString(entry, \"hasStoryFlag\")"));
         AssertTrue("GameState stores story flags", gameState.Contains("HashSet<string> StoryFlags"));
+        AssertTrue("GameState stores story customer visit records", gameState.Contains("StoryCustomerVisits"));
+        AssertTrue("GameState records story customer arrivals", gameState.Contains("RecordStoryCustomerArrived"));
+        AssertTrue("GameState records story customer outcomes", gameState.Contains("RecordStoryCustomerInteractionOutcome"));
+        AssertTrue("Customer draws exclude story visits that already arrived", customerController.Contains("HasStoryCustomerVisitArrived(interaction)"));
+        AssertTrue("Customer draws mark story customer arrivals", customerController.Contains("RecordStoryCustomerArrived(interaction)"));
+        AssertTrue("Story customer visits persist in save snapshots", saveData.Contains("List<StoryCustomerVisitRecord> StoryCustomerVisits"));
+        AssertTrue("Story customer visit records track arrival and outcome", storyVisit.Contains("HasArrived") && storyVisit.Contains("LastOutcome"));
         AssertTrue("Requirements check story flags", requirements.Contains("state.HasStoryFlag(req.HasStoryFlag!)"));
         AssertTrue("Effects can add story flags", effects.Contains("state.AddStoryFlag(e.AddStoryFlag!)"));
         AssertTrue("CustomerPanel applies success and failure effects", customerPanel.Contains("ApplyOutcomeEffects(isSuccess ? _interaction?.OnSuccessEffects : _interaction?.OnFailureEffects)"));
         AssertTrue("CustomerPanel applies skip effects", customerPanel.Contains("ApplyOutcomeEffects(_interaction.OnSkipEffects)"));
+        AssertTrue("CustomerPanel records story sale outcomes", customerPanel.Contains("StoryCustomerOutcomeSuccess") && customerPanel.Contains("StoryCustomerOutcomeFailure"));
+        AssertTrue("CustomerPanel records story skip outcomes", customerPanel.Contains("StoryCustomerOutcomeSkipped"));
         AssertTrue("Authored customer data includes early pool", customers.Contains("\"pool\": \"early\""));
         AssertTrue("Authored customer data gates early customers by day", customers.Contains("\"dayMax\": 4"));
         AssertTrue("Authored customer data includes recipe pool", customers.Contains("\"pool\": \"recipe\""));
@@ -902,8 +955,33 @@ static class Program
             customerPanel.Contains("_sellDropBox.SetAcceptDrops(true);"));
         AssertTrue("CustomerPanel disables dropbox during resolved sale state",
             customerPanel.Contains("_sellDropBox.SetAcceptDrops(false);"));
+        AssertTrue("CustomerPanel only highlights valid potion hover previews",
+            customerPanel.Contains("_sellDropBox.SetHoverHighlight(true);") &&
+            customerPanel.Contains("IsPotionItem(itemId)"));
+        AssertTrue("CustomerPanel clears the sell drop highlight on hover exit",
+            customerPanel.Contains("_sellDropBox.SetHoverHighlight(false);"));
+        AssertTrue("CustomerPanel fades the sell box while the sale is resolved",
+            customerPanel.Contains("_sellDropBox.SetDisabledVisual(true);"));
+        AssertTrue("CustomerPanel restores the sell box when a new customer is prepared",
+            customerPanel.Contains("_sellDropBox.SetDisabledVisual(false);"));
+        var closeSaleResultBody = string.Empty;
+        var closeSaleResultIndex = customerPanel.IndexOf("private void OnSaleResultClosePressed()", StringComparison.Ordinal);
+        if (closeSaleResultIndex >= 0)
+        {
+            var nextMethodIndex = customerPanel.IndexOf("private string BuildOutcomeText", closeSaleResultIndex, StringComparison.Ordinal);
+            if (nextMethodIndex > closeSaleResultIndex)
+                closeSaleResultBody = customerPanel.Substring(closeSaleResultIndex, nextMethodIndex - closeSaleResultIndex);
+        }
+        AssertTrue("CustomerPanel keeps the sell box faded until the next customer appears",
+            closeSaleResultBody.Contains("HideSaleResult();") &&
+            closeSaleResultBody.Contains("_interaction = null;") &&
+            !closeSaleResultBody.Contains("SetSalePendingState();"));
         AssertTrue("CustomerSellDropBox exposes an explicit accept-drops toggle",
             dropBox.Contains("SetAcceptDrops(bool acceptDrops)"));
+        AssertTrue("CustomerSellDropBox exposes a hover highlight toggle",
+            dropBox.Contains("SetHoverHighlight(bool active)"));
+        AssertTrue("CustomerSellDropBox exposes a disabled visual toggle",
+            dropBox.Contains("SetDisabledVisual(bool disabled)"));
         AssertTrue("CustomerSellDropBox refuses hover previews while disabled",
             dropBox.Contains("if (!_acceptDrops)") && dropBox.Contains("return false;"));
         AssertTrue("CustomerSellDropBox refuses drops while disabled",
@@ -1080,6 +1158,188 @@ static class Program
         AssertTrue("SaveGameManager overwrites the active save file", source.Contains("string.IsNullOrWhiteSpace(_activeSaveFilePath)"));
     }
 
+    private static void TestStartingInventorySeedsOnlyTutorialRecipeItems()
+    {
+        var source = ReadProjectFile("Scripts/Autoload/GameState.cs");
+
+        AssertTrue("GameState defines a curated starter inventory",
+            source.Contains("private static readonly (string ItemId, int Quantity)[] StartingInventory"));
+        AssertTrue("GameState starts with Grave Mint",
+            source.Contains("(\"grave_mint\", 1)"));
+        AssertTrue("GameState starts with Obsidian Resin",
+            source.Contains("(\"obsidian_resin\", 1)"));
+        AssertTrue("GameState starts with Iron Lullaby Root",
+            source.Contains("(\"iron_lullaby_root\", 1)"));
+        AssertTrue("GameState seeds only the curated list instead of every ingredient",
+            source.Contains("foreach (var (itemId, qty) in StartingInventory)") &&
+            !source.Contains("AddStartingStack(item.Id, 10);") &&
+            !source.Contains("IsIngredient(item)"));
+    }
+
+    private static void TestTutorialGameStateTransitions()
+    {
+        var source = ReadProjectFile("Scripts/Autoload/GameState.cs");
+
+        AssertTrue("GameState exposes explicit tutorial status", source.Contains("public TutorialStatus TutorialProgressStatus { get; private set; }"));
+        AssertTrue("GameState keeps requested compatibility view", source.Contains("public bool TutorialRequested => TutorialProgressStatus == TutorialStatus.InProgress;"));
+        AssertTrue("GameState keeps completed compatibility view", source.Contains("public bool TutorialCompleted => TutorialProgressStatus == TutorialStatus.Completed;"));
+        AssertTrue("GameState keeps skipped compatibility view", source.Contains("public bool TutorialSkipped => TutorialProgressStatus == TutorialStatus.Skipped;"));
+        AssertTrue("GameState exposes tutorial step", source.Contains("public int TutorialStep { get; private set; }"));
+
+        AssertTrue("RequestTutorial exists", source.Contains("public void RequestTutorial()"));
+        AssertTrue("RequestTutorial sets status to in progress", source.Contains("TutorialProgressStatus = TutorialStatus.InProgress;"));
+
+        AssertTrue("SkipTutorial exists", source.Contains("public void SkipTutorial()"));
+        AssertTrue("SkipTutorial sets status to skipped", source.Contains("TutorialProgressStatus = TutorialStatus.Skipped;"));
+
+        AssertTrue("CompleteTutorial exists", source.Contains("public void CompleteTutorial()"));
+        AssertTrue("CompleteTutorial sets status to completed", source.Contains("TutorialProgressStatus = TutorialStatus.Completed;"));
+
+        AssertTrue("SetTutorialStep exists", source.Contains("public void SetTutorialStep(int step)"));
+        AssertTrue("SetTutorialStep clamps to zero or above", source.Contains("Math.Max(0, step)"));
+    }
+
+    private static void TestTutorialSnapshotRoundTrip()
+    {
+        var gameStateSource = ReadProjectFile("Scripts/Autoload/GameState.cs");
+        var saveDataSource = ReadProjectFile("Scripts/Persistence/SaveData.cs");
+
+        AssertTrue("Save snapshot includes TutorialStatus", saveDataSource.Contains("public TutorialStatus? TutorialStatus { get; set; }"));
+        AssertTrue("Save snapshot includes TutorialStepIndex", saveDataSource.Contains("public int TutorialStepIndex { get; set; }"));
+        AssertTrue("Save snapshot includes TutorialRequested", saveDataSource.Contains("public bool TutorialRequested { get; set; }"));
+        AssertTrue("Save snapshot includes TutorialCompleted", saveDataSource.Contains("public bool TutorialCompleted { get; set; }"));
+        AssertTrue("Save snapshot includes TutorialSkipped", saveDataSource.Contains("public bool TutorialSkipped { get; set; }"));
+        AssertTrue("Save snapshot includes TutorialStep", saveDataSource.Contains("public int TutorialStep { get; set; }"));
+
+        AssertTrue("BuildSnapshot exports explicit TutorialStatus", gameStateSource.Contains("TutorialStatus = TutorialProgressStatus"));
+        AssertTrue("BuildSnapshot exports TutorialStepIndex", gameStateSource.Contains("TutorialStepIndex = TutorialStep"));
+        AssertTrue("BuildSnapshot exports TutorialRequested", gameStateSource.Contains("TutorialRequested = TutorialRequested"));
+        AssertTrue("BuildSnapshot exports TutorialCompleted", gameStateSource.Contains("TutorialCompleted = TutorialCompleted"));
+        AssertTrue("BuildSnapshot exports TutorialSkipped", gameStateSource.Contains("TutorialSkipped = TutorialSkipped"));
+        AssertTrue("BuildSnapshot exports TutorialStep", gameStateSource.Contains("TutorialStep = TutorialStep"));
+
+        AssertTrue("ApplySnapshot resolves tutorial status from explicit or legacy fields", gameStateSource.Contains("TutorialProgressStatus = ResolveTutorialStatus(snapshot);"));
+        AssertTrue("ApplySnapshot restores step with new step index fallback", gameStateSource.Contains("var restoredStep = snapshot.TutorialStepIndex > 0"));
+        AssertTrue("ApplySnapshot clamps tutorial step", gameStateSource.Contains("TutorialStep = Math.Max(0, restoredStep);"));
+    }
+
+    private static void TestMainSceneWiresTutorialController()
+    {
+        var source = ReadProjectFile("Main.tscn");
+
+        AssertTrue("Main scene references TutorialController script", source.Contains("path=\"res://Scripts/Controllers/TutorialController.cs\""));
+        AssertTrue("Main scene includes TutorialController node", source.Contains("[node name=\"TutorialController\" type=\"Node\" parent=\".\"]"));
+        AssertTrue("TutorialController wires overlay path", source.Contains("TutorialOverlayPath = NodePath(\"../CanvasLayer/TutorialOverlay\")"));
+        AssertTrue("TutorialController wires HUD path", source.Contains("HudPath = NodePath(\"../CanvasLayer/Hud\")"));
+        AssertTrue("TutorialController wires DayController path", source.Contains("DayControllerPath = NodePath(\"../DayController\")"));
+    }
+
+    private static void TestTutorialOverlaySceneWiring()
+    {
+        var scene = ReadProjectFile("Scenes/UI/TutorialOverlay.tscn");
+
+        AssertTrue("Tutorial overlay scene references script", scene.Contains("path=\"res://Scripts/UI/TutorialOverlay.cs\""));
+        AssertTrue("Tutorial overlay root is Control", scene.Contains("[node name=\"TutorialOverlay\" type=\"Control\"]"));
+        AssertTrue("Tutorial overlay has skip button", scene.Contains("[node name=\"SkipButton\" type=\"Button\" parent=\"Panel/Margin/VBox/Actions\"]"));
+        AssertTrue("Tutorial overlay has next button", scene.Contains("[node name=\"NextButton\" type=\"Button\" parent=\"Panel/Margin/VBox/Actions\"]"));
+        AssertTrue("Tutorial overlay exports skip path", scene.Contains("SkipButtonPath = NodePath(\"Panel/Margin/VBox/Actions/SkipButton\")"));
+        AssertTrue("Tutorial overlay exports next path", scene.Contains("NextButtonPath = NodePath(\"Panel/Margin/VBox/Actions/NextButton\")"));
+    }
+
+    private static void TestTutorialArchitectureExtraction()
+    {
+        var controller = ReadProjectFile("Scripts/Controllers/TutorialController.cs");
+        var stateMachine = ReadProjectFile("Scripts/Tutorial/TutorialStateMachine.cs");
+        var tutorialContent = ReadProjectFile("Scripts/Tutorial/TutorialContentResource.cs");
+        var tutorialStepContent = ReadProjectFile("Scripts/Tutorial/TutorialStepContentResource.cs");
+        var presenter = ReadProjectFile("Scripts/Tutorial/Presentation/TutorialOverlayPresenter.cs");
+        var interactionGate = ReadProjectFile("Scripts/Tutorial/Presentation/TutorialInteractionGate.cs");
+        var brewPanel = ReadProjectFile("Scripts/UI/BrewPanel.cs");
+
+        AssertTrue("TutorialController uses extracted state machine", controller.Contains("private TutorialStateMachine _stateMachine"));
+        AssertTrue("TutorialController uses extracted overlay presenter", controller.Contains("private TutorialOverlayPresenter _overlayPresenter"));
+        AssertTrue("TutorialController uses extracted interaction gate", controller.Contains("private readonly TutorialInteractionGate _interactionGate"));
+        AssertTrue("TutorialController consumes tutorial content resource", controller.Contains("[Export] public TutorialContentResource TutorialContent"));
+        AssertTrue("TutorialController uses potion sold events for the sale review step", controller.Contains("_customerPanel.PotionSold += OnPotionSold;"));
+        AssertTrue("TutorialController no longer caches sale score details for tutorial feedback", !controller.Contains("_lastTutorialSaleScore") && !controller.Contains("_lastTutorialSaleGrade"));
+        AssertTrue("TutorialController resolves step-specific button locks", controller.Contains("UpdateTutorialButtonLock("));
+        AssertTrue("TutorialController includes the close shop tutorial step", controller.Contains("TutorialStepId.CloseShop"));
+        AssertTrue("TutorialController highlights the close shop button", controller.Contains("case TutorialStepId.CloseShop") && controller.Contains("GetNextCustomerButton()"));
+        AssertTrue("TutorialController waits for close shop visibility before advancing", controller.Contains("EvaluateCloseShopPrompt("));
+        AssertTrue("TutorialController caches HUD day label for tutorial highlighting", controller.Contains("_hudDayLabel = GetOptionalHudLabel(\"Day\")"));
+        AssertTrue("TutorialController caches HUD shop timer label for tutorial highlighting", controller.Contains("_hudShopTimerLabel = GetOptionalHudLabel(\"ShopTimer\")"));
+        AssertTrue("TutorialController highlights ingredient queue steps with the brew panel", controller.Contains("ShowIngredientQueueStep(stepContent, _tutorialContent.GraveMintId)") && controller.Contains("ShowForTargets(") && controller.Contains("FocusTutorialBrewPanel()"));
+        AssertTrue("TutorialController routes the sale review popup through the customer panel", controller.Contains("ShowForTarget(") && controller.Contains("_customerPanel,") && controller.Contains("BuildSaleResultBody("));
+        AssertTrue("TutorialController seeds the next-customer tutorial inventory", controller.Contains("SeedNextCustomerTutorialInventory()"));
+        AssertTrue("TutorialController highlights status step with a combined HUD rect", controller.Contains("ShowForHighlightRect(stepContent, statusHighlightRect)"));
+        AssertTrue("TutorialController builds a combined status highlight rectangle", controller.Contains("TryGetStatusHighlightRect(out var statusHighlightRect)"));
+        AssertTrue("TutorialController forces the shop timer to zero before the final tutorial ingredient step", controller.Contains("AddTwoMoreSleepIngredients") && controller.Contains("ForceShopTimerToZeroForTutorial()"));
+        AssertTrue("TutorialOverlayPresenter supports direct highlight rectangles", presenter.Contains("ShowForHighlightRect("));
+
+        AssertTrue("TutorialStateMachine is a pure class", stateMachine.Contains("public sealed class TutorialStateMachine"));
+        AssertTrue("TutorialStateMachine clamps tutorial step", stateMachine.Contains("public TutorialStepId ClampStep(int rawStep)"));
+        AssertTrue("TutorialStateMachine includes close shop prompt transition", stateMachine.Contains("EvaluateCloseShopPrompt("));
+        AssertTrue("TutorialStateMachine completes when the shop closes on the close shop step", stateMachine.Contains("step == TutorialStepId.CloseShop && !isShopOpen"));
+        AssertTrue("DayController exposes a tutorial-only timer reset helper", ReadProjectFile("Scripts/Controllers/DayController.cs").Contains("public void ForceShopTimerToZeroForTutorial()"));
+        AssertTrue("TutorialContentResource exists", tutorialContent.Contains("public partial class TutorialContentResource : Resource"));
+        AssertTrue("TutorialContentResource includes the close shop step copy", tutorialContent.Contains("StepId = (int)TutorialStepId.CloseShop"));
+        AssertTrue("TutorialContentResource tells the player to close the shop at night", tutorialContent.Contains("It is night time. Close the shop to end the day."));
+        AssertTrue("Tutorial step content can lock other buttons", tutorialStepContent.Contains("public bool LockOtherButtons { get; set; }"));
+        AssertTrue("Tutorial overlay presenter exists", presenter.Contains("public sealed class TutorialOverlayPresenter"));
+        AssertTrue("Tutorial interaction gate exists", interactionGate.Contains("public sealed class TutorialInteractionGate"));
+        AssertTrue("Tutorial interaction gate restores previous button state before reapplying", interactionGate.Contains("Restore();"));
+        AssertTrue("BrewPanel exposes its brew button for tutorial locks", brewPanel.Contains("public Button? GetBrewButton()"));
+    }
+
+    private static void TestTutorialNextCustomerInventorySeedIsCurated()
+    {
+        var source = ReadProjectFile("Scripts/Autoload/GameState.cs");
+
+        AssertTrue("GameState defines a curated next-customer tutorial inventory",
+            source.Contains("private static readonly (string ItemId, int Quantity)[] NextCustomerTutorialInventory"));
+        AssertTrue("Next-customer inventory includes the rest trait ingredient",
+            source.Contains("(\"black_ichor\", 1)"));
+        AssertTrue("Next-customer inventory includes the calm trait ingredient",
+            source.Contains("(\"mooncap_mushroom\", 1)"));
+        AssertTrue("Next-customer inventory includes the dreams trait ingredient",
+            source.Contains("(\"lavender_ash\", 1)"));
+        AssertTrue("Next-customer inventory is seeded through a dedicated helper",
+            source.Contains("public void SeedNextCustomerTutorialInventory()"));
+        AssertTrue("Next-customer inventory clears the inventory before seeding",
+            source.Contains("Inventory.Clear();"));
+        AssertTrue("Next-customer inventory seeds exactly the curated ingredient list",
+            source.Contains("foreach (var (itemId, qty) in NextCustomerTutorialInventory)"));
+    }
+
+    private static void TestTutorialSaleReviewFeedbackUsesRequestWording()
+    {
+        var controller = ReadProjectFile("Scripts/Controllers/TutorialController.cs");
+        var tutorialContent = ReadProjectFile("Scripts/Tutorial/TutorialContentResource.cs");
+
+        AssertTrue("Sale review step is titled as a review", tutorialContent.Contains("Title = \"Sale Review\""));
+        AssertTrue("Sale review step keeps a continue button label", tutorialContent.Contains("NextButtonText = \"Continue\""));
+        AssertTrue("TutorialContentResource exposes request-only sale feedback", tutorialContent.Contains("public string BuildSaleResultBody(bool saleSucceeded)"));
+        AssertTrue("TutorialContentResource explains success in customer-request terms", tutorialContent.Contains("You used the ingredients the customer wanted."));
+        AssertTrue("TutorialContentResource explains failure in customer-request terms", tutorialContent.Contains("You need to read the customer request more carefully next time."));
+        AssertTrue("TutorialContentResource no longer references score values", !tutorialContent.Contains("finalScore") && !tutorialContent.Contains("grade"));
+        AssertTrue("Close shop step is titled explicitly", tutorialContent.Contains("Title = \"Close the Shop\""));
+        AssertTrue("TutorialController uses the request-only sale feedback builder", controller.Contains("BuildSaleResultBody(_lastTutorialSaleSucceeded)"));
+    }
+
+    private static void TestTutorialOverlayUsesDynamicCutoutsOnly()
+    {
+        var overlaySource = ReadProjectFile("Scripts/UI/TutorialOverlay.cs");
+        var overlayScene = ReadProjectFile("Scenes/UI/TutorialOverlay.tscn");
+
+        AssertTrue("TutorialOverlay keeps dynamic cutout method", overlaySource.Contains("UpdateDimCutouts"));
+        AssertTrue("TutorialOverlay removed legacy single-cutout method", !overlaySource.Contains("UpdateDimCutout("));
+        AssertTrue("TutorialOverlay removed legacy optional dim-rect lookup", !overlaySource.Contains("GetOptionalDimRect("));
+        AssertTrue("TutorialOverlay scene removed legacy DimTop", !overlayScene.Contains("[node name=\"DimTop\""));
+        AssertTrue("TutorialOverlay scene removed legacy DimBottom", !overlayScene.Contains("[node name=\"DimBottom\""));
+        AssertTrue("TutorialOverlay scene removed legacy DimLeft", !overlayScene.Contains("[node name=\"DimLeft\""));
+        AssertTrue("TutorialOverlay scene removed legacy DimRight", !overlayScene.Contains("[node name=\"DimRight\""));
+    }
+
     private static void TestHudReturnToMainMenuDoesNotAutoSave()
     {
         var source = ReadProjectFile("Scripts/UI/Hud.cs");
@@ -1087,6 +1347,21 @@ static class Program
         AssertTrue("Hud return-to-menu handler exists", source.Contains("OnReturnToMainMenuPressed"));
         AssertTrue("Hud return-to-menu still changes scenes", source.Contains("ChangeSceneToFile(\"res://MainMenu.tscn\")"));
         AssertTrue("Hud return-to-menu no longer auto-saves", !source.Contains("Could not save before returning to main menu"));
+    }
+
+    private static void TestHudSettingsPanelClosesOnOutsideClick()
+    {
+        var source = ReadProjectFile("Scripts/UI/Hud.cs");
+        var scene = ReadProjectFile("Scenes/UI/GameUi.tscn");
+
+        AssertTrue("Hud processes raw input for outside clicks", source.Contains("SetProcessInput(true);"));
+        AssertTrue("Hud checks clicks against the settings panel bounds", source.Contains("_settingsPanel.GetGlobalRect().HasPoint(mouseButton.GlobalPosition)"));
+        AssertTrue("Hud closes settings on outside clicks", source.Contains("SetSettingsPanelVisible(false);"));
+        AssertTrue("Hud consumes outside clicks so underlying UI does not steal them", source.Contains("AcceptEvent();"));
+        AssertTrue("Hud keeps the settings panel on a dedicated z layer", source.Contains("SettingsPanelZIndex"));
+        AssertTrue("Hud brings the settings panel to the front when it opens", source.Contains("_settingsPanel.MoveToFront();"));
+        AssertTrue("Hud still toggles settings from the gear button", source.Contains("SetSettingsPanelVisible(!_settingsPanel.Visible);"));
+        AssertTrue("GameUi scene no longer adds a separate settings backdrop", !scene.Contains("SettingsBackdrop"));
     }
 
     private static void TestPersistenceBoundaryIsDocumented()
