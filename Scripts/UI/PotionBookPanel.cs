@@ -327,6 +327,10 @@ public partial class PotionBookPanel : Control
 			return;
 		if (!_itemCatalog.TryGetItem(potionId, out var potion))
 			return;
+		if (potion.Treatment is not null)
+			return;
+		if (HasActiveRisk(potion))
+			return;
 
 		var sanitizedIngredientIds = ingredientIds
 			.Where(id => !string.IsNullOrWhiteSpace(id))
@@ -458,7 +462,7 @@ public partial class PotionBookPanel : Control
 		if (_brewService.TryBrewPotion(potionItemId, out var error))
 			return;
 
-		GD.PushError(error);
+		CursorToast.Show(this, error);
 		RefreshPage();
 	}
 
@@ -481,6 +485,8 @@ public partial class PotionBookPanel : Control
 			return false;
 		if (!_itemCatalog.IsPotion(candidatePotionItemId))
 			return false;
+		if (!_itemCatalog.TryGetItem(candidatePotionItemId, out var item) || item.Treatment is not null)
+			return false;
 		if (!_gameState.TryGetPotionRecipe(candidatePotionItemId, out var ingredientIds) || ingredientIds.Count == 0)
 			return false;
 
@@ -491,6 +497,20 @@ public partial class PotionBookPanel : Control
 	private static string BuildPredefinedPotionItemId(string recipeId)
 	{
 		return $"potion_{recipeId}";
+	}
+
+	private static bool HasActiveRisk(ItemDef item)
+	{
+		if (item.Risks is null || item.Risks.Count == 0)
+			return false;
+
+		foreach (var risk in item.Risks)
+		{
+			if (!string.IsNullOrWhiteSpace(risk.Key) && risk.Value > 0)
+				return true;
+		}
+
+		return false;
 	}
 
 	private string? GetCurrentPotionId()

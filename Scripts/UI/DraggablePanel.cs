@@ -57,7 +57,7 @@ public partial class DraggablePanel : PanelContainer
 					return;
 
 				_dragging = true;
-				_dragOffset = mouseButton.GlobalPosition - Position;
+				_dragOffset = mouseButton.GlobalPosition - GlobalPosition;
 				AcceptEvent();
 				return;
 			}
@@ -72,7 +72,7 @@ public partial class DraggablePanel : PanelContainer
 
 		if (_dragging && @event is InputEventMouseMotion mouseMotion)
 		{
-			Position = mouseMotion.GlobalPosition - _dragOffset;
+			GlobalPosition = mouseMotion.GlobalPosition - _dragOffset;
 			AcceptEvent();
 		}
 	}
@@ -100,7 +100,7 @@ public partial class DraggablePanel : PanelContainer
 			if (mouseButton.Pressed)
 			{
 				_dragging = true;
-				_dragOffset = GetGlobalMousePosition() - Position;
+				_dragOffset = GetGlobalMousePosition() - GlobalPosition;
 				_dragHandle.AcceptEvent();
 				return;
 			}
@@ -112,7 +112,7 @@ public partial class DraggablePanel : PanelContainer
 
 		if (_dragging && @event is InputEventMouseMotion)
 		{
-			Position = GetGlobalMousePosition() - _dragOffset;
+			GlobalPosition = GetGlobalMousePosition() - _dragOffset;
 			_dragHandle.AcceptEvent();
 		}
 	}

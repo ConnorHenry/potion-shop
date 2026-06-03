@@ -1,12 +1,12 @@
-[gd_resource type="Resource" script_class="AuthoredDataResource" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="AuthoredDataResource" load_steps=2 format=3 uid="uid://mturmmf44l1y"]
 
-[ext_resource type="Script" path="res://Scripts/Models/AuthoredDataResource.cs" id="1"]
+[ext_resource type="Script" uid="uid://chhdxkrq4cetw" path="res://Scripts/Models/AuthoredDataResource.cs" id="1"]
 
 [resource]
 script = ExtResource("1")
 ItemsPath = "res://Data/items_data.tres"
 RulesPath = "res://Data/rules_data.tres"
 EventsPath = "res://Data/events_data.tres"
-CustomerInteractionsPath = "res://Data/customers_data.tres"
+CustomerInteractionsPath = "res://Data/customers_tiered_test_data.tres"
 SynergiesPath = "res://Data/synergies_data.tres"
 PotionRecipesPath = "res://Data/potion_recipes_data.tres"

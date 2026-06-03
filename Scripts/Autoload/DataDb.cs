@@ -114,11 +114,64 @@ public partial class DataDb : Node
 				Quality = ReadInt(entry, "quality", 50),
 				Traits = ReadStringIntDictionary(entry, "traits"),
 				Risks = ReadStringIntDictionary(entry, "risks"),
-				BasePrice = Math.Max(0, basePrice)
+				BasePrice = Math.Max(0, basePrice),
+				ConsumableEffect = ParseConsumableEffect(ReadDictionary(entry, "consumableEffect")),
+				ConsumableGate = ParseConsumableGate(ReadDictionary(entry, "consumableGate")),
+				Treatment = ParseTreatment(ReadDictionary(entry, "treatment"))
 			});
 		}
 
 		return items;
+	}
+
+	private static ConsumableEffectDef? ParseConsumableEffect(Godot.Collections.Dictionary? entry)
+	{
+		if (entry is null || entry.Count == 0)
+			return null;
+
+		var kind = ReadString(entry, "kind");
+		if (string.IsNullOrWhiteSpace(kind))
+			return null;
+
+		return new ConsumableEffectDef
+		{
+			Kind = kind,
+			RiskId = ReadString(entry, "riskId"),
+			Description = ReadString(entry, "description")
+		};
+	}
+
+	private static ConsumableGateDef? ParseConsumableGate(Godot.Collections.Dictionary? entry)
+	{
+		if (entry is null || entry.Count == 0)
+			return null;
+
+		var allowedTargetTags = ReadStringList(entry, "allowedTargetTags");
+		if (allowedTargetTags.Count == 0)
+			return null;
+
+		return new ConsumableGateDef
+		{
+			AllowedTargetTags = allowedTargetTags
+		};
+	}
+
+	private static ItemTreatmentDef? ParseTreatment(Godot.Collections.Dictionary? entry)
+	{
+		if (entry is null || entry.Count == 0)
+			return null;
+
+		var baseItemId = ReadString(entry, "baseItemId");
+		var consumableItemId = ReadString(entry, "consumableItemId");
+		if (string.IsNullOrWhiteSpace(baseItemId) && string.IsNullOrWhiteSpace(consumableItemId))
+			return null;
+
+		return new ItemTreatmentDef
+		{
+			BaseItemId = baseItemId,
+			ConsumableItemId = consumableItemId,
+			RemovedRisk = ReadString(entry, "removedRisk")
+		};
 	}
 
 	private static List<RuleDef> ParseRules(Godot.Collections.Array entries)
@@ -363,7 +416,8 @@ public partial class DataDb : Node
 				AddItemId = ReadNullableString(entry, "addItemId"),
 				AddItemQty = ReadNullableInt(entry, "addItemQty"),
 				ConsumeItemId = ReadNullableString(entry, "consumeItemId"),
-				ConsumeItemQty = ReadNullableInt(entry, "consumeItemQty")
+				ConsumeItemQty = ReadNullableInt(entry, "consumeItemQty"),
+				ConsumeEachIngredientQty = ReadNullableInt(entry, "consumeEachIngredientQty")
 			});
 		}
 

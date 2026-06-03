@@ -65,6 +65,18 @@ public sealed class ItemDefJsonConverter : JsonConverter<ItemDef>
 				case "basePrice":
 					item.BasePrice = reader.TokenType == JsonTokenType.Number ? reader.GetInt32() : 0;
 					break;
+				case "consumableEffect":
+				case "ConsumableEffect":
+					item.ConsumableEffect = JsonSerializer.Deserialize<ConsumableEffectDef>(ref reader, options);
+					break;
+				case "consumableGate":
+				case "ConsumableGate":
+					item.ConsumableGate = JsonSerializer.Deserialize<ConsumableGateDef>(ref reader, options);
+					break;
+				case "treatment":
+				case "Treatment":
+					item.Treatment = JsonSerializer.Deserialize<ItemTreatmentDef>(ref reader, options);
+					break;
 				default:
 					reader.Skip();
 					break;
@@ -92,6 +104,21 @@ public sealed class ItemDefJsonConverter : JsonConverter<ItemDef>
 		writer.WritePropertyName("risks");
 		JsonSerializer.Serialize(writer, value.Risks ?? new Dictionary<string, int>(), options);
 		writer.WriteNumber("price", value.BasePrice);
+		if (value.ConsumableEffect is not null)
+		{
+			writer.WritePropertyName("consumableEffect");
+			JsonSerializer.Serialize(writer, value.ConsumableEffect, options);
+		}
+		if (value.ConsumableGate is not null)
+		{
+			writer.WritePropertyName("consumableGate");
+			JsonSerializer.Serialize(writer, value.ConsumableGate, options);
+		}
+		if (value.Treatment is not null)
+		{
+			writer.WritePropertyName("treatment");
+			JsonSerializer.Serialize(writer, value.Treatment, options);
+		}
 		writer.WriteEndObject();
 	}
 }

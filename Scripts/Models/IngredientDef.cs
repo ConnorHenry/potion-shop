@@ -10,6 +10,8 @@ public sealed class IngredientDef
 	// 0-100 quality score
 	public int Quality { get; set; }
 
+	public int BasePrice { get; set; }
+
 	// Trait name + strength
 	// Example: "sleep": 4, "calm": 2
 	public Dictionary<string, int> Traits { get; set; } = new();

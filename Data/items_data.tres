@@ -35,7 +35,9 @@ Entries = [{
 "name": "Black Ichor",
 "price": 19,
 "quality": 95,
-"risks": {},
+"risks": {
+"nausea": 1
+},
 "tags": ["ingredient", "catalyst"],
 "traits": {
 "rest": 5
@@ -71,7 +73,9 @@ Entries = [{
 "name": "Amber Nightshade",
 "price": 12,
 "quality": 84,
-"risks": {},
+"risks": {
+"insomnia": 2
+},
 "tags": ["ingredient", "liquid"],
 "traits": {
 "vigor": 5
@@ -83,7 +87,9 @@ Entries = [{
 "name": "Silver Thorn Bloom",
 "price": 9,
 "quality": 82,
-"risks": {},
+"risks": {
+"melancholy": 2
+},
 "tags": ["ingredient", "liquid"],
 "traits": {
 "clarity": 5
@@ -95,7 +101,9 @@ Entries = [{
 "name": "Moonwhisper Orchid",
 "price": 18,
 "quality": 86,
-"risks": {},
+"risks": {
+"corruption": 2
+},
 "tags": ["ingredient", "herb"],
 "traits": {
 "charm": 5
@@ -124,4 +132,55 @@ Entries = [{
 "traits": {
 "cleanse": 5
 }
+}, {
+"consumableEffect": {
+"description": "Removes one risk from the selected ingredient.",
+"kind": "remove_risk"
+},
+"consumableGate": {
+"allowedTargetTags": ["ingredient"]
+},
+"description": "A cooling salve used to draw unstable humours out of raw ingredients before brewing.",
+"iconPath": "res://Assets/Items/risk_salve.svg",
+"id": "risk_salve",
+"name": "Risk Salve",
+"price": 18,
+"quality": 50,
+"risks": {},
+"tags": ["consumable"],
+"traits": {}
+}, {
+"consumableEffect": {
+"description": "Removes one risk from the selected potion.",
+"kind": "remove_risk"
+},
+"consumableGate": {
+"allowedTargetTags": ["potion"]
+},
+"description": "A pinch of pale salt that settles tainted potion sediment without changing the rest of the brew.",
+"iconPath": "res://Assets/Items/cleansing_salt.svg",
+"id": "cleansing_salt",
+"name": "Cleansing Salt",
+"price": 24,
+"quality": 50,
+"risks": {},
+"tags": ["consumable"],
+"traits": {}
+}, {
+"consumableEffect": {
+"description": "Removes one risk from the selected ingredient or potion.",
+"kind": "remove_risk"
+},
+"consumableGate": {
+"allowedTargetTags": ["ingredient", "potion"]
+},
+"description": "A thin thread knotted with stabilizing charms, used to bind a single flaw out of an item.",
+"iconPath": "res://Assets/Items/stabilizing_thread.svg",
+"id": "stabilizing_thread",
+"name": "Stabilizing Thread",
+"price": 32,
+"quality": 50,
+"risks": {},
+"tags": ["consumable"],
+"traits": {}
 }]

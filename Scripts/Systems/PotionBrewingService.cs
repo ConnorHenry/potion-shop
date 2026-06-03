@@ -10,11 +10,82 @@ public sealed class PotionBrewingService
     private const float FitWeight = 0.30f;
     private const float SynergyWeight = 0.25f;
     private const float StabilityWeight = 0.20f;
+    private const int MaxRiskChanceValue = 10;
+    private const int RiskPresenceValue = 1;
+
+    private readonly Func<float> _nextRiskRoll;
+
+    public PotionBrewingService()
+        : this(() => Random.Shared.NextSingle())
+    {
+    }
+
+    public PotionBrewingService(Func<float> nextRiskRoll)
+    {
+        _nextRiskRoll = nextRiskRoll ?? (() => Random.Shared.NextSingle());
+    }
 
     public PotionResult BrewPotion(
         List<IngredientDef> ingredients,
         CustomerRequestDef? request,
         List<SynergyRule> synergyRules)
+    {
+        return BrewPotionInternal(ingredients, request, synergyRules, rollRisks: true);
+    }
+
+    public PotionResult PreviewPotion(
+        List<IngredientDef> ingredients,
+        CustomerRequestDef? request,
+        List<SynergyRule> synergyRules)
+    {
+        return BrewPotionInternal(ingredients, request, synergyRules, rollRisks: false);
+    }
+
+    public PotionResult EvaluatePotionItem(ItemDef potionItem, CustomerRequestDef? request)
+    {
+        var result = new PotionResult();
+        if (potionItem is null || string.IsNullOrWhiteSpace(potionItem.Id))
+        {
+            result.Notes.Add("No valid potion item was provided.");
+            result.IngredientQualityScore = 0;
+            result.EffectFitScore = 0;
+            result.SynergyScore = 0;
+            result.StabilityScore = 0;
+            result.PenaltyScore = 100;
+            result.FinalScore = 0.0f;
+            result.Grade = "F";
+            return result;
+        }
+
+        result.Traits = new Dictionary<string, int>(potionItem.Traits, StringComparer.OrdinalIgnoreCase);
+        result.Risks = NormalizeCarriedRisks(potionItem.Risks);
+        result.PossibleRisks = new Dictionary<string, int>(result.Risks, StringComparer.OrdinalIgnoreCase);
+        result.IngredientQualityScore = Clamp01Score(potionItem.Quality);
+        result.SynergyScore = 0;
+        result.EffectFitScore = CalculateEffectFit(request, result.Traits, result.Risks, result);
+        result.StabilityScore = CalculateStability(result.Traits, result.Risks, 0);
+        result.PenaltyScore = CalculatePenalties(result.Risks, 0, result.StabilityScore);
+
+        var finalScore =
+            (QualityWeight * result.IngredientQualityScore) +
+            (FitWeight * result.EffectFitScore) +
+            (SynergyWeight * result.SynergyScore) +
+            (StabilityWeight * result.StabilityScore) -
+            result.PenaltyScore;
+
+        result.FinalScore = MathF.Round(finalScore, 2);
+        result.Grade = GradeFromScore(result.FinalScore);
+        result.Notes.Add(
+            $"Q={result.IngredientQualityScore}, F={result.EffectFitScore}, Y={result.SynergyScore}, T={result.StabilityScore}, P={result.PenaltyScore}, S={result.FinalScore}");
+
+        return result;
+    }
+
+    private PotionResult BrewPotionInternal(
+        List<IngredientDef> ingredients,
+        CustomerRequestDef? request,
+        List<SynergyRule> synergyRules,
+        bool rollRisks)
     {
         var result = new PotionResult();
 
@@ -36,25 +107,30 @@ public sealed class PotionBrewingService
         var combinedTraits = CombineTraits(validIngredients);
         result.Traits = combinedTraits;
 
-        // 3) Combine ingredient risks
-        var combinedRisks = CombineRisks(validIngredients);
-        result.Risks = SelectTopEntriesByValue(combinedRisks, 2);
+        // 3) Combine ingredient risks as chance values, then roll actual carried risks
+        var possibleRisks = CombineRisks(validIngredients);
+        var carriedRisks = rollRisks
+            ? RollCarriedRisks(possibleRisks)
+            : new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        result.RiskIngredientPricePenalty = CalculateRiskIngredientPricePenalty(validIngredients, carriedRisks);
 
         // 4) Calculate ingredient quality (Q)
         result.IngredientQualityScore = CalculateIngredientQuality(validIngredients);
 
         // 5) Apply synergies (Y)
-        var synergyEval = ApplySynergies(combinedTraits, combinedRisks, synergyRules, result);
+        var synergyEval = ApplySynergies(combinedTraits, carriedRisks, possibleRisks, synergyRules, result, rollRisks);
         result.SynergyScore = synergyEval.Score;
+        result.Risks = carriedRisks;
+        result.PossibleRisks = possibleRisks;
 
         // 6) Calculate effect fit (F)
-        result.EffectFitScore = CalculateEffectFit(request, combinedTraits, combinedRisks, result);
+        result.EffectFitScore = CalculateEffectFit(request, combinedTraits, carriedRisks, result);
 
         // 7) Calculate stability (T)
-        result.StabilityScore = CalculateStability(combinedTraits, combinedRisks, synergyEval.NegativeMagnitude);
+        result.StabilityScore = CalculateStability(combinedTraits, carriedRisks, synergyEval.NegativeMagnitude);
 
         // 8) Calculate penalties (P)
-        result.PenaltyScore = CalculatePenalties(combinedRisks, synergyEval.NegativeMagnitude, result.StabilityScore);
+        result.PenaltyScore = CalculatePenalties(carriedRisks, synergyEval.NegativeMagnitude, result.StabilityScore);
 
         // 9) Calculate final score (S)
         var finalScore =
@@ -136,26 +212,34 @@ public sealed class PotionBrewingService
             }
         }
 
+        ClampRiskChances(combined);
         return combined;
     }
 
-    private static Dictionary<string, int> SelectTopEntriesByValue(
-        Dictionary<string, int> values,
-        int maxCount)
+    private Dictionary<string, int> RollCarriedRisks(Dictionary<string, int> possibleRisks)
     {
-        var selected = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        if (values is null || values.Count == 0 || maxCount <= 0)
-            return selected;
+        var carriedRisks = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        if (possibleRisks is null || possibleRisks.Count == 0)
+            return carriedRisks;
 
-        foreach (var pair in values
-            .OrderByDescending(x => x.Value)
-            .ThenBy(x => x.Key)
-            .Take(maxCount))
+        foreach (var pair in possibleRisks.OrderBy(x => x.Key))
         {
-            selected[pair.Key] = pair.Value;
+            if (DoesRiskCarry(pair.Value))
+                carriedRisks[pair.Key] = RiskPresenceValue;
         }
 
-        return selected;
+        return carriedRisks;
+    }
+
+    private bool DoesRiskCarry(int chanceValue)
+    {
+        var clampedChanceValue = ClampRange(chanceValue, 0, MaxRiskChanceValue);
+        if (clampedChanceValue <= 0)
+            return false;
+        if (clampedChanceValue >= MaxRiskChanceValue)
+            return true;
+
+        return ClampUnit(_nextRiskRoll()) < clampedChanceValue / (float)MaxRiskChanceValue;
     }
 
     private static int CalculateIngredientQuality(List<IngredientDef> ingredients)
@@ -170,11 +254,13 @@ public sealed class PotionBrewingService
         return (int)MathF.Round(total / ingredients.Count);
     }
 
-    private static (int Score, int NegativeMagnitude) ApplySynergies(
+    private (int Score, int NegativeMagnitude) ApplySynergies(
         Dictionary<string, int> traits,
         Dictionary<string, int> risks,
+        Dictionary<string, int> possibleRisks,
         List<SynergyRule> synergyRules,
-        PotionResult result)
+        PotionResult result,
+        bool rollRisks)
     {
         if (synergyRules is null || synergyRules.Count == 0)
             return (0, 0);
@@ -222,7 +308,11 @@ public sealed class PotionBrewingService
             }
 
             if (!string.IsNullOrWhiteSpace(rule.AddedRisk) && rule.AddedRiskStrength > 0)
-                AddValue(risks, rule.AddedRisk, rule.AddedRiskStrength);
+            {
+                AddRiskChance(possibleRisks, rule.AddedRisk, rule.AddedRiskStrength);
+                if (rollRisks && DoesRiskCarry(rule.AddedRiskStrength))
+                    risks[rule.AddedRisk] = RiskPresenceValue;
+            }
         }
 
         return (ClampRange(synergyScore, -100, 100), negativeMagnitude);
@@ -376,6 +466,35 @@ public sealed class PotionBrewingService
         return total;
     }
 
+    private static int CalculateRiskIngredientPricePenalty(
+        List<IngredientDef> ingredients,
+        Dictionary<string, int> carriedRisks)
+    {
+        if (ingredients.Count == 0 || carriedRisks.Count == 0)
+            return 0;
+
+        var penalty = 0;
+        foreach (var ingredient in ingredients)
+        {
+            if (ingredient.Risks is null || ingredient.Risks.Count == 0)
+                continue;
+
+            foreach (var risk in ingredient.Risks)
+            {
+                if (string.IsNullOrWhiteSpace(risk.Key) || risk.Value <= 0)
+                    continue;
+
+                if (!carriedRisks.TryGetValue(risk.Key, out var carriedValue) || carriedValue <= 0)
+                    continue;
+
+                penalty += Math.Max(0, ingredient.BasePrice);
+                break;
+            }
+        }
+
+        return Math.Max(0, penalty);
+    }
+
     private static void AddValue(Dictionary<string, int> values, string key, int value)
     {
         if (string.IsNullOrWhiteSpace(key) || value == 0)
@@ -383,6 +502,54 @@ public sealed class PotionBrewingService
 
         if (!values.TryAdd(key, value))
             values[key] += value;
+    }
+
+    private static void AddRiskChance(Dictionary<string, int> values, string key, int value)
+    {
+        if (string.IsNullOrWhiteSpace(key) || value <= 0)
+            return;
+
+        if (!values.TryAdd(key, value))
+            values[key] += value;
+
+        values[key] = ClampRange(values[key], 0, MaxRiskChanceValue);
+    }
+
+    private static void ClampRiskChances(Dictionary<string, int> values)
+    {
+        var keysToRemove = new List<string>();
+        var keys = values.Keys.ToList();
+        foreach (var key in keys)
+        {
+            var value = values[key];
+            if (string.IsNullOrWhiteSpace(key) || value <= 0)
+            {
+                keysToRemove.Add(key);
+                continue;
+            }
+
+            values[key] = ClampRange(value, 0, MaxRiskChanceValue);
+        }
+
+        foreach (var key in keysToRemove)
+            values.Remove(key);
+    }
+
+    private static Dictionary<string, int> NormalizeCarriedRisks(Dictionary<string, int>? risks)
+    {
+        var normalized = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        if (risks is null)
+            return normalized;
+
+        foreach (var pair in risks)
+        {
+            if (string.IsNullOrWhiteSpace(pair.Key) || pair.Value <= 0)
+                continue;
+
+            normalized[pair.Key] = RiskPresenceValue;
+        }
+
+        return normalized;
     }
 
     private static int Clamp01Score(int score)

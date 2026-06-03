@@ -14,4 +14,5 @@ public sealed class EffectDef
 
     public string? ConsumeItemId { get; set; }
     public int? ConsumeItemQty { get; set; }
+    public int? ConsumeEachIngredientQty { get; set; }
 }

@@ -13,6 +13,8 @@ namespace OccultShop.Debug;
 public partial class RuntimeDebugImGui : Node
 {
 	private readonly List<string> _potionItemIds = new();
+	private readonly List<string> _consumableItemIds = new();
+	private readonly List<string> _ingredientItemIds = new();
 	private readonly List<string> _traitNames = new();
 	private readonly Dictionary<string, List<string>> _traitToItemIds = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Dictionary<string, string> _itemDisplayNames = new(StringComparer.OrdinalIgnoreCase);
@@ -27,9 +29,13 @@ public partial class RuntimeDebugImGui : Node
 	private int _shopTimerSecondsInput = 60;
 	private int _addPotionQuantity = 1;
 	private int _removePotionQuantity = 1;
+	private int _addConsumableQuantity = 1;
+	private int _removeConsumableQuantity = 1;
 	private int _traitItemQuantity = 1;
 	private int _selectedPotionIndex;
 	private int _selectedPotionRemoveIndex;
+	private int _selectedConsumableIndex;
+	private int _selectedConsumableRemoveIndex;
 	private int _selectedTraitIndex;
 	private int _selectedTraitItemIndex;
 	private string _statusMessage = string.Empty;
@@ -113,6 +119,10 @@ public partial class RuntimeDebugImGui : Node
 		DrawStateSection();
 		ImGui.Separator();
 		DrawPotionSection();
+		ImGui.Separator();
+		DrawConsumableSection();
+		ImGui.Separator();
+		DrawIngredientSection();
 		ImGui.Separator();
 		DrawTraitSection();
 		ImGui.Separator();
@@ -287,6 +297,108 @@ public partial class RuntimeDebugImGui : Node
 			{
 				_statusMessage = $"Cannot consume potion {BuildItemLabel(removePotionId)}.";
 			}
+		}
+	}
+
+	private void DrawIngredientSection()
+	{
+		if (!ImGui.CollapsingHeader("Ingredients", ImGuiTreeNodeFlags.DefaultOpen))
+			return;
+
+		ImGui.TextWrapped("Developer action for filling the inventory with every ingredient.");
+
+		if (_ingredientItemIds.Count == 0)
+		{
+			ImGui.Text("No ingredient definitions available.");
+			return;
+		}
+
+		if (ImGui.Button("Add 10x of Every Ingredient"))
+		{
+			foreach (var ingredientId in _ingredientItemIds)
+				_gameState.AddItem(ingredientId, 10);
+
+			_statusMessage = $"Added 10x of every ingredient to inventory.";
+		}
+	}
+
+	private void DrawConsumableSection()
+	{
+		if (!ImGui.CollapsingHeader("Consumables", ImGuiTreeNodeFlags.DefaultOpen))
+			return;
+
+		if (_consumableItemIds.Count == 0)
+		{
+			ImGui.Text("No consumable definitions available.");
+			return;
+		}
+
+		var safeConsumableIndex = ClampIndex(_selectedConsumableIndex, _consumableItemIds.Count);
+		var selectedConsumableId = _consumableItemIds[safeConsumableIndex];
+		var consumablePreview = BuildItemLabel(selectedConsumableId);
+
+		if (ImGui.BeginCombo("Add Consumable", consumablePreview))
+		{
+			for (var i = 0; i < _consumableItemIds.Count; i++)
+			{
+				var consumableId = _consumableItemIds[i];
+				var isSelected = i == safeConsumableIndex;
+				if (ImGui.Selectable(BuildItemLabel(consumableId), isSelected))
+					_selectedConsumableIndex = i;
+				if (isSelected)
+					ImGui.SetItemDefaultFocus();
+			}
+			ImGui.EndCombo();
+		}
+
+		ImGui.InputInt("Add Consumable Qty", ref _addConsumableQuantity);
+		if (_addConsumableQuantity < 1)
+			_addConsumableQuantity = 1;
+
+		if (ImGui.Button("Add Consumable Stack"))
+		{
+			_gameState.AddItem(selectedConsumableId, _addConsumableQuantity);
+			_statusMessage = $"Added {_addConsumableQuantity}x {BuildItemLabel(selectedConsumableId)}.";
+		}
+
+		var consumableInventory = BuildConsumableInventorySnapshot();
+		if (consumableInventory.Count == 0)
+		{
+			ImGui.Text("No consumables currently in inventory.");
+			return;
+		}
+
+		var safeRemoveIndex = ClampIndex(_selectedConsumableRemoveIndex, consumableInventory.Count);
+		var removeConsumableId = consumableInventory[safeRemoveIndex].ItemId;
+		var removePreview = $"{BuildItemLabel(removeConsumableId)} x{consumableInventory[safeRemoveIndex].Quantity}";
+
+		if (ImGui.BeginCombo("Remove Consumable", removePreview))
+		{
+			for (var i = 0; i < consumableInventory.Count; i++)
+			{
+				var consumable = consumableInventory[i];
+				var isSelected = i == safeRemoveIndex;
+				var label = $"{BuildItemLabel(consumable.ItemId)} x{consumable.Quantity}";
+				if (ImGui.Selectable(label, isSelected))
+					_selectedConsumableRemoveIndex = i;
+				if (isSelected)
+					ImGui.SetItemDefaultFocus();
+			}
+			ImGui.EndCombo();
+		}
+
+		ImGui.InputInt("Remove Consumable Qty", ref _removeConsumableQuantity);
+		if (_removeConsumableQuantity < 1)
+			_removeConsumableQuantity = 1;
+
+		if (ImGui.Button("Consume Consumable"))
+		{
+			var before = _gameState.Inventory.TryGetValue(removeConsumableId, out var existingBefore) ? existingBefore : 0;
+			var requested = Math.Min(before, _removeConsumableQuantity);
+			if (requested > 0 && _gameState.ConsumeItem(removeConsumableId, requested))
+				_statusMessage = $"Consumed {requested}x {BuildItemLabel(removeConsumableId)}.";
+			else
+				_statusMessage = $"Cannot consume consumable {BuildItemLabel(removeConsumableId)}.";
 		}
 	}
 
@@ -563,6 +675,8 @@ public partial class RuntimeDebugImGui : Node
 	private void RebuildDebugCatalog()
 	{
 		_potionItemIds.Clear();
+		_consumableItemIds.Clear();
+		_ingredientItemIds.Clear();
 		_traitNames.Clear();
 		_traitToItemIds.Clear();
 		_itemDisplayNames.Clear();
@@ -583,10 +697,15 @@ public partial class RuntimeDebugImGui : Node
 
 			var isPotion = HasTag(item, "potion");
 			var isIngredient = HasTag(item, "ingredient");
+			var isConsumable = HasTag(item, "consumable");
 			if (isPotion)
 				_potionItemIds.Add(item.Id);
+			if (isConsumable)
+				_consumableItemIds.Add(item.Id);
+			if (isIngredient)
+				_ingredientItemIds.Add(item.Id);
 
-			if (!isPotion && !isIngredient)
+			if (!isPotion && !isIngredient && !isConsumable)
 				continue;
 
 			if (item.Traits is null)
@@ -609,12 +728,15 @@ public partial class RuntimeDebugImGui : Node
 		}
 
 		_potionItemIds.Sort((a, b) => string.Compare(BuildItemLabel(a), BuildItemLabel(b), StringComparison.OrdinalIgnoreCase));
+		_consumableItemIds.Sort((a, b) => string.Compare(BuildItemLabel(a), BuildItemLabel(b), StringComparison.OrdinalIgnoreCase));
+		_ingredientItemIds.Sort((a, b) => string.Compare(BuildItemLabel(a), BuildItemLabel(b), StringComparison.OrdinalIgnoreCase));
 		_traitNames.Sort((a, b) => string.Compare(a, b, StringComparison.OrdinalIgnoreCase));
 
 		foreach (var pair in _traitToItemIds)
 			pair.Value.Sort((a, b) => string.Compare(BuildItemLabel(a), BuildItemLabel(b), StringComparison.OrdinalIgnoreCase));
 
 		_selectedPotionIndex = ClampIndex(_selectedPotionIndex, _potionItemIds.Count);
+		_selectedConsumableIndex = ClampIndex(_selectedConsumableIndex, _consumableItemIds.Count);
 		_selectedTraitIndex = ClampIndex(_selectedTraitIndex, _traitNames.Count);
 	}
 
@@ -670,12 +792,36 @@ public partial class RuntimeDebugImGui : Node
 		return potions;
 	}
 
+	private List<(string ItemId, int Quantity)> BuildConsumableInventorySnapshot()
+	{
+		var consumables = new List<(string ItemId, int Quantity)>();
+		foreach (var stack in _gameState.Inventory)
+		{
+			if (stack.Value <= 0)
+				continue;
+			if (!IsConsumableId(stack.Key))
+				continue;
+			consumables.Add((stack.Key, stack.Value));
+		}
+
+		consumables.Sort((a, b) => string.Compare(BuildItemLabel(a.ItemId), BuildItemLabel(b.ItemId), StringComparison.OrdinalIgnoreCase));
+		return consumables;
+	}
+
 	private bool IsPotionId(string itemId)
 	{
 		if (!ItemCatalog.TryGetItem(itemId, out var item))
 			return false;
 
 		return HasTag(item, "potion");
+	}
+
+	private bool IsConsumableId(string itemId)
+	{
+		if (!ItemCatalog.TryGetItem(itemId, out var item))
+			return false;
+
+		return HasTag(item, "consumable");
 	}
 
 	private static bool HasTag(ItemDef item, string tag)

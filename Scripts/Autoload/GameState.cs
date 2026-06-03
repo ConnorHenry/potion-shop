@@ -16,6 +16,10 @@ public partial class GameState : Node
 	public const string StoryCustomerOutcomeSkipped = "skipped";
 	public const int StartingGardenPotCount = 3;
 	public const int DefaultGardenHarvestYield = 2;
+	public const int MaxUniquePotionInventoryQuantity = 4;
+	public const int MaxPotionStackQuantity = 10;
+	public const int MaxUniqueConsumableInventoryQuantity = 4;
+	public const int MaxConsumableStackQuantity = 10;
 
 	[Export] public NodePath DataDbPath { get; set; } = new("/root/DataDb");
 	[Export] public NodePath ItemCatalogPath { get; set; } = new("/root/ItemCatalog");
@@ -28,6 +32,9 @@ public partial class GameState : Node
 	public bool TutorialCompleted => TutorialProgressStatus == TutorialStatus.Completed;
 	public bool TutorialSkipped => TutorialProgressStatus == TutorialStatus.Skipped;
 	public int TutorialStep { get; private set; }
+	public string PendingConsumableItemId { get; private set; } = string.Empty;
+	public int PendingConsumableQuantity { get; private set; }
+	public bool HasPendingConsumableGrant => !string.IsNullOrWhiteSpace(PendingConsumableItemId) && PendingConsumableQuantity > 0;
 
 	// itemId -> qty
 	public Dictionary<string, int> Inventory { get; } = new();
@@ -116,6 +123,8 @@ public partial class GameState : Node
 		TutorialProgressStatus = TutorialStatus.NotStarted;
 		TutorialStep = 0;
 		Inventory.Clear();
+		PendingConsumableItemId = string.Empty;
+		PendingConsumableQuantity = 0;
 		ActiveRules.Clear();
 		StoryFlags.Clear();
 		_storyCustomerVisits.Clear();
@@ -173,6 +182,8 @@ public partial class GameState : Node
 			TutorialSkipped = TutorialSkipped,
 			TutorialStep = TutorialStep,
 			Inventory = new Dictionary<string, int>(Inventory),
+			PendingConsumableItemId = PendingConsumableItemId,
+			PendingConsumableQuantity = PendingConsumableQuantity,
 			ActiveRules = ActiveRules.ToList(),
 			StoryFlags = StoryFlags.ToList(),
 			KnownPotions = KnownPotionOrder.Count > 0 ? new List<string>(KnownPotionOrder) : KnownPotions.ToList(),
@@ -211,6 +222,8 @@ public partial class GameState : Node
 		TutorialStep = Math.Max(0, restoredStep);
 
 		Inventory.Clear();
+		PendingConsumableItemId = string.Empty;
+		PendingConsumableQuantity = 0;
 		if (snapshot.Inventory is not null)
 		{
 			foreach (var pair in snapshot.Inventory)
@@ -223,6 +236,8 @@ public partial class GameState : Node
 				Inventory[pair.Key] = pair.Value;
 			}
 		}
+
+		RestorePendingConsumableGrant(snapshot.PendingConsumableItemId, snapshot.PendingConsumableQuantity);
 
 		ActiveRules.Clear();
 		if (snapshot.ActiveRules is not null)
@@ -535,7 +550,11 @@ public partial class GameState : Node
 			return;
 		}
 
-		Inventory[itemId] = Inventory.GetValueOrDefault(itemId) + qty;
+		var quantityToAdd = ResolveInventoryAddQuantity(itemId, qty);
+		if (quantityToAdd <= 0)
+			return;
+
+		Inventory[itemId] = Inventory.GetValueOrDefault(itemId) + quantityToAdd;
 		EmitChanged();
 	}
 
@@ -548,6 +567,98 @@ public partial class GameState : Node
 		if (Inventory[itemId] <= 0) Inventory.Remove(itemId);
 		EmitChanged();
 		return true;
+	}
+
+	public bool TryAcceptPendingConsumableByDiscarding(string discardItemId, out string error)
+	{
+		error = string.Empty;
+		if (!HasPendingConsumableGrant)
+		{
+			error = "No pending consumable is waiting.";
+			return false;
+		}
+
+		if (string.IsNullOrWhiteSpace(discardItemId))
+		{
+			error = "Choose a consumable to discard.";
+			return false;
+		}
+
+		if (!_itemCatalog.IsConsumable(discardItemId))
+		{
+			error = "Only consumables can be discarded to make room.";
+			return false;
+		}
+
+		if (!Inventory.TryGetValue(discardItemId, out var discardQuantity) || discardQuantity <= 0)
+		{
+			error = "Selected consumable is not in inventory.";
+			return false;
+		}
+
+		var pendingItemId = PendingConsumableItemId;
+		var pendingQuantity = PendingConsumableQuantity;
+		if (!_itemCatalog.TryGetItem(pendingItemId, out _) || !_itemCatalog.IsConsumable(pendingItemId))
+		{
+			ClearPendingConsumableGrant();
+			error = "Pending consumable no longer exists.";
+			EmitChanged();
+			return false;
+		}
+
+		Inventory.Remove(discardItemId);
+		var quantityToAdd = Math.Min(Math.Max(1, pendingQuantity), MaxConsumableStackQuantity);
+		Inventory[pendingItemId] = Inventory.GetValueOrDefault(pendingItemId) + quantityToAdd;
+		if (quantityToAdd < pendingQuantity)
+			GD.PushError($"GameState: Added {quantityToAdd} of consumable '{pendingItemId}' because consumable stacks are capped at {MaxConsumableStackQuantity}.");
+
+		ClearPendingConsumableGrant();
+		EmitChanged();
+		return true;
+	}
+
+	public void DeclinePendingConsumableGrant()
+	{
+		if (!HasPendingConsumableGrant)
+			return;
+
+		ClearPendingConsumableGrant();
+		EmitChanged();
+	}
+
+	public int ConsumeEachIngredient(int qty)
+	{
+		if (qty <= 0)
+			return 0;
+
+		var consumedCount = 0;
+		var ingredientIds = new List<string>();
+		foreach (var pair in Inventory)
+		{
+			if (pair.Value <= 0)
+				continue;
+			if (!_itemCatalog.IsIngredient(pair.Key))
+				continue;
+
+			ingredientIds.Add(pair.Key);
+		}
+
+		foreach (var ingredientId in ingredientIds)
+		{
+			var consumeQty = Math.Min(qty, Inventory.GetValueOrDefault(ingredientId));
+			if (consumeQty <= 0)
+				continue;
+
+			Inventory[ingredientId] -= consumeQty;
+			consumedCount += consumeQty;
+			if (Inventory[ingredientId] <= 0)
+				Inventory.Remove(ingredientId);
+		}
+
+		if (consumedCount > 0)
+			EmitChanged();
+
+		return consumedCount;
 	}
 
 	public static string BuildSeedId(string ingredientId)
@@ -699,8 +810,6 @@ public partial class GameState : Node
 
 		if (!_potionRecipes.ContainsKey(potionItemId))
 			_potionRecipes[potionItemId] = new List<string>(ingredientIds);
-
-		LearnPotion(potionItemId);
 	}
 
 	public bool TryGetPotionRecipe(string potionItemId, out List<string> ingredientIds)
@@ -984,6 +1093,126 @@ public partial class GameState : Node
 			return;
 
 		Inventory[itemId] = Inventory.GetValueOrDefault(itemId) + qty;
+	}
+
+	private int ResolveInventoryAddQuantity(string itemId, int requestedQuantity)
+	{
+		if (!_itemCatalog.IsPotion(itemId))
+		{
+			if (_itemCatalog.IsConsumable(itemId))
+				return ResolveConsumableInventoryAddQuantity(itemId, requestedQuantity);
+
+			return requestedQuantity;
+		}
+
+		var currentQuantity = Inventory.GetValueOrDefault(itemId);
+		if (currentQuantity <= 0 && CountInventoryPotionStacks() >= MaxUniquePotionInventoryQuantity)
+		{
+			GD.PushError($"GameState: Cannot add potion '{itemId}'. Potion inventory already has {MaxUniquePotionInventoryQuantity} unique potions.");
+			return 0;
+		}
+
+		var availableQuantity = MaxPotionStackQuantity - currentQuantity;
+		if (availableQuantity <= 0)
+		{
+			GD.PushError($"GameState: Cannot add potion '{itemId}'. Potion stack already has {MaxPotionStackQuantity} items.");
+			return 0;
+		}
+
+		var quantityToAdd = Math.Min(requestedQuantity, availableQuantity);
+		if (quantityToAdd < requestedQuantity)
+			GD.PushError($"GameState: Added {quantityToAdd} of potion '{itemId}' because potion stacks are capped at {MaxPotionStackQuantity}.");
+
+		return quantityToAdd;
+	}
+
+	private int ResolveConsumableInventoryAddQuantity(string itemId, int requestedQuantity)
+	{
+		var currentQuantity = Inventory.GetValueOrDefault(itemId);
+		if (currentQuantity <= 0 && CountInventoryConsumableStacks() >= MaxUniqueConsumableInventoryQuantity)
+		{
+			SetPendingConsumableGrant(itemId, requestedQuantity);
+			GD.PushError($"GameState: Cannot add consumable '{itemId}'. Consumable inventory already has {MaxUniqueConsumableInventoryQuantity} unique consumables.");
+			EmitChanged();
+			return 0;
+		}
+
+		var availableQuantity = MaxConsumableStackQuantity - currentQuantity;
+		if (availableQuantity <= 0)
+		{
+			GD.PushError($"GameState: Cannot add consumable '{itemId}'. Consumable stack already has {MaxConsumableStackQuantity} items.");
+			return 0;
+		}
+
+		var quantityToAdd = Math.Min(requestedQuantity, availableQuantity);
+		if (quantityToAdd < requestedQuantity)
+			GD.PushError($"GameState: Added {quantityToAdd} of consumable '{itemId}' because consumable stacks are capped at {MaxConsumableStackQuantity}.");
+
+		return quantityToAdd;
+	}
+
+	private int CountInventoryPotionStacks()
+	{
+		var count = 0;
+		foreach (var pair in Inventory)
+		{
+			if (pair.Value <= 0)
+				continue;
+			if (!_itemCatalog.IsPotion(pair.Key))
+				continue;
+
+			count++;
+		}
+
+		return count;
+	}
+
+	public int CountOwnedUniquePotions()
+	{
+		return CountInventoryPotionStacks();
+	}
+
+	public int CountOwnedUniqueConsumables()
+	{
+		return CountInventoryConsumableStacks();
+	}
+
+	private int CountInventoryConsumableStacks()
+	{
+		var count = 0;
+		foreach (var pair in Inventory)
+		{
+			if (pair.Value <= 0)
+				continue;
+			if (!_itemCatalog.IsConsumable(pair.Key))
+				continue;
+
+			count++;
+		}
+
+		return count;
+	}
+
+	private void SetPendingConsumableGrant(string itemId, int quantity)
+	{
+		PendingConsumableItemId = itemId;
+		PendingConsumableQuantity = Math.Max(1, quantity);
+	}
+
+	private void ClearPendingConsumableGrant()
+	{
+		PendingConsumableItemId = string.Empty;
+		PendingConsumableQuantity = 0;
+	}
+
+	private void RestorePendingConsumableGrant(string itemId, int quantity)
+	{
+		if (string.IsNullOrWhiteSpace(itemId) || quantity <= 0)
+			return;
+		if (!_itemCatalog.TryGetItem(itemId, out _) || !_itemCatalog.IsConsumable(itemId))
+			return;
+
+		SetPendingConsumableGrant(itemId, quantity);
 	}
 
 	private static bool IsIngredient(ItemDef item)

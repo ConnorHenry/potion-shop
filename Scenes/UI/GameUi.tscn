@@ -1,4 +1,4 @@
-[gd_scene load_steps=18 format=3 uid="uid://4hripc13we86"]
+[gd_scene load_steps=19 format=3 uid="uid://4hripc13we86"]
 
 [ext_resource type="PackedScene" uid="uid://cikvfbes8y0kf" path="res://Scenes/UI/Hud.tscn" id="1_hud"]
 [ext_resource type="Script" uid="uid://hkjdjmtp1abw" path="res://Scripts/UI/EventModal.cs" id="2_8y3f6"]
@@ -16,6 +16,7 @@
 [ext_resource type="Texture2D" uid="uid://bygvuw1k7loxa" path="res://Assets/Items/sight_tonic.svg" id="17_sight_tonic"]
 [ext_resource type="PackedScene" uid="uid://q4276gq8k64i" path="res://Scenes/UI/PotionBookPanel.tscn" id="18_potion_book"]
 [ext_resource type="PackedScene" uid="uid://dux1kpmnsmdmo" path="res://Scenes/UI/TutorialOverlay.tscn" id="19_tutorial_overlay"]
+[ext_resource type="Script" uid="uid://yqvlygg1780" path="res://Scripts/UI/TreatmentTray.cs" id="20_treatment_tray"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_inventory_detail_root"]
 content_margin_left = 14.0
@@ -55,13 +56,12 @@ ItemDetailTopCloseButtonPath = NodePath("")
 [node name="InventoryItemDetail" type="Control" parent="."]
 z_index = 2000
 layout_mode = 3
-anchors_preset = 15
+anchors_preset = 10
 anchor_right = 1.0
-anchor_bottom = 1.0
 offset_left = 188.0
 offset_top = 56.0
 offset_right = -701.0
-offset_bottom = -319.0
+offset_bottom = 398.0
 grow_horizontal = 2
 grow_vertical = 2
 theme = ExtResource("16_brew_theme")
@@ -88,7 +88,6 @@ theme_override_constants/margin_bottom = 12
 [node name="VBox" type="VBoxContainer" parent="InventoryItemDetail/Panel/Margin"]
 layout_mode = 2
 size_flags_horizontal = 3
-size_flags_vertical = 3
 theme_override_constants/separation = 9
 
 [node name="TopRow" type="HBoxContainer" parent="InventoryItemDetail/Panel/Margin/VBox"]
@@ -113,12 +112,11 @@ size_flags_horizontal = 3
 theme_override_constants/separation = 6
 
 [node name="Name" type="Label" parent="InventoryItemDetail/Panel/Margin/VBox/TopRow/Identity"]
-custom_minimum_size = Vector2(0, 46)
+custom_minimum_size = Vector2(0, 64)
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "Item Name"
 autowrap_mode = 3
-clip_text = true
 
 [node name="TypeTag" type="Label" parent="InventoryItemDetail/Panel/Margin/VBox/TopRow/Identity"]
 visible = false
@@ -178,7 +176,7 @@ text = "RISKS"
 [node name="Risks" type="RichTextLabel" parent="InventoryItemDetail/Panel/Margin/VBox/StatsRow/RisksColumn"]
 custom_minimum_size = Vector2(0, 72)
 layout_mode = 2
-theme_override_colors/default_color = Color(0.73, 0.74, 0.78, 1)
+theme_override_colors/default_color = Color(0.94, 0.32, 0.28, 1)
 text = "None"
 
 [node name="DetailsSeparator" type="HSeparator" parent="InventoryItemDetail/Panel/Margin/VBox"]
@@ -244,7 +242,18 @@ custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_type_variation = &"BrewActionButton"
-text = "Add to Brew"
+text = "Brew"
+
+[node name="AddToBook" type="Button" parent="InventoryItemDetail/Panel/Margin/VBox/Actions"]
+visible = false
+custom_minimum_size = Vector2(112, 40)
+layout_mode = 2
+text = "Add to Book"
+
+[node name="Discard" type="Button" parent="InventoryItemDetail/Panel/Margin/VBox/Actions"]
+custom_minimum_size = Vector2(92, 40)
+layout_mode = 2
+text = "Discard"
 
 [node name="CustomerPanel" type="Control" parent="."]
 layout_mode = 3
@@ -409,7 +418,7 @@ offset_top = -160.0
 offset_right = 220.0
 offset_bottom = 160.0
 script = ExtResource("12_6x1m8")
-DragHandlePath = NodePath("Margin/VBox/Header")
+DragHandlePath = NodePath("")
 
 [node name="Margin" type="MarginContainer" parent="CustomerSaleResultPanel"]
 layout_mode = 2
@@ -775,10 +784,11 @@ theme_override_font_sizes/font_size = 16
 horizontal_alignment = 1
 autowrap_mode = 3
 
-[node name="Result" type="Label" parent="BrewPanel/Panel/Margin/VBox"]
+[node name="Result" type="RichTextLabel" parent="BrewPanel/Panel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 58)
 layout_mode = 2
-theme_override_colors/font_color = Color(0.75, 0.76, 0.79, 1)
-autowrap_mode = 3
+theme_override_colors/default_color = Color(0.75, 0.76, 0.79, 1)
+fit_content = true
 
 [node name="Actions" type="HBoxContainer" parent="BrewPanel/Panel/Margin/VBox"]
 layout_mode = 2
@@ -808,6 +818,128 @@ layout_mode = 2
 texture = ExtResource("13_x17d0")
 expand_mode = 1
 stretch_mode = 5
+
+[node name="TreatmentTray" type="Control" parent="."]
+visible = false
+custom_minimum_size = Vector2(430, 286)
+layout_mode = 3
+anchors_preset = 0
+offset_left = 503.0
+offset_top = 104.0
+offset_right = 933.0
+offset_bottom = 390.0
+theme = ExtResource("16_brew_theme")
+script = ExtResource("20_treatment_tray")
+ConsumableDropBoxPath = NodePath("Panel/Margin/VBox/TrayRow/ConsumableSlot")
+TargetDropBoxPath = NodePath("Panel/Margin/VBox/TrayRow/TargetSlot")
+ConsumableIconPath = NodePath("Panel/Margin/VBox/TrayRow/ConsumableSlot/Content/Icon")
+TargetIconPath = NodePath("Panel/Margin/VBox/TrayRow/TargetSlot/Content/Icon")
+ConsumableNamePath = NodePath("Panel/Margin/VBox/TrayRow/ConsumableSlot/Content/Name")
+TargetNamePath = NodePath("Panel/Margin/VBox/TrayRow/TargetSlot/Content/Name")
+StatusLabelPath = NodePath("Panel/Margin/VBox/Status")
+ApplyButtonPath = NodePath("Panel/Margin/VBox/Actions/Apply")
+ClearButtonPath = NodePath("Panel/Margin/VBox/Actions/Clear")
+
+[node name="Panel" type="PanelContainer" parent="TreatmentTray"]
+custom_minimum_size = Vector2(430, 286)
+layout_mode = 0
+offset_right = 430.0
+offset_bottom = 286.0
+theme_type_variation = &"BrewRoot"
+script = ExtResource("12_6x1m8")
+DragHandlePath = NodePath("")
+
+[node name="Margin" type="MarginContainer" parent="TreatmentTray/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="VBox" type="VBoxContainer" parent="TreatmentTray/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Header" type="Label" parent="TreatmentTray/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Treatment Tray"
+
+[node name="TrayRow" type="HBoxContainer" parent="TreatmentTray/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="ConsumableSlot" type="PanelContainer" parent="TreatmentTray/Panel/Margin/VBox/TrayRow"]
+custom_minimum_size = Vector2(190, 128)
+layout_mode = 2
+size_flags_horizontal = 3
+script = ExtResource("10_odm4o")
+
+[node name="Content" type="VBoxContainer" parent="TreatmentTray/Panel/Margin/VBox/TrayRow/ConsumableSlot"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Icon" type="TextureRect" parent="TreatmentTray/Panel/Margin/VBox/TrayRow/ConsumableSlot/Content"]
+custom_minimum_size = Vector2(0, 72)
+layout_mode = 2
+size_flags_vertical = 3
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Name" type="Label" parent="TreatmentTray/Panel/Margin/VBox/TrayRow/ConsumableSlot/Content"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Drop consumable"
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="TargetSlot" type="PanelContainer" parent="TreatmentTray/Panel/Margin/VBox/TrayRow"]
+custom_minimum_size = Vector2(190, 128)
+layout_mode = 2
+size_flags_horizontal = 3
+script = ExtResource("10_odm4o")
+
+[node name="Content" type="VBoxContainer" parent="TreatmentTray/Panel/Margin/VBox/TrayRow/TargetSlot"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Icon" type="TextureRect" parent="TreatmentTray/Panel/Margin/VBox/TrayRow/TargetSlot/Content"]
+custom_minimum_size = Vector2(0, 72)
+layout_mode = 2
+size_flags_vertical = 3
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Name" type="Label" parent="TreatmentTray/Panel/Margin/VBox/TrayRow/TargetSlot/Content"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Drop item"
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="Status" type="Label" parent="TreatmentTray/Panel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.78, 0.79, 0.84, 1)
+text = "Choose a consumable and an item."
+autowrap_mode = 3
+
+[node name="Actions" type="HBoxContainer" parent="TreatmentTray/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Spacer" type="Control" parent="TreatmentTray/Panel/Margin/VBox/Actions"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Apply" type="Button" parent="TreatmentTray/Panel/Margin/VBox/Actions"]
+layout_mode = 2
+theme_type_variation = &"BrewActionButton"
+text = "Apply Treatment"
+
+[node name="Clear" type="Button" parent="TreatmentTray/Panel/Margin/VBox/Actions"]
+layout_mode = 2
+text = "Clear"
 
 [node name="PotionBookPanel" parent="." instance=ExtResource("18_potion_book")]
 offset_left = 118.0

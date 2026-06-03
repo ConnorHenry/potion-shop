@@ -15,4 +15,7 @@ public sealed class ItemDef
     public Dictionary<string, int> Traits { get; set; } = new();
     public Dictionary<string, int> Risks { get; set; } = new();
     public int BasePrice { get; set; }
+    public ConsumableEffectDef? ConsumableEffect { get; set; }
+    public ConsumableGateDef? ConsumableGate { get; set; }
+    public ItemTreatmentDef? Treatment { get; set; }
 }

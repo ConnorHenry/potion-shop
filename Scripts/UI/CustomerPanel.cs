@@ -36,7 +36,6 @@ public partial class CustomerPanel : Control
 	[Export] public NodePath SaleResultCloseButtonPath = default!;
 	[Export] public NodePath CloseButtonPath = default!;
 	[Export] public NodePath GameStatePath = new("/root/GameState");
-	[Export] public NodePath DataDbPath = new("/root/DataDb");
 	[Export] public NodePath ItemCatalogPath = new("/root/ItemCatalog");
 
 	private Label? _title;
@@ -57,7 +56,6 @@ public partial class CustomerPanel : Control
 	private CustomerInteractionDef? _interaction;
 	private readonly PotionBrewingService _brewingService = new();
 	private GameState _gameState = default!;
-	private DataDb _dataDb = default!;
 	private ItemCatalogService _itemCatalog = default!;
 	private bool _closeShopMode;
 	private bool _awaitingNextCustomer;
@@ -76,13 +74,6 @@ public partial class CustomerPanel : Control
 			return;
 		}
 
-		var dataDb = GetNodeOrNull<DataDb>(DataDbPath);
-		if (dataDb is null)
-		{
-			GD.PushError($"CustomerPanel: DataDb was not found at '{DataDbPath}'.");
-			return;
-		}
-
 		var itemCatalog = GetNodeOrNull<ItemCatalogService>(ItemCatalogPath);
 		if (itemCatalog is null)
 		{
@@ -91,7 +82,6 @@ public partial class CustomerPanel : Control
 		}
 
 		_gameState = gameState;
-		_dataDb = dataDb;
 		_itemCatalog = itemCatalog;
 
 		_title = ResolveOptionalNode(TitlePath, "TitlePath", GetNodeOrNull<Label>);
@@ -272,33 +262,9 @@ public partial class CustomerPanel : Control
 			return false;
 
 		var request = _interaction.BuildRequest();
-		var scoringIngredients = BuildScoringIngredients(itemId, item);
-		brewResult = _brewingService.BrewPotion(
-			scoringIngredients,
-			request,
-			_dataDb.Synergies.ToList());
+		brewResult = _brewingService.EvaluatePotionItem(item, request);
 
 		return true;
-	}
-
-	private List<IngredientDef> BuildScoringIngredients(string itemId, ItemDef fallbackPotionItem)
-	{
-		if (!_gameState.TryPeekPotionBatch(itemId, out var batchIngredientIds) || batchIngredientIds.Count == 0)
-			return new List<IngredientDef> { IngredientDefFactory.FromItemDef(fallbackPotionItem) };
-
-		var ingredients = new List<IngredientDef>();
-		foreach (var ingredientId in batchIngredientIds)
-		{
-			if (!_itemCatalog.TryGetItem(ingredientId, out var ingredientItem))
-				continue;
-
-			ingredients.Add(IngredientDefFactory.FromItemDef(ingredientItem));
-		}
-
-		if (ingredients.Count == 0)
-			return new List<IngredientDef> { IngredientDefFactory.FromItemDef(fallbackPotionItem) };
-
-		return ingredients;
 	}
 
 	private (bool IsSuccess, int GoldDelta, int DreadDelta) ApplySale(string itemId, PotionResult brewResult)

@@ -6,6 +6,10 @@ namespace OccultShop.Systems;
 
 public sealed class PotionInventoryBrewService
 {
+	public const int MaxUniquePotionInventoryQuantity = GameState.MaxUniquePotionInventoryQuantity;
+	public const int MaxPotionStackQuantity = GameState.MaxPotionStackQuantity;
+	public const string PotionInventoryFullMessage = "Potion inventory is full. Sell a potion before brewing another.";
+
 	private readonly GameState _gameState;
 	private readonly ItemCatalogService _itemCatalog;
 
@@ -60,12 +64,48 @@ public sealed class PotionInventoryBrewService
 		return true;
 	}
 
+	public int CountOwnedUniquePotions()
+	{
+		var count = 0;
+		foreach (var pair in _gameState.Inventory)
+		{
+			if (pair.Value <= 0)
+				continue;
+			if (!_itemCatalog.IsPotion(pair.Key))
+				continue;
+
+			count++;
+		}
+
+		return count;
+	}
+
+	public bool CanAddPotion(string potionItemId, int quantity = 1)
+	{
+		if (quantity <= 0)
+			return true;
+		if (string.IsNullOrWhiteSpace(potionItemId))
+			return false;
+
+		var currentQuantity = _gameState.Inventory.GetValueOrDefault(potionItemId);
+		if (currentQuantity + quantity > MaxPotionStackQuantity)
+			return false;
+
+		return currentQuantity > 0 || CountOwnedUniquePotions() < MaxUniquePotionInventoryQuantity;
+	}
+
 	public bool TryBrewPotion(string potionItemId, out string error)
 	{
 		error = string.Empty;
 
 		if (!TryGetRequiredIngredients(potionItemId, out var requiredIngredients, out error))
 			return false;
+
+		if (!CanAddPotion(potionItemId))
+		{
+			error = PotionInventoryFullMessage;
+			return false;
+		}
 
 		if (!HasRequiredIngredients(requiredIngredients))
 		{

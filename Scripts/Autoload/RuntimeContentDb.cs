@@ -328,7 +328,29 @@ public partial class RuntimeContentDb : Node
 			Quality = item.Quality,
 			Traits = item.Traits is null ? new Dictionary<string, int>() : new Dictionary<string, int>(item.Traits),
 			Risks = item.Risks is null ? new Dictionary<string, int>() : new Dictionary<string, int>(item.Risks),
-			BasePrice = item.BasePrice
+			BasePrice = item.BasePrice,
+			ConsumableEffect = item.ConsumableEffect is null
+				? null
+				: new ConsumableEffectDef
+				{
+					Kind = item.ConsumableEffect.Kind,
+					RiskId = item.ConsumableEffect.RiskId,
+					Description = item.ConsumableEffect.Description
+				},
+			ConsumableGate = item.ConsumableGate is null
+				? null
+				: new ConsumableGateDef
+				{
+					AllowedTargetTags = item.ConsumableGate.AllowedTargetTags?.ToList() ?? new List<string>()
+				},
+			Treatment = item.Treatment is null
+				? null
+				: new ItemTreatmentDef
+				{
+					BaseItemId = item.Treatment.BaseItemId,
+					ConsumableItemId = item.Treatment.ConsumableItemId,
+					RemovedRisk = item.Treatment.RemovedRisk
+				}
 		};
 	}
 

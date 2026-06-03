@@ -6,6 +6,7 @@ public sealed class PotionResult
 {
 	public Dictionary<string, int> Traits { get; set; } = new();
 	public Dictionary<string, int> Risks { get; set; } = new();
+	public Dictionary<string, int> PossibleRisks { get; set; } = new();
 
 	public List<string> TriggeredSynergies { get; set; } = new();
 	public List<TriggeredSynergyDef> TriggeredSynergyDetails { get; set; } = new();
@@ -15,6 +16,7 @@ public sealed class PotionResult
 	public int SynergyScore { get; set; }
 	public int StabilityScore { get; set; }
 	public int PenaltyScore { get; set; }
+	public int RiskIngredientPricePenalty { get; set; }
 
 	public float FinalScore { get; set; }
 	public string Grade { get; set; } = "";

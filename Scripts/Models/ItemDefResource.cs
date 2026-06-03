@@ -15,6 +15,13 @@ public partial class ItemDefResource : Resource
 	private Godot.Collections.Array<string> _tags = new();
 	private Godot.Collections.Dictionary<string, int> _traits = new();
 	private Godot.Collections.Dictionary<string, int> _risks = new();
+	private string _consumableEffectKind = string.Empty;
+	private string _consumableEffectRiskId = string.Empty;
+	private string _consumableEffectDescription = string.Empty;
+	private Godot.Collections.Array<string> _consumableAllowedTargetTags = new();
+	private string _treatmentBaseItemId = string.Empty;
+	private string _treatmentConsumableItemId = string.Empty;
+	private string _treatmentRemovedRisk = string.Empty;
 
 	[Export]
 	public string Id
@@ -91,6 +98,59 @@ public partial class ItemDefResource : Resource
 		}
 	}
 
+	[Export]
+	public string ConsumableEffectKind
+	{
+		get => _consumableEffectKind;
+		set => SetString(ref _consumableEffectKind, value);
+	}
+
+	[Export]
+	public string ConsumableEffectRiskId
+	{
+		get => _consumableEffectRiskId;
+		set => SetString(ref _consumableEffectRiskId, value);
+	}
+
+	[Export(PropertyHint.MultilineText)]
+	public string ConsumableEffectDescription
+	{
+		get => _consumableEffectDescription;
+		set => SetString(ref _consumableEffectDescription, value);
+	}
+
+	[Export]
+	public Godot.Collections.Array<string> ConsumableAllowedTargetTags
+	{
+		get => _consumableAllowedTargetTags;
+		set
+		{
+			_consumableAllowedTargetTags = value ?? new Godot.Collections.Array<string>();
+			EmitChanged();
+		}
+	}
+
+	[Export]
+	public string TreatmentBaseItemId
+	{
+		get => _treatmentBaseItemId;
+		set => SetString(ref _treatmentBaseItemId, value);
+	}
+
+	[Export]
+	public string TreatmentConsumableItemId
+	{
+		get => _treatmentConsumableItemId;
+		set => SetString(ref _treatmentConsumableItemId, value);
+	}
+
+	[Export]
+	public string TreatmentRemovedRisk
+	{
+		get => _treatmentRemovedRisk;
+		set => SetString(ref _treatmentRemovedRisk, value);
+	}
+
 	public ItemDef ToItemDef()
 	{
 		var tags = new List<string>(_tags.Count);
@@ -118,7 +178,7 @@ public partial class ItemDefResource : Resource
 			risks[pair.Key] = pair.Value;
 		}
 
-		return new ItemDef
+		var item = new ItemDef
 		{
 			Id = Id,
 			Name = Name,
@@ -130,6 +190,43 @@ public partial class ItemDefResource : Resource
 			Risks = risks,
 			BasePrice = BasePrice
 		};
+
+		if (!string.IsNullOrWhiteSpace(ConsumableEffectKind))
+		{
+			item.ConsumableEffect = new ConsumableEffectDef
+			{
+				Kind = ConsumableEffectKind,
+				RiskId = ConsumableEffectRiskId,
+				Description = ConsumableEffectDescription
+			};
+		}
+
+		var allowedTargetTags = new List<string>(_consumableAllowedTargetTags.Count);
+		foreach (var tag in _consumableAllowedTargetTags)
+		{
+			if (!string.IsNullOrWhiteSpace(tag))
+				allowedTargetTags.Add(tag);
+		}
+
+		if (allowedTargetTags.Count > 0)
+		{
+			item.ConsumableGate = new ConsumableGateDef
+			{
+				AllowedTargetTags = allowedTargetTags
+			};
+		}
+
+		if (!string.IsNullOrWhiteSpace(TreatmentBaseItemId) || !string.IsNullOrWhiteSpace(TreatmentConsumableItemId))
+		{
+			item.Treatment = new ItemTreatmentDef
+			{
+				BaseItemId = TreatmentBaseItemId,
+				ConsumableItemId = TreatmentConsumableItemId,
+				RemovedRisk = TreatmentRemovedRisk
+			};
+		}
+
+		return item;
 	}
 
 	public static ItemDefResource FromItemDef(ItemDef item)
@@ -185,6 +282,25 @@ public partial class ItemDefResource : Resource
 		Tags = tags;
 		Traits = traits;
 		Risks = risks;
+
+		ConsumableEffectKind = item.ConsumableEffect?.Kind ?? string.Empty;
+		ConsumableEffectRiskId = item.ConsumableEffect?.RiskId ?? string.Empty;
+		ConsumableEffectDescription = item.ConsumableEffect?.Description ?? string.Empty;
+
+		var allowedTargetTags = new Godot.Collections.Array<string>();
+		if (item.ConsumableGate?.AllowedTargetTags is not null)
+		{
+			foreach (var tag in item.ConsumableGate.AllowedTargetTags)
+			{
+				if (!string.IsNullOrWhiteSpace(tag))
+					allowedTargetTags.Add(tag);
+			}
+		}
+		ConsumableAllowedTargetTags = allowedTargetTags;
+
+		TreatmentBaseItemId = item.Treatment?.BaseItemId ?? string.Empty;
+		TreatmentConsumableItemId = item.Treatment?.ConsumableItemId ?? string.Empty;
+		TreatmentRemovedRisk = item.Treatment?.RemovedRisk ?? string.Empty;
 	}
 
 	private void SetString(ref string target, string? value)

@@ -61,6 +61,16 @@ public partial class ItemCatalogService : Node
 		return TryGetItem(itemId, out var item) && HasTag(item, "ingredient");
 	}
 
+	public bool IsConsumable(string itemId)
+	{
+		return TryGetItem(itemId, out var item) && HasTag(item, "consumable");
+	}
+
+	public bool IsTreatedItem(string itemId)
+	{
+		return TryGetItem(itemId, out var item) && item.Treatment is not null;
+	}
+
 	public static bool HasTag(ItemDef item, string tag)
 	{
 		if (item.Tags is null || string.IsNullOrWhiteSpace(tag))

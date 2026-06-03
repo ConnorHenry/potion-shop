@@ -21,6 +21,7 @@ public partial class Hud : Control
 	[Export] public NodePath SaveGameManagerPath = new("/root/SaveGameManager");
 	[Export] public NodePath DayControllerPath = new("/root/Main/DayController");
 	[Export] public NodePath BrewPanelPath = new("../BrewPanel");
+	[Export] public NodePath TreatmentTrayPanelPath = new("../TreatmentTray");
 	[Export] public NodePath RecipeBookPanelPath = new("../RecipeBookPanel");
 
 	private Label _gold = default!;
@@ -30,6 +31,7 @@ public partial class Hud : Control
 	private Button _endDayButton = default!;
 	private Button _serveCustomerButton = default!;
 	private Button _brewPotionButton = default!;
+	private Button _treatmentTrayButton = default!;
 	private Button _recipeBookButton = default!;
 	private Button _gardenButton = default!;
 	private Button _settingsButton = default!;
@@ -40,6 +42,7 @@ public partial class Hud : Control
 	private SaveGameManager? _saveGameManager;
 	private DayController? _dayController;
 	private Control? _brewPanel;
+	private Control? _treatmentTrayPanel;
 	private Control? _recipeBookPanel;
 	private Control _settingsPanel = default!;
 	private bool _isSavingGame;
@@ -74,6 +77,13 @@ public partial class Hud : Control
 			return;
 		}
 
+		var treatmentTrayPanel = GetNodeOrNull<Control>(TreatmentTrayPanelPath);
+		if (treatmentTrayPanel is null)
+		{
+			GD.PushError($"Hud: TreatmentTray was not found at '{TreatmentTrayPanelPath}'.");
+			return;
+		}
+
 		var recipeBookPanel = GetNodeOrNull<Control>(RecipeBookPanelPath);
 		if (recipeBookPanel is null)
 		{
@@ -85,6 +95,7 @@ public partial class Hud : Control
 		_saveGameManager = saveGameManager;
 		_dayController = dayController;
 		_brewPanel = brewPanel;
+		_treatmentTrayPanel = treatmentTrayPanel;
 		_recipeBookPanel = recipeBookPanel;
 
 		_gold = GetNode<Label>(GoldLabelPath);
@@ -100,6 +111,7 @@ public partial class Hud : Control
 		_endDayButton = GetNode<Button>("EndDay");
 		_serveCustomerButton = GetNode<Button>("ServeCustomer");
 		_brewPotionButton = GetNode<Button>("BrewPotion");
+		_treatmentTrayButton = GetNode<Button>("TreatmentTray");
 		_recipeBookButton = GetNode<Button>("RecipeBook");
 		_gardenButton = GetNode<Button>("Garden");
 		_settingsButton = GetNode<Button>("MainMenu");
@@ -114,6 +126,7 @@ public partial class Hud : Control
 		_endDayButton.Pressed += OnEndDayPressed;
 		_serveCustomerButton.Pressed += OnStartDayPressed;
 		_brewPotionButton.Pressed += OnBrewPotionPressed;
+		_treatmentTrayButton.Pressed += OnTreatmentTrayPressed;
 		_recipeBookButton.Pressed += OnRecipeBookPressed;
 		_gardenButton.Pressed += OnGardenPressed;
 		_settingsButton.Pressed += OnSettingsPressed;
@@ -142,6 +155,8 @@ public partial class Hud : Control
 			_serveCustomerButton.Pressed -= OnStartDayPressed;
 		if (_brewPotionButton is not null)
 			_brewPotionButton.Pressed -= OnBrewPotionPressed;
+		if (_treatmentTrayButton is not null)
+			_treatmentTrayButton.Pressed -= OnTreatmentTrayPressed;
 		if (_recipeBookButton is not null)
 			_recipeBookButton.Pressed -= OnRecipeBookPressed;
 		if (_gardenButton is not null)
@@ -207,6 +222,20 @@ public partial class Hud : Control
 			return;
 
 		_brewPanel.Visible = !_brewPanel.Visible;
+	}
+
+	private void OnTreatmentTrayPressed()
+	{
+		if (_treatmentTrayPanel is null)
+			return;
+
+		if (_treatmentTrayPanel is TreatmentTray treatmentTray)
+		{
+			treatmentTray.Toggle();
+			return;
+		}
+
+		_treatmentTrayPanel.Visible = !_treatmentTrayPanel.Visible;
 	}
 
 	private void OnRecipeBookPressed()

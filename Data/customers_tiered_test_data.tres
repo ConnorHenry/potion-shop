@@ -1,0 +1,420 @@
+[gd_resource type="Resource" script_class="AuthoredCustomerInteractionsResource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Models/AuthoredCustomerInteractionsResource.cs" id="1"]
+
+[resource]
+script = ExtResource("1")
+Entries = [
+  {
+    "id": "tier1_sleep_draught",
+    "title": "Sleep Draught",
+    "text": "A tired customer rubs their eyes and asks for something simple to help them sleep through the night.",
+    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "pool": "tier1_simple",
+    "difficulty": 1,
+    "requires": {
+      "dayMin": 1,
+      "dayMax": 2
+    },
+    "weight": 10,
+    "desiredTraits": {
+      "rest": 5,
+      "calm": 2
+    },
+    "badTraits": {}
+  },
+  {
+    "id": "tier1_pain_relief_tonic",
+    "title": "Pain Relief Tonic",
+    "text": "A labourer clutches their back and asks for a straightforward tonic to soothe pain after a long week of hauling crates.",
+    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "pool": "tier1_simple",
+    "difficulty": 1,
+    "requires": {
+      "dayMin": 1,
+      "dayMax": 2
+    },
+    "weight": 10,
+    "desiredTraits": {
+      "soothe": 5,
+      "mend": 2
+    },
+    "badTraits": {}
+  },
+  {
+    "id": "tier1_focus_elixir",
+    "title": "Focus Elixir",
+    "text": "A student says their exam is tomorrow and asks for something to help their thoughts feel clear and steady.",
+    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "pool": "tier1_simple",
+    "difficulty": 1,
+    "requires": {
+      "dayMin": 1,
+      "dayMax": 2
+    },
+    "weight": 10,
+    "desiredTraits": {
+      "clarity": 5,
+      "calm": 2
+    },
+    "badTraits": {}
+  },
+  {
+    "id": "tier1_steady_hands_tincture",
+    "title": "Steady Hands Tincture",
+    "text": "A clockmaker says their hands shake around tiny gears and asks for a simple tincture to calm their nerves.",
+    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "pool": "tier1_simple",
+    "difficulty": 1,
+    "requires": {
+      "dayMin": 2,
+      "dayMax": 2
+    },
+    "weight": 10,
+    "desiredTraits": {
+      "calm": 5,
+      "clarity": 2
+    },
+    "badTraits": {}
+  },
+  {
+    "id": "tier2_clean_sleep_draught",
+    "title": "Clean Sleep Draught",
+    "text": "A customer needs sleep, but they refuse anything that might leave them sick in the morning.",
+    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "pool": "tier2_risk",
+    "difficulty": 2,
+    "requires": {
+      "dayMin": 3,
+      "dayMax": 4
+    },
+    "weight": 10,
+    "desiredTraits": {
+      "rest": 5,
+      "calm": 3,
+      "dream": 1
+    },
+    "badTraits": {
+      "nausea": 5
+    }
+  },
+  {
+    "id": "tier2_dawn_energy_tonic",
+    "title": "Dawn Energy Tonic",
+    "text": "A baker has ovens to tend before sunrise and needs energy without anything that will keep them awake tomorrow night.",
+    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "pool": "tier2_risk",
+    "difficulty": 2,
+    "requires": {
+      "dayMin": 3,
+      "dayMax": 4
+    },
+    "weight": 10,
+    "desiredTraits": {
+      "vigor": 5,
+      "clarity": 3,
+      "calm": 1
+    },
+    "badTraits": {
+      "insomnia": 5
+    }
+  },
+  {
+    "id": "tier2_clear_voice_balm",
+    "title": "Clear Voice Balm",
+    "text": "A market singer croaks that their voice is nearly gone and asks for something soothing that will not darken their mood.",
+    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "pool": "tier2_risk",
+    "difficulty": 2,
+    "requires": {
+      "dayMin": 3,
+      "dayMax": 4
+    },
+    "weight": 10,
+    "desiredTraits": {
+      "soothe": 5,
+      "cleanse": 3,
+      "mend": 1
+    },
+    "badTraits": {
+      "melancholy": 5
+    }
+  },
+  {
+    "id": "tier2_uncorrupted_charm_philter",
+    "title": "Uncorrupted Charm Philter",
+    "text": "A hopeful customer wants to feel warm and appealing at a dance, but they are wary of anything with a corrupting edge.",
+    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "pool": "tier2_risk",
+    "difficulty": 2,
+    "requires": {
+      "dayMin": 4,
+      "dayMax": 4
+    },
+    "weight": 10,
+    "desiredTraits": {
+      "charm": 5,
+      "calm": 3,
+      "vigor": 1
+    },
+    "badTraits": {
+      "corruption": 5
+    }
+  },
+  {
+    "id": "tier3_nightmare_ward",
+    "title": "Nightmare Ward",
+    "text": "A nervous customer needs strong dreamwork and enough courage to face the same nightmare, but they cannot risk waking sick.",
+    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "pool": "tier3_threshold",
+    "difficulty": 3,
+    "requires": {
+      "dayMin": 5,
+      "dayMax": 6
+    },
+    "weight": 10,
+    "desiredTraits": {
+      "dream": 7,
+      "calm": 3,
+      "courage": 2
+    },
+    "badTraits": {
+      "nausea": 4
+    }
+  },
+  {
+    "id": "tier3_antidote_potion",
+    "title": "Antidote Potion",
+    "text": "A queasy customer drank something strange at the tavern and needs a strong cleanser that will settle the damage without corrupting them further.",
+    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "pool": "tier3_threshold",
+    "difficulty": 3,
+    "requires": {
+      "dayMin": 5,
+      "dayMax": 6
+    },
+    "weight": 10,
+    "desiredTraits": {
+      "cleanse": 7,
+      "soothe": 3,
+      "mend": 2
+    },
+    "badTraits": {
+      "corruption": 4
+    }
+  },
+  {
+    "id": "tier3_confidence_draught",
+    "title": "Confidence Draught",
+    "text": "A customer must speak before the council and needs clear courage, but nothing that leaves them sleepless or grim.",
+    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "pool": "tier3_threshold",
+    "difficulty": 3,
+    "requires": {
+      "dayMin": 5,
+      "dayMax": 6
+    },
+    "weight": 10,
+    "desiredTraits": {
+      "courage": 7,
+      "clarity": 3,
+      "calm": 2
+    },
+    "badTraits": {
+      "insomnia": 3,
+      "melancholy": 3
+    }
+  },
+  {
+    "id": "tier3_recovery_brew",
+    "title": "Recovery Brew",
+    "text": "A pale customer says the fever has passed, but their body still needs a strong mending brew without nausea.",
+    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "pool": "tier3_threshold",
+    "difficulty": 3,
+    "requires": {
+      "dayMin": 6,
+      "dayMax": 6
+    },
+    "weight": 10,
+    "desiredTraits": {
+      "mend": 7,
+      "rest": 3,
+      "cleanse": 2
+    },
+    "badTraits": {
+      "nausea": 5
+    }
+  },
+  {
+    "id": "tier4_moonlit_rest_draught",
+    "title": "Moonlit Rest Draught",
+    "text": "A night watch clerk points to the recipe book and asks for Moonlit Rest Draught by name, but they need it clean enough to avoid sickness and sleepless aftershocks.",
+    "characterImagePath": "res://Assets/Characters/rest_draught_customer.svg",
+    "pool": "tier4_recipe",
+    "difficulty": 4,
+    "requires": {
+      "dayMin": 7,
+      "dayMax": 8
+    },
+    "weight": 10,
+    "desiredTraits": {
+      "rest": 8,
+      "calm": 4,
+      "dream": 3
+    },
+    "badTraits": {
+      "nausea": 5,
+      "insomnia": 3
+    }
+  },
+  {
+    "id": "tier4_gravekeepers_balm",
+    "title": "Gravekeeper's Balm",
+    "text": "A cemetery keeper asks for Gravekeeper's Balm from the recipe book. They need a strong soothing balm that mends cleanly and carries no corruption.",
+    "characterImagePath": "res://Assets/Characters/gravekeepers_balm_customer.svg",
+    "pool": "tier4_recipe",
+    "difficulty": 4,
+    "requires": {
+      "dayMin": 7,
+      "dayMax": 8
+    },
+    "weight": 10,
+    "desiredTraits": {
+      "soothe": 8,
+      "mend": 4,
+      "cleanse": 3
+    },
+    "badTraits": {
+      "corruption": 5,
+      "melancholy": 3
+    }
+  },
+  {
+    "id": "tier4_silver_focus_tonic",
+    "title": "Silver Focus Tonic",
+    "text": "A junior magistrate asks for Silver Focus Tonic and insists the clarity must be sharp without leaving them melancholy or sleepless.",
+    "characterImagePath": "res://Assets/Characters/silver_focus_customer.svg",
+    "pool": "tier4_recipe",
+    "difficulty": 4,
+    "requires": {
+      "dayMin": 7,
+      "dayMax": 8
+    },
+    "weight": 10,
+    "desiredTraits": {
+      "clarity": 8,
+      "courage": 4,
+      "vigor": 3
+    },
+    "badTraits": {
+      "melancholy": 5,
+      "insomnia": 3
+    }
+  },
+  {
+    "id": "tier4_orchid_charm_philter",
+    "title": "Orchid Charm Philter",
+    "text": "A performer asks for Orchid Charm Philter by name. They need strong charm, calm stage presence, and no corrupting influence before the curtain rises.",
+    "characterImagePath": "res://Assets/Characters/orchid_charm_customer.svg",
+    "pool": "tier4_recipe",
+    "difficulty": 4,
+    "requires": {
+      "dayMin": 8,
+      "dayMax": 8
+    },
+    "weight": 10,
+    "desiredTraits": {
+      "charm": 8,
+      "calm": 4,
+      "dream": 3
+    },
+    "badTraits": {
+      "corruption": 6
+    }
+  },
+  {
+    "id": "tier5_curse_cleanser",
+    "title": "Curse Cleanser",
+    "text": "A frightened customer whispers that bad luck has followed them home. They need an especially strong cleanser, courage to endure it, and no trace of corruption or nausea.",
+    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "pool": "tier5_expert",
+    "difficulty": 5,
+    "requires": {
+      "dayMin": 9
+    },
+    "weight": 10,
+    "desiredTraits": {
+      "cleanse": 9,
+      "courage": 4,
+      "clarity": 3
+    },
+    "badTraits": {
+      "corruption": 6,
+      "nausea": 4
+    }
+  },
+  {
+    "id": "tier5_ravenheart_elixir",
+    "title": "Ravenheart Elixir",
+    "text": "A courier with a black sealed letter asks for Ravenheart Elixir. They need powerful courage and vigor, but cannot afford insomnia before crossing the old road.",
+    "characterImagePath": "res://Assets/Characters/ravenheart_customer.svg",
+    "pool": "tier5_expert",
+    "difficulty": 5,
+    "requires": {
+      "dayMin": 9
+    },
+    "weight": 10,
+    "desiredTraits": {
+      "courage": 9,
+      "vigor": 4,
+      "rest": 3
+    },
+    "badTraits": {
+      "insomnia": 6,
+      "nausea": 3
+    }
+  },
+  {
+    "id": "tier5_obsidian_mending_draught",
+    "title": "Obsidian Mending Draught",
+    "text": "A surgeon asks for a precise mending draught. It must mend strongly, keep the mind clear, and avoid melancholy during recovery.",
+    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "pool": "tier5_expert",
+    "difficulty": 5,
+    "requires": {
+      "dayMin": 9
+    },
+    "weight": 10,
+    "desiredTraits": {
+      "mend": 9,
+      "clarity": 4,
+      "soothe": 3
+    },
+    "badTraits": {
+      "melancholy": 6,
+      "corruption": 3
+    }
+  },
+  {
+    "id": "tier5_nightshade_reverie",
+    "title": "Nightshade Reverie",
+    "text": "A poet wants a vivid reverie for their final performance, but the mixture must be charming and dreamlike without corruption taking hold.",
+    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "pool": "tier5_expert",
+    "difficulty": 5,
+    "requires": {
+      "dayMin": 10
+    },
+    "weight": 10,
+    "desiredTraits": {
+      "dream": 9,
+      "charm": 4,
+      "vigor": 3
+    },
+    "badTraits": {
+      "corruption": 6,
+      "insomnia": 4
+    }
+  }
+]

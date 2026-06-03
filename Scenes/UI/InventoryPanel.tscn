@@ -18,8 +18,10 @@ grow_vertical = 2
 theme = ExtResource("2_brew_theme")
 script = ExtResource("1_5bh8f")
 PotionsContainerPath = NodePath("Panel/Margin/VBox/PotionsScroll/Potions")
+ConsumablesContainerPath = NodePath("Panel/Margin/VBox/ConsumablesScroll/Consumables")
 IngredientsContainerPath = NodePath("Panel/Margin/VBox/IngredientsScroll/Ingredients")
 PotionsSortButtonPath = NodePath("Panel/Margin/VBox/PotionsHeaderRow/Sort")
+ConsumablesSortButtonPath = NodePath("Panel/Margin/VBox/ConsumablesHeaderRow/Sort")
 PotionsTraitFilterPath = NodePath("Panel/Margin/VBox/PotionsHeaderRow/TraitFilter")
 PotionsRiskFilterPath = NodePath("Panel/Margin/VBox/PotionsHeaderRow/RiskFilter")
 PotionsClearFilterButtonPath = NodePath("Panel/Margin/VBox/PotionsHeaderRow/Clear")
@@ -40,6 +42,8 @@ ItemDetailDescriptionPath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/D
 ItemDetailOwnedPath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/TopRow/Identity/Owned")
 ItemDetailKnownRecipesPath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/RecipesFrame/RecipesMargin/RecipesScroll/Recipes")
 ItemDetailBrewButtonPath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/Actions/Brew")
+ItemDetailAddToPotionBookButtonPath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/Actions/AddToBook")
+ItemDetailDiscardButtonPath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/Actions/Discard")
 ItemDetailCloseButtonPath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/Actions/Close")
 ItemDetailTopCloseButtonPath = NodePath("../InventoryItemDetail/Panel/Margin/VBox/Header/Close")
 metadata/_edit_use_anchors_ = true
@@ -114,13 +118,50 @@ layout_mode = 2
 text = "A-Z"
 
 [node name="PotionsScroll" type="ScrollContainer" parent="Panel/Margin/VBox"]
-custom_minimum_size = Vector2(356, 170)
+custom_minimum_size = Vector2(356, 168)
 layout_mode = 2
 size_flags_horizontal = 3
-size_flags_vertical = 3
+size_flags_vertical = 0
 
 [node name="Potions" type="GridContainer" parent="Panel/Margin/VBox/PotionsScroll"]
-custom_minimum_size = Vector2(356, 154)
+custom_minimum_size = Vector2(356, 168)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 0
+theme_override_constants/h_separation = 10
+theme_override_constants/v_separation = 10
+columns = 4
+
+[node name="ConsumablesSectionHeader" type="Button" parent="Panel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 16
+text = "v Consumables (0)"
+
+[node name="ConsumablesHeaderRow" type="HBoxContainer" parent="Panel/Margin/VBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+alignment = 2
+
+[node name="ConsumablesHeader" type="Label" parent="Panel/Margin/VBox/ConsumablesHeaderRow"]
+visible = false
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Consumables"
+
+[node name="Sort" type="Button" parent="Panel/Margin/VBox/ConsumablesHeaderRow"]
+layout_mode = 2
+text = "A-Z"
+
+[node name="ConsumablesScroll" type="ScrollContainer" parent="Panel/Margin/VBox"]
+custom_minimum_size = Vector2(356, 168)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 0
+
+[node name="Consumables" type="GridContainer" parent="Panel/Margin/VBox/ConsumablesScroll"]
+custom_minimum_size = Vector2(356, 168)
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 0
@@ -166,13 +207,13 @@ layout_mode = 2
 text = "A-Z"
 
 [node name="IngredientsScroll" type="ScrollContainer" parent="Panel/Margin/VBox"]
-custom_minimum_size = Vector2(356, 170)
+custom_minimum_size = Vector2(356, 184)
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 
 [node name="Ingredients" type="GridContainer" parent="Panel/Margin/VBox/IngredientsScroll"]
-custom_minimum_size = Vector2(356, 154)
+custom_minimum_size = Vector2(356, 168)
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 0

@@ -60,7 +60,7 @@ public partial class BrewPanel : Control
 	private Label _ingredientSlotTwoLabel = default!;
 	private Label _ingredientSlotThreeLabel = default!;
 	private Label _potionNamePreviewLabel = default!;
-	private Label _resultLabel = default!;
+	private RichTextLabel _resultLabel = default!;
 	private Label _pricePreviewLabel = default!;
 	private Label _traitPreviewLabel = default!;
 	private Label _riskPreviewLabel = default!;
@@ -76,6 +76,7 @@ public partial class BrewPanel : Control
 	private readonly List<string> _queuedIngredients = new();
 	private readonly Dictionary<string, PotionRecipeDef> _predefinedPotionRecipesByCombination = new(System.StringComparer.OrdinalIgnoreCase);
 	private readonly PotionBrewingService _brewingService = new();
+	private PotionInventoryBrewService _inventoryBrewService = default!;
 	private string _previewPotionCombinationKey = string.Empty;
 	private string _previewPotionName = string.Empty;
 	private Control.GuiInputEventHandler? _slotOneGuiInputHandler;
@@ -119,6 +120,7 @@ public partial class BrewPanel : Control
 		_dataDb = dataDb;
 		_gameState = gameState;
 		_itemCatalog = itemCatalog;
+		_inventoryBrewService = new PotionInventoryBrewService(_gameState, _itemCatalog);
 		RebuildPredefinedPotionRecipeLookup();
 
 		_brewBox = GetNode<BrewDropBox>(BrewBoxPath);
@@ -132,7 +134,7 @@ public partial class BrewPanel : Control
 		_ingredientSlotTwoLabel = GetNode<Label>(IngredientSlotTwoLabelPath);
 		_ingredientSlotThreeLabel = GetNode<Label>(IngredientSlotThreeLabelPath);
 		_potionNamePreviewLabel = GetNode<Label>(PotionNamePreviewLabelPath);
-		_resultLabel = GetNode<Label>(ResultLabelPath);
+		_resultLabel = GetNode<RichTextLabel>(ResultLabelPath);
 		_pricePreviewLabel = GetNode<Label>(PricePreviewLabelPath);
 		_traitPreviewLabel = GetNode<Label>(TraitPreviewLabelPath);
 		_riskPreviewLabel = GetNode<Label>(RiskPreviewLabelPath);
@@ -141,6 +143,7 @@ public partial class BrewPanel : Control
 		_ingredientCountLabel = GetNode<Label>(IngredientCountLabelPath);
 		_brewButton = GetNode<Button>(BrewButtonPath);
 		_clearButton = GetNode<Button>(ClearButtonPath);
+		_resultLabel.BbcodeEnabled = true;
 
 		SetInteractiveCursor(_ingredientSlotOneContainer);
 		SetInteractiveCursor(_ingredientSlotTwoContainer);
@@ -332,27 +335,27 @@ public partial class BrewPanel : Control
 			null,
 			_dataDb.Synergies.ToList());
 
-		var potionBasePrice = CalculateIngredientTotalPrice(_queuedIngredients);
-		var brewCost = CalculateBrewCost(potionBasePrice, brewResult);
+		var totalIngredientPrice = CalculateIngredientTotalPrice(_queuedIngredients);
+		var potionBasePrice = Math.Max(0, totalIngredientPrice - brewResult.RiskIngredientPricePenalty);
+		var brewCost = CalculateBrewCost(totalIngredientPrice, brewResult);
 		if (_gameState.Gold < brewCost)
 		{
 			_resultLabel.Text = $"Need {brewCost} gold to brew this potion.";
 			return;
 		}
 
-		_gameState.AddGold(-brewCost);
-
 		var potionDisplayName = GetPreviewPotionName(combinationKey);
 		if (hasPredefinedRecipe)
 			potionDisplayName = predefinedRecipe.Name;
 		var isNewCombination = !_gameState.TryGetPotionForCombination(combinationKey, out var potionItemId);
+		var iconPath = string.Empty;
+		var potionTraits = BuildPotionTraitsForRegistration(brewResult, hasPredefinedRecipe ? predefinedRecipe : null);
 		if (isNewCombination)
 		{
 			potionItemId = hasPredefinedRecipe
 				? BuildPredefinedPotionItemId(predefinedRecipe.Id)
 				: $"brew_{_gameState.PotionDisplayNames.Count + 1}";
-			var iconPath = ResolvePotionIconPath();
-			var potionTraits = BuildPotionTraitsForRegistration(brewResult, hasPredefinedRecipe ? predefinedRecipe : null);
+			iconPath = ResolvePotionIconPath();
 
 			_runtimeContentDb.RegisterRuntimePotionItem(
 				potionItemId,
@@ -366,10 +369,47 @@ public partial class BrewPanel : Control
 			_gameState.SetPotionForCombination(combinationKey, potionItemId);
 			_gameState.SetPotionDisplayName(potionItemId, potionDisplayName);
 		}
-		else if (hasPredefinedRecipe)
+		else
 		{
-			_gameState.SetPotionDisplayName(potionItemId, predefinedRecipe.Name);
+			if (!_itemCatalog.TryGetItem(potionItemId, out var basePotionItem))
+			{
+				_resultLabel.Text = "Known potion recipe is missing from the item catalog.";
+				GD.PushError($"BrewPanel: Known potion item '{potionItemId}' is missing from the item catalog.");
+				return;
+			}
+
+			iconPath = string.IsNullOrWhiteSpace(basePotionItem.IconPath)
+				? ResolvePotionIconPath()
+				: basePotionItem.IconPath;
+
+			if (!RisksMatch(basePotionItem.Risks, brewResult.Risks))
+			{
+				var variantPotionItemId = BuildPotionRiskVariantItemId(potionItemId, brewResult.Risks);
+				if (!_itemCatalog.TryGetItem(variantPotionItemId, out _))
+				{
+					_runtimeContentDb.RegisterRuntimePotionItem(
+						variantPotionItemId,
+						potionDisplayName,
+						iconPath,
+						potionBasePrice,
+						brewResult.IngredientQualityScore,
+						potionTraits,
+						new Dictionary<string, int>(brewResult.Risks));
+				}
+
+				potionItemId = variantPotionItemId;
+			}
+
+			_gameState.SetPotionDisplayName(potionItemId, potionDisplayName);
 		}
+
+		if (!_inventoryBrewService.CanAddPotion(potionItemId, BrewedPotionOutputQuantity))
+		{
+			_resultLabel.Text = PotionInventoryBrewService.PotionInventoryFullMessage;
+			return;
+		}
+
+		_gameState.AddGold(-brewCost);
 
 		_gameState.RegisterPotionBasePrice(potionItemId, potionBasePrice);
 		_runtimeContentDb.TrySetRuntimeItemBasePrice(potionItemId, potionBasePrice);
@@ -508,16 +548,16 @@ public partial class BrewPanel : Control
 		_potionNamePreviewLabel.Text = GetPreviewPotionName(combinationKey);
 		_potionNamePreviewLabel.AddThemeColorOverride("font_color", new Color(0.95f, 0.96f, 0.98f, 1f));
 
-		var previewResult = _brewingService.BrewPotion(
+		var previewResult = _brewingService.PreviewPotion(
 			ingredientDefs,
 			null,
 			_dataDb.Synergies.ToList());
 
 		_traitPreviewLabel.Text = BuildStatListText(previewResult.Traits, 3);
-		_riskPreviewLabel.Text = previewResult.Risks.Count == 0
+		_riskPreviewLabel.Text = previewResult.PossibleRisks.Count == 0
 			? "None detected"
-			: BuildStatListText(previewResult.Risks, 2);
-		SetRiskStatusPreview(previewResult.Risks.Count == 0);
+			: BuildRiskChanceListText(previewResult.PossibleRisks, 2);
+		SetRiskStatusPreview(previewResult.PossibleRisks.Count == 0);
 	}
 
 	private void SetIncompletePreviewState()
@@ -667,6 +707,94 @@ public partial class BrewPanel : Control
 		return $"potion_{recipeId}";
 	}
 
+	private static string BuildPotionRiskVariantItemId(string basePotionItemId, IReadOnlyDictionary<string, int> carriedRisks)
+	{
+		var activeRiskKeys = carriedRisks
+			.Where(x => !string.IsNullOrWhiteSpace(x.Key) && x.Value > 0)
+			.Select(x => NormalizeVariantIdPart(x.Key))
+			.Where(x => !string.IsNullOrWhiteSpace(x))
+			.OrderBy(x => x, System.StringComparer.OrdinalIgnoreCase)
+			.ToList();
+
+		var riskSignature = activeRiskKeys.Count == 0
+			? "clean"
+			: string.Join("_", activeRiskKeys);
+
+		return $"{basePotionItemId}__risk_{riskSignature}";
+	}
+
+	private static bool RisksMatch(
+		IReadOnlyDictionary<string, int>? existingRisks,
+		IReadOnlyDictionary<string, int> carriedRisks)
+	{
+		var normalizedExisting = NormalizeCarriedRisks(existingRisks);
+		var normalizedCarried = NormalizeCarriedRisks(carriedRisks);
+
+		if (normalizedExisting.Count != normalizedCarried.Count)
+			return false;
+
+		foreach (var risk in normalizedExisting)
+		{
+			if (!normalizedCarried.Any(x => string.Equals(x, risk, System.StringComparison.OrdinalIgnoreCase)))
+				return false;
+		}
+
+		return true;
+	}
+
+	private static List<string> NormalizeCarriedRisks(IReadOnlyDictionary<string, int>? risks)
+	{
+		var normalized = new List<string>();
+		if (risks is null)
+			return normalized;
+
+		foreach (var risk in risks)
+		{
+			if (string.IsNullOrWhiteSpace(risk.Key) || risk.Value <= 0)
+				continue;
+
+			var normalizedKey = risk.Key.Trim();
+			if (normalized.Any(x => string.Equals(x, normalizedKey, System.StringComparison.OrdinalIgnoreCase)))
+				continue;
+
+			normalized.Add(normalizedKey);
+		}
+
+		normalized.Sort(System.StringComparer.OrdinalIgnoreCase);
+		return normalized;
+	}
+
+	private static string NormalizeVariantIdPart(string value)
+	{
+		var trimmed = value.Trim().ToLowerInvariant();
+		var chars = new char[trimmed.Length];
+		var count = 0;
+		var previousWasSeparator = false;
+
+		foreach (var character in trimmed)
+		{
+			if (char.IsLetterOrDigit(character))
+			{
+				chars[count] = character;
+				count += 1;
+				previousWasSeparator = false;
+				continue;
+			}
+
+			if (previousWasSeparator || count == 0)
+				continue;
+
+			chars[count] = '_';
+			count += 1;
+			previousWasSeparator = true;
+		}
+
+		if (count > 0 && chars[count - 1] == '_')
+			count -= 1;
+
+		return count == 0 ? string.Empty : new string(chars, 0, count);
+	}
+
 	private static Dictionary<string, int> BuildPotionTraitsForRegistration(PotionResult brewResult, PotionRecipeDef? predefinedRecipe)
 	{
 		if (predefinedRecipe is null || predefinedRecipe.Traits is null || predefinedRecipe.Traits.Count == 0)
@@ -704,6 +832,29 @@ public partial class BrewPanel : Control
 			return "None detected";
 
 		return string.Join("\n", lines);
+	}
+
+	private static string BuildRiskChanceListText(IReadOnlyDictionary<string, int> values, int maxCount)
+	{
+		if (values.Count == 0)
+			return "None detected";
+
+		var lines = values
+			.OrderByDescending(x => x.Value)
+			.ThenBy(x => x.Key)
+			.Take(maxCount)
+			.Select(x => $"{x.Key} {GetRiskChancePercent(x.Value)}%")
+			.ToList();
+
+		if (lines.Count == 0)
+			return "None detected";
+
+		return string.Join("\n", lines);
+	}
+
+	private static int GetRiskChancePercent(int chanceValue)
+	{
+		return System.Math.Clamp(chanceValue, 0, 10) * 10;
 	}
 
 	private static void SetInteractiveCursor(Control control)
@@ -862,38 +1013,54 @@ public partial class BrewPanel : Control
 
 	private string BuildBrewResultText(string potionItemId, PotionResult brewResult)
 	{
+		var potionName = PotionDisplayName(potionItemId, DefaultItemName(potionItemId));
 		var lines = new List<string>
 		{
-			$"Brewed: {PotionDisplayName(potionItemId, DefaultItemName(potionItemId))}"
+			$"Brewed: {EscapeBbCodeText(potionName)}"
 		};
+
+		foreach (var risk in brewResult.Risks
+			.Where(x => !string.IsNullOrWhiteSpace(x.Key) && x.Value > 0)
+			.OrderBy(x => x.Key))
+		{
+			lines.Add(
+				$"[color=#E7C84E]{EscapeBbCodeText(potionName)}[/color] has been tainted with - [color=#E64040]{EscapeBbCodeText(risk.Key)}[/color]");
+		}
 
 		if (brewResult.TriggeredSynergyDetails.Count == 0)
 			return string.Join("\n", lines);
 
 		foreach (var synergy in brewResult.TriggeredSynergyDetails)
 		{
-			lines.Add($"Synergy triggered: {synergy.Id}");
+			lines.Add($"Synergy triggered: {EscapeBbCodeText(synergy.Id)}");
 
 			var contributingTraits = synergy.ContributingTraits.Count == 0
 				? "None"
 				: string.Join(", ", synergy.ContributingTraits
 					.OrderBy(x => x.Key)
-					.Select(x => $"{x.Key} {x.Value}"));
+					.Select(x => $"{EscapeBbCodeText(x.Key)} {x.Value}"));
 
 			var contributingRisks = synergy.ContributingRisks.Count == 0
 				? "None"
 				: string.Join(", ", synergy.ContributingRisks
 					.OrderBy(x => x.Key)
-					.Select(x => $"{x.Key} {x.Value}"));
+					.Select(x => $"{EscapeBbCodeText(x.Key)} {x.Value}"));
 
 			lines.Add($"Traits: {contributingTraits}");
 			lines.Add($"Risks: {contributingRisks}");
 
 			if (!string.IsNullOrWhiteSpace(synergy.Description))
-				lines.Add(synergy.Description);
+				lines.Add(EscapeBbCodeText(synergy.Description));
 		}
 
 		return string.Join("\n", lines);
+	}
+
+	private static string EscapeBbCodeText(string text)
+	{
+		return text
+			.Replace("[", "[lb]")
+			.Replace("]", "[rb]");
 	}
 
 	private int CalculateBrewCost(int totalIngredientPrice, PotionResult brewResult)

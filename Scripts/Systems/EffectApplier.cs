@@ -18,5 +18,8 @@ public static class EffectApplier
 
         if (!string.IsNullOrWhiteSpace(e.ConsumeItemId))
             state.ConsumeItem(e.ConsumeItemId!, e.ConsumeItemQty ?? 1);
+
+        if (e.ConsumeEachIngredientQty is int ingredientQty)
+            state.ConsumeEachIngredient(ingredientQty);
     }
 }

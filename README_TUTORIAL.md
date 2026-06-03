@@ -28,7 +28,7 @@ The project targets Godot 4.4 + C#.
   - Overlay drawing/highlight logic.
 - `Scenes/UI/TutorialOverlay.tscn`
   - Overlay node tree and styling.
-- `tests/PotionBrewingService.Tests/Program.cs`
+- `tests/PotionBrewingService.Tests/TutorialTests.cs`
   - Source-contract tests for tutorial wiring/architecture.
 
 ## Add A New Tutorial Step
@@ -44,7 +44,7 @@ The project targets Godot 4.4 + C#.
 5. If needed, update timer/input lock behavior:
    - `UpdateShopTimerPause(...)`
    - `UpdateTutorialButtonLock(...)`
-6. Update tests in `tests/PotionBrewingService.Tests/Program.cs` to cover the new wiring/contract.
+6. Update the relevant grouped test file in `tests/PotionBrewingService.Tests/` to cover the new wiring/contract.
 7. Validate:
    - `dotnet build`
    - `dotnet run --project .\tests\PotionBrewingService.Tests\PotionBrewingService.Tests.csproj`
@@ -137,4 +137,4 @@ If you want a new manual step after `Status`:
 - Wrong highlight target:
   - Verify target node lookup and `ShowStep(...)` case wiring.
 - Failing source-contract tests:
-  - Update relevant assertions in `tests/PotionBrewingService.Tests/Program.cs` when intended architecture changes.
+  - Update relevant assertions in the grouped test files under `tests/PotionBrewingService.Tests/` when intended architecture changes.

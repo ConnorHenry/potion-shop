@@ -12,6 +12,7 @@ public static class IngredientDefFactory
 			Id = item.Id,
 			Name = item.Name,
 			Quality = item.Quality,
+			BasePrice = item.BasePrice,
 			Traits = new Dictionary<string, int>(item.Traits),
 			Risks = new Dictionary<string, int>(item.Risks),
 			Tags = new List<string>(item.Tags)

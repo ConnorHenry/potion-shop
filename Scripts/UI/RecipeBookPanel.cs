@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Linq;
 using Godot;
 using OccultShop.Autoload;
+using OccultShop.Models;
 using OccultShop.Systems;
 
 namespace OccultShop.UI;
@@ -362,7 +363,7 @@ public partial class RecipeBookPanel : Control
 
 		var risksColumn = CreateDetailsColumn(
 			"Risks",
-			BuildStatLines(item.Risks, new Color("ff5959"), 2),
+			BuildStatLines(item.Risks, new Color("ff5959"), 2, showValues: false),
 			new Color("ff5757"),
 			1.5f);
 
@@ -430,7 +431,11 @@ public partial class RecipeBookPanel : Control
 		return column;
 	}
 
-	private static IReadOnlyList<(string Text, Color Color)> BuildStatLines(Dictionary<string, int> values, Color valueColor, int maxCount)
+	private static IReadOnlyList<(string Text, Color Color)> BuildStatLines(
+		Dictionary<string, int> values,
+		Color valueColor,
+		int maxCount,
+		bool showValues = true)
 	{
 		var lines = new List<(string Text, Color Color)>();
 		var sortedValues = values is null
@@ -447,7 +452,10 @@ public partial class RecipeBookPanel : Control
 			if (consumed >= maxCount)
 				break;
 
-			lines.Add(($"{ToDisplayStatName(entry.Key)} +{entry.Value}", valueColor));
+			var text = showValues
+				? $"{ToDisplayStatName(entry.Key)} +{entry.Value}"
+				: ToDisplayStatName(entry.Key);
+			lines.Add((text, valueColor));
 			consumed += 1;
 		}
 
@@ -595,12 +603,31 @@ public partial class RecipeBookPanel : Control
 		if (_brewService.TryBrewPotion(potionId, out var error))
 			return;
 
-		GD.PushError(error);
+		CursorToast.Show(this, error);
 	}
 
 	private bool IsKnownBrewedPotion(string potionId)
 	{
-		return _itemCatalog.IsPotion(potionId);
+		if (!_itemCatalog.TryGetItem(potionId, out var item))
+			return false;
+		if (item.Treatment is not null)
+			return false;
+
+		return ItemCatalogService.HasTag(item, "potion") && !HasActiveRisk(item);
+	}
+
+	private static bool HasActiveRisk(ItemDef item)
+	{
+		if (item.Risks is null || item.Risks.Count == 0)
+			return false;
+
+		foreach (var risk in item.Risks)
+		{
+			if (!string.IsNullOrWhiteSpace(risk.Key) && risk.Value > 0)
+				return true;
+		}
+
+		return false;
 	}
 
 	private string ItemName(string itemId)
@@ -617,5 +644,3 @@ public partial class RecipeBookPanel : Control
 	private readonly record struct LearnedPotionEntry(string PotionId, string Name);
 	private readonly record struct IngredientAvailabilityEntry(string DisplayName, bool IsAvailable);
 }
-
-

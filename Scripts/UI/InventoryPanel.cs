@@ -9,9 +9,10 @@ namespace OccultShop.UI;
 public partial class InventoryPanel : Control
 {
 	private const float SlotWidth = 112.0f;
-	private const float SlotHeight = 154.0f;
+	private const float SlotHeight = 168.0f;
 	private const float IconSize = 62.0f;
 	private const float SlotTraitTagHeight = 22.0f;
+	private const int SlotNameFontSize = 14;
 	private const float InventoryPanelMinimumWidth = 450.0f;
 	private static bool ShowInventorySlotTooltips = false;
 
@@ -19,12 +20,16 @@ public partial class InventoryPanel : Control
 	public delegate void ItemDetailShownEventHandler(string itemId);
 
 	[Export] public NodePath PotionsContainerPath = default!;
+	[Export] public NodePath ConsumablesContainerPath = default!;
 	[Export] public NodePath IngredientsContainerPath = default!;
 	[Export] public NodePath PotionsSectionHeaderPath = new("Panel/Margin/VBox/PotionsSectionHeader");
+	[Export] public NodePath ConsumablesSectionHeaderPath = new("Panel/Margin/VBox/ConsumablesSectionHeader");
 	[Export] public NodePath IngredientsSectionHeaderPath = new("Panel/Margin/VBox/IngredientsSectionHeader");
 	[Export] public NodePath PotionsScrollPath = new("Panel/Margin/VBox/PotionsScroll");
+	[Export] public NodePath ConsumablesScrollPath = new("Panel/Margin/VBox/ConsumablesScroll");
 	[Export] public NodePath IngredientsScrollPath = new("Panel/Margin/VBox/IngredientsScroll");
 	[Export] public NodePath PotionsSortButtonPath = default!;
+	[Export] public NodePath ConsumablesSortButtonPath = default!;
 	[Export] public NodePath PotionsTraitFilterPath = default!;
 	[Export] public NodePath PotionsRiskFilterPath = default!;
 	[Export] public NodePath PotionsClearFilterButtonPath = default!;
@@ -46,18 +51,24 @@ public partial class InventoryPanel : Control
 	[Export] public NodePath ItemDetailOwnedPath = default!;
 	[Export] public NodePath ItemDetailKnownRecipesPath = default!;
 	[Export] public NodePath ItemDetailBrewButtonPath = default!;
+	[Export] public NodePath ItemDetailAddToPotionBookButtonPath = default!;
+	[Export] public NodePath ItemDetailDiscardButtonPath = default!;
 	[Export] public NodePath ItemDetailCloseButtonPath = default!;
 	[Export] public NodePath ItemDetailTopCloseButtonPath = default!;
 	[Export] public NodePath GameStatePath = new("/root/GameState");
 	[Export] public NodePath ItemCatalogPath = new("/root/ItemCatalog");
 
 	private GridContainer _potions = default!;
+	private GridContainer _consumables = default!;
 	private GridContainer _ingredients = default!;
 	private Button? _potionsSectionHeader;
+	private Button? _consumablesSectionHeader;
 	private Button? _ingredientsSectionHeader;
 	private Control? _potionsScroll;
+	private Control? _consumablesScroll;
 	private Control? _ingredientsScroll;
 	private Button _potionsSortButton = default!;
+	private Button _consumablesSortButton = default!;
 	private OptionButton? _potionsTraitFilter;
 	private OptionButton? _potionsRiskFilter;
 	private Button? _potionsClearFilterButton;
@@ -79,11 +90,15 @@ public partial class InventoryPanel : Control
 	private Label _itemDetailOwned = default!;
 	private VBoxContainer _itemDetailKnownRecipes = default!;
 	private Button _itemDetailBrewButton = default!;
+	private Button? _itemDetailAddToPotionBookButton;
+	private Button _itemDetailDiscardButton = default!;
 	private Button _itemDetailCloseButton = default!;
 	private Button? _itemDetailTopCloseButton;
 	private BrewPanel? _brewPanel;
 	private string? _currentItemId;
+	private bool _itemDetailResizeQueued;
 	private bool _potionsAscending = true;
+	private bool _consumablesAscending = true;
 	private bool _ingredientsAscending = true;
 	private string? _activePotionTraitFilter;
 	private string? _activePotionRiskFilter;
@@ -91,10 +106,14 @@ public partial class InventoryPanel : Control
 	private string? _activeIngredientRiskFilter;
 	private string? _activeIngredientTypeFilter;
 	private bool _potionsCollapsed;
+	private bool _consumablesCollapsed;
 	private bool _ingredientsCollapsed;
 	private PotionInventoryBrewService _brewService = default!;
 	private GameState _gameState = default!;
 	private ItemCatalogService _itemCatalog = default!;
+	private ConfirmationDialog? _pendingConsumableDialog;
+	private OptionButton? _pendingConsumableChoice;
+	private readonly List<string> _pendingConsumableDiscardIds = new();
 
 	private sealed class ItemTagDisplayRule
 	{
@@ -108,6 +127,8 @@ public partial class InventoryPanel : Control
 		new() { Tag = "herb", DisplayName = "Herb", VisibleToPlayer = true },
 		new() { Tag = "liquid", DisplayName = "Liquid", VisibleToPlayer = true },
 		new() { Tag = "catalyst", DisplayName = "Catalyst", VisibleToPlayer = true },
+		new() { Tag = "consumable", DisplayName = "Consumable", VisibleToPlayer = true },
+		new() { Tag = "treated", DisplayName = "Treated", VisibleToPlayer = true },
 		new() { Tag = "ingredient", DisplayName = "Ingredient", VisibleToPlayer = false }
 	};
 
@@ -139,12 +160,16 @@ public partial class InventoryPanel : Control
 		ApplyMinimumPanelWidth();
 
 		_potions = GetNode<GridContainer>(PotionsContainerPath);
+		_consumables = GetNode<GridContainer>(ConsumablesContainerPath);
 		_ingredients = GetNode<GridContainer>(IngredientsContainerPath);
 		_potionsSectionHeader = GetNodeOrNull<Button>(PotionsSectionHeaderPath);
+		_consumablesSectionHeader = GetNodeOrNull<Button>(ConsumablesSectionHeaderPath);
 		_ingredientsSectionHeader = GetNodeOrNull<Button>(IngredientsSectionHeaderPath);
 		_potionsScroll = GetNodeOrNull<Control>(PotionsScrollPath);
+		_consumablesScroll = GetNodeOrNull<Control>(ConsumablesScrollPath);
 		_ingredientsScroll = GetNodeOrNull<Control>(IngredientsScrollPath);
 		_potionsSortButton = GetNode<Button>(PotionsSortButtonPath);
+		_consumablesSortButton = GetNode<Button>(ConsumablesSortButtonPath);
 		_potionsTraitFilter = GetNodeOrNull<OptionButton>(PotionsTraitFilterPath);
 		_potionsRiskFilter = GetNodeOrNull<OptionButton>(PotionsRiskFilterPath);
 		_potionsClearFilterButton = GetNodeOrNull<Button>(PotionsClearFilterButtonPath);
@@ -170,6 +195,10 @@ public partial class InventoryPanel : Control
 		_itemDetailKnownRecipes = GetNode<VBoxContainer>(ItemDetailKnownRecipesPath);
 		_itemDetailDescription.BbcodeEnabled = true;
 		_itemDetailBrewButton = GetNode<Button>(ItemDetailBrewButtonPath);
+		_itemDetailAddToPotionBookButton = ItemDetailAddToPotionBookButtonPath is null || ItemDetailAddToPotionBookButtonPath.IsEmpty
+			? GetNodeOrNull<Button>(new NodePath("../InventoryItemDetail/Panel/Margin/VBox/Actions/AddToBook"))
+			: GetNodeOrNull<Button>(ItemDetailAddToPotionBookButtonPath);
+		_itemDetailDiscardButton = GetNode<Button>(ItemDetailDiscardButtonPath);
 		_itemDetailCloseButton = GetNode<Button>(ItemDetailCloseButtonPath);
 		_itemDetailTopCloseButton = ItemDetailTopCloseButtonPath is null || ItemDetailTopCloseButtonPath.IsEmpty
 			? null
@@ -179,11 +208,15 @@ public partial class InventoryPanel : Control
 		MouseFilter = MouseFilterEnum.Ignore;
 		_itemDetailPanel.MouseFilter = MouseFilterEnum.Ignore;
 		_itemDetailPanel.ZIndex = 2000;
+		CreatePendingConsumableDialog();
 		if (_potionsSectionHeader is not null)
 			_potionsSectionHeader.Pressed += TogglePotionsSection;
+		if (_consumablesSectionHeader is not null)
+			_consumablesSectionHeader.Pressed += ToggleConsumablesSection;
 		if (_ingredientsSectionHeader is not null)
 			_ingredientsSectionHeader.Pressed += ToggleIngredientsSection;
 		_potionsSortButton.Pressed += TogglePotionsSort;
+		_consumablesSortButton.Pressed += ToggleConsumablesSort;
 		_ingredientsSortButton.Pressed += ToggleIngredientsSort;
 		if (_potionsTraitFilter is not null)
 			_potionsTraitFilter.ItemSelected += OnPotionTraitSelected;
@@ -200,6 +233,9 @@ public partial class InventoryPanel : Control
 		if (_ingredientsClearFilterButton is not null)
 			_ingredientsClearFilterButton.Pressed += ClearIngredientFilters;
 		_itemDetailBrewButton.Pressed += TryUseSelectedItem;
+		if (_itemDetailAddToPotionBookButton is not null)
+			_itemDetailAddToPotionBookButton.Pressed += TryAddSelectedPotionToBook;
+		_itemDetailDiscardButton.Pressed += TryDiscardSelectedPotion;
 		_itemDetailCloseButton.Pressed += HideItemDetail;
 		if (_itemDetailTopCloseButton is not null)
 			_itemDetailTopCloseButton.Pressed += HideItemDetail;
@@ -211,6 +247,7 @@ public partial class InventoryPanel : Control
 		UpdateSortButtonLabels();
 		RefreshIngredientTypeFilterOptions();
 		Refresh();
+		UpdatePendingConsumableDialog();
 	}
 
 	public override void _ExitTree()
@@ -219,10 +256,14 @@ public partial class InventoryPanel : Control
 			_gameState.Changed -= Refresh;
 		if (_potionsSectionHeader is not null)
 			_potionsSectionHeader.Pressed -= TogglePotionsSection;
+		if (_consumablesSectionHeader is not null)
+			_consumablesSectionHeader.Pressed -= ToggleConsumablesSection;
 		if (_ingredientsSectionHeader is not null)
 			_ingredientsSectionHeader.Pressed -= ToggleIngredientsSection;
 		if (_potionsSortButton is not null)
 			_potionsSortButton.Pressed -= TogglePotionsSort;
+		if (_consumablesSortButton is not null)
+			_consumablesSortButton.Pressed -= ToggleConsumablesSort;
 		if (_ingredientsSortButton is not null)
 			_ingredientsSortButton.Pressed -= ToggleIngredientsSort;
 		if (_potionsTraitFilter is not null)
@@ -241,6 +282,10 @@ public partial class InventoryPanel : Control
 			_ingredientsClearFilterButton.Pressed -= ClearIngredientFilters;
 		if (_itemDetailBrewButton is not null)
 			_itemDetailBrewButton.Pressed -= TryUseSelectedItem;
+		if (_itemDetailAddToPotionBookButton is not null)
+			_itemDetailAddToPotionBookButton.Pressed -= TryAddSelectedPotionToBook;
+		if (_itemDetailDiscardButton is not null)
+			_itemDetailDiscardButton.Pressed -= TryDiscardSelectedPotion;
 		if (_itemDetailCloseButton is not null)
 			_itemDetailCloseButton.Pressed -= HideItemDetail;
 		if (_itemDetailTopCloseButton is not null)
@@ -252,7 +297,9 @@ public partial class InventoryPanel : Control
 		if (string.IsNullOrWhiteSpace(itemId))
 			return null;
 
-		return FindVisibleItemSlot(_potions, itemId) ?? FindVisibleItemSlot(_ingredients, itemId);
+		return FindVisibleItemSlot(_potions, itemId) ??
+			FindVisibleItemSlot(_consumables, itemId) ??
+			FindVisibleItemSlot(_ingredients, itemId);
 	}
 
 	public void ClearPotionFiltersForTutorial()
@@ -302,6 +349,13 @@ public partial class InventoryPanel : Control
 		Refresh();
 	}
 
+	private void ToggleConsumablesSort()
+	{
+		_consumablesAscending = !_consumablesAscending;
+		UpdateSortButtonLabels();
+		Refresh();
+	}
+
 	private void ToggleIngredientsSort()
 	{
 		_ingredientsAscending = !_ingredientsAscending;
@@ -315,6 +369,12 @@ public partial class InventoryPanel : Control
 		UpdateSectionVisibility();
 	}
 
+	private void ToggleConsumablesSection()
+	{
+		_consumablesCollapsed = !_consumablesCollapsed;
+		UpdateSectionVisibility();
+	}
+
 	private void ToggleIngredientsSection()
 	{
 		_ingredientsCollapsed = !_ingredientsCollapsed;
@@ -323,10 +383,12 @@ public partial class InventoryPanel : Control
 
 	private void Refresh()
 	{
-		if (_potions is null || _ingredients is null)
+		if (_potions is null || _consumables is null || _ingredients is null)
 			return;
 
 		foreach (var child in _potions.GetChildren())
+			child.QueueFree();
+		foreach (var child in _consumables.GetChildren())
 			child.QueueFree();
 		foreach (var child in _ingredients.GetChildren())
 			child.QueueFree();
@@ -335,7 +397,8 @@ public partial class InventoryPanel : Control
 			_ingredients.AddChild(new Label { Text = "Empty" });
 
 		var potionStacks = _gameState.Inventory.Where(x => IsPotion(x.Key)).ToList();
-		var ingredientStacks = _gameState.Inventory.Where(x => !IsPotion(x.Key)).ToList();
+		var consumableStacks = _gameState.Inventory.Where(x => IsConsumable(x.Key)).ToList();
+		var ingredientStacks = _gameState.Inventory.Where(x => !IsPotion(x.Key) && !IsConsumable(x.Key)).ToList();
 		var potionTraitNames = ItemFilterUtilities.BuildTopTraitNames(potionStacks.Select(x => x.Key), 3, _itemCatalog);
 		var potionRiskNames = ItemFilterUtilities.BuildRiskNames(potionStacks.Select(x => x.Key), _itemCatalog);
 		var ingredientTraitNames = ItemFilterUtilities.BuildTraitNames(ingredientStacks.Select(x => x.Key), _itemCatalog);
@@ -411,6 +474,17 @@ public partial class InventoryPanel : Control
 				_potions.AddChild(CreateSlot(stack.Key, stack.Value));
 		}
 
+		if (_consumablesAscending)
+		{
+			foreach (var stack in consumableStacks.OrderBy(x => ItemName(x.Key)).ThenBy(x => x.Key))
+				_consumables.AddChild(CreateSlot(stack.Key, stack.Value));
+		}
+		else
+		{
+			foreach (var stack in consumableStacks.OrderByDescending(x => ItemName(x.Key)).ThenByDescending(x => x.Key))
+				_consumables.AddChild(CreateSlot(stack.Key, stack.Value));
+		}
+
 		var ingredientStacksToRender = ingredientStacks;
 		if (_ingredientsTraitFilter is null)
 		{
@@ -451,7 +525,7 @@ public partial class InventoryPanel : Control
 				_ingredients.AddChild(CreateSlot(stack.Key, stack.Value));
 		}
 
-		UpdateSectionHeaders(potionStacksToRender.Count, ingredientStacksToRender.Count);
+		UpdateSectionHeaders(potionStacksToRender.Count, consumableStacks.Count, ingredientStacksToRender.Count);
 		UpdateSectionVisibility();
 		ItemFilterUtilities.RefreshFilterOptions(_potionsTraitFilter, potionTraitNames, "Trait", ref _activePotionTraitFilter);
 		ItemFilterUtilities.RefreshFilterOptions(_potionsRiskFilter, potionRiskNames, "Risk", ref _activePotionRiskFilter);
@@ -461,6 +535,7 @@ public partial class InventoryPanel : Control
 		RefreshCurrentItemDetail();
 		UpdateClearFilterButtonVisibility();
 		UpdateBrewButtonState();
+		UpdatePendingConsumableDialog();
 	}
 
 	private void RefreshIngredientTypeFilterOptions()
@@ -471,13 +546,17 @@ public partial class InventoryPanel : Control
 	private void UpdateSortButtonLabels()
 	{
 		_potionsSortButton.Text = _potionsAscending ? "A-Z" : "Z-A";
+		_consumablesSortButton.Text = _consumablesAscending ? "A-Z" : "Z-A";
 		_ingredientsSortButton.Text = _ingredientsAscending ? "A-Z" : "Z-A";
 	}
 
-	private void UpdateSectionHeaders(int visiblePotionCount, int visibleIngredientCount)
+	private void UpdateSectionHeaders(int visiblePotionCount, int visibleConsumableCount, int visibleIngredientCount)
 	{
 		if (_potionsSectionHeader is not null)
 			_potionsSectionHeader.Text = $"{(_potionsCollapsed ? ">" : "v")} Potions ({visiblePotionCount})";
+
+		if (_consumablesSectionHeader is not null)
+			_consumablesSectionHeader.Text = $"{(_consumablesCollapsed ? ">" : "v")} Consumables ({visibleConsumableCount})";
 
 		if (_ingredientsSectionHeader is not null)
 			_ingredientsSectionHeader.Text = $"{(_ingredientsCollapsed ? ">" : "v")} Ingredients ({visibleIngredientCount})";
@@ -487,6 +566,9 @@ public partial class InventoryPanel : Control
 	{
 		if (_potionsScroll is not null)
 			_potionsScroll.Visible = !_potionsCollapsed;
+
+		if (_consumablesScroll is not null)
+			_consumablesScroll.Visible = !_consumablesCollapsed;
 
 		if (_ingredientsScroll is not null)
 			_ingredientsScroll.Visible = !_ingredientsCollapsed;
@@ -526,6 +608,92 @@ public partial class InventoryPanel : Control
 		button.Disabled = !isActive;
 		button.MouseFilter = isActive ? MouseFilterEnum.Stop : MouseFilterEnum.Ignore;
 		button.Modulate = isActive ? Colors.White : new Color(1f, 1f, 1f, 0f);
+	}
+
+	private void CreatePendingConsumableDialog()
+	{
+		_pendingConsumableDialog = new ConfirmationDialog
+		{
+			Title = "Consumables Full",
+			DialogText = "Consumable inventory is full."
+		};
+		_pendingConsumableChoice = new OptionButton
+		{
+			CustomMinimumSize = new Vector2(0, 36),
+			SizeFlagsHorizontal = SizeFlags.ExpandFill
+		};
+
+		_pendingConsumableDialog.AddChild(_pendingConsumableChoice);
+		_pendingConsumableDialog.GetOkButton().Text = "Discard and Accept";
+		_pendingConsumableDialog.GetCancelButton().Text = "Decline";
+		_pendingConsumableDialog.Confirmed += OnPendingConsumableConfirmed;
+		_pendingConsumableDialog.GetCancelButton().Pressed += OnPendingConsumableDeclined;
+		AddChild(_pendingConsumableDialog);
+	}
+
+	private void UpdatePendingConsumableDialog()
+	{
+		if (_pendingConsumableDialog is null || _pendingConsumableChoice is null)
+			return;
+
+		if (!_gameState.HasPendingConsumableGrant)
+		{
+			if (_pendingConsumableDialog.Visible)
+				_pendingConsumableDialog.Hide();
+
+			return;
+		}
+
+		_pendingConsumableDiscardIds.Clear();
+		_pendingConsumableChoice.Clear();
+		foreach (var stack in _gameState.Inventory.OrderBy(x => ItemName(x.Key)).ThenBy(x => x.Key))
+		{
+			if (stack.Value <= 0)
+				continue;
+			if (!IsConsumable(stack.Key))
+				continue;
+
+			_pendingConsumableDiscardIds.Add(stack.Key);
+			_pendingConsumableChoice.AddItem($"{ItemName(stack.Key)} x{stack.Value}");
+		}
+
+		if (_pendingConsumableDiscardIds.Count == 0)
+		{
+			_gameState.DeclinePendingConsumableGrant();
+			return;
+		}
+
+		_pendingConsumableChoice.Selected = 0;
+		_pendingConsumableDialog.DialogText =
+			$"Accept {_gameState.PendingConsumableQuantity}x {ItemName(_gameState.PendingConsumableItemId)} by discarding one existing consumable stack?";
+		if (!_pendingConsumableDialog.Visible)
+			_pendingConsumableDialog.PopupCentered(new Vector2I(420, 220));
+	}
+
+	private void OnPendingConsumableConfirmed()
+	{
+		if (_pendingConsumableChoice is null)
+			return;
+
+		var selectedIndex = _pendingConsumableChoice.Selected;
+		if (selectedIndex < 0 || selectedIndex >= _pendingConsumableDiscardIds.Count)
+		{
+			CursorToast.Show(this, "Choose a consumable to discard.");
+			UpdatePendingConsumableDialog();
+			return;
+		}
+
+		var discardItemId = _pendingConsumableDiscardIds[selectedIndex];
+		if (!_gameState.TryAcceptPendingConsumableByDiscarding(discardItemId, out var error))
+		{
+			CursorToast.Show(this, error);
+			UpdatePendingConsumableDialog();
+		}
+	}
+
+	private void OnPendingConsumableDeclined()
+	{
+		_gameState.DeclinePendingConsumableGrant();
 	}
 
 	private void OnIngredientTraitSelected(long selectedIndex)
@@ -644,6 +812,7 @@ public partial class InventoryPanel : Control
 	{
 		var item = _itemCatalog.TryGetItem(itemId, out var def) ? def : null;
 		var itemName = DisplayName(itemId, item?.Name ?? itemId);
+		var shouldShowRiskNameColor = IsPotion(itemId) && HasActiveRisk(item);
 
 		var slot = new InventoryItemSlot
 		{
@@ -736,6 +905,9 @@ public partial class InventoryPanel : Control
 		name.Position = new Vector2(0, 0);
 		name.CustomMinimumSize = new Vector2(SlotWidth - 12, 0);
 		name.Size = new Vector2(SlotWidth - 12, 18);
+		name.AddThemeFontSizeOverride("font_size", SlotNameFontSize);
+		if (shouldShowRiskNameColor)
+			name.AddThemeColorOverride("font_color", new Color(0.9f, 0.25f, 0.25f, 1f));
 
 		nameBlock.AddChild(name);
 
@@ -753,6 +925,9 @@ public partial class InventoryPanel : Control
 				AutowrapMode = TextServer.AutowrapMode.Off,
 				ClipText = false
 			};
+			secondName.AddThemeFontSizeOverride("font_size", SlotNameFontSize);
+			if (shouldShowRiskNameColor)
+				secondName.AddThemeColorOverride("font_color", new Color(0.9f, 0.25f, 0.25f, 1f));
 
 			nameBlock.AddChild(secondName);
 		}
@@ -773,7 +948,7 @@ public partial class InventoryPanel : Control
 	{
 		var tag = new PanelContainer
 		{
-			Position = new Vector2(12, 126),
+			Position = new Vector2(12, 140),
 			CustomMinimumSize = new Vector2(SlotWidth - 24, SlotTraitTagHeight),
 			Size = new Vector2(SlotWidth - 24, SlotTraitTagHeight),
 			MouseFilter = MouseFilterEnum.Ignore
@@ -870,6 +1045,20 @@ public partial class InventoryPanel : Control
 		return itemName;
 	}
 
+	private static bool HasActiveRisk(ItemDef? item)
+	{
+		if (item?.Risks is null || item.Risks.Count == 0)
+			return false;
+
+		foreach (var risk in item.Risks)
+		{
+			if (!string.IsNullOrWhiteSpace(risk.Key) && risk.Value > 0)
+				return true;
+		}
+
+		return false;
+	}
+
 	private void ShowItemDetail(string itemId)
 	{
 		if (_itemDetailPanel.Visible && string.Equals(_currentItemId, itemId, System.StringComparison.OrdinalIgnoreCase))
@@ -886,6 +1075,7 @@ public partial class InventoryPanel : Control
 		_itemDetailPanel.Visible = true;
 		_itemDetailPanel.MoveToFront();
 		UpdateBrewButtonState();
+		QueueResizeItemDetailToContent();
 		EmitSignal(SignalName.ItemDetailShown, itemId);
 	}
 
@@ -923,6 +1113,8 @@ public partial class InventoryPanel : Control
 		_itemDetailImage.Texture = null;
 		_itemDetailTypeTag.Text = string.Empty;
 		_itemDetailTypeTag.Visible = false;
+		_itemDetailTraitsHeader.Text = "TRAITS";
+		_itemDetailRisksHeader.Text = "RISKS";
 		_itemDetailTraits.Text = "";
 		_itemDetailRisks.Text = "";
 		_itemDetailDescription.Text = "";
@@ -931,6 +1123,9 @@ public partial class InventoryPanel : Control
 		ClearKnownRecipeRows();
 		_itemDetailBrewButton.Visible = false;
 		_itemDetailBrewButton.Disabled = true;
+		HideAddToPotionBookButton();
+		_itemDetailDiscardButton.Visible = false;
+		_itemDetailDiscardButton.Disabled = true;
 		_itemDetailPanel.Visible = false;
 	}
 
@@ -943,16 +1138,59 @@ public partial class InventoryPanel : Control
 			return;
 
 		_itemDetailImage.Texture = UiIconLoader.LoadIcon(item.IconPath);
-		_itemDetailName.Text = DisplayName(_currentItemId, item.Name);
+		_itemDetailName.Text = FormatItemDetailName(DisplayName(_currentItemId, item.Name));
 		SetItemTypeTag(item);
 		_itemDetailOwned.Text = $"Owned: {_gameState.Inventory.GetValueOrDefault(_currentItemId)}";
 		_itemDetailPrice.Text = $"Sell Price: \u00A3{GetItemPrice(_currentItemId, item)}";
-		_itemDetailTraits.Text = FormatTopStats(item.Traits, 3);
-		_itemDetailRisks.Text = FormatTopStats(item.Risks, 3, "None");
-		_itemDetailDescription.Text = IsPotion(_currentItemId)
-			? _brewService.BuildPotionDescriptionText(_currentItemId, item.Description)
-			: item.Description;
+
+		if (IsConsumable(_currentItemId))
+		{
+			_itemDetailTraitsHeader.Text = "EFFECT";
+			_itemDetailRisksHeader.Text = "CAN USE ON";
+			_itemDetailTraits.Text = BuildConsumableEffectText(item);
+			_itemDetailRisks.Text = BuildConsumableGateText(item);
+			_itemDetailDescription.Text = item.Description;
+		}
+		else
+		{
+			_itemDetailTraitsHeader.Text = "TRAITS";
+			_itemDetailRisksHeader.Text = "RISKS";
+			_itemDetailTraits.Text = FormatTopStats(item.Traits, 3);
+			_itemDetailRisks.Text = IsPotion(_currentItemId)
+				? FormatTopStatNames(item.Risks, 3, "None")
+				: FormatTopStats(item.Risks, 3, "None");
+			_itemDetailDescription.Text = IsPotion(_currentItemId) && item.Treatment is null
+				? _brewService.BuildPotionDescriptionText(_currentItemId, item.Description)
+				: item.Description;
+		}
+
 		RefreshKnownRecipes(_currentItemId, item);
+	}
+
+	private void TryAddSelectedPotionToBook()
+	{
+		if (string.IsNullOrWhiteSpace(_currentItemId))
+			return;
+		if (!IsPotion(_currentItemId))
+			return;
+		if (!_itemCatalog.TryGetItem(_currentItemId, out var item))
+			return;
+		if (item.Treatment is not null)
+			return;
+		if (HasActiveRisk(item))
+			return;
+		if (_gameState.KnowsPotion(_currentItemId))
+			return;
+		if (!_gameState.TryGetPotionRecipe(_currentItemId, out var ingredientIds) || ingredientIds.Count == 0)
+		{
+			GD.PushError($"InventoryPanel: Cannot add potion '{_currentItemId}' to the potion book because no recipe is recorded.");
+			return;
+		}
+
+		_gameState.LearnPotion(_currentItemId);
+		RefreshCurrentItemDetail();
+		UpdateBrewButtonState();
+		QueueResizeItemDetailToContent();
 	}
 
 	private void TryUseSelectedItem()
@@ -980,13 +1218,113 @@ public partial class InventoryPanel : Control
 			return;
 
 		if (!_brewService.TryBrewPotion(_currentItemId, out var error))
-			GD.PushError(error);
+			CursorToast.Show(this, error);
 
 		UpdateBrewButtonState();
 	}
 
+	private void TryDiscardSelectedPotion()
+	{
+		if (string.IsNullOrWhiteSpace(_currentItemId))
+			return;
+
+		var itemId = _currentItemId;
+		if (IsConsumable(itemId))
+		{
+			TrySellSelectedConsumable(itemId);
+			return;
+		}
+
+		if (!IsPotion(itemId))
+			return;
+
+		if (!_gameState.ConsumeItem(itemId, 1))
+		{
+			GD.PushError($"InventoryPanel: Cannot discard potion '{itemId}' because it is not in inventory.");
+			return;
+		}
+
+		if (!_gameState.HasItem(itemId, 1))
+		{
+			HideItemDetail();
+			return;
+		}
+
+		RefreshCurrentItemDetail();
+		UpdateBrewButtonState();
+		QueueResizeItemDetailToContent();
+	}
+
+	private void TrySellSelectedConsumable(string itemId)
+	{
+		if (!_itemCatalog.TryGetItem(itemId, out var item))
+			return;
+
+		if (!_gameState.ConsumeItem(itemId, 1))
+		{
+			GD.PushError($"InventoryPanel: Cannot sell consumable '{itemId}' because it is not in inventory.");
+			return;
+		}
+
+		_gameState.AddGold(GetItemPrice(itemId, item));
+		if (!_gameState.HasItem(itemId, 1))
+		{
+			HideItemDetail();
+			return;
+		}
+
+		RefreshCurrentItemDetail();
+		UpdateBrewButtonState();
+		QueueResizeItemDetailToContent();
+	}
+
+	private void QueueResizeItemDetailToContent()
+	{
+		if (_itemDetailResizeQueued)
+			return;
+
+		_itemDetailResizeQueued = true;
+		Callable.From(ResizeItemDetailToContent).CallDeferred();
+	}
+
+	private void ResizeItemDetailToContent()
+	{
+		_itemDetailResizeQueued = false;
+
+		if (!_itemDetailPanel.Visible)
+			return;
+
+		var frame = GetItemDetailFrame();
+		if (frame is null)
+			return;
+
+		var minimumSize = frame.GetCombinedMinimumSize();
+		if (minimumSize.Y <= 0.0f)
+			return;
+
+		var width = frame.Size.X > 0.0f ? frame.Size.X : minimumSize.X;
+		var height = Mathf.Ceil(minimumSize.Y);
+		frame.Size = new Vector2(width, height);
+		_itemDetailPanel.Size = new Vector2(_itemDetailPanel.Size.X, height);
+	}
+
 	private void UpdateBrewButtonState()
 	{
+		if (!string.IsNullOrWhiteSpace(_currentItemId) && IsConsumable(_currentItemId))
+		{
+			_itemDetailBrewButton.Visible = false;
+			_itemDetailBrewButton.Disabled = true;
+			_itemDetailBrewButton.TooltipText = "";
+			HideAddToPotionBookButton();
+			_itemDetailDiscardButton.Text = "Sell";
+			_itemDetailDiscardButton.Visible = true;
+			_itemDetailDiscardButton.Disabled = !_gameState.HasItem(_currentItemId, 1);
+			_itemDetailDiscardButton.TooltipText = _itemDetailDiscardButton.Disabled
+				? "No stock available to sell."
+				: "Sell one consumable.";
+			return;
+		}
+
 		if (string.IsNullOrWhiteSpace(_currentItemId) || !IsPotion(_currentItemId))
 		{
 			if (!string.IsNullOrWhiteSpace(_currentItemId) && IsIngredient(_currentItemId))
@@ -997,17 +1335,30 @@ public partial class InventoryPanel : Control
 				_itemDetailBrewButton.TooltipText = _itemDetailBrewButton.Disabled
 					? "No stock available to add."
 					: "Add this ingredient to the brew panel.";
+				_itemDetailDiscardButton.Visible = false;
+				_itemDetailDiscardButton.Disabled = true;
+				HideAddToPotionBookButton();
 				return;
 			}
 
 			_itemDetailBrewButton.Visible = false;
 			_itemDetailBrewButton.Disabled = true;
 			_itemDetailBrewButton.TooltipText = "";
+			HideAddToPotionBookButton();
+			_itemDetailDiscardButton.Visible = false;
+			_itemDetailDiscardButton.Disabled = true;
 			return;
 		}
 
-		_itemDetailBrewButton.Text = "Brew This Potion";
+		_itemDetailBrewButton.Text = "Brew";
 		_itemDetailBrewButton.Visible = true;
+		_itemDetailDiscardButton.Text = "Discard";
+		_itemDetailDiscardButton.Visible = true;
+		_itemDetailDiscardButton.Disabled = !_gameState.HasItem(_currentItemId, 1);
+		_itemDetailDiscardButton.TooltipText = _itemDetailDiscardButton.Disabled
+			? "No stock available to discard."
+			: "Discard one potion from inventory.";
+		UpdateAddToPotionBookButtonState(_currentItemId);
 
 		if (!_brewService.TryGetRequiredIngredients(_currentItemId, out var requiredIngredients, out var error))
 		{
@@ -1016,11 +1367,59 @@ public partial class InventoryPanel : Control
 			return;
 		}
 
+		var isInPotionBook = _gameState.KnowsPotion(_currentItemId);
 		var hasIngredients = _brewService.HasRequiredIngredients(requiredIngredients);
-		_itemDetailBrewButton.Disabled = !hasIngredients;
-		_itemDetailBrewButton.TooltipText = hasIngredients
+		_itemDetailBrewButton.Disabled = !isInPotionBook || !hasIngredients;
+		_itemDetailBrewButton.TooltipText = !isInPotionBook
+			? "Add this potion to the potion book to unlock repeat brewing."
+			: hasIngredients
 			? "Brew this potion from discovered ingredients."
 			: _brewService.BuildMissingIngredientsText(requiredIngredients);
+	}
+
+	private void UpdateAddToPotionBookButtonState(string itemId)
+	{
+		if (_itemDetailAddToPotionBookButton is null)
+			return;
+
+		_itemDetailAddToPotionBookButton.Text = "Add to Book";
+		_itemDetailAddToPotionBookButton.Visible = false;
+		_itemDetailAddToPotionBookButton.Disabled = true;
+		_itemDetailAddToPotionBookButton.TooltipText = "";
+
+		if (string.IsNullOrWhiteSpace(itemId))
+			return;
+		if (!_itemCatalog.TryGetItem(itemId, out var item))
+			return;
+		if (!IsPotion(itemId))
+			return;
+		if (item.Treatment is not null)
+			return;
+		if (HasActiveRisk(item))
+			return;
+		if (_gameState.KnowsPotion(itemId))
+			return;
+
+		_itemDetailAddToPotionBookButton.Visible = true;
+		if (!_gameState.TryGetPotionRecipe(itemId, out var ingredientIds) || ingredientIds.Count == 0)
+		{
+			_itemDetailAddToPotionBookButton.Disabled = true;
+			_itemDetailAddToPotionBookButton.TooltipText = "No recipe is recorded for this potion.";
+			return;
+		}
+
+		_itemDetailAddToPotionBookButton.Disabled = false;
+		_itemDetailAddToPotionBookButton.TooltipText = "Add this clean potion to the potion book.";
+	}
+
+	private void HideAddToPotionBookButton()
+	{
+		if (_itemDetailAddToPotionBookButton is null)
+			return;
+
+		_itemDetailAddToPotionBookButton.Visible = false;
+		_itemDetailAddToPotionBookButton.Disabled = true;
+		_itemDetailAddToPotionBookButton.TooltipText = "";
 	}
 
 	private string ItemName(string itemId)
@@ -1069,14 +1468,75 @@ public partial class InventoryPanel : Control
 		secondLine = itemName[(firstSpaceIndex + 1)..];
 	}
 
+	private static string FormatItemDetailName(string itemName)
+	{
+		if (string.IsNullOrWhiteSpace(itemName))
+			return itemName;
+
+		var trimmedName = itemName.Trim();
+		var firstSpaceIndex = trimmedName.IndexOf(' ');
+		if (firstSpaceIndex <= 0 || firstSpaceIndex >= trimmedName.Length - 1)
+			return trimmedName;
+
+		if (trimmedName.IndexOf(' ', firstSpaceIndex + 1) >= 0)
+			return trimmedName;
+
+		return $"{trimmedName[..firstSpaceIndex]}\n{trimmedName[(firstSpaceIndex + 1)..]}";
+	}
+
 	private bool IsPotion(string itemId)
 	{
 		return _itemCatalog.IsPotion(itemId);
 	}
 
+	private bool IsConsumable(string itemId)
+	{
+		return _itemCatalog.IsConsumable(itemId);
+	}
+
 	private bool IsIngredient(string itemId)
 	{
 		return _itemCatalog.IsIngredient(itemId);
+	}
+
+	private static string BuildConsumableEffectText(ItemDef item)
+	{
+		if (item.ConsumableEffect is null)
+			return "Unknown";
+
+		if (!string.IsNullOrWhiteSpace(item.ConsumableEffect.Description))
+			return item.ConsumableEffect.Description;
+
+		if (string.Equals(item.ConsumableEffect.Kind, ConsumableEffectDef.RemoveRiskKind, System.StringComparison.OrdinalIgnoreCase))
+		{
+			return string.IsNullOrWhiteSpace(item.ConsumableEffect.RiskId)
+				? "Removes one risk from the selected item."
+				: $"Removes {DisplayStatName(item.ConsumableEffect.RiskId)} from the selected item.";
+		}
+
+		return DisplayStatName(item.ConsumableEffect.Kind);
+	}
+
+	private static string BuildConsumableGateText(ItemDef item)
+	{
+		var allowedTargetTags = item.ConsumableGate?.AllowedTargetTags;
+		if (allowedTargetTags is null || allowedTargetTags.Count == 0)
+			return "Ingredients\nPotions\n";
+
+		var lines = allowedTargetTags
+			.Where(tag => !string.IsNullOrWhiteSpace(tag))
+			.Select(DisplayStatName)
+			.OrderBy(tag => tag)
+			.Take(3)
+			.ToList();
+
+		if (lines.Count == 0)
+			lines.Add("Ingredients");
+
+		while (lines.Count < 3)
+			lines.Add(string.Empty);
+
+		return string.Join("\n", lines);
 	}
 
 	private bool ItemHasIngredientType(string itemId, string ingredientType)
@@ -1250,6 +1710,27 @@ public partial class InventoryPanel : Control
 				.ThenBy(x => x.Key)
 				.Take(maxCount)
 				.Select(x => $"{DisplayStatName(x.Key)} +{x.Value}"));
+		}
+
+		if (lines.Count == 0)
+			lines.Add(emptyLabel);
+
+		while (lines.Count < maxCount)
+			lines.Add(string.Empty);
+
+		return string.Join("\n", lines);
+	}
+
+	private static string FormatTopStatNames(Dictionary<string, int> values, int maxCount, string emptyLabel = "None")
+	{
+		var lines = new List<string>(maxCount);
+		if (values is not null)
+		{
+			lines.AddRange(values
+				.Where(x => !string.IsNullOrWhiteSpace(x.Key) && x.Value > 0)
+				.OrderBy(x => x.Key)
+				.Take(maxCount)
+				.Select(x => DisplayStatName(x.Key)));
 		}
 
 		if (lines.Count == 0)

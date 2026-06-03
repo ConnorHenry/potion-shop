@@ -64,17 +64,24 @@ offset_right = 700.0
 offset_bottom = 40.0
 text = "Brew Potion"
 
-[node name="RecipeBook" type="Button" parent="."]
+[node name="TreatmentTray" type="Button" parent="."]
 layout_mode = 0
 offset_left = 710.0
 offset_right = 840.0
+offset_bottom = 40.0
+text = "Treatment Tray"
+
+[node name="RecipeBook" type="Button" parent="."]
+layout_mode = 0
+offset_left = 850.0
+offset_right = 980.0
 offset_bottom = 40.0
 text = "Potion Book"
 
 [node name="Garden" type="Button" parent="."]
 layout_mode = 0
-offset_left = 850.0
-offset_right = 950.0
+offset_left = 990.0
+offset_right = 1090.0
 offset_bottom = 40.0
 text = "Garden"
 

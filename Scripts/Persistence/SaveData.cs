@@ -25,6 +25,8 @@ public sealed class GameStateSnapshot
 	public bool TutorialSkipped { get; set; }
 	public int TutorialStep { get; set; }
 	public Dictionary<string, int> Inventory { get; set; } = new();
+	public string PendingConsumableItemId { get; set; } = "";
+	public int PendingConsumableQuantity { get; set; }
 	public List<string> ActiveRules { get; set; } = new();
 	public List<string> StoryFlags { get; set; } = new();
 	public List<string> KnownPotions { get; set; } = new();
