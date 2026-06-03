@@ -5,7 +5,7 @@ namespace OccultShop.UI;
 
 public partial class InventoryDragPreview : Control
 {
-	[Export] public NodePath ItemCatalogPath = new("/root/ItemCatalog");
+	[Export] public NodePath ItemCatalogPath = new(AutoloadNodePaths.ItemCatalog);
 	[Export] public Vector2 DragPreviewOffset = new(5f, 5f);
 
 	private const float PreviewSize = 70f;

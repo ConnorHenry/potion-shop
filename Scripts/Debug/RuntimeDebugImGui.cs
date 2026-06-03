@@ -54,24 +54,24 @@ public partial class RuntimeDebugImGui : Node
 
 	public override void _Ready()
 	{
-		var gameState = GetNodeOrNull<GameState>("/root/GameState");
+		var gameState = GetNodeOrNull<GameState>(AutoloadNodePaths.GameState);
 		if (gameState is null)
 		{
-			GD.PushError("RuntimeDebugImGui: /root/GameState was not found.");
+			GD.PushError($"RuntimeDebugImGui: {AutoloadNodePaths.GameState} was not found.");
 			return;
 		}
 
-		var dataDb = GetNodeOrNull<DataDb>("/root/DataDb");
+		var dataDb = GetNodeOrNull<DataDb>(AutoloadNodePaths.DataDb);
 		if (dataDb is null)
 		{
-			GD.PushError("RuntimeDebugImGui: /root/DataDb was not found.");
+			GD.PushError($"RuntimeDebugImGui: {AutoloadNodePaths.DataDb} was not found.");
 			return;
 		}
 
-		var runtimeContentDb = GetNodeOrNull<RuntimeContentDb>("/root/RuntimeContentDb");
+		var runtimeContentDb = GetNodeOrNull<RuntimeContentDb>(AutoloadNodePaths.RuntimeContentDb);
 		if (runtimeContentDb is null)
 		{
-			GD.PushError("RuntimeDebugImGui: /root/RuntimeContentDb was not found.");
+			GD.PushError($"RuntimeDebugImGui: {AutoloadNodePaths.RuntimeContentDb} was not found.");
 			return;
 		}
 

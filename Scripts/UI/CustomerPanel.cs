@@ -35,8 +35,8 @@ public partial class CustomerPanel : Control
 	[Export] public NodePath SaleResultBodyPath = default!;
 	[Export] public NodePath SaleResultCloseButtonPath = default!;
 	[Export] public NodePath CloseButtonPath = default!;
-	[Export] public NodePath GameStatePath = new("/root/GameState");
-	[Export] public NodePath ItemCatalogPath = new("/root/ItemCatalog");
+	[Export] public NodePath GameStatePath = new(AutoloadNodePaths.GameState);
+	[Export] public NodePath ItemCatalogPath = new(AutoloadNodePaths.ItemCatalog);
 
 	private Label? _title;
 	private TextureRect _portrait = default!;

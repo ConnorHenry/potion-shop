@@ -21,8 +21,8 @@ public partial class GameState : Node
 	public const int MaxUniqueConsumableInventoryQuantity = 4;
 	public const int MaxConsumableStackQuantity = 10;
 
-	[Export] public NodePath DataDbPath { get; set; } = new("/root/DataDb");
-	[Export] public NodePath ItemCatalogPath { get; set; } = new("/root/ItemCatalog");
+	[Export] public NodePath DataDbPath { get; set; } = new(AutoloadNodePaths.DataDb);
+	[Export] public NodePath ItemCatalogPath { get; set; } = new(AutoloadNodePaths.ItemCatalog);
 
 	public int Day { get; private set; } = 1;
 	public int Gold { get; private set; } = 50000;
@@ -1220,7 +1220,7 @@ public partial class GameState : Node
 		if (item.Tags is null)
 			return false;
 
-		return item.Tags.Any(tag => string.Equals(tag, "ingredient", StringComparison.OrdinalIgnoreCase));
+		return item.Tags.Any(tag => string.Equals(tag, ItemTags.Ingredient, StringComparison.OrdinalIgnoreCase));
 	}
 
 	private Dictionary<string, List<string>> ClonePotionRecipes()

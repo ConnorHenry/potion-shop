@@ -15,9 +15,9 @@ public partial class Garden : Control
 	[Export] public NodePath SeedsContainerPath = default!;
 	[Export] public NodePath StatusLabelPath = default!;
 	[Export] public NodePath BackButtonPath = default!;
-	[Export] public NodePath GameStatePath = new("/root/GameState");
-	[Export] public NodePath ItemCatalogPath = new("/root/ItemCatalog");
-	[Export] public NodePath SaveGameManagerPath = new("/root/SaveGameManager");
+	[Export] public NodePath GameStatePath = new(AutoloadNodePaths.GameState);
+	[Export] public NodePath ItemCatalogPath = new(AutoloadNodePaths.ItemCatalog);
+	[Export] public NodePath SaveGameManagerPath = new(AutoloadNodePaths.SaveGameManager);
 
 	private GridContainer _potsContainer = default!;
 	private VBoxContainer _seedsContainer = default!;

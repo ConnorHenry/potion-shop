@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using Godot;
 using OccultShop.Models;
+using OccultShop.Systems;
 
 namespace OccultShop.Autoload;
 
@@ -66,6 +67,8 @@ public partial class DataDb : Node
 		_customerInteractions = ParseCustomerInteractions(customerInteractionsResource?.Entries ?? new Godot.Collections.Array());
 		_synergies = ParseSynergies(synergiesResource?.Entries ?? new Godot.Collections.Array());
 		_potionRecipes = ParsePotionRecipes(potionRecipesResource?.Entries ?? new Godot.Collections.Array());
+
+		AuthoredDataValidator.Validate(_items, _rules, _events, _customerInteractions, _potionRecipes);
 	}
 
 	private static TSection? LoadSection<TSection>(string path, string sectionName) where TSection : Resource

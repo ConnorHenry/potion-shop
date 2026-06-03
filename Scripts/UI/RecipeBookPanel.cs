@@ -25,8 +25,8 @@ public partial class RecipeBookPanel : Control
 	[Export] public NodePath RiskFilterPath = default!;
 	[Export] public NodePath SearchInputPath = default!;
 	[Export] public NodePath RecipesContainerPath = default!;
-	[Export] public NodePath GameStatePath = new("/root/GameState");
-	[Export] public NodePath ItemCatalogPath = new("/root/ItemCatalog");
+	[Export] public NodePath GameStatePath = new(AutoloadNodePaths.GameState);
+	[Export] public NodePath ItemCatalogPath = new(AutoloadNodePaths.ItemCatalog);
 
 	private Button _closeButton = default!;
 	private Button? _resetButton;

@@ -20,5 +20,5 @@ public static class ItemCatalog
 		return Service.IsPotion(itemId);
 	}
 
-	private static ItemCatalogService Service => ((SceneTree)Engine.GetMainLoop()).Root.GetNode<ItemCatalogService>("/root/ItemCatalog");
+	private static ItemCatalogService Service => ((SceneTree)Engine.GetMainLoop()).Root.GetNode<ItemCatalogService>(AutoloadNodePaths.ItemCatalog);
 }

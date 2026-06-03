@@ -1,5 +1,6 @@
 using Godot;
 using OccultShop.Autoload;
+using OccultShop.Infrastructure;
 using OccultShop.Persistence;
 
 namespace OccultShop.UI;
@@ -9,7 +10,7 @@ public partial class LoadGameMenu : Control
 	[Export] public NodePath SaveListPath = default!;
 	[Export] public NodePath EmptyStateLabelPath = default!;
 	[Export] public NodePath BackButtonPath = default!;
-	[Export] public NodePath SaveGameManagerPath = new("/root/SaveGameManager");
+	[Export] public NodePath SaveGameManagerPath = new(AutoloadNodePaths.SaveGameManager);
 
 	private VBoxContainer _saveList = default!;
 	private Label _emptyStateLabel = default!;
@@ -18,35 +19,22 @@ public partial class LoadGameMenu : Control
 
 	public override void _Ready()
 	{
-		var saveGameManager = GetNodeOrNull<SaveGameManager>(SaveGameManagerPath);
-		if (saveGameManager is null)
+		if (!NodeLookup.TryGetRequiredNode<SaveGameManager>(
+			this,
+			SaveGameManagerPath,
+			nameof(LoadGameMenu),
+			nameof(SaveGameManagerPath),
+			out _saveGameManager))
 		{
-			GD.PushError($"LoadGameMenu: SaveGameManager was not found at '{SaveGameManagerPath}'.");
-			return;
-		}
-		_saveGameManager = saveGameManager;
-
-		if (SaveListPath.IsEmpty)
-		{
-			GD.PushError("LoadGameMenu: SaveListPath is not assigned.");
 			return;
 		}
 
-		if (EmptyStateLabelPath.IsEmpty)
-		{
-			GD.PushError("LoadGameMenu: EmptyStateLabelPath is not assigned.");
+		if (!NodeLookup.TryGetRequiredNode<VBoxContainer>(this, SaveListPath, nameof(LoadGameMenu), nameof(SaveListPath), out _saveList))
 			return;
-		}
-
-		if (BackButtonPath.IsEmpty)
-		{
-			GD.PushError("LoadGameMenu: BackButtonPath is not assigned.");
+		if (!NodeLookup.TryGetRequiredNode<Label>(this, EmptyStateLabelPath, nameof(LoadGameMenu), nameof(EmptyStateLabelPath), out _emptyStateLabel))
 			return;
-		}
-
-		_saveList = GetNode<VBoxContainer>(SaveListPath);
-		_emptyStateLabel = GetNode<Label>(EmptyStateLabelPath);
-		_backButton = GetNode<Button>(BackButtonPath);
+		if (!NodeLookup.TryGetRequiredNode<Button>(this, BackButtonPath, nameof(LoadGameMenu), nameof(BackButtonPath), out _backButton))
+			return;
 
 		_backButton.Pressed += OnBackPressed;
 		RefreshSaveList();

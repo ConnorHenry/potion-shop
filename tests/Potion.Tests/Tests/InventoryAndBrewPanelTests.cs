@@ -456,7 +456,7 @@ internal static class InventoryAndBrewPanelTests
         AssertTrue("TreatmentService cleans treated potions back into matching potion stacks",
             treatmentService.Contains("TryBuildPotionTreatmentCandidate") &&
             treatmentService.Contains("GetBasePotionItemId") &&
-            treatmentService.Contains("BuildPotionRiskVariantItemId") &&
+            treatmentService.Contains("PotionVariantIdBuilder.BuildRiskVariantItemId") &&
             treatmentService.Contains("outputPotionItemId = basePotionItemId") &&
             treatmentService.Contains("new TreatmentCandidate(outputPotionItemId, null, removedRisk)"));
         AssertTrue("TreatmentService consumes exactly one consumable and one target item",
@@ -509,9 +509,9 @@ internal static class InventoryAndBrewPanelTests
         var brewPanel = ReadProjectFile("Scripts/UI/BrewPanel.cs");
 
         AssertTrue("BrewPanel compares the known potion risks against the new brew result",
-            brewPanel.Contains("RisksMatch(basePotionItem.Risks, brewResult.Risks)"));
+            brewPanel.Contains("PotionVariantIdBuilder.RisksMatch(basePotionItem.Risks, brewResult.Risks)"));
         AssertTrue("BrewPanel builds a distinct item id for changed carried risks",
-            brewPanel.Contains("BuildPotionRiskVariantItemId(potionItemId, brewResult.Risks)"));
+            brewPanel.Contains("PotionVariantIdBuilder.BuildRiskVariantItemId(potionItemId, brewResult.Risks)"));
         AssertTrue("BrewPanel registers the variant with the newly rolled risks",
             brewPanel.Contains("variantPotionItemId") &&
             brewPanel.Contains("new Dictionary<string, int>(brewResult.Risks)"));
@@ -529,18 +529,10 @@ internal static class InventoryAndBrewPanelTests
             ["ignored"] = 0
         };
 
-        var variantId = InvokePrivateStatic<string>(
-            "OccultShop.UI.BrewPanel",
-            "BuildPotionRiskVariantItemId",
-            "brew_1",
-            risks);
+        var variantId = PotionVariantIdBuilder.BuildRiskVariantItemId("brew_1", risks);
         AssertEqual("Risk variant id", "brew_1__risk_corruption_wasting_fever", variantId);
 
-        var cleanVariantId = InvokePrivateStatic<string>(
-            "OccultShop.UI.BrewPanel",
-            "BuildPotionRiskVariantItemId",
-            "brew_1",
-            new Dictionary<string, int>());
+        var cleanVariantId = PotionVariantIdBuilder.BuildRiskVariantItemId("brew_1", new Dictionary<string, int>());
         AssertEqual("Clean variant id", "brew_1__risk_clean", cleanVariantId);
 
         var existingRisks = new Dictionary<string, int>
@@ -548,11 +540,7 @@ internal static class InventoryAndBrewPanelTests
             ["Corruption"] = 1,
             ["wasting fever"] = 1
         };
-        var risksMatch = InvokePrivateStatic<bool>(
-            "OccultShop.UI.BrewPanel",
-            "RisksMatch",
-            existingRisks,
-            risks);
+        var risksMatch = PotionVariantIdBuilder.RisksMatch(existingRisks, risks);
         AssertTrue("Risk comparison ignores casing and zero values", risksMatch);
     }
 
