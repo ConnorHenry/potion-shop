@@ -17,8 +17,8 @@ public partial class Hud : Control
 	[Export] public NodePath DreadLabelPath = default!;
 	[Export] public NodePath DayLabelPath = default!;
 	[Export] public NodePath ShopTimerLabelPath = default!;
-	[Export] public NodePath GameStatePath = new("/root/GameState");
-	[Export] public NodePath SaveGameManagerPath = new("/root/SaveGameManager");
+	[Export] public NodePath GameStatePath = new(AutoloadNodePaths.GameState);
+	[Export] public NodePath SaveGameManagerPath = new(AutoloadNodePaths.SaveGameManager);
 	[Export] public NodePath DayControllerPath = new("/root/Main/DayController");
 	[Export] public NodePath BrewPanelPath = new("../BrewPanel");
 	[Export] public NodePath TreatmentTrayPanelPath = new("../TreatmentTray");

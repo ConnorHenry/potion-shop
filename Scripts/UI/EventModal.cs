@@ -11,7 +11,7 @@ public partial class EventModal : Control
     [Export] public NodePath BodyLabelPath = default!;
     [Export] public NodePath ChoicesContainerPath = default!;
     [Export] public NodePath CharacterImagePath = default!;
-    [Export] public NodePath GameStatePath = new("/root/GameState");
+    [Export] public NodePath GameStatePath = new(AutoloadNodePaths.GameState);
 
     private Label _title = default!;
     private RichTextLabel _body = default!;

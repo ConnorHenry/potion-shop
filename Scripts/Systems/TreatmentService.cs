@@ -8,9 +8,6 @@ namespace OccultShop.Systems;
 
 public sealed class TreatmentService
 {
-	private const string TreatedTag = "treated";
-	private const string PotionRiskVariantSeparator = "__risk_";
-
 	private readonly GameState _gameState;
 	private readonly ItemCatalogService _itemCatalog;
 	private readonly RuntimeContentDb _runtimeContentDb;
@@ -257,8 +254,8 @@ public sealed class TreatmentService
 			return potionCandidate;
 
 		var tags = target.Tags?.ToList() ?? new List<string>();
-		if (!tags.Any(tag => string.Equals(tag, TreatedTag, StringComparison.OrdinalIgnoreCase)))
-			tags.Add(TreatedTag);
+		if (!tags.Any(tag => string.Equals(tag, ItemTags.Treated, StringComparison.OrdinalIgnoreCase)))
+			tags.Add(ItemTags.Treated);
 
 		var displayTargetName = GetDisplayName(targetItemId, target.Name);
 		var displayConsumableName = GetDisplayName(consumableItemId, consumable.Name);
@@ -295,9 +292,14 @@ public sealed class TreatmentService
 	{
 		candidate = default!;
 		var basePotionItemId = GetBasePotionItemId(targetItemId);
-		var outputPotionItemId = BuildPotionRiskVariantItemId(basePotionItemId, remainingRisks);
-		if (string.Equals(outputPotionItemId, $"{basePotionItemId}{PotionRiskVariantSeparator}clean", StringComparison.OrdinalIgnoreCase))
+		var outputPotionItemId = PotionVariantIdBuilder.BuildRiskVariantItemId(basePotionItemId, remainingRisks);
+		if (string.Equals(
+			outputPotionItemId,
+			$"{basePotionItemId}{PotionVariantIdBuilder.RiskVariantSeparator}{PotionVariantIdBuilder.CleanRiskSignature}",
+			StringComparison.OrdinalIgnoreCase))
+		{
 			outputPotionItemId = basePotionItemId;
+		}
 
 		if (string.Equals(outputPotionItemId, targetItemId, StringComparison.OrdinalIgnoreCase))
 			return false;
@@ -314,7 +316,7 @@ public sealed class TreatmentService
 			Name = GetDisplayName(basePotionItemId, target.Name),
 			IconPath = target.IconPath,
 			Description = target.Description,
-			Tags = target.Tags?.Where(tag => !string.Equals(tag, TreatedTag, StringComparison.OrdinalIgnoreCase)).ToList() ?? new List<string>(),
+			Tags = target.Tags?.Where(tag => !string.Equals(tag, ItemTags.Treated, StringComparison.OrdinalIgnoreCase)).ToList() ?? new List<string>(),
 			Quality = target.Quality,
 			Traits = target.Traits is null ? new Dictionary<string, int>() : new Dictionary<string, int>(target.Traits),
 			Risks = new Dictionary<string, int>(remainingRisks, StringComparer.OrdinalIgnoreCase),
@@ -385,24 +387,8 @@ public sealed class TreatmentService
 
 	private static string GetBasePotionItemId(string potionItemId)
 	{
-		var riskSeparatorIndex = potionItemId.IndexOf(PotionRiskVariantSeparator, StringComparison.OrdinalIgnoreCase);
+		var riskSeparatorIndex = potionItemId.IndexOf(PotionVariantIdBuilder.RiskVariantSeparator, StringComparison.OrdinalIgnoreCase);
 		return riskSeparatorIndex < 0 ? potionItemId : potionItemId[..riskSeparatorIndex];
-	}
-
-	private static string BuildPotionRiskVariantItemId(string basePotionItemId, IReadOnlyDictionary<string, int> carriedRisks)
-	{
-		var activeRiskKeys = carriedRisks
-			.Where(x => !string.IsNullOrWhiteSpace(x.Key) && x.Value > 0)
-			.Select(x => NormalizeVariantIdPart(x.Key))
-			.Where(x => !string.IsNullOrWhiteSpace(x))
-			.OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
-			.ToList();
-
-		var riskSignature = activeRiskKeys.Count == 0
-			? "clean"
-			: string.Join("_", activeRiskKeys);
-
-		return $"{basePotionItemId}{PotionRiskVariantSeparator}{riskSignature}";
 	}
 
 	private static string NormalizeVariantIdPart(string value)

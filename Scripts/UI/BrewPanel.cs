@@ -19,9 +19,9 @@ public partial class BrewPanel : Control
 	private const string DefaultPotionIconPath = "res://Assets/Items/sight_tonic.svg";
 	private const string PotionIconsDirectoryPath = "res://Assets/Potions";
 	private const int BrewedPotionOutputQuantity = 1;
-	private const string HerbTypeTag = "herb";
-	private const string LiquidTypeTag = "liquid";
-	private const string CatalystTypeTag = "catalyst";
+	private const string HerbTypeTag = ItemTags.Herb;
+	private const string LiquidTypeTag = ItemTags.Liquid;
+	private const string CatalystTypeTag = ItemTags.Catalyst;
 
 	[Export] public NodePath BrewBoxPath = default!;
 	[Export] public NodePath IngredientSlotOnePath = default!;
@@ -43,10 +43,10 @@ public partial class BrewPanel : Control
 	[Export] public NodePath IngredientCountLabelPath = default!;
 	[Export] public NodePath BrewButtonPath = default!;
 	[Export] public NodePath ClearButtonPath = default!;
-	[Export] public NodePath RuntimeContentDbPath = new("/root/RuntimeContentDb");
-	[Export] public NodePath DataDbPath = new("/root/DataDb");
-	[Export] public NodePath GameStatePath = new("/root/GameState");
-	[Export] public NodePath ItemCatalogPath = new("/root/ItemCatalog");
+	[Export] public NodePath RuntimeContentDbPath = new(AutoloadNodePaths.RuntimeContentDb);
+	[Export] public NodePath DataDbPath = new(AutoloadNodePaths.DataDb);
+	[Export] public NodePath GameStatePath = new(AutoloadNodePaths.GameState);
+	[Export] public NodePath ItemCatalogPath = new(AutoloadNodePaths.ItemCatalog);
 
 	private Button _closeButton = default!;
 	private BrewDropBox _brewBox = default!;
@@ -74,7 +74,7 @@ public partial class BrewPanel : Control
 	private GameState _gameState = default!;
 	private ItemCatalogService _itemCatalog = default!;
 	private readonly List<string> _queuedIngredients = new();
-	private readonly Dictionary<string, PotionRecipeDef> _predefinedPotionRecipesByCombination = new(System.StringComparer.OrdinalIgnoreCase);
+	private readonly PotionRecipeLookup _predefinedPotionRecipes = new();
 	private readonly PotionBrewingService _brewingService = new();
 	private PotionInventoryBrewService _inventoryBrewService = default!;
 	private string _previewPotionCombinationKey = string.Empty;
@@ -270,7 +270,7 @@ public partial class BrewPanel : Control
 			itemId
 		};
 
-		var followsPredefinedRecipe = MatchesAnyPredefinedRecipePrefix(queuedWithCandidate);
+		var followsPredefinedRecipe = _predefinedPotionRecipes.MatchesAnyRecipePrefix(queuedWithCandidate);
 		if (!followsPredefinedRecipe)
 		{
 			if (!TryGetIngredientType(item, out _))
@@ -321,8 +321,8 @@ public partial class BrewPanel : Control
 			return;
 		}
 
-		var combinationKey = BuildCombinationKey(_queuedIngredients);
-		var hasPredefinedRecipe = TryGetPredefinedRecipe(combinationKey, out var predefinedRecipe);
+		var combinationKey = PotionRecipeLookup.BuildCombinationKey(_queuedIngredients);
+		var hasPredefinedRecipe = _predefinedPotionRecipes.TryGetRecipe(combinationKey, out var predefinedRecipe);
 
 		if (!TryBuildIngredientDefs(_queuedIngredients, out var ingredientDefs, out var ingredientError))
 		{
@@ -353,7 +353,7 @@ public partial class BrewPanel : Control
 		if (isNewCombination)
 		{
 			potionItemId = hasPredefinedRecipe
-				? BuildPredefinedPotionItemId(predefinedRecipe.Id)
+				? PotionVariantIdBuilder.BuildPredefinedPotionItemId(predefinedRecipe.Id)
 				: $"brew_{_gameState.PotionDisplayNames.Count + 1}";
 			iconPath = ResolvePotionIconPath();
 
@@ -382,9 +382,9 @@ public partial class BrewPanel : Control
 				? ResolvePotionIconPath()
 				: basePotionItem.IconPath;
 
-			if (!RisksMatch(basePotionItem.Risks, brewResult.Risks))
+			if (!PotionVariantIdBuilder.RisksMatch(basePotionItem.Risks, brewResult.Risks))
 			{
-				var variantPotionItemId = BuildPotionRiskVariantItemId(potionItemId, brewResult.Risks);
+				var variantPotionItemId = PotionVariantIdBuilder.BuildRiskVariantItemId(potionItemId, brewResult.Risks);
 				if (!_itemCatalog.TryGetItem(variantPotionItemId, out _))
 				{
 					_runtimeContentDb.RegisterRuntimePotionItem(
@@ -544,7 +544,7 @@ public partial class BrewPanel : Control
 			return;
 		}
 
-		var combinationKey = BuildCombinationKey(_queuedIngredients);
+		var combinationKey = PotionRecipeLookup.BuildCombinationKey(_queuedIngredients);
 		_potionNamePreviewLabel.Text = GetPreviewPotionName(combinationKey);
 		_potionNamePreviewLabel.AddThemeColorOverride("font_color", new Color(0.95f, 0.96f, 0.98f, 1f));
 
@@ -611,7 +611,7 @@ public partial class BrewPanel : Control
 			return _previewPotionName;
 		}
 
-		if (TryGetPredefinedRecipe(combinationKey, out var predefinedRecipe))
+		if (_predefinedPotionRecipes.TryGetRecipe(combinationKey, out var predefinedRecipe))
 		{
 			_previewPotionCombinationKey = combinationKey;
 			_previewPotionName = predefinedRecipe.Name;
@@ -623,176 +623,17 @@ public partial class BrewPanel : Control
 		return _previewPotionName;
 	}
 
-	private bool TryGetPredefinedRecipe(string combinationKey, out PotionRecipeDef recipe)
-	{
-		return _predefinedPotionRecipesByCombination.TryGetValue(combinationKey, out recipe!);
-	}
-
 	private void RebuildPredefinedPotionRecipeLookup()
 	{
-		_predefinedPotionRecipesByCombination.Clear();
-
-		foreach (var recipe in _dataDb.PotionRecipes)
-		{
-			if (recipe is null || string.IsNullOrWhiteSpace(recipe.Id) || string.IsNullOrWhiteSpace(recipe.Name))
-				continue;
-			if (recipe.IngredientIds is null || recipe.IngredientIds.Count != 3)
-			{
-				GD.PushError($"BrewPanel: Predefined recipe '{recipe.Id}' must define exactly 3 ingredients.");
-				continue;
-			}
-
-			var normalizedIngredientIds = recipe.IngredientIds
-				.Where(id => !string.IsNullOrWhiteSpace(id))
-				.Select(id => id.Trim())
-				.Distinct(System.StringComparer.OrdinalIgnoreCase)
-				.ToList();
-			if (normalizedIngredientIds.Count != 3)
-			{
-				GD.PushError($"BrewPanel: Predefined recipe '{recipe.Id}' includes duplicate or empty ingredient ids.");
-				continue;
-			}
-
-			var hasUnknownIngredient = false;
-			foreach (var ingredientId in normalizedIngredientIds)
-			{
-				if (!_itemCatalog.TryGetItem(ingredientId, out var ingredientItem) || !IsIngredient(ingredientItem))
-				{
-					GD.PushError($"BrewPanel: Predefined recipe '{recipe.Id}' references unknown ingredient '{ingredientId}'.");
-					hasUnknownIngredient = true;
-					break;
-				}
-			}
-
-			if (hasUnknownIngredient)
-				continue;
-
-			var combinationKey = BuildCombinationKey(normalizedIngredientIds);
-			if (_predefinedPotionRecipesByCombination.ContainsKey(combinationKey))
-			{
-				GD.PushError($"BrewPanel: Duplicate predefined recipe combination '{combinationKey}'.");
-				continue;
-			}
-
-			_predefinedPotionRecipesByCombination[combinationKey] = recipe;
-		}
+		_predefinedPotionRecipes.Rebuild(
+			_dataDb.PotionRecipes,
+			IsKnownIngredient,
+			error => GD.PushError($"BrewPanel: {error}"));
 	}
 
-	private bool MatchesAnyPredefinedRecipePrefix(IReadOnlyList<string> ingredientIds)
+	private bool IsKnownIngredient(string ingredientId)
 	{
-		if (ingredientIds.Count == 0)
-			return false;
-
-		foreach (var recipe in _predefinedPotionRecipesByCombination.Values)
-		{
-			var matches = true;
-			foreach (var ingredientId in ingredientIds)
-			{
-				if (!recipe.IngredientIds.Any(x => string.Equals(x, ingredientId, System.StringComparison.OrdinalIgnoreCase)))
-				{
-					matches = false;
-					break;
-				}
-			}
-
-			if (matches)
-				return true;
-		}
-
-		return false;
-	}
-
-	private static string BuildPredefinedPotionItemId(string recipeId)
-	{
-		return $"potion_{recipeId}";
-	}
-
-	private static string BuildPotionRiskVariantItemId(string basePotionItemId, IReadOnlyDictionary<string, int> carriedRisks)
-	{
-		var activeRiskKeys = carriedRisks
-			.Where(x => !string.IsNullOrWhiteSpace(x.Key) && x.Value > 0)
-			.Select(x => NormalizeVariantIdPart(x.Key))
-			.Where(x => !string.IsNullOrWhiteSpace(x))
-			.OrderBy(x => x, System.StringComparer.OrdinalIgnoreCase)
-			.ToList();
-
-		var riskSignature = activeRiskKeys.Count == 0
-			? "clean"
-			: string.Join("_", activeRiskKeys);
-
-		return $"{basePotionItemId}__risk_{riskSignature}";
-	}
-
-	private static bool RisksMatch(
-		IReadOnlyDictionary<string, int>? existingRisks,
-		IReadOnlyDictionary<string, int> carriedRisks)
-	{
-		var normalizedExisting = NormalizeCarriedRisks(existingRisks);
-		var normalizedCarried = NormalizeCarriedRisks(carriedRisks);
-
-		if (normalizedExisting.Count != normalizedCarried.Count)
-			return false;
-
-		foreach (var risk in normalizedExisting)
-		{
-			if (!normalizedCarried.Any(x => string.Equals(x, risk, System.StringComparison.OrdinalIgnoreCase)))
-				return false;
-		}
-
-		return true;
-	}
-
-	private static List<string> NormalizeCarriedRisks(IReadOnlyDictionary<string, int>? risks)
-	{
-		var normalized = new List<string>();
-		if (risks is null)
-			return normalized;
-
-		foreach (var risk in risks)
-		{
-			if (string.IsNullOrWhiteSpace(risk.Key) || risk.Value <= 0)
-				continue;
-
-			var normalizedKey = risk.Key.Trim();
-			if (normalized.Any(x => string.Equals(x, normalizedKey, System.StringComparison.OrdinalIgnoreCase)))
-				continue;
-
-			normalized.Add(normalizedKey);
-		}
-
-		normalized.Sort(System.StringComparer.OrdinalIgnoreCase);
-		return normalized;
-	}
-
-	private static string NormalizeVariantIdPart(string value)
-	{
-		var trimmed = value.Trim().ToLowerInvariant();
-		var chars = new char[trimmed.Length];
-		var count = 0;
-		var previousWasSeparator = false;
-
-		foreach (var character in trimmed)
-		{
-			if (char.IsLetterOrDigit(character))
-			{
-				chars[count] = character;
-				count += 1;
-				previousWasSeparator = false;
-				continue;
-			}
-
-			if (previousWasSeparator || count == 0)
-				continue;
-
-			chars[count] = '_';
-			count += 1;
-			previousWasSeparator = true;
-		}
-
-		if (count > 0 && chars[count - 1] == '_')
-			count -= 1;
-
-		return count == 0 ? string.Empty : new string(chars, 0, count);
+		return _itemCatalog.TryGetItem(ingredientId, out var ingredientItem) && IsIngredient(ingredientItem);
 	}
 
 	private static Dictionary<string, int> BuildPotionTraitsForRegistration(PotionResult brewResult, PotionRecipeDef? predefinedRecipe)
@@ -891,7 +732,7 @@ public partial class BrewPanel : Control
 
 	private static bool IsIngredient(ItemDef item)
 	{
-		return ItemCatalogService.HasTag(item, "ingredient");
+		return ItemCatalogService.HasTag(item, ItemTags.Ingredient);
 	}
 
 	private bool HasQueuedIngredientType(string ingredientType)
@@ -1004,11 +845,6 @@ public partial class BrewPanel : Control
 		}
 
 		return $"{prefixes[Random.Shared.Next(prefixes.Length)]} {suffixes[Random.Shared.Next(suffixes.Length)]}";
-	}
-
-	private string BuildCombinationKey(IReadOnlyList<string> ingredientIds)
-	{
-		return string.Join("|", ingredientIds.OrderBy(x => x, System.StringComparer.OrdinalIgnoreCase));
 	}
 
 	private string BuildBrewResultText(string potionItemId, PotionResult brewResult)

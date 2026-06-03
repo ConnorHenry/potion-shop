@@ -1,5 +1,6 @@
 using Godot;
 using OccultShop.Autoload;
+using OccultShop.Infrastructure;
 
 namespace OccultShop.UI;
 
@@ -11,7 +12,7 @@ public partial class MainMenu : Control
 	[Export] public NodePath NewGameTutorialPopupPath = default!;
 	[Export] public NodePath StartTutorialButtonPath = default!;
 	[Export] public NodePath SkipTutorialButtonPath = default!;
-	[Export] public NodePath SaveGameManagerPath = new("/root/SaveGameManager");
+	[Export] public NodePath SaveGameManagerPath = new(AutoloadNodePaths.SaveGameManager);
 
 	private Button _startButton = default!;
 	private Button _newGameButton = default!;
@@ -23,25 +24,27 @@ public partial class MainMenu : Control
 
 	public override void _Ready()
 	{
-		var saveGameManager = GetNodeOrNull<SaveGameManager>(SaveGameManagerPath);
-		if (saveGameManager is null)
+		if (!NodeLookup.TryGetRequiredNode<SaveGameManager>(
+			this,
+			SaveGameManagerPath,
+			nameof(MainMenu),
+			nameof(SaveGameManagerPath),
+			out _saveGameManager))
 		{
-			GD.PushError($"MainMenu: SaveGameManager was not found at '{SaveGameManagerPath}'.");
 			return;
 		}
-		_saveGameManager = saveGameManager;
 
-		if (!TryGetRequiredButton(StartButtonPath, nameof(StartButtonPath), out _startButton))
+		if (!NodeLookup.TryGetRequiredNode<Button>(this, StartButtonPath, nameof(MainMenu), nameof(StartButtonPath), out _startButton))
 			return;
-		if (!TryGetRequiredButton(NewGameButtonPath, nameof(NewGameButtonPath), out _newGameButton))
+		if (!NodeLookup.TryGetRequiredNode<Button>(this, NewGameButtonPath, nameof(MainMenu), nameof(NewGameButtonPath), out _newGameButton))
 			return;
-		if (!TryGetRequiredButton(LoadButtonPath, nameof(LoadButtonPath), out _loadButton))
+		if (!NodeLookup.TryGetRequiredNode<Button>(this, LoadButtonPath, nameof(MainMenu), nameof(LoadButtonPath), out _loadButton))
 			return;
-		if (!TryGetRequiredControl(NewGameTutorialPopupPath, nameof(NewGameTutorialPopupPath), out _newGameTutorialPopup))
+		if (!NodeLookup.TryGetRequiredNode<Control>(this, NewGameTutorialPopupPath, nameof(MainMenu), nameof(NewGameTutorialPopupPath), out _newGameTutorialPopup))
 			return;
-		if (!TryGetRequiredButton(StartTutorialButtonPath, nameof(StartTutorialButtonPath), out _startTutorialButton))
+		if (!NodeLookup.TryGetRequiredNode<Button>(this, StartTutorialButtonPath, nameof(MainMenu), nameof(StartTutorialButtonPath), out _startTutorialButton))
 			return;
-		if (!TryGetRequiredButton(SkipTutorialButtonPath, nameof(SkipTutorialButtonPath), out _skipTutorialButton))
+		if (!NodeLookup.TryGetRequiredNode<Button>(this, SkipTutorialButtonPath, nameof(MainMenu), nameof(SkipTutorialButtonPath), out _skipTutorialButton))
 			return;
 
 		UpdateButtonLabels();
@@ -140,45 +143,4 @@ public partial class MainMenu : Control
 		}
 	}
 
-	private bool TryGetRequiredButton(NodePath path, string exportName, out Button button)
-	{
-		button = default!;
-
-		if (path.IsEmpty)
-		{
-			GD.PushError($"MainMenu: {exportName} is not assigned.");
-			return false;
-		}
-
-		var resolvedButton = GetNodeOrNull<Button>(path);
-		if (resolvedButton is null)
-		{
-			GD.PushError($"MainMenu: Button not found at '{path}'.");
-			return false;
-		}
-		button = resolvedButton;
-
-		return true;
-	}
-
-	private bool TryGetRequiredControl(NodePath path, string exportName, out Control control)
-	{
-		control = default!;
-
-		if (path.IsEmpty)
-		{
-			GD.PushError($"MainMenu: {exportName} is not assigned.");
-			return false;
-		}
-
-		var resolvedControl = GetNodeOrNull<Control>(path);
-		if (resolvedControl is null)
-		{
-			GD.PushError($"MainMenu: Control not found at '{path}'.");
-			return false;
-		}
-		control = resolvedControl;
-
-		return true;
-	}
 }

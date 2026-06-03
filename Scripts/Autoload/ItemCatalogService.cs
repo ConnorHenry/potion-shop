@@ -1,36 +1,40 @@
 using System;
 using System.Linq;
 using Godot;
+using OccultShop.Infrastructure;
 using OccultShop.Models;
 
 namespace OccultShop.Autoload;
 
 public partial class ItemCatalogService : Node
 {
-	[Export] public NodePath RuntimeContentDbPath { get; set; } = new("/root/RuntimeContentDb");
-	[Export] public NodePath DataDbPath { get; set; } = new("/root/DataDb");
+	[Export] public NodePath RuntimeContentDbPath { get; set; } = new(AutoloadNodePaths.RuntimeContentDb);
+	[Export] public NodePath DataDbPath { get; set; } = new(AutoloadNodePaths.DataDb);
 
 	private RuntimeContentDb _runtimeContentDb = default!;
 	private DataDb _dataDb = default!;
 
 	public override void _Ready()
 	{
-		var runtimeContentDb = GetNodeOrNull<RuntimeContentDb>(RuntimeContentDbPath);
-		if (runtimeContentDb is null)
+		if (!NodeLookup.TryGetRequiredNode<RuntimeContentDb>(
+			this,
+			RuntimeContentDbPath,
+			nameof(ItemCatalogService),
+			nameof(RuntimeContentDbPath),
+			out _runtimeContentDb))
 		{
-			GD.PushError($"ItemCatalogService: RuntimeContentDb was not found at '{RuntimeContentDbPath}'.");
 			return;
 		}
 
-		var dataDb = GetNodeOrNull<DataDb>(DataDbPath);
-		if (dataDb is null)
+		if (!NodeLookup.TryGetRequiredNode<DataDb>(
+			this,
+			DataDbPath,
+			nameof(ItemCatalogService),
+			nameof(DataDbPath),
+			out _dataDb))
 		{
-			GD.PushError($"ItemCatalogService: DataDb was not found at '{DataDbPath}'.");
 			return;
 		}
-
-		_runtimeContentDb = runtimeContentDb;
-		_dataDb = dataDb;
 	}
 
 	public bool TryGetItem(string itemId, out ItemDef item)
@@ -53,17 +57,17 @@ public partial class ItemCatalogService : Node
 
 	public bool IsPotion(string itemId)
 	{
-		return TryGetItem(itemId, out var item) && HasTag(item, "potion");
+		return TryGetItem(itemId, out var item) && HasTag(item, ItemTags.Potion);
 	}
 
 	public bool IsIngredient(string itemId)
 	{
-		return TryGetItem(itemId, out var item) && HasTag(item, "ingredient");
+		return TryGetItem(itemId, out var item) && HasTag(item, ItemTags.Ingredient);
 	}
 
 	public bool IsConsumable(string itemId)
 	{
-		return TryGetItem(itemId, out var item) && HasTag(item, "consumable");
+		return TryGetItem(itemId, out var item) && HasTag(item, ItemTags.Consumable);
 	}
 
 	public bool IsTreatedItem(string itemId)

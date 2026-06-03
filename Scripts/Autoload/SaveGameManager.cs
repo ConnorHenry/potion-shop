@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using Godot;
+using OccultShop.Infrastructure;
 using OccultShop.Models;
 using OccultShop.Persistence;
 
@@ -16,8 +17,8 @@ public partial class SaveGameManager : Node
 	private const string SaveFilePrefix = "save_";
 	private const int CurrentSaveVersion = 2;
 
-	[Export] public NodePath GameStatePath { get; set; } = new("/root/GameState");
-	[Export] public NodePath RuntimeContentDbPath { get; set; } = new("/root/RuntimeContentDb");
+	[Export] public NodePath GameStatePath { get; set; } = new(AutoloadNodePaths.GameState);
+	[Export] public NodePath RuntimeContentDbPath { get; set; } = new(AutoloadNodePaths.RuntimeContentDb);
 
 	private string? _activeSaveFilePath;
 	private GameState _gameState = default!;
@@ -31,22 +32,25 @@ public partial class SaveGameManager : Node
 
 	public override void _Ready()
 	{
-		var gameState = GetNodeOrNull<GameState>(GameStatePath);
-		if (gameState is null)
+		if (!NodeLookup.TryGetRequiredNode<GameState>(
+			this,
+			GameStatePath,
+			nameof(SaveGameManager),
+			nameof(GameStatePath),
+			out _gameState))
 		{
-			GD.PushError($"SaveGameManager: GameState was not found at '{GameStatePath}'.");
 			return;
 		}
 
-		var runtimeContentDb = GetNodeOrNull<RuntimeContentDb>(RuntimeContentDbPath);
-		if (runtimeContentDb is null)
+		if (!NodeLookup.TryGetRequiredNode<RuntimeContentDb>(
+			this,
+			RuntimeContentDbPath,
+			nameof(SaveGameManager),
+			nameof(RuntimeContentDbPath),
+			out _runtimeContentDb))
 		{
-			GD.PushError($"SaveGameManager: RuntimeContentDb was not found at '{RuntimeContentDbPath}'.");
 			return;
 		}
-
-		_gameState = gameState;
-		_runtimeContentDb = runtimeContentDb;
 	}
 
 	public bool HasSaveFile()

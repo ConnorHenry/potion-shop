@@ -16,9 +16,9 @@ public partial class TreatmentTray : Control
 	[Export] public NodePath ApplyButtonPath = default!;
 	[Export] public NodePath ClearButtonPath = default!;
 	[Export] public Vector2 TraySize { get; set; } = new(430.0f, 286.0f);
-	[Export] public NodePath RuntimeContentDbPath = new("/root/RuntimeContentDb");
-	[Export] public NodePath GameStatePath = new("/root/GameState");
-	[Export] public NodePath ItemCatalogPath = new("/root/ItemCatalog");
+	[Export] public NodePath RuntimeContentDbPath = new(AutoloadNodePaths.RuntimeContentDb);
+	[Export] public NodePath GameStatePath = new(AutoloadNodePaths.GameState);
+	[Export] public NodePath ItemCatalogPath = new(AutoloadNodePaths.ItemCatalog);
 
 	private BrewDropBox _consumableDropBox = default!;
 	private BrewDropBox _targetDropBox = default!;

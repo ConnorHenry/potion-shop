@@ -17,5 +17,6 @@
     <Compile Include="..\..\Scripts\Models\SynergyRule.cs" Link="Linked\SynergyRule.cs" />
     <Compile Include="..\..\Scripts\Models\CustomerInteractionDef.cs" Link="Linked\CustomerInteractionDef.cs" />
     <Compile Include="..\..\Scripts\Systems\PotionBrewingService.cs" Link="Linked\PotionBrewingService.cs" />
+    <Compile Include="..\..\Scripts\Systems\PotionVariantIdBuilder.cs" Link="Linked\PotionVariantIdBuilder.cs" />
   </ItemGroup>
 </Project>

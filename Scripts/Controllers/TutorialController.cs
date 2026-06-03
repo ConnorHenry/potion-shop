@@ -15,7 +15,7 @@ public partial class TutorialController : Node
 	[Export] public NodePath CustomerPanelPath = default!;
 	[Export] public NodePath DayControllerPath = default!;
 	[Export] public NodePath CustomerEventControllerPath = default!;
-	[Export] public NodePath GameStatePath = new("/root/GameState");
+	[Export] public NodePath GameStatePath = new(AutoloadNodePaths.GameState);
 	[Export] public NodePath HudBrewButtonPath = new("BrewPotion");
 	[Export] public NodePath HudStartDayButtonPath = new("ServeCustomer");
 	[Export] public NodePath HudSettingsButtonPath = new("MainMenu");

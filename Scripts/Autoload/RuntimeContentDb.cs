@@ -99,7 +99,7 @@ public partial class RuntimeContentDb : Node
 			IconPath = iconPath,
 			BasePrice = basePrice,
 			Quality = quality,
-			Tags = new List<string> { "potion" },
+			Tags = new List<string> { ItemTags.Potion },
 			Traits = traits,
 			Risks = risks
 		};

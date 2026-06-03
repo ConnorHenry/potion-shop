@@ -21,9 +21,9 @@ public partial class PotionBookPanel : Control
 	[Export] public NodePath BrewButtonPath = default!;
 	[Export] public NodePath PageIndicatorLabelPath = default!;
 	[Export] public NodePath CloseButtonPath = default!;
-	[Export] public NodePath DataDbPath = new("/root/DataDb");
+	[Export] public NodePath DataDbPath = new(AutoloadNodePaths.DataDb);
 	[Export] public NodePath GameStatePath = new("/root/GameState");
-	[Export] public NodePath ItemCatalogPath = new("/root/ItemCatalog");
+	[Export] public NodePath ItemCatalogPath = new(AutoloadNodePaths.ItemCatalog);
 
 	private Button _leftArrowButton = default!;
 	private Button _rightArrowButton = default!;

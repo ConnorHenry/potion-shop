@@ -17,8 +17,8 @@ public partial class DayController : Node
 	[Export] public NodePath BrewPanelPath = default!;
 	[Export] public NodePath RecipeBookPanelPath = default!;
 	[Export] public NodePath DaySummaryPanelPath = default!;
-	[Export] public NodePath DataDbPath = new("/root/DataDb");
-	[Export] public NodePath GameStatePath = new("/root/GameState");
+	[Export] public NodePath DataDbPath = new(AutoloadNodePaths.DataDb);
+	[Export] public NodePath GameStatePath = new(AutoloadNodePaths.GameState);
 
 	private UI.EventModal _eventModal = default!;
 	private EventController _eventController = default!;
