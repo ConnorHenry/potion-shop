@@ -76,6 +76,7 @@ internal static class RecipeAndPotionBookTests
     private static void TestPotionBookPanelAppendsLearnedRuntimePotionsToTheEnd()
     {
         var source = ReadProjectFile("Scripts/UI/PotionBookPanel.cs");
+        var potionBookScene = ReadProjectFile("Scenes/UI/PotionBookPanel.tscn");
         var gameStateSource = ReadProjectFile("Scripts/Autoload/GameState.cs");
         var saveDataSource = ReadProjectFile("Scripts/Persistence/SaveData.cs");
 
@@ -89,16 +90,38 @@ internal static class RecipeAndPotionBookTests
             source.Contains("if (authoredPotionIds.Contains(potionId))"));
         AssertTrue("PotionBookPanel registers both recipe ids and potion item ids as authored",
             source.Contains("authoredPotionIds.Add(BuildPredefinedPotionItemId(recipe.Id));"));
-        AssertTrue("PotionBookPanel exports a brew button path",
-            source.Contains("BrewButtonPath"));
-        AssertTrue("PotionBookPanel wires the brew button press",
-            source.Contains("_brewButton.Pressed += TryBrewCurrentPagePotion"));
+        AssertTrue("PotionBookPanel exports left and right brew button paths",
+            source.Contains("LeftBrewButtonPath") &&
+            source.Contains("RightBrewButtonPath"));
+        AssertTrue("PotionBookPanel wires both spread brew buttons",
+            source.Contains("_leftPage.BrewButton.Pressed += OnLeftBrewPressed") &&
+            source.Contains("_rightPage.BrewButton.Pressed += OnRightBrewPressed"));
+        AssertTrue("PotionBookPanel exports invisible page turn hotspot paths",
+            source.Contains("LeftPageHotspotPath") &&
+            source.Contains("RightPageHotspotPath"));
+        AssertTrue("PotionBookPanel wires page turn hotspots",
+            source.Contains("_leftPageHotspot.Pressed += OnPreviousPagePressed") &&
+            source.Contains("_rightPageHotspot.Pressed += OnNextPagePressed"));
         AssertTrue("PotionBookPanel only enables brewing for known potion item ids",
             source.Contains("_gameState.KnowsPotion(candidatePotionItemId)"));
         AssertTrue("PotionBookPanel uses the shared inventory brew service",
             source.Contains("PotionInventoryBrewService"));
-        AssertTrue("PotionBookPanel scene defines the brew button path",
-            ReadProjectFile("Scenes/UI/PotionBookPanel.tscn").Contains("BrewButtonPath = NodePath(\"BookRow/BookPanel/Margin/VBox/RecipeContent/Brew\")"));
+        AssertTrue("PotionBookPanel turns book spreads two pages at a time",
+            source.Contains("private const int PagesPerSpread = 2") &&
+            source.Contains("_currentPageIndex + PagesPerSpread"));
+        AssertTrue("PotionBookPanel scene defines side-by-side pages",
+            potionBookScene.Contains("[node name=\"LeftPage\" type=\"VBoxContainer\" parent=\"BookRow/BookPanel/Margin/VBox/Pages\"]") &&
+            potionBookScene.Contains("[node name=\"CenterFold\" type=\"ColorRect\" parent=\"BookRow/BookPanel/Margin/VBox/Pages\"]") &&
+            potionBookScene.Contains("[node name=\"RightPage\" type=\"VBoxContainer\" parent=\"BookRow/BookPanel/Margin/VBox/Pages\"]"));
+        AssertTrue("PotionBookPanel scene defines both brew button paths",
+            potionBookScene.Contains("LeftBrewButtonPath = NodePath(\"BookRow/BookPanel/Margin/VBox/Pages/LeftPage/RecipeContent/Brew\")") &&
+            potionBookScene.Contains("RightBrewButtonPath = NodePath(\"BookRow/BookPanel/Margin/VBox/Pages/RightPage/RecipeContent/Brew\")"));
+        AssertTrue("PotionBookPanel scene uses invisible side hotspots instead of visible arrow buttons",
+            potionBookScene.Contains("[node name=\"LeftPageHotspot\" type=\"Button\" parent=\"BookRow/BookPanel\"]") &&
+            potionBookScene.Contains("[node name=\"RightPageHotspot\" type=\"Button\" parent=\"BookRow/BookPanel\"]") &&
+            potionBookScene.Contains("modulate = Color(1, 1, 1, 0)") &&
+            !potionBookScene.Contains("[node name=\"LeftArrow\"") &&
+            !potionBookScene.Contains("[node name=\"RightArrow\""));
         AssertTrue("PotionBookPanel inspects hovered GUI controls before dragging",
             source.Contains("GuiGetHoveredControl()"));
         AssertTrue("PotionBookPanel blocks whole-panel drag when a child button is hovered",

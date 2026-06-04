@@ -18,6 +18,10 @@ internal static class SceneAndHudWiringTests
         runner.Run("Main menu exposes start and load flows", TestMainMenuLoadFlow);
         runner.Run("Load menu scene is wired for saved game browsing", TestLoadGameMenuScene);
         runner.Run("Game UI keeps the potion trait filter wired", TestGameUiKeepsPotionTraitFilterWired);
+        runner.Run("Customer closeup uses split art and customer data image paths", TestCustomerCloseupUsesSplitArt);
+        runner.Run("Shop floor shelf opens potion brewing station view", TestShopFloorShelfOpensPotionBrewingStation);
+        runner.Run("Potion brewing station owns diegetic shelf inventory", TestPotionBrewingStationShelfInventory);
+        runner.Run("Brew entry points open the potion brewing station", TestBrewEntryPointsOpenPotionBrewingStation);
         runner.Run("Scenario debugger can set the shop stop timer", TestScenarioDebuggerStopTimerControls);
         runner.Run("Hud return-to-menu does not auto-save", TestHudReturnToMainMenuDoesNotAutoSave);
         runner.Run("Hud settings panel closes on outside click", TestHudSettingsPanelClosesOnOutsideClick);
@@ -37,6 +41,7 @@ internal static class SceneAndHudWiringTests
             ["OccultShop.UI.LoadGameMenu"] = "Control",
             ["OccultShop.UI.InventoryItemSlot"] = "Button",
             ["OccultShop.UI.InventoryPanel"] = "Control",
+            ["OccultShop.UI.StationShelfInventory"] = "Control",
             ["OccultShop.UI.RecipeBookPanel"] = "Control",
             ["OccultShop.UI.Garden"] = "Control",
             ["MainMenu"] = "Control"
@@ -91,6 +96,119 @@ internal static class SceneAndHudWiringTests
         AssertTrue("GameUi keeps potion clear filter path wired", !scene.Contains("PotionsClearFilterButtonPath = null"));
         AssertTrue("InventoryPanel scene defines potion trait filter", ReadProjectFile("Scenes/UI/InventoryPanel.tscn").Contains("PotionsTraitFilterPath = NodePath(\"Panel/Margin/VBox/PotionsHeaderRow/TraitFilter\")"));
         AssertTrue("InventoryPanel scene defines potion clear filter", ReadProjectFile("Scenes/UI/InventoryPanel.tscn").Contains("PotionsClearFilterButtonPath = NodePath(\"Panel/Margin/VBox/PotionsHeaderRow/Clear\")"));
+    }
+
+    private static void TestCustomerCloseupUsesSplitArt()
+    {
+        var scene = ReadProjectFile("Scenes/UI/GameUi.tscn");
+        var shopFloor = ReadProjectFile("Scripts/UI/ShopFloor.cs");
+        var customerPanel = ReadProjectFile("Scripts/UI/CustomerPanel.cs");
+        var tieredCustomers = ReadProjectFile("Data/customers_tiered_test_data.tres");
+
+        AssertTrue("Customer closeup no longer uses the combined customer/background image",
+            !scene.Contains("res://art/Customer-Closeup.png"));
+        AssertTrue("Customer closeup uses the evening background as a separate image",
+            scene.Contains("path=\"res://art/Background - Evening.png\"") &&
+            scene.Contains("texture = ExtResource(\"22_shop_background\")"));
+        AssertTrue("Customer closeup has a separate customer texture node",
+            scene.Contains("[node name=\"Customer\" type=\"TextureRect\" parent=\"CustomerCloseupView\"]") &&
+            scene.Contains("texture = ExtResource(\"24_shop_customer\")"));
+        AssertTrue("ShopFloor exposes the customer closeup image node path",
+            shopFloor.Contains("CustomerCloseupCustomerImagePath"));
+        AssertTrue("ShopFloor loads the customer closeup texture from customer data",
+            shopFloor.Contains("CurrentCustomerImagePath") &&
+            shopFloor.Contains("ResourceLoader.Load<Texture2D>(imagePath)"));
+        AssertTrue("CustomerPanel exposes the active customer image path",
+            customerPanel.Contains("CurrentCustomerImagePath => _interaction?.CharacterImagePath"));
+        AssertTrue("Tiered customer data includes the middleclass woman art path",
+            tieredCustomers.Contains("\"characterImagePath\": \"res://art/Middleclass-Woman.png\""));
+    }
+
+    private static void TestShopFloorShelfOpensPotionBrewingStation()
+    {
+        var scene = ReadProjectFile("Scenes/UI/GameUi.tscn");
+        var shopFloor = ReadProjectFile("Scripts/UI/ShopFloor.cs");
+
+        AssertTrue("GameUi references the potion brewing station art",
+            scene.Contains("path=\"res://art/Potion-Brewing-Station.png\""));
+        AssertTrue("GameUi defines the potion brewing station view",
+            scene.Contains("[node name=\"PotionBrewingStationView\" type=\"Control\" parent=\".\"]"));
+        AssertTrue("GameUi draws the potion brewing station image",
+            scene.Contains("[node name=\"Background\" type=\"TextureRect\" parent=\"PotionBrewingStationView\"]") &&
+            scene.Contains("texture = ExtResource(\"28_brewing_station\")"));
+        AssertTrue("GameUi defines a left return hotspot on the potion brewing station view",
+            scene.Contains("[node name=\"ReturnHotspotLeft\" type=\"Button\" parent=\"PotionBrewingStationView\"]") &&
+            scene.Contains("anchor_right = 0.18") &&
+            scene.Contains("tooltip_text = \"Return to shop floor\""));
+        AssertTrue("ShopFloor maps the right shelf hotspot to the potion brewing station",
+            shopFloor.Contains("PotionBrewingStationButtonPath = new(\"Hotspots/InventoryShelf\")"));
+        AssertTrue("ShopFloor connects the shelf hotspot to the station handler",
+            shopFloor.Contains("ConnectButton(_potionBrewingStationButton, OnPotionBrewingStationPressed)"));
+        AssertTrue("ShopFloor connects the station return hotspot to shop floor return",
+            shopFloor.Contains("PotionBrewingStationReturnButtonPath") &&
+            shopFloor.Contains("ConnectButton(_potionBrewingStationReturnButton, OnReturnToShopFloorPressed)"));
+        AssertTrue("ShopFloor hides the potion brewing station view when returning",
+            shopFloor.Contains("_potionBrewingStationView.Visible = false"));
+    }
+
+    private static void TestPotionBrewingStationShelfInventory()
+    {
+        var scene = ReadProjectFile("Scenes/UI/GameUi.tscn");
+        var shelf = ReadProjectFile("Scripts/UI/StationShelfInventory.cs");
+
+        AssertTrue("GameUi defines the station shelf inventory under the brewing station view",
+            scene.Contains("[node name=\"StationShelfInventory\" type=\"Control\" parent=\"PotionBrewingStationView\"]") &&
+            scene.Contains("script = ExtResource(\"31_station_shelf\")"));
+        AssertTrue("Station shelf separates ingredients and consumables",
+            scene.Contains("IngredientSlotsPath = NodePath(\"IngredientSlots\")") &&
+            scene.Contains("ConsumableSlotsPath = NodePath(\"ConsumableSlots\")") &&
+            scene.Contains("[node name=\"ConsumableSlots\" type=\"GridContainer\" parent=\"PotionBrewingStationView/StationShelfInventory\"]"));
+        AssertTrue("Station shelf keeps consumables on a limited bottom shelf",
+            scene.Contains("offset_top = 677.0") &&
+            shelf.Contains("ConsumableDefaultVisibleSlots = 4") &&
+            shelf.Contains("ConsumableVisibleSlots"));
+		AssertTrue("Station shelf keeps ingredients to a limited visible slot count",
+            scene.Contains("theme_override_constants/h_separation = 33") &&
+            scene.Contains("theme_override_constants/v_separation = 41") &&
+            shelf.Contains("IngredientDefaultVisibleSlots = 12") &&
+            shelf.Contains("IngredientVisibleSlots"));
+        AssertTrue("Station shelf right-click queues only ingredients through BrewPanel",
+            shelf.Contains("slot.IngredientRequested += QueueIngredientFromShelf;") &&
+            shelf.Contains("_itemCatalog.IsIngredient(itemId)") &&
+            shelf.Contains("_brewPanel.TryQueueIngredient(itemId);"));
+        AssertTrue("Station shelf pages overflow instead of showing every item",
+            shelf.Contains("ShowNextIngredientPage") &&
+            shelf.Contains("ShowNextConsumablePage") &&
+            shelf.Contains("UpdatePageButtons"));
+    }
+
+    private static void TestBrewEntryPointsOpenPotionBrewingStation()
+    {
+        var shopFloor = ReadProjectFile("Scripts/UI/ShopFloor.cs");
+        var hud = ReadProjectFile("Scripts/UI/Hud.cs");
+        var scene = ReadProjectFile("Scenes/UI/GameUi.tscn");
+
+        AssertTrue("ShopFloor exposes an explicit station open method",
+            shopFloor.Contains("public void OpenPotionBrewingStation()") &&
+            shopFloor.Contains("ShowPotionBrewingStation();"));
+        AssertTrue("ShopFloor counter brew hotspot opens the station",
+            shopFloor.Contains("private void OnBrewPressed()") &&
+            shopFloor.Contains("OpenPotionBrewingStation();"));
+        AssertTrue("ShopFloor shows the brew panel on the station without hiding queued ingredients on return",
+            shopFloor.Contains("_brewPanel.ShowPanel();") &&
+            shopFloor.Contains("_brewPanel.Visible = _brewWasVisible;"));
+        AssertTrue("Hud brew button routes through ShopFloor when available",
+            hud.Contains("ShopFloorPath = new(\"../ShopFloor\")") &&
+            hud.Contains("_shopFloor.OpenPotionBrewingStation();"));
+		AssertTrue("Cauldron drop target is visible and transparent on the station overlay",
+			scene.Contains("[node name=\"BrewPanel\" type=\"Control\" parent=\"PotionBrewingStationView\"]") &&
+			scene.Contains("BrewBoxPath = NodePath(\"BrewBox\")") &&
+			scene.Contains("[node name=\"BrewBox\" type=\"PanelContainer\" parent=\"PotionBrewingStationView/BrewPanel\"]") &&
+			!scene.Contains("[node name=\"BrewBox\" type=\"PanelContainer\" parent=\"PotionBrewingStationView/BrewPanel\"]\nvisible = false") &&
+			scene.Contains("anchor_left = 0.38") &&
+			scene.Contains("anchor_right = 0.58") &&
+			scene.Contains("self_modulate = Color(1, 1, 1, 0)") &&
+			scene.Contains("script = ExtResource(\"10_odm4o\")"));
     }
 
     private static void TestScenarioDebuggerStopTimerControls()

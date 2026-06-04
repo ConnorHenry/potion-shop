@@ -11,30 +11,43 @@ namespace OccultShop.UI;
 
 public partial class PotionBookPanel : Control
 {
-	[Export] public NodePath LeftArrowButtonPath = default!;
-	[Export] public NodePath RightArrowButtonPath = default!;
-	[Export] public NodePath PageTitleLabelPath = default!;
-	[Export] public NodePath IntroLabelPath = default!;
-	[Export] public NodePath RecipeContentPath = default!;
-	[Export] public NodePath IngredientsLabelPath = default!;
-	[Export] public NodePath TraitsLabelPath = default!;
-	[Export] public NodePath BrewButtonPath = default!;
+	private const int IntroPageCount = 1;
+	private const int PagesPerSpread = 2;
+
+	[Export] public NodePath LeftPageHotspotPath = default!;
+	[Export] public NodePath RightPageHotspotPath = default!;
 	[Export] public NodePath PageIndicatorLabelPath = default!;
 	[Export] public NodePath CloseButtonPath = default!;
+	[Export] public NodePath LeftPageTitleLabelPath = default!;
+	[Export] public NodePath LeftIntroLabelPath = default!;
+	[Export] public NodePath LeftRecipeContentPath = default!;
+	[Export] public NodePath LeftIngredientsLabelPath = default!;
+	[Export] public NodePath LeftTraitsLabelPath = default!;
+	[Export] public NodePath LeftBrewButtonPath = default!;
+	[Export] public NodePath LeftIngredientIconOnePath = new("BookRow/BookPanel/Margin/VBox/Pages/LeftPage/RecipeContent/IngredientIllustrations/IconOneFrame/Icon");
+	[Export] public NodePath LeftIngredientIconTwoPath = new("BookRow/BookPanel/Margin/VBox/Pages/LeftPage/RecipeContent/IngredientIllustrations/IconTwoFrame/Icon");
+	[Export] public NodePath LeftIngredientIconThreePath = new("BookRow/BookPanel/Margin/VBox/Pages/LeftPage/RecipeContent/IngredientIllustrations/IconThreeFrame/Icon");
+	[Export] public NodePath LeftBrewStatusLabelPath = new("BookRow/BookPanel/Margin/VBox/Pages/LeftPage/RecipeContent/BrewStatus");
+	[Export] public NodePath RightPageTitleLabelPath = default!;
+	[Export] public NodePath RightIntroLabelPath = default!;
+	[Export] public NodePath RightRecipeContentPath = default!;
+	[Export] public NodePath RightIngredientsLabelPath = default!;
+	[Export] public NodePath RightTraitsLabelPath = default!;
+	[Export] public NodePath RightBrewButtonPath = default!;
+	[Export] public NodePath RightIngredientIconOnePath = new("BookRow/BookPanel/Margin/VBox/Pages/RightPage/RecipeContent/IngredientIllustrations/IconOneFrame/Icon");
+	[Export] public NodePath RightIngredientIconTwoPath = new("BookRow/BookPanel/Margin/VBox/Pages/RightPage/RecipeContent/IngredientIllustrations/IconTwoFrame/Icon");
+	[Export] public NodePath RightIngredientIconThreePath = new("BookRow/BookPanel/Margin/VBox/Pages/RightPage/RecipeContent/IngredientIllustrations/IconThreeFrame/Icon");
+	[Export] public NodePath RightBrewStatusLabelPath = new("BookRow/BookPanel/Margin/VBox/Pages/RightPage/RecipeContent/BrewStatus");
 	[Export] public NodePath DataDbPath = new(AutoloadNodePaths.DataDb);
 	[Export] public NodePath GameStatePath = new("/root/GameState");
 	[Export] public NodePath ItemCatalogPath = new(AutoloadNodePaths.ItemCatalog);
 
-	private Button _leftArrowButton = default!;
-	private Button _rightArrowButton = default!;
-	private Label _pageTitleLabel = default!;
-	private Label _introLabel = default!;
-	private Control _recipeContent = default!;
-	private Label _ingredientsLabel = default!;
-	private Label _traitsLabel = default!;
-	private Button _brewButton = default!;
+	private Button _leftPageHotspot = default!;
+	private Button _rightPageHotspot = default!;
 	private Label _pageIndicatorLabel = default!;
 	private Button _closeButton = default!;
+	private readonly PotionBookPageView _leftPage = new();
+	private readonly PotionBookPageView _rightPage = new();
 	private DataDb _dataDb = default!;
 	private GameState _gameState = default!;
 	private ItemCatalogService _itemCatalog = default!;
@@ -85,37 +98,36 @@ public partial class PotionBookPanel : Control
 		_itemCatalog = itemCatalog;
 		_brewService = new PotionInventoryBrewService(_gameState, _itemCatalog);
 
-		_leftArrowButton = GetNode<Button>(LeftArrowButtonPath);
-		_rightArrowButton = GetNode<Button>(RightArrowButtonPath);
-		_pageTitleLabel = GetNode<Label>(PageTitleLabelPath);
-		_introLabel = GetNode<Label>(IntroLabelPath);
-		_recipeContent = GetNode<Control>(RecipeContentPath);
-		_ingredientsLabel = GetNode<Label>(IngredientsLabelPath);
-		_traitsLabel = GetNode<Label>(TraitsLabelPath);
-		_brewButton = GetNode<Button>(BrewButtonPath);
+		_leftPageHotspot = GetNode<Button>(LeftPageHotspotPath);
+		_rightPageHotspot = GetNode<Button>(RightPageHotspotPath);
 		_pageIndicatorLabel = GetNode<Label>(PageIndicatorLabelPath);
 		_closeButton = GetNode<Button>(CloseButtonPath);
+		ResolvePageView(_leftPage, PageSide.Left);
+		ResolvePageView(_rightPage, PageSide.Right);
 
-		_leftArrowButton.Pressed += OnPreviousPagePressed;
-		_rightArrowButton.Pressed += OnNextPagePressed;
-		_brewButton.Pressed += TryBrewCurrentPagePotion;
+		_leftPageHotspot.Pressed += OnPreviousPagePressed;
+		_rightPageHotspot.Pressed += OnNextPagePressed;
+		_leftPage.BrewButton.Pressed += OnLeftBrewPressed;
+		_rightPage.BrewButton.Pressed += OnRightBrewPressed;
 		_closeButton.Pressed += HidePanel;
 		_gameState.Changed += OnGameStateChanged;
 
 		_currentPageIndex = 0;
 		RebuildRecipePages();
-		RefreshPage();
+		RefreshSpread();
 		Visible = false;
 	}
 
 	public override void _ExitTree()
 	{
-		if (_leftArrowButton is not null)
-			_leftArrowButton.Pressed -= OnPreviousPagePressed;
-		if (_rightArrowButton is not null)
-			_rightArrowButton.Pressed -= OnNextPagePressed;
-		if (_brewButton is not null)
-			_brewButton.Pressed -= TryBrewCurrentPagePotion;
+		if (_leftPageHotspot is not null)
+			_leftPageHotspot.Pressed -= OnPreviousPagePressed;
+		if (_rightPageHotspot is not null)
+			_rightPageHotspot.Pressed -= OnNextPagePressed;
+		if (_leftPage.BrewButton is not null)
+			_leftPage.BrewButton.Pressed -= OnLeftBrewPressed;
+		if (_rightPage.BrewButton is not null)
+			_rightPage.BrewButton.Pressed -= OnRightBrewPressed;
 		if (_closeButton is not null)
 			_closeButton.Pressed -= HidePanel;
 		if (_gameState is not null)
@@ -213,28 +225,38 @@ public partial class PotionBookPanel : Control
 		return hoveredControl is BaseButton;
 	}
 
+	private TNode? GetOptionalNode<TNode>(NodePath path) where TNode : Node
+	{
+		if (path is null || path.IsEmpty)
+			return null;
+
+		return GetNodeOrNull<TNode>(path);
+	}
+
 	public void Toggle()
 	{
 		Visible = !Visible;
 		if (!Visible)
 			return;
 
-		var currentPotionId = GetCurrentPotionId();
+		var currentPotionId = GetVisiblePotionId();
 		RebuildRecipePages();
-		_currentPageIndex = ResolvePageIndex(currentPotionId);
-		RefreshPage();
+		_currentPageIndex = ResolveSpreadStart(currentPotionId);
+		RefreshSpread();
 	}
 
 	private void OnGameStateChanged()
 	{
-		var currentPotionId = GetCurrentPotionId();
+		var currentPotionId = GetVisiblePotionId();
 		RebuildRecipePages();
-		_currentPageIndex = ResolvePageIndex(currentPotionId);
+		_currentPageIndex = ResolveSpreadStart(currentPotionId);
 		if (Visible)
-			RefreshPage();
+			RefreshSpread();
 	}
 
-	private int TotalPages => _recipes.Count + 1;
+	private int TotalPages => _recipes.Count + IntroPageCount;
+
+	private int MaxSpreadStart => Math.Max(0, ((TotalPages - 1) / PagesPerSpread) * PagesPerSpread);
 
 	private void HidePanel()
 	{
@@ -256,17 +278,17 @@ public partial class PotionBookPanel : Control
 		if (_currentPageIndex <= 0)
 			return;
 
-		_currentPageIndex -= 1;
-		RefreshPage();
+		_currentPageIndex = Math.Max(0, _currentPageIndex - PagesPerSpread);
+		RefreshSpread();
 	}
 
 	private void ShowNextPage()
 	{
-		if (_currentPageIndex >= TotalPages - 1)
+		if (_currentPageIndex >= MaxSpreadStart)
 			return;
 
-		_currentPageIndex += 1;
-		RefreshPage();
+		_currentPageIndex = Math.Min(MaxSpreadStart, _currentPageIndex + PagesPerSpread);
+		RefreshSpread();
 	}
 
 	private void RebuildRecipePages()
@@ -355,33 +377,73 @@ public partial class PotionBookPanel : Control
 		});
 	}
 
-	private void RefreshPage()
+	private void RefreshSpread()
 	{
 		if (TotalPages <= 0)
 			return;
 
-		_currentPageIndex = Math.Clamp(_currentPageIndex, 0, TotalPages - 1);
-		_pageIndicatorLabel.Text = $"Page {_currentPageIndex + 1}/{TotalPages}";
+		_currentPageIndex = ClampToSpreadStart(_currentPageIndex);
+		_pageIndicatorLabel.Text = BuildPageIndicatorText();
 
-		_leftArrowButton.Disabled = _currentPageIndex <= 0;
-		_rightArrowButton.Disabled = _currentPageIndex >= TotalPages - 1;
+		_leftPageHotspot.Disabled = _currentPageIndex <= 0;
+		_rightPageHotspot.Disabled = _currentPageIndex >= MaxSpreadStart;
 
-		if (_currentPageIndex == 0)
+		RefreshPageView(_leftPage, _currentPageIndex);
+		RefreshPageView(_rightPage, _currentPageIndex + 1);
+	}
+
+	private string BuildPageIndicatorText()
+	{
+		var leftPageNumber = _currentPageIndex + 1;
+		var rightPageNumber = Math.Min(_currentPageIndex + PagesPerSpread, TotalPages);
+		if (leftPageNumber == rightPageNumber)
+			return $"Page {leftPageNumber}/{TotalPages}";
+
+		return $"Pages {leftPageNumber}-{rightPageNumber}/{TotalPages}";
+	}
+
+	private int ClampToSpreadStart(int pageIndex)
+	{
+		var clampedPageIndex = Math.Clamp(pageIndex, 0, Math.Max(0, TotalPages - 1));
+		return Math.Min(MaxSpreadStart, clampedPageIndex - (clampedPageIndex % PagesPerSpread));
+	}
+
+	private void RefreshPageView(PotionBookPageView page, int logicalPageIndex)
+	{
+		if (logicalPageIndex >= TotalPages)
 		{
-			_pageTitleLabel.Text = "Potion Book";
-			_introLabel.Text = "Turn the page to browse the potions you can brew.";
-			_introLabel.Visible = true;
-			_recipeContent.Visible = false;
+			ShowBlankPage(page);
 			return;
 		}
 
-		var recipe = _recipes[_currentPageIndex - 1];
-		_pageTitleLabel.Text = recipe.Name;
-		_introLabel.Visible = false;
-		_recipeContent.Visible = true;
-		_ingredientsLabel.Text = BuildIngredientsText(recipe);
-		_traitsLabel.Text = BuildTraitsText(recipe);
-		UpdateBrewButtonState(recipe);
+		if (!TryGetRecipeForPage(logicalPageIndex, out var recipe))
+		{
+			ShowBlankPage(page);
+			return;
+		}
+
+		ShowRecipePage(page, recipe);
+	}
+
+	private void ShowBlankPage(PotionBookPageView page)
+	{
+		page.PageTitleLabel.Text = string.Empty;
+		page.IntroLabel.Text = string.Empty;
+		page.IntroLabel.Visible = false;
+		page.RecipeContent.Visible = false;
+		ClearIngredientIcons(page);
+		SetBrewStatus(page, string.Empty);
+	}
+
+	private void ShowRecipePage(PotionBookPageView page, PotionRecipeDef recipe)
+	{
+		page.PageTitleLabel.Text = recipe.Name;
+		page.IntroLabel.Visible = false;
+		page.RecipeContent.Visible = true;
+		page.IngredientsLabel.Text = BuildIngredientsText(recipe);
+		page.TraitsLabel.Text = BuildTraitsText(recipe);
+		UpdateIngredientIcons(page, recipe);
+		UpdateBrewButtonState(page, recipe);
 	}
 
 	private string BuildIngredientsText(PotionRecipeDef recipe)
@@ -421,38 +483,100 @@ public partial class PotionBookPanel : Control
 		return string.IsNullOrWhiteSpace(customName) ? fallbackName : customName;
 	}
 
-	private void UpdateBrewButtonState(PotionRecipeDef recipe)
+	private void UpdateBrewButtonState(PotionBookPageView page, PotionRecipeDef recipe)
 	{
-		_brewButton.Text = "Brew";
-		_brewButton.Visible = true;
+		page.BrewButton.Text = "Brew";
+		page.BrewButton.Visible = true;
 
 		if (!TryResolveKnownPotionItemId(recipe, out var potionItemId))
 		{
-			_brewButton.Disabled = true;
-			_brewButton.TooltipText = "Brew this potion once before using the potion book shortcut.";
+			page.BrewButton.Disabled = true;
+			page.BrewButton.TooltipText = "Brew this potion once before using the potion book shortcut.";
+			SetBrewStatus(page, "Shortcut unlocks after the potion is brewed once.");
 			return;
 		}
 
 		if (!_brewService.TryGetRequiredIngredients(potionItemId, out var requiredIngredients, out var error))
 		{
-			_brewButton.Disabled = true;
-			_brewButton.TooltipText = error;
+			page.BrewButton.Disabled = true;
+			page.BrewButton.TooltipText = error;
+			SetBrewStatus(page, error);
 			return;
 		}
 
 		var hasIngredients = _brewService.HasRequiredIngredients(requiredIngredients);
-		_brewButton.Disabled = !hasIngredients;
-		_brewButton.TooltipText = hasIngredients
+		page.BrewButton.Disabled = !hasIngredients;
+		page.BrewButton.TooltipText = hasIngredients
 			? "Brew this potion from discovered ingredients."
 			: _brewService.BuildMissingIngredientsText(requiredIngredients);
+		SetBrewStatus(page, hasIngredients ? "Ready to brew from recorded ingredients." : "Missing ingredients in inventory.");
 	}
 
-	private void TryBrewCurrentPagePotion()
+	private void UpdateIngredientIcons(PotionBookPageView page, PotionRecipeDef recipe)
 	{
-		if (_currentPageIndex <= 0 || _currentPageIndex > _recipes.Count)
+		UpdateIngredientIcon(page.IngredientIconOne, recipe, 0);
+		UpdateIngredientIcon(page.IngredientIconTwo, recipe, 1);
+		UpdateIngredientIcon(page.IngredientIconThree, recipe, 2);
+	}
+
+	private void UpdateIngredientIcon(TextureRect? icon, PotionRecipeDef recipe, int ingredientIndex)
+	{
+		if (ingredientIndex >= recipe.IngredientIds.Count)
+		{
+			SetIngredientIcon(icon, null, string.Empty);
+			return;
+		}
+
+		var ingredientId = recipe.IngredientIds[ingredientIndex];
+		if (!_itemCatalog.TryGetItem(ingredientId, out var item))
+		{
+			SetIngredientIcon(icon, null, string.Empty);
+			return;
+		}
+
+		SetIngredientIcon(icon, UiIconLoader.LoadIcon(item.IconPath), item.Name);
+	}
+
+	private static void ClearIngredientIcons(PotionBookPageView page)
+	{
+		SetIngredientIcon(page.IngredientIconOne, null, string.Empty);
+		SetIngredientIcon(page.IngredientIconTwo, null, string.Empty);
+		SetIngredientIcon(page.IngredientIconThree, null, string.Empty);
+	}
+
+	private static void SetIngredientIcon(TextureRect? icon, Texture2D? texture, string tooltipText)
+	{
+		if (icon is null)
 			return;
 
-		var recipe = _recipes[_currentPageIndex - 1];
+		icon.Texture = texture;
+		icon.Visible = texture is not null;
+		icon.TooltipText = tooltipText;
+	}
+
+	private static void SetBrewStatus(PotionBookPageView page, string text)
+	{
+		if (page.BrewStatusLabel is null)
+			return;
+
+		page.BrewStatusLabel.Text = text;
+	}
+
+	private void OnLeftBrewPressed()
+	{
+		TryBrewVisiblePotion(_currentPageIndex);
+	}
+
+	private void OnRightBrewPressed()
+	{
+		TryBrewVisiblePotion(_currentPageIndex + 1);
+	}
+
+	private void TryBrewVisiblePotion(int logicalPageIndex)
+	{
+		if (!TryGetRecipeForPage(logicalPageIndex, out var recipe))
+			return;
+
 		if (!TryResolveKnownPotionItemId(recipe, out var potionItemId))
 		{
 			GD.PushError("PotionBookPanel: Potion has not been brewed before.");
@@ -463,7 +587,7 @@ public partial class PotionBookPanel : Control
 			return;
 
 		CursorToast.Show(this, error);
-		RefreshPage();
+		RefreshSpread();
 	}
 
 	private bool TryResolveKnownPotionItemId(PotionRecipeDef recipe, out string potionItemId)
@@ -513,28 +637,75 @@ public partial class PotionBookPanel : Control
 		return false;
 	}
 
-	private string? GetCurrentPotionId()
+	private string? GetVisiblePotionId()
 	{
-		if (_currentPageIndex <= 0 || _currentPageIndex > _recipes.Count)
-			return null;
+		if (TryGetRecipeForPage(_currentPageIndex, out var leftRecipe))
+			return leftRecipe.Id;
 
-		return _recipes[_currentPageIndex - 1].Id;
+		if (TryGetRecipeForPage(_currentPageIndex + 1, out var rightRecipe))
+			return rightRecipe.Id;
+
+		return null;
 	}
 
-	private int ResolvePageIndex(string? preferredPotionId)
+	private bool TryGetRecipeForPage(int logicalPageIndex, out PotionRecipeDef recipe)
+	{
+		recipe = default!;
+
+		if (logicalPageIndex < IntroPageCount)
+			return false;
+
+		var recipeIndex = logicalPageIndex - IntroPageCount;
+		if (recipeIndex < 0 || recipeIndex >= _recipes.Count)
+			return false;
+
+		recipe = _recipes[recipeIndex];
+		return true;
+	}
+
+	private int ResolveSpreadStart(string? preferredPotionId)
 	{
 		if (string.IsNullOrWhiteSpace(preferredPotionId))
-			return Math.Clamp(_currentPageIndex, 0, Math.Max(0, TotalPages - 1));
+			return ClampToSpreadStart(_currentPageIndex);
 
 		for (var i = 0; i < _recipes.Count; i++)
 		{
 			if (!string.Equals(_recipes[i].Id, preferredPotionId, StringComparison.OrdinalIgnoreCase))
 				continue;
 
-			return i + 1;
+			return ClampToSpreadStart(i + IntroPageCount);
 		}
 
-		return Math.Clamp(_currentPageIndex, 0, Math.Max(0, TotalPages - 1));
+		return ClampToSpreadStart(_currentPageIndex);
+	}
+
+	private void ResolvePageView(PotionBookPageView page, PageSide side)
+	{
+		if (side == PageSide.Left)
+		{
+			page.PageTitleLabel = GetNode<Label>(LeftPageTitleLabelPath);
+			page.IntroLabel = GetNode<Label>(LeftIntroLabelPath);
+			page.RecipeContent = GetNode<Control>(LeftRecipeContentPath);
+			page.IngredientsLabel = GetNode<Label>(LeftIngredientsLabelPath);
+			page.TraitsLabel = GetNode<Label>(LeftTraitsLabelPath);
+			page.BrewButton = GetNode<Button>(LeftBrewButtonPath);
+			page.IngredientIconOne = GetOptionalNode<TextureRect>(LeftIngredientIconOnePath);
+			page.IngredientIconTwo = GetOptionalNode<TextureRect>(LeftIngredientIconTwoPath);
+			page.IngredientIconThree = GetOptionalNode<TextureRect>(LeftIngredientIconThreePath);
+			page.BrewStatusLabel = GetOptionalNode<Label>(LeftBrewStatusLabelPath);
+			return;
+		}
+
+		page.PageTitleLabel = GetNode<Label>(RightPageTitleLabelPath);
+		page.IntroLabel = GetNode<Label>(RightIntroLabelPath);
+		page.RecipeContent = GetNode<Control>(RightRecipeContentPath);
+		page.IngredientsLabel = GetNode<Label>(RightIngredientsLabelPath);
+		page.TraitsLabel = GetNode<Label>(RightTraitsLabelPath);
+		page.BrewButton = GetNode<Button>(RightBrewButtonPath);
+		page.IngredientIconOne = GetOptionalNode<TextureRect>(RightIngredientIconOnePath);
+		page.IngredientIconTwo = GetOptionalNode<TextureRect>(RightIngredientIconTwoPath);
+		page.IngredientIconThree = GetOptionalNode<TextureRect>(RightIngredientIconThreePath);
+		page.BrewStatusLabel = GetOptionalNode<Label>(RightBrewStatusLabelPath);
 	}
 
 	private static int CompareRecipesByName(PotionRecipeDef left, PotionRecipeDef right)
@@ -544,5 +715,25 @@ public partial class PotionBookPanel : Control
 			return nameComparison;
 
 		return string.Compare(left.Id, right.Id, StringComparison.OrdinalIgnoreCase);
+	}
+
+	private enum PageSide
+	{
+		Left,
+		Right
+	}
+
+	private sealed class PotionBookPageView
+	{
+		public Label PageTitleLabel = default!;
+		public Label IntroLabel = default!;
+		public Control RecipeContent = default!;
+		public Label IngredientsLabel = default!;
+		public Label TraitsLabel = default!;
+		public Button BrewButton = default!;
+		public TextureRect? IngredientIconOne;
+		public TextureRect? IngredientIconTwo;
+		public TextureRect? IngredientIconThree;
+		public Label? BrewStatusLabel;
 	}
 }

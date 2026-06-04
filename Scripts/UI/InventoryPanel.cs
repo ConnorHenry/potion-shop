@@ -25,11 +25,11 @@ public partial class InventoryPanel : Control
 	[Export] public NodePath PotionsSectionHeaderPath = new("Panel/Margin/VBox/PotionsSectionHeader");
 	[Export] public NodePath ConsumablesSectionHeaderPath = new("Panel/Margin/VBox/ConsumablesSectionHeader");
 	[Export] public NodePath IngredientsSectionHeaderPath = new("Panel/Margin/VBox/IngredientsSectionHeader");
+	[Export] public NodePath PotionsHeaderRowPath = new("Panel/Margin/VBox/PotionsHeaderRow");
+	[Export] public NodePath IngredientsHeaderRowPath = new("Panel/Margin/VBox/IngredientsHeaderRow");
 	[Export] public NodePath PotionsScrollPath = new("Panel/Margin/VBox/PotionsScroll");
 	[Export] public NodePath ConsumablesScrollPath = new("Panel/Margin/VBox/ConsumablesScroll");
 	[Export] public NodePath IngredientsScrollPath = new("Panel/Margin/VBox/IngredientsScroll");
-	[Export] public NodePath PotionsSortButtonPath = default!;
-	[Export] public NodePath ConsumablesSortButtonPath = default!;
 	[Export] public NodePath PotionsTraitFilterPath = default!;
 	[Export] public NodePath PotionsRiskFilterPath = default!;
 	[Export] public NodePath PotionsClearFilterButtonPath = default!;
@@ -57,6 +57,7 @@ public partial class InventoryPanel : Control
 	[Export] public NodePath ItemDetailTopCloseButtonPath = default!;
 	[Export] public NodePath GameStatePath = new(AutoloadNodePaths.GameState);
 	[Export] public NodePath ItemCatalogPath = new(AutoloadNodePaths.ItemCatalog);
+	[Export] public NodePath BrewPanelPath = new("../PotionBrewingStationView/BrewPanel");
 
 	private GridContainer _potions = default!;
 	private GridContainer _consumables = default!;
@@ -64,11 +65,11 @@ public partial class InventoryPanel : Control
 	private Button? _potionsSectionHeader;
 	private Button? _consumablesSectionHeader;
 	private Button? _ingredientsSectionHeader;
+	private Control? _potionsHeaderRow;
+	private Control? _ingredientsHeaderRow;
 	private Control? _potionsScroll;
 	private Control? _consumablesScroll;
 	private Control? _ingredientsScroll;
-	private Button _potionsSortButton = default!;
-	private Button _consumablesSortButton = default!;
 	private OptionButton? _potionsTraitFilter;
 	private OptionButton? _potionsRiskFilter;
 	private Button? _potionsClearFilterButton;
@@ -97,8 +98,6 @@ public partial class InventoryPanel : Control
 	private BrewPanel? _brewPanel;
 	private string? _currentItemId;
 	private bool _itemDetailResizeQueued;
-	private bool _potionsAscending = true;
-	private bool _consumablesAscending = true;
 	private bool _ingredientsAscending = true;
 	private string? _activePotionTraitFilter;
 	private string? _activePotionRiskFilter;
@@ -150,11 +149,11 @@ public partial class InventoryPanel : Control
 		_potionsSectionHeader = GetNodeOrNull<Button>(PotionsSectionHeaderPath);
 		_consumablesSectionHeader = GetNodeOrNull<Button>(ConsumablesSectionHeaderPath);
 		_ingredientsSectionHeader = GetNodeOrNull<Button>(IngredientsSectionHeaderPath);
+		_potionsHeaderRow = GetNodeOrNull<Control>(PotionsHeaderRowPath);
+		_ingredientsHeaderRow = GetNodeOrNull<Control>(IngredientsHeaderRowPath);
 		_potionsScroll = GetNodeOrNull<Control>(PotionsScrollPath);
 		_consumablesScroll = GetNodeOrNull<Control>(ConsumablesScrollPath);
 		_ingredientsScroll = GetNodeOrNull<Control>(IngredientsScrollPath);
-		_potionsSortButton = GetNode<Button>(PotionsSortButtonPath);
-		_consumablesSortButton = GetNode<Button>(ConsumablesSortButtonPath);
 		_potionsTraitFilter = GetNodeOrNull<OptionButton>(PotionsTraitFilterPath);
 		_potionsRiskFilter = GetNodeOrNull<OptionButton>(PotionsRiskFilterPath);
 		_potionsClearFilterButton = GetNodeOrNull<Button>(PotionsClearFilterButtonPath);
@@ -188,7 +187,7 @@ public partial class InventoryPanel : Control
 		_itemDetailTopCloseButton = ItemDetailTopCloseButtonPath is null || ItemDetailTopCloseButtonPath.IsEmpty
 			? null
 			: GetNodeOrNull<Button>(ItemDetailTopCloseButtonPath);
-		_brewPanel = GetNodeOrNull<BrewPanel>(new NodePath("../BrewPanel"));
+		_brewPanel = GetNodeOrNull<BrewPanel>(BrewPanelPath);
 
 		MouseFilter = MouseFilterEnum.Ignore;
 		_itemDetailPanel.MouseFilter = MouseFilterEnum.Ignore;
@@ -200,8 +199,6 @@ public partial class InventoryPanel : Control
 			_consumablesSectionHeader.Pressed += ToggleConsumablesSection;
 		if (_ingredientsSectionHeader is not null)
 			_ingredientsSectionHeader.Pressed += ToggleIngredientsSection;
-		_potionsSortButton.Pressed += TogglePotionsSort;
-		_consumablesSortButton.Pressed += ToggleConsumablesSort;
 		_ingredientsSortButton.Pressed += ToggleIngredientsSort;
 		if (_potionsTraitFilter is not null)
 			_potionsTraitFilter.ItemSelected += OnPotionTraitSelected;
@@ -245,10 +242,6 @@ public partial class InventoryPanel : Control
 			_consumablesSectionHeader.Pressed -= ToggleConsumablesSection;
 		if (_ingredientsSectionHeader is not null)
 			_ingredientsSectionHeader.Pressed -= ToggleIngredientsSection;
-		if (_potionsSortButton is not null)
-			_potionsSortButton.Pressed -= TogglePotionsSort;
-		if (_consumablesSortButton is not null)
-			_consumablesSortButton.Pressed -= ToggleConsumablesSort;
 		if (_ingredientsSortButton is not null)
 			_ingredientsSortButton.Pressed -= ToggleIngredientsSort;
 		if (_potionsTraitFilter is not null)
@@ -325,20 +318,6 @@ public partial class InventoryPanel : Control
 	public Button? GetItemDetailBrewButton()
 	{
 		return _itemDetailBrewButton;
-	}
-
-	private void TogglePotionsSort()
-	{
-		_potionsAscending = !_potionsAscending;
-		UpdateSortButtonLabels();
-		Refresh();
-	}
-
-	private void ToggleConsumablesSort()
-	{
-		_consumablesAscending = !_consumablesAscending;
-		UpdateSortButtonLabels();
-		Refresh();
 	}
 
 	private void ToggleIngredientsSort()
@@ -448,27 +427,11 @@ public partial class InventoryPanel : Control
 			potionStacksToRender = potionStacksToRender.Where(stack => ItemFilterUtilities.ItemHasRisk(stack.Key, _activePotionRiskFilter, _itemCatalog)).ToList();
 		}
 
-		if (_potionsAscending)
-		{
-			foreach (var stack in potionStacksToRender.OrderBy(x => ItemName(x.Key)).ThenBy(x => x.Key))
-				_potions.AddChild(CreateSlot(stack.Key, stack.Value));
-		}
-		else
-		{
-			foreach (var stack in potionStacksToRender.OrderByDescending(x => ItemName(x.Key)).ThenByDescending(x => x.Key))
-				_potions.AddChild(CreateSlot(stack.Key, stack.Value));
-		}
+		foreach (var stack in potionStacksToRender.OrderBy(x => ItemName(x.Key)).ThenBy(x => x.Key))
+			_potions.AddChild(CreateSlot(stack.Key, stack.Value));
 
-		if (_consumablesAscending)
-		{
-			foreach (var stack in consumableStacks.OrderBy(x => ItemName(x.Key)).ThenBy(x => x.Key))
-				_consumables.AddChild(CreateSlot(stack.Key, stack.Value));
-		}
-		else
-		{
-			foreach (var stack in consumableStacks.OrderByDescending(x => ItemName(x.Key)).ThenByDescending(x => x.Key))
-				_consumables.AddChild(CreateSlot(stack.Key, stack.Value));
-		}
+		foreach (var stack in consumableStacks.OrderBy(x => ItemName(x.Key)).ThenBy(x => x.Key))
+			_consumables.AddChild(CreateSlot(stack.Key, stack.Value));
 
 		var ingredientStacksToRender = ingredientStacks;
 		if (_ingredientsTraitFilter is null)
@@ -530,8 +493,6 @@ public partial class InventoryPanel : Control
 
 	private void UpdateSortButtonLabels()
 	{
-		_potionsSortButton.Text = _potionsAscending ? "A-Z" : "Z-A";
-		_consumablesSortButton.Text = _consumablesAscending ? "A-Z" : "Z-A";
 		_ingredientsSortButton.Text = _ingredientsAscending ? "A-Z" : "Z-A";
 	}
 
@@ -549,12 +510,16 @@ public partial class InventoryPanel : Control
 
 	private void UpdateSectionVisibility()
 	{
+		if (_potionsHeaderRow is not null)
+			_potionsHeaderRow.Visible = !_potionsCollapsed;
 		if (_potionsScroll is not null)
 			_potionsScroll.Visible = !_potionsCollapsed;
 
 		if (_consumablesScroll is not null)
 			_consumablesScroll.Visible = !_consumablesCollapsed;
 
+		if (_ingredientsHeaderRow is not null)
+			_ingredientsHeaderRow.Visible = !_ingredientsCollapsed;
 		if (_ingredientsScroll is not null)
 			_ingredientsScroll.Visible = !_ingredientsCollapsed;
 	}

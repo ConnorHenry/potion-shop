@@ -311,13 +311,16 @@ internal static class InventoryAndBrewPanelTests
         AssertTrue("BrewPanel regenerates preview names from the combination key",
             source.Contains("GetPreviewPotionName(string combinationKey)"));
         AssertTrue("BrewPanel scene wires the live preview name label",
-            scene.Contains("PotionNamePreviewLabelPath = NodePath(\"Panel/Margin/VBox/BrewRow/Preview/Identity/TopRow/TextColumn/NameFrame/NameMargin/Name\")"));
+            scene.Contains("PotionNamePreviewLabelPath = NodePath(\"Panel/CurrentBrew/Name\")"));
+        AssertTrue("BrewPanel scene uses the text-free potion preview board",
+            scene.Contains("path=\"res://art/Potion-Preview-Board.png\"") &&
+            scene.Contains("[node name=\"Board\" type=\"TextureRect\" parent=\"PotionBrewingStationView/BrewPanel/Panel\"]"));
         AssertTrue("BrewPanel scene labels the brew button like the mockup",
             scene.Contains("text = \"Brew Potion\""));
         AssertTrue("BrewPanel scene labels the clear button like the mockup",
             scene.Contains("text = \"Clear Ingredients\""));
         AssertTrue("BrewPanel result label supports colored taint text",
-            scene.Contains("[node name=\"Result\" type=\"RichTextLabel\" parent=\"BrewPanel/Panel/Margin/VBox\"]") &&
+            scene.Contains("[node name=\"Result\" type=\"RichTextLabel\" parent=\"PotionBrewingStationView/BrewPanel/Panel/Instability\"]") &&
             source.Contains("_resultLabel.BbcodeEnabled = true;"));
         AssertTrue("BrewPanel shows transferred potion risks after brewing",
             source.Contains("has been tainted with -") &&
@@ -489,7 +492,7 @@ internal static class InventoryAndBrewPanelTests
         AssertTrue("BrewPanel calculates potion price from ingredient totals",
             brewPanel.Contains("CalculateIngredientTotalPrice(_queuedIngredients)"));
         AssertTrue("BrewPanel renders the mockup price label",
-            brewPanel.Contains("Estimated Sell Price: \\u00A3"));
+            brewPanel.Contains("\\u00A3{totalIngredientPrice}"));
         AssertTrue("BrewPanel stores the potion base price in state",
             brewPanel.Contains("RegisterPotionBasePrice(potionItemId, potionBasePrice)"));
         AssertTrue("BrewPanel sums ingredient BasePrice values",
@@ -578,10 +581,13 @@ internal static class InventoryAndBrewPanelTests
             gameUiScene.Contains("[node name=\"AddToBook\" type=\"Button\" parent=\"InventoryItemDetail/Panel/Margin/VBox/Actions\"]") &&
             gameUiScene.Contains("text = \"Add to Book\""));
         AssertTrue("Game UI instance does not null out the add-to-book path",
-            gameUiScene.Contains("ItemDetailAddToPotionBookButtonPath = NodePath(\"../InventoryItemDetail/Panel/Margin/VBox/Actions/AddToBook\")") &&
-            !gameUiScene.Contains("ItemDetailAddToPotionBookButtonPath = null"));
+            inventoryScene.Contains("ItemDetailAddToPotionBookButtonPath = NodePath(\"../InventoryItemDetail/Panel/Margin/VBox/Actions/AddToBook\")") &&
+            !gameUiScene.Contains("ItemDetailAddToPotionBookButtonPath = null") &&
+            !gameUiScene.Contains("ItemDetailAddToPotionBookButtonPath = NodePath(\"\")"));
         AssertTrue("Game UI instance wires the discard path",
-            gameUiScene.Contains("ItemDetailDiscardButtonPath = NodePath(\"../InventoryItemDetail/Panel/Margin/VBox/Actions/Discard\")"));
+            inventoryScene.Contains("ItemDetailDiscardButtonPath = NodePath(\"../InventoryItemDetail/Panel/Margin/VBox/Actions/Discard\")") &&
+            !gameUiScene.Contains("ItemDetailDiscardButtonPath = null") &&
+            !gameUiScene.Contains("ItemDetailDiscardButtonPath = NodePath(\"\")"));
     }
 
     private static void TestRepeatBrewFailuresShowCursorToast()

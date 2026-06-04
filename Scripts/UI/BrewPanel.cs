@@ -526,11 +526,9 @@ public partial class BrewPanel : Control
 	{
 		var ingredientCount = _queuedIngredients.Count;
 		var totalIngredientPrice = CalculateIngredientTotalPrice(_queuedIngredients);
-		_ingredientCountLabel.Text = $"{ingredientCount}/3";
-		_ingredientCountLabel.AddThemeColorOverride("font_color", ingredientCount == 3
-			? new Color(0.43f, 0.83f, 0.48f, 1f)
-			: new Color(0.65f, 0.68f, 0.72f, 1f));
-		_pricePreviewLabel.Text = $"Estimated Sell Price: \u00A3{totalIngredientPrice}";
+		_ingredientCountLabel.Text = BuildIngredientInstructionText(ingredientCount);
+		_ingredientCountLabel.AddThemeColorOverride("font_color", new Color(0.055f, 0.039f, 0.025f, 1f));
+		_pricePreviewLabel.Text = $"\u00A3{totalIngredientPrice}";
 
 		if (ingredientCount < 3)
 		{
@@ -546,7 +544,7 @@ public partial class BrewPanel : Control
 
 		var combinationKey = PotionRecipeLookup.BuildCombinationKey(_queuedIngredients);
 		_potionNamePreviewLabel.Text = GetPreviewPotionName(combinationKey);
-		_potionNamePreviewLabel.AddThemeColorOverride("font_color", new Color(0.95f, 0.96f, 0.98f, 1f));
+		_potionNamePreviewLabel.AddThemeColorOverride("font_color", new Color(0.055f, 0.039f, 0.025f, 1f));
 
 		var previewResult = _brewingService.PreviewPotion(
 			ingredientDefs,
@@ -563,14 +561,26 @@ public partial class BrewPanel : Control
 	private void SetIncompletePreviewState()
 	{
 		ClearPreviewPotionName();
-		_potionNamePreviewLabel.Text = "Add 3 ingredients to preview";
-		_potionNamePreviewLabel.AddThemeColorOverride("font_color", new Color(0.73f, 0.76f, 0.79f, 1f));
+		_potionNamePreviewLabel.Text = "Unfinished Brew";
+		_potionNamePreviewLabel.AddThemeColorOverride("font_color", new Color(0.055f, 0.039f, 0.025f, 1f));
 		_traitPreviewLabel.Text = "-\n-\n-";
 		_riskPreviewLabel.Text = "-";
 		_riskStatusIconLabel.Text = "v";
 		_riskStatusLabel.Text = "Waiting for 3 ingredients";
 		_riskStatusIconLabel.AddThemeColorOverride("font_color", new Color(0.65f, 0.68f, 0.72f, 1f));
 		_riskStatusLabel.AddThemeColorOverride("font_color", new Color(0.65f, 0.68f, 0.72f, 1f));
+	}
+
+	private static string BuildIngredientInstructionText(int ingredientCount)
+	{
+		var remainingIngredients = Math.Clamp(3 - ingredientCount, 0, 3);
+		return remainingIngredients switch
+		{
+			3 => "Add 3 ingredients to the cauldron.",
+			2 => "Add 2 more ingredients to the cauldron.",
+			1 => "Add 1 more ingredient to the cauldron.",
+			_ => "Ready to brew."
+		};
 	}
 
 	private void SetRiskStatusPreview(bool hasNoRisks)

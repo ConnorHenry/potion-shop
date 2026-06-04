@@ -20,15 +20,15 @@ public partial class Hud : Control
 	[Export] public NodePath GameStatePath = new(AutoloadNodePaths.GameState);
 	[Export] public NodePath SaveGameManagerPath = new(AutoloadNodePaths.SaveGameManager);
 	[Export] public NodePath DayControllerPath = new("/root/Main/DayController");
-	[Export] public NodePath BrewPanelPath = new("../BrewPanel");
+	[Export] public NodePath BrewPanelPath = new("../PotionBrewingStationView/BrewPanel");
 	[Export] public NodePath TreatmentTrayPanelPath = new("../TreatmentTray");
 	[Export] public NodePath RecipeBookPanelPath = new("../RecipeBookPanel");
+	[Export] public NodePath ShopFloorPath = new("../ShopFloor");
 
 	private Label _gold = default!;
 	private Label _dread = default!;
 	private Label _day = default!;
 	private Label? _shopTimer;
-	private Button _endDayButton = default!;
 	private Button _serveCustomerButton = default!;
 	private Button _brewPotionButton = default!;
 	private Button _treatmentTrayButton = default!;
@@ -44,6 +44,7 @@ public partial class Hud : Control
 	private Control? _brewPanel;
 	private Control? _treatmentTrayPanel;
 	private Control? _recipeBookPanel;
+	private ShopFloor? _shopFloor;
 	private Control _settingsPanel = default!;
 	private bool _isSavingGame;
 
@@ -91,12 +92,19 @@ public partial class Hud : Control
 			return;
 		}
 
+		var shopFloor = GetNodeOrNull<ShopFloor>(ShopFloorPath);
+		if (shopFloor is null)
+		{
+			GD.PushError($"Hud: ShopFloor was not found at '{ShopFloorPath}'.");
+		}
+
 		_gameState = gameState;
 		_saveGameManager = saveGameManager;
 		_dayController = dayController;
 		_brewPanel = brewPanel;
 		_treatmentTrayPanel = treatmentTrayPanel;
 		_recipeBookPanel = recipeBookPanel;
+		_shopFloor = shopFloor;
 
 		_gold = GetNode<Label>(GoldLabelPath);
 		_dread = GetNode<Label>(DreadLabelPath);
@@ -108,7 +116,6 @@ public partial class Hud : Control
 		if (_shopTimer is null)
 			GD.PushError("Hud: Shop timer label node is missing.");
 
-		_endDayButton = GetNode<Button>("EndDay");
 		_serveCustomerButton = GetNode<Button>("ServeCustomer");
 		_brewPotionButton = GetNode<Button>("BrewPotion");
 		_treatmentTrayButton = GetNode<Button>("TreatmentTray");
@@ -123,7 +130,6 @@ public partial class Hud : Control
 		_settingsPanel.ZIndex = SettingsPanelZIndex;
 		SetProcessInput(true);
 
-		_endDayButton.Pressed += OnEndDayPressed;
 		_serveCustomerButton.Pressed += OnStartDayPressed;
 		_brewPotionButton.Pressed += OnBrewPotionPressed;
 		_treatmentTrayButton.Pressed += OnTreatmentTrayPressed;
@@ -149,8 +155,6 @@ public partial class Hud : Control
 			_gameState.Changed -= Refresh;
 		if (_dayController is not null)
 			_dayController.ShopStateChanged -= RefreshShopState;
-		if (_endDayButton is not null)
-			_endDayButton.Pressed -= OnEndDayPressed;
 		if (_serveCustomerButton is not null)
 			_serveCustomerButton.Pressed -= OnStartDayPressed;
 		if (_brewPotionButton is not null)
@@ -200,14 +204,6 @@ public partial class Hud : Control
 		RefreshShopState();
 	}
 
-	private void OnEndDayPressed()
-	{
-		if (_dayController is null)
-			return;
-
-		_dayController.EndDayAndRunNight();
-	}
-
 	private void OnStartDayPressed()
 	{
 		if (_dayController is null)
@@ -218,6 +214,12 @@ public partial class Hud : Control
 
 	private void OnBrewPotionPressed()
 	{
+		if (_shopFloor is not null)
+		{
+			_shopFloor.OpenPotionBrewingStation();
+			return;
+		}
+
 		if (_brewPanel is null)
 			return;
 
@@ -374,7 +376,6 @@ public partial class Hud : Control
 
 		_serveCustomerButton.Text = isShopOpen ? "Shop Open" : "Start Day";
 		_serveCustomerButton.Disabled = isShopOpen;
-		_endDayButton.Disabled = isShopOpen;
 		_gardenButton.Disabled = isShopOpen;
 	}
 }

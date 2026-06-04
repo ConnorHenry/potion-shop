@@ -18,5 +18,6 @@ public enum TutorialStepId
 	BlackIchorRestTrait = 13,
 	AddBlackIchorToBrew = 14,
 	AddTwoMoreSleepIngredients = 15,
-	CloseShop = 16
+	CloseShop = 16,
+	DaySummary = 17
 }

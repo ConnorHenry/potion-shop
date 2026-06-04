@@ -23,9 +23,9 @@ public partial class CustomerPanel : Control
 	public delegate void DialogueResolvedEventHandler();
 
 	public bool SuppressSaleResultPanel { get; set; }
+	public string? CurrentCustomerImagePath => _interaction?.CharacterImagePath;
 
 	[Export] public NodePath TitlePath = default!;
-	[Export] public NodePath PortraitPath = default!;
 	[Export] public NodePath DesiredTraitsPath = default!;
 	[Export] public NodePath BadTraitsPath = default!;
 	[Export] public NodePath DialoguePath = default!;
@@ -39,7 +39,6 @@ public partial class CustomerPanel : Control
 	[Export] public NodePath ItemCatalogPath = new(AutoloadNodePaths.ItemCatalog);
 
 	private Label? _title;
-	private TextureRect _portrait = default!;
 	private RichTextLabel _desiredTraits = default!;
 	private RichTextLabel _badTraits = default!;
 	private RichTextLabel _dialogue = default!;
@@ -85,7 +84,6 @@ public partial class CustomerPanel : Control
 		_itemCatalog = itemCatalog;
 
 		_title = ResolveOptionalNode(TitlePath, "TitlePath", GetNodeOrNull<Label>);
-		_portrait = GetNode<TextureRect>(PortraitPath);
 		_desiredTraits = GetNode<RichTextLabel>(DesiredTraitsPath);
 		_badTraits = GetNode<RichTextLabel>(BadTraitsPath);
 		_dialogue = GetNode<RichTextLabel>(DialoguePath);
@@ -116,7 +114,6 @@ public partial class CustomerPanel : Control
 		_sellDropBox.ItemHoverPreview += OnSellDropHoverPreview;
 		_sellDropBox.HoverPreviewCleared += OnSellDropHoverPreviewCleared;
 		UpdateCloseShopButtonText();
-		_portrait.Visible = false;
 		_saleResultPanel.Visible = false;
 		SetSalePendingState();
 		Visible = false;
@@ -165,7 +162,6 @@ public partial class CustomerPanel : Control
 		Visible = true;
 		//_title.Text = interaction.Title;
 		_dialogue.Text = interaction.Text;
-		SetPortrait(interaction.CharacterImagePath);
 		SetRequestTraits(request);
 		if (!TryShowDialogueStart())
 			SetSalePendingState();
@@ -191,8 +187,6 @@ public partial class CustomerPanel : Control
 	{
 		_interaction = null;
 		_gameState.ClearActiveCustomerRequest();
-		_portrait.Texture = null;
-		_portrait.Visible = false;
 		_desiredTraits.Text = "";
 		_badTraits.Text = "";
 		_dialogue.Text = "";
@@ -376,20 +370,6 @@ public partial class CustomerPanel : Control
 	{
 		_desiredTraits.Text = FormatTraitListWithMatches(request.DesiredTraits, null, MatchedDesiredColorHex);
 		_badTraits.Text = FormatTraitListWithMatches(request.BadTraits, null, MatchedRiskColorHex);
-	}
-
-	private void SetPortrait(string? portraitPath)
-	{
-		if (string.IsNullOrWhiteSpace(portraitPath))
-		{
-			_portrait.Texture = null;
-			_portrait.Visible = false;
-			return;
-		}
-
-		var texture = ResourceLoader.Load<Texture2D>(portraitPath);
-		_portrait.Texture = texture;
-		_portrait.Visible = texture is not null;
 	}
 
 	private bool IsPotionItem(string itemId)

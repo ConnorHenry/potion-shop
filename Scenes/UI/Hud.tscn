@@ -43,13 +43,6 @@ offset_right = 219.0
 offset_bottom = 103.0
 text = "Shop Timer:"
 
-[node name="EndDay" type="Button" parent="."]
-layout_mode = 0
-offset_left = 315.0
-offset_right = 425.0
-offset_bottom = 40.0
-text = "End Day"
-
 [node name="ServeCustomer" type="Button" parent="."]
 layout_mode = 0
 offset_left = 440.0

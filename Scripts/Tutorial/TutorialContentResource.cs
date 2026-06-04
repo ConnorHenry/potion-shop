@@ -210,7 +210,7 @@ public partial class TutorialContentResource : Resource
 			{
 				StepId = (int)TutorialStepId.AddTwoMoreSleepIngredients,
 				Title = "Choose Two More Ingredients",
-				Body = "Add two more ingredients that may suit the customer's need for rest, calm, or dreams.",
+				Body = "Add two more ingredients that may suit the customer's need for rest, calm, or dreams. Brew the potion and serve the customer.",
 				ShowNextButton = false,
 				PanelAtTop = true,
 				DimBackground = false
@@ -222,6 +222,15 @@ public partial class TutorialContentResource : Resource
 				Body = "It is night time. Close the shop to end the day.",
 				ShowNextButton = false,
 				PanelAtTop = true,
+				LockOtherButtons = true
+			},
+			new()
+			{
+				StepId = (int)TutorialStepId.DaySummary,
+				Title = "End of Day Summary",
+				Body = "This is the end of day summary. This will show you how your day has gone. Click on the Continue to Night button.",
+				ShowNextButton = false,
+				PanelAtTop = false,
 				LockOtherButtons = true
 			}
 		};

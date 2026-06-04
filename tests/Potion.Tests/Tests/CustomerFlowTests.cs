@@ -16,6 +16,7 @@ internal static class CustomerFlowTests
     {
         runner.Run("CustomerPanel creates detached ingredient snapshots", TestCustomerPanelBuildPotionIngredientDef);
         runner.Run("Customer events randomize shop-day order", TestCustomerEventControllerRandomizesOrder);
+        runner.Run("Forced customer fallback resolves legacy ids deterministically", TestForcedCustomerFallbackResolvesLegacyIdsDeterministically);
         runner.Run("Customer events respect scheduling and story outcomes", TestCustomerEventSchedulingAndStoryOutcomes);
         runner.Run("Story customer dialogue options replace skip actions", TestStoryCustomerDialogueOptionsReplaceSkipActions);
         runner.Run("Customer drop box stays disabled until next customer", TestCustomerDropBoxDisablesAfterSale);
@@ -78,6 +79,31 @@ internal static class CustomerFlowTests
         AssertTrue("CustomerPanel exposes active interaction state", customerPanel.Contains("HasActiveInteraction => _interaction is not null"));
         AssertTrue("CustomerPanel can switch the next button to Close Shop", customerPanel.Contains("SetCloseShopMode(bool closeShopMode)"));
         AssertTrue("CustomerPanel exposes close shop mode state", customerPanel.Contains("IsCloseShopMode => _closeShopMode"));
+    }
+
+    private static void TestForcedCustomerFallbackResolvesLegacyIdsDeterministically()
+    {
+        var customerController = ReadProjectFile("Scripts/Controllers/CustomerEventController.cs");
+        var authoredData = ReadProjectFile("Data/authored_data.tres");
+        var tieredCustomers = ReadProjectFile("Data/customers_tiered_test_data.tres");
+
+        AssertTrue("Forced customer resolver keeps exact ids authoritative",
+            customerController.Contains("string.Equals(candidate.Id, forcedInteractionId, StringComparison.OrdinalIgnoreCase)"));
+        AssertTrue("Forced customer resolver supports legacy customer request ids",
+            customerController.Contains("NormalizeForcedInteractionId") &&
+            customerController.Contains("const string legacyPrefix = \"customer_requests_\""));
+        AssertTrue("Forced customer suffix fallback chooses the shortest matching id",
+            customerController.Contains("shortestMatchIdLength") &&
+            customerController.Contains("candidateIdLength < shortestMatchIdLength"));
+        AssertTrue("Forced customer suffix fallback fails loudly on tied shortest matches",
+            customerController.Contains("shortestMatchCount > 1") &&
+            customerController.Contains("matched multiple equally specific candidates"));
+        AssertTrue("Tiered customer data contains overlapping sleep draught suffixes",
+            tieredCustomers.Contains("\"id\": \"tier1_sleep_draught\"") &&
+            tieredCustomers.Contains("\"id\": \"tier2_clean_sleep_draught\""));
+        AssertTrue("Authored data may use tiered customer interactions",
+            authoredData.Contains("CustomerInteractionsPath = \"res://Data/customers_tiered_test_data.tres\"") ||
+            authoredData.Contains("CustomerInteractionsPath = \"res://Data/customers_data.tres\""));
     }
 
     private static void TestCustomerEventSchedulingAndStoryOutcomes()

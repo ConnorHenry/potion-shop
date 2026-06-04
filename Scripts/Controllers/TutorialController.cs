@@ -13,6 +13,7 @@ public partial class TutorialController : Node
 	[Export] public NodePath InventoryPanelPath = default!;
 	[Export] public NodePath BrewPanelPath = default!;
 	[Export] public NodePath CustomerPanelPath = default!;
+	[Export] public NodePath DaySummaryPanelPath = default!;
 	[Export] public NodePath DayControllerPath = default!;
 	[Export] public NodePath CustomerEventControllerPath = default!;
 	[Export] public NodePath GameStatePath = new(AutoloadNodePaths.GameState);
@@ -36,6 +37,7 @@ public partial class TutorialController : Node
 	private BrewPanel? _brewPanel;
 	private Control? _brewPanelFrame;
 	private CustomerPanel? _customerPanel;
+	private DaySummaryPanel? _daySummaryPanel;
 	private DayController? _dayController;
 	private CustomerEventController? _customerEventController;
 	private Button? _brewButton;
@@ -58,6 +60,7 @@ public partial class TutorialController : Node
 		_brewPanel = GetOptionalNode<BrewPanel>(BrewPanelPath, nameof(BrewPanelPath));
 		_brewPanelFrame = GetOptionalBrewPanelControl(BrewPanelFramePath, nameof(BrewPanelFramePath));
 		_customerPanel = GetOptionalNode<CustomerPanel>(CustomerPanelPath, nameof(CustomerPanelPath));
+		_daySummaryPanel = GetOptionalNode<DaySummaryPanel>(DaySummaryPanelPath, nameof(DaySummaryPanelPath));
 		_dayController = GetOptionalNode<DayController>(DayControllerPath, nameof(DayControllerPath));
 		_customerEventController = GetOptionalNode<CustomerEventController>(CustomerEventControllerPath, nameof(CustomerEventControllerPath));
 		_brewButton = GetOptionalHudButton(HudBrewButtonPath, nameof(HudBrewButtonPath));
@@ -83,6 +86,8 @@ public partial class TutorialController : Node
 		}
 		if (_dayController is not null)
 			_dayController.ShopStateChanged += OnShopStateChanged;
+		if (_daySummaryPanel is not null)
+			_daySummaryPanel.ContinuePressed += OnDaySummaryContinuePressed;
 		if (_customerPanel is not null)
 		{
 			_customerPanel.PotionSold += OnPotionSold;
@@ -115,6 +120,8 @@ public partial class TutorialController : Node
 		}
 		if (_dayController is not null)
 			_dayController.ShopStateChanged -= OnShopStateChanged;
+		if (_daySummaryPanel is not null)
+			_daySummaryPanel.ContinuePressed -= OnDaySummaryContinuePressed;
 		if (_customerPanel is not null)
 		{
 			_customerPanel.PotionSold -= OnPotionSold;
@@ -239,6 +246,14 @@ public partial class TutorialController : Node
 			return;
 
 		ApplyTransition(_stateMachine.EvaluateCustomerInteractionShown(CurrentStep(), interactionId));
+	}
+
+	private void OnDaySummaryContinuePressed()
+	{
+		if (!_isRunning)
+			return;
+
+		ApplyTransition(_stateMachine.EvaluateDaySummaryContinued(CurrentStep()));
 	}
 
 	private void AdvanceIfBrewPanelIsOpen()
@@ -381,6 +396,9 @@ public partial class TutorialController : Node
 			case TutorialStepId.CloseShop:
 				_overlayPresenter.ShowForTarget(stepContent, _customerPanel?.GetNextCustomerButton());
 				break;
+			case TutorialStepId.DaySummary:
+				_overlayPresenter.ShowForTarget(stepContent, _daySummaryPanel);
+				break;
 		}
 	}
 
@@ -410,6 +428,7 @@ public partial class TutorialController : Node
 		if (_inventoryPanel is null)
 			return null;
 
+		ShowInventoryPanelForTutorial();
 		_inventoryPanel.ClearPotionFiltersForTutorial();
 		return _inventoryPanel.GetVisibleItemSlot(_tutorialContent.TutorialPotionId);
 	}
@@ -450,6 +469,7 @@ public partial class TutorialController : Node
 		if (_inventoryPanel is null)
 			return null;
 
+		ShowInventoryPanelForTutorial();
 		_inventoryPanel.ClearIngredientFiltersForTutorial();
 		return _inventoryPanel.GetVisibleItemSlot(_tutorialContent.BlackIchorId);
 	}
@@ -459,8 +479,18 @@ public partial class TutorialController : Node
 		if (_inventoryPanel is null)
 			return null;
 
+		ShowInventoryPanelForTutorial();
 		_inventoryPanel.ClearIngredientFiltersForTutorial();
 		return _inventoryPanel.GetVisibleItemSlot(itemId);
+	}
+
+	private void ShowInventoryPanelForTutorial()
+	{
+		if (_inventoryPanel is null || _inventoryPanel.Visible)
+			return;
+
+		_inventoryPanel.Visible = true;
+		_inventoryPanel.MoveToFront();
 	}
 
 	private Control? FocusTutorialBrewPanel()
@@ -490,7 +520,7 @@ public partial class TutorialController : Node
 		}
 
 		_interactionGate.Apply(
-			new Node?[] { _hud, _inventoryPanel, _brewPanel, _customerPanel },
+			new Node?[] { _hud, _inventoryPanel, _brewPanel, _customerPanel, _daySummaryPanel },
 			allowedButtons);
 	}
 
@@ -509,6 +539,7 @@ public partial class TutorialController : Node
 			TutorialStepId.InspectBlackIchor => new BaseButton?[] { GetAllowedButton(FocusBlackIchorInventorySlot()) },
 			TutorialStepId.AddBlackIchorToBrew => new BaseButton?[] { _inventoryPanel?.GetItemDetailBrewButton() },
 			TutorialStepId.CloseShop => new BaseButton?[] { _customerPanel?.GetNextCustomerButton() },
+			TutorialStepId.DaySummary => new BaseButton?[] { _daySummaryPanel?.GetContinueButton() },
 			_ => new BaseButton?[] { }
 		};
 	}
