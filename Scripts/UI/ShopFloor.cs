@@ -9,13 +9,13 @@ public partial class ShopFloor : Control
 	[Export] public NodePath PotionBrewingStationButtonPath = new("Hotspots/InventoryShelf");
 	[Export] public NodePath CustomerButtonPath = new("Hotspots/Customer");
 	[Export] public NodePath BrewButtonPath = new("Hotspots/Counter");
-	[Export] public NodePath PotionBookButtonPath = new("Hotspots/PotionBook");
-	[Export] public NodePath TreatmentTrayButtonPath = new("Hotspots/TreatmentTray");
+	[Export] public NodePath BookButtonPath = new("../PotionBrewingStationView/BookHotspot");
 	[Export] public NodePath InventoryPanelPath = new("../InventoryPanel");
 	[Export] public NodePath CustomerPanelPath = new("../CustomerPanel");
 	[Export] public NodePath BrewPanelPath = new("../PotionBrewingStationView/BrewPanel");
 	[Export] public NodePath PotionBookPanelPath = new("../PotionBookPanel");
-	[Export] public NodePath TreatmentTrayPanelPath = new("../TreatmentTray");
+	[Export] public NodePath IngredientBookPanelPath = new("../IngredientBookPanel");
+	[Export] public NodePath TreatmentTrayPath = new("../PotionBrewingStationView/TreatmentTray");
 	[Export] public NodePath CustomerCloseupViewPath = new("../CustomerCloseupView");
 	[Export] public NodePath CustomerCloseupCustomerImagePath = new("../CustomerCloseupView/Customer");
 	[Export] public NodePath CustomerCloseupReturnButtonPath = new("../CustomerCloseupView/ReturnHotspot");
@@ -24,9 +24,15 @@ public partial class ShopFloor : Control
 	[Export] public NodePath PotionBookCloseupLeftReturnButtonPath = new("../PotionBookCloseupView/ReturnHotspotLeft");
 	[Export] public NodePath PotionBookCloseupRightReturnButtonPath = new("../PotionBookCloseupView/ReturnHotspotRight");
 	[Export] public NodePath PotionBookCloseupBottomReturnButtonPath = new("../PotionBookCloseupView/ReturnHotspotBottom");
+	[Export] public NodePath PotionBookTabButtonPath = new("../PotionBookCloseupView/BookTabs/PotionBookTab");
+	[Export] public NodePath IngredientBookTabButtonPath = new("../PotionBookCloseupView/BookTabs/IngredientBookTab");
 	[Export] public NodePath PotionBrewingStationViewPath = new("../PotionBrewingStationView");
 	[Export] public NodePath PotionBrewingStationReturnButtonPath = new("../PotionBrewingStationView/ReturnHotspotLeft");
-	[Export] public NodePath HudPath = new("../Hud");
+	[Export] public NodePath BedroomButtonPath = new("../PotionBrewingStationView/BedroomHotspotRight");
+	[Export] public NodePath BedroomViewPath = new("../BedroomView");
+	[Export] public NodePath BedroomReturnButtonPath = new("../BedroomView/ReturnHotspotLeft");
+	[Export] public NodePath BedroomEndDayButtonPath = new("../BedroomView/EndDayHotspot");
+	[Export] public NodePath EventModalPath = new("../EventModal");
 	[Export] public NodePath DayControllerPath = new("/root/Main/DayController");
 	[Export] public bool HideInventoryOnReady = true;
 	[Export] public bool KeepInventoryVisibleInCustomerCloseup = true;
@@ -34,45 +40,56 @@ public partial class ShopFloor : Control
 	private Button? _potionBrewingStationButton;
 	private Button? _customerButton;
 	private Button? _brewButton;
-	private Button? _potionBookButton;
-	private Button? _treatmentTrayButton;
+	private Button? _bookButton;
 	private Button? _customerCloseupReturnButton;
 	private Button? _potionBookCloseupReturnButton;
 	private Button? _potionBookCloseupLeftReturnButton;
 	private Button? _potionBookCloseupRightReturnButton;
 	private Button? _potionBookCloseupBottomReturnButton;
+	private Button? _potionBookTabButton;
+	private Button? _ingredientBookTabButton;
 	private Button? _potionBrewingStationReturnButton;
+	private Button? _bedroomButton;
+	private Button? _bedroomReturnButton;
+	private Button? _bedroomEndDayButton;
 	private Control? _customerCloseupView;
 	private TextureRect? _customerCloseupCustomerImage;
 	private Texture2D? _defaultCustomerCloseupCustomerTexture;
 	private Control? _potionBookCloseupView;
 	private Control? _potionBrewingStationView;
-	private Control? _hud;
+	private Control? _bedroomView;
+	private Control? _eventModal;
 	private InventoryPanel? _inventoryPanel;
 	private CustomerPanel? _customerPanel;
 	private BrewPanel? _brewPanel;
 	private PotionBookPanel? _potionBookPanel;
+	private IngredientBookPanel? _ingredientBookPanel;
 	private TreatmentTray? _treatmentTray;
 	private DayController? _dayController;
-	private bool _hudWasVisible;
 	private bool _inventoryWasVisible;
 	private bool _brewWasVisible;
 	private bool _potionBookWasVisible;
-	private bool _treatmentTrayWasVisible;
+	private bool _ingredientBookWasVisible;
+	private bool _returnToPotionBrewingStationAfterBook;
+	private BookPanelKind _activeBookPanelKind = BookPanelKind.Potion;
 
 	public override void _Ready()
 	{
 		_potionBrewingStationButton = GetRequiredButton(PotionBrewingStationButtonPath, nameof(PotionBrewingStationButtonPath));
 		_customerButton = GetRequiredButton(CustomerButtonPath, nameof(CustomerButtonPath));
 		_brewButton = GetRequiredButton(BrewButtonPath, nameof(BrewButtonPath));
-		_potionBookButton = GetRequiredButton(PotionBookButtonPath, nameof(PotionBookButtonPath));
-		_treatmentTrayButton = GetRequiredButton(TreatmentTrayButtonPath, nameof(TreatmentTrayButtonPath));
+		_bookButton = GetRequiredButton(BookButtonPath, nameof(BookButtonPath));
 		_customerCloseupReturnButton = GetRequiredButton(CustomerCloseupReturnButtonPath, nameof(CustomerCloseupReturnButtonPath));
 		_potionBookCloseupReturnButton = GetRequiredButton(PotionBookCloseupReturnButtonPath, nameof(PotionBookCloseupReturnButtonPath));
 		_potionBookCloseupLeftReturnButton = GetNodeOrNull<Button>(PotionBookCloseupLeftReturnButtonPath);
 		_potionBookCloseupRightReturnButton = GetNodeOrNull<Button>(PotionBookCloseupRightReturnButtonPath);
 		_potionBookCloseupBottomReturnButton = GetNodeOrNull<Button>(PotionBookCloseupBottomReturnButtonPath);
+		_potionBookTabButton = GetNodeOrNull<Button>(PotionBookTabButtonPath);
+		_ingredientBookTabButton = GetNodeOrNull<Button>(IngredientBookTabButtonPath);
 		_potionBrewingStationReturnButton = GetRequiredButton(PotionBrewingStationReturnButtonPath, nameof(PotionBrewingStationReturnButtonPath));
+		_bedroomButton = GetRequiredButton(BedroomButtonPath, nameof(BedroomButtonPath));
+		_bedroomReturnButton = GetRequiredButton(BedroomReturnButtonPath, nameof(BedroomReturnButtonPath));
+		_bedroomEndDayButton = GetRequiredButton(BedroomEndDayButtonPath, nameof(BedroomEndDayButtonPath));
 
 		_customerCloseupView = GetOptionalNode<Control>(CustomerCloseupViewPath, nameof(CustomerCloseupViewPath));
 		_customerCloseupCustomerImage = GetOptionalNode<TextureRect>(
@@ -81,27 +98,36 @@ public partial class ShopFloor : Control
 		_defaultCustomerCloseupCustomerTexture = _customerCloseupCustomerImage?.Texture;
 		_potionBookCloseupView = GetOptionalNode<Control>(PotionBookCloseupViewPath, nameof(PotionBookCloseupViewPath));
 		_potionBrewingStationView = GetOptionalNode<Control>(PotionBrewingStationViewPath, nameof(PotionBrewingStationViewPath));
-		_hud = GetOptionalNode<Control>(HudPath, nameof(HudPath));
+		_bedroomView = GetOptionalNode<Control>(BedroomViewPath, nameof(BedroomViewPath));
+		_eventModal = GetOptionalNode<Control>(EventModalPath, nameof(EventModalPath));
 		_inventoryPanel = GetOptionalNode<InventoryPanel>(InventoryPanelPath, nameof(InventoryPanelPath));
 		_customerPanel = GetOptionalNode<CustomerPanel>(CustomerPanelPath, nameof(CustomerPanelPath));
 		_brewPanel = GetOptionalNode<BrewPanel>(BrewPanelPath, nameof(BrewPanelPath));
 		_potionBookPanel = GetOptionalNode<PotionBookPanel>(PotionBookPanelPath, nameof(PotionBookPanelPath));
-		_treatmentTray = GetOptionalNode<TreatmentTray>(TreatmentTrayPanelPath, nameof(TreatmentTrayPanelPath));
+		_ingredientBookPanel = GetOptionalNode<IngredientBookPanel>(IngredientBookPanelPath, nameof(IngredientBookPanelPath));
+		_treatmentTray = GetOptionalNode<TreatmentTray>(TreatmentTrayPath, nameof(TreatmentTrayPath));
 		_dayController = GetOptionalNode<DayController>(DayControllerPath, nameof(DayControllerPath));
 
 		ConnectButton(_potionBrewingStationButton, OnPotionBrewingStationPressed);
 		ConnectButton(_customerButton, OnCustomerPressed);
 		ConnectButton(_brewButton, OnBrewPressed);
-		ConnectButton(_potionBookButton, OnPotionBookPressed);
-		ConnectButton(_treatmentTrayButton, OnTreatmentTrayPressed);
+		ConnectButton(_bookButton, OnBookPressed);
 		ConnectButton(_customerCloseupReturnButton, OnReturnToShopFloorPressed);
 		ConnectButton(_potionBookCloseupReturnButton, OnReturnToShopFloorPressed);
 		ConnectButton(_potionBookCloseupLeftReturnButton, OnReturnToShopFloorPressed);
 		ConnectButton(_potionBookCloseupRightReturnButton, OnReturnToShopFloorPressed);
 		ConnectButton(_potionBookCloseupBottomReturnButton, OnReturnToShopFloorPressed);
+		ConnectButton(_potionBookTabButton, OnPotionBookTabPressed);
+		ConnectButton(_ingredientBookTabButton, OnIngredientBookTabPressed);
 		ConnectButton(_potionBrewingStationReturnButton, OnReturnToShopFloorPressed);
+		ConnectButton(_bedroomButton, OnBedroomPressed);
+		ConnectButton(_bedroomReturnButton, OnReturnFromBedroomPressed);
+		ConnectButton(_bedroomEndDayButton, OnBedroomEndDayPressed);
+		if (_dayController is not null)
+			_dayController.ShopStateChanged += UpdateBedroomEndDayHotspotState;
 
 		Callable.From(ApplyInitialPanelState).CallDeferred();
+		UpdateBedroomEndDayHotspotState();
 	}
 
 	public override void _ExitTree()
@@ -109,14 +135,20 @@ public partial class ShopFloor : Control
 		DisconnectButton(_potionBrewingStationButton, OnPotionBrewingStationPressed);
 		DisconnectButton(_customerButton, OnCustomerPressed);
 		DisconnectButton(_brewButton, OnBrewPressed);
-		DisconnectButton(_potionBookButton, OnPotionBookPressed);
-		DisconnectButton(_treatmentTrayButton, OnTreatmentTrayPressed);
+		DisconnectButton(_bookButton, OnBookPressed);
 		DisconnectButton(_customerCloseupReturnButton, OnReturnToShopFloorPressed);
 		DisconnectButton(_potionBookCloseupReturnButton, OnReturnToShopFloorPressed);
 		DisconnectButton(_potionBookCloseupLeftReturnButton, OnReturnToShopFloorPressed);
 		DisconnectButton(_potionBookCloseupRightReturnButton, OnReturnToShopFloorPressed);
 		DisconnectButton(_potionBookCloseupBottomReturnButton, OnReturnToShopFloorPressed);
+		DisconnectButton(_potionBookTabButton, OnPotionBookTabPressed);
+		DisconnectButton(_ingredientBookTabButton, OnIngredientBookTabPressed);
 		DisconnectButton(_potionBrewingStationReturnButton, OnReturnToShopFloorPressed);
+		DisconnectButton(_bedroomButton, OnBedroomPressed);
+		DisconnectButton(_bedroomReturnButton, OnReturnFromBedroomPressed);
+		DisconnectButton(_bedroomEndDayButton, OnBedroomEndDayPressed);
+		if (_dayController is not null)
+			_dayController.ShopStateChanged -= UpdateBedroomEndDayHotspotState;
 	}
 
 	private void ApplyInitialPanelState()
@@ -130,6 +162,12 @@ public partial class ShopFloor : Control
 			_potionBookCloseupView.Visible = false;
 		if (_potionBrewingStationView is not null)
 			_potionBrewingStationView.Visible = false;
+		if (_bedroomView is not null)
+			_bedroomView.Visible = false;
+		if (_potionBookPanel is not null)
+			_potionBookPanel.Visible = false;
+		if (_ingredientBookPanel is not null)
+			_ingredientBookPanel.Visible = false;
 	}
 
 	private void OnPotionBrewingStationPressed()
@@ -181,14 +219,14 @@ public partial class ShopFloor : Control
 		RefreshCustomerCloseupImage();
 		StoreShopFloorPanelState();
 		Visible = false;
-		if (_hud is not null)
-			_hud.Visible = false;
 		if (_brewPanel is not null)
 			_brewPanel.Visible = false;
 		if (_potionBookPanel is not null)
 			_potionBookPanel.Visible = false;
+		if (_ingredientBookPanel is not null)
+			_ingredientBookPanel.Visible = false;
 		if (_treatmentTray is not null)
-			_treatmentTray.Visible = false;
+			_treatmentTray.ClearStagedItems();
 		if (!KeepInventoryVisibleInCustomerCloseup && _inventoryPanel is not null)
 			_inventoryPanel.Visible = false;
 
@@ -240,16 +278,31 @@ public partial class ShopFloor : Control
 
 	private void OnReturnToShopFloorPressed()
 	{
+		if (_potionBookCloseupView is not null
+			&& _potionBookCloseupView.Visible
+			&& _returnToPotionBrewingStationAfterBook)
+		{
+			ReturnFromBookToPotionBrewingStation();
+			return;
+		}
+
+		_returnToPotionBrewingStationAfterBook = false;
 		if (_customerCloseupView is not null)
 			_customerCloseupView.Visible = false;
 		if (_potionBookCloseupView is not null)
 			_potionBookCloseupView.Visible = false;
 		if (_potionBrewingStationView is not null)
 			_potionBrewingStationView.Visible = false;
+		if (_bedroomView is not null)
+			_bedroomView.Visible = false;
+		if (_treatmentTray is not null)
+			_treatmentTray.ClearStagedItems();
 		if (_customerPanel is not null)
 			_customerPanel.Visible = false;
 		if (_potionBookPanel is not null)
 			_potionBookPanel.Visible = false;
+		if (_ingredientBookPanel is not null)
+			_ingredientBookPanel.Visible = false;
 
 		Visible = true;
 		RestoreShopFloorPanelState();
@@ -265,18 +318,53 @@ public partial class ShopFloor : Control
 		ShowPotionBrewingStation();
 	}
 
-	private void OnPotionBookPressed()
+	private void OnBookPressed()
 	{
-		if (_potionBookPanel is null)
+		ShowBookCloseup(_activeBookPanelKind);
+	}
+
+	private void OnPotionBookTabPressed()
+	{
+		ShowBookPanel(BookPanelKind.Potion);
+	}
+
+	private void OnIngredientBookTabPressed()
+	{
+		ShowBookPanel(BookPanelKind.Ingredient);
+	}
+
+	private void OnBedroomPressed()
+	{
+		ShowBedroom();
+	}
+
+	private void OnReturnFromBedroomPressed()
+	{
+		ReturnFromBedroomToPotionBrewingStation();
+	}
+
+	private void OnBedroomEndDayPressed()
+	{
+		if (_dayController is null)
 		{
-			GD.PushError("ShopFloor: PotionBookPanel was not found.");
+			GD.PushError("ShopFloor: DayController was not found.");
+			UpdateBedroomEndDayHotspotState();
 			return;
 		}
 
-		ShowPotionBookCloseup();
+		if (_dayController.IsShopOpen)
+		{
+			UpdateBedroomEndDayHotspotState();
+			return;
+		}
+
+		_dayController.EndDayAndRunNight();
+		UpdateBedroomEndDayHotspotState();
+		if (_eventModal is not null && _eventModal.Visible)
+			_eventModal.MoveToFront();
 	}
 
-	private void ShowPotionBookCloseup()
+	private void ShowBookCloseup(BookPanelKind bookPanelKind)
 	{
 		if (_potionBookCloseupView is null)
 		{
@@ -289,41 +377,151 @@ public partial class ShopFloor : Control
 			GD.PushError("ShopFloor: PotionBookPanel was not found.");
 			return;
 		}
+		if (_ingredientBookPanel is null)
+		{
+			GD.PushError("ShopFloor: IngredientBookPanel was not found.");
+			return;
+		}
 
+		_returnToPotionBrewingStationAfterBook = _potionBrewingStationView is not null && _potionBrewingStationView.Visible;
 		StoreShopFloorPanelState();
 		Visible = false;
-		if (_hud is not null)
-			_hud.Visible = false;
 		if (_inventoryPanel is not null)
 			_inventoryPanel.Visible = false;
 		if (_customerPanel is not null)
 			_customerPanel.Visible = false;
-		if (_brewPanel is not null)
-			_brewPanel.Visible = false;
-		if (_treatmentTray is not null)
-			_treatmentTray.Visible = false;
+		if (_returnToPotionBrewingStationAfterBook)
+		{
+			if (_potionBrewingStationView is not null)
+				_potionBrewingStationView.Visible = false;
+		}
+		else
+		{
+			if (_brewPanel is not null)
+				_brewPanel.Visible = false;
+			if (_treatmentTray is not null)
+				_treatmentTray.ClearStagedItems();
+		}
 
 		_potionBookCloseupView.Visible = true;
 		_potionBookCloseupView.MoveToFront();
 
-		if (!_potionBookPanel.Visible)
-			_potionBookPanel.Toggle();
-
-		_potionBookPanel.MoveToFront();
+		ShowBookPanel(bookPanelKind);
 	}
 
-	private void ShowPotionBrewingStation()
+	private void ReturnFromBookToPotionBrewingStation()
 	{
+		_returnToPotionBrewingStationAfterBook = false;
+
+		if (_potionBookCloseupView is not null)
+			_potionBookCloseupView.Visible = false;
+		if (_potionBookPanel is not null)
+			_potionBookPanel.Visible = false;
+		if (_ingredientBookPanel is not null)
+			_ingredientBookPanel.Visible = false;
+		if (_potionBrewingStationView is not null)
+		{
+			_potionBrewingStationView.Visible = true;
+			_potionBrewingStationView.MoveToFront();
+		}
+	}
+
+	private void ShowBookPanel(BookPanelKind bookPanelKind)
+	{
+		if (bookPanelKind == BookPanelKind.Potion)
+		{
+			if (_ingredientBookPanel is not null)
+				_ingredientBookPanel.Visible = false;
+			if (_potionBookPanel is null)
+			{
+				GD.PushError("ShopFloor: PotionBookPanel was not found.");
+				return;
+			}
+
+			if (!_potionBookPanel.Visible)
+				_potionBookPanel.Toggle();
+
+			_potionBookPanel.MoveToFront();
+			UpdateBookTabState(BookPanelKind.Potion);
+			return;
+		}
+
+		if (_potionBookPanel is not null)
+			_potionBookPanel.Visible = false;
+		if (_ingredientBookPanel is null)
+		{
+			GD.PushError("ShopFloor: IngredientBookPanel was not found.");
+			return;
+		}
+
+		_ingredientBookPanel.ShowPanel();
+		_ingredientBookPanel.MoveToFront();
+		UpdateBookTabState(BookPanelKind.Ingredient);
+	}
+
+	private void UpdateBookTabState(BookPanelKind activeBookPanelKind)
+	{
+		_activeBookPanelKind = activeBookPanelKind;
+
+		if (_potionBookTabButton is not null)
+			_potionBookTabButton.Disabled = activeBookPanelKind == BookPanelKind.Potion;
+		if (_ingredientBookTabButton is not null)
+			_ingredientBookTabButton.Disabled = activeBookPanelKind == BookPanelKind.Ingredient;
+	}
+
+	private void ShowBedroom()
+	{
+		if (_bedroomView is null)
+		{
+			GD.PushError("ShopFloor: BedroomView was not found.");
+			return;
+		}
+
 		if (_potionBrewingStationView is null)
 		{
 			GD.PushError("ShopFloor: PotionBrewingStationView was not found.");
 			return;
 		}
 
+		_potionBrewingStationView.Visible = false;
+		_bedroomView.Visible = true;
+		_bedroomView.MoveToFront();
+		UpdateBedroomEndDayHotspotState();
+	}
+
+	private void ReturnFromBedroomToPotionBrewingStation()
+	{
+		if (_bedroomView is not null)
+			_bedroomView.Visible = false;
+
+		if (_potionBrewingStationView is null)
+		{
+			GD.PushError("ShopFloor: PotionBrewingStationView was not found.");
+			return;
+		}
+
+		_potionBrewingStationView.Visible = true;
+		_potionBrewingStationView.MoveToFront();
+	}
+
+	private void UpdateBedroomEndDayHotspotState()
+	{
+		if (_bedroomEndDayButton is null)
+			return;
+
+		_bedroomEndDayButton.Disabled = _dayController is null || _dayController.IsShopOpen;
+	}
+
+	private bool ShowPotionBrewingStation()
+	{
+		if (_potionBrewingStationView is null)
+		{
+			GD.PushError("ShopFloor: PotionBrewingStationView was not found.");
+			return false;
+		}
+
 		StoreShopFloorPanelState();
 		Visible = false;
-		if (_hud is not null)
-			_hud.Visible = false;
 		if (_inventoryPanel is not null)
 			_inventoryPanel.Visible = false;
 		if (_customerPanel is not null)
@@ -332,25 +530,20 @@ public partial class ShopFloor : Control
 			_brewPanel.Visible = false;
 		if (_potionBookPanel is not null)
 			_potionBookPanel.Visible = false;
-		if (_treatmentTray is not null)
-			_treatmentTray.Visible = false;
+		if (_ingredientBookPanel is not null)
+			_ingredientBookPanel.Visible = false;
+		if (_bedroomView is not null)
+			_bedroomView.Visible = false;
 
 		_potionBrewingStationView.Visible = true;
 		_potionBrewingStationView.MoveToFront();
+		if (_treatmentTray is not null)
+			_treatmentTray.Visible = true;
 
 		if (_brewPanel is not null)
 			_brewPanel.ShowPanel();
-	}
 
-	private void OnTreatmentTrayPressed()
-	{
-		if (_treatmentTray is null)
-		{
-			GD.PushError("ShopFloor: TreatmentTray was not found.");
-			return;
-		}
-
-		_treatmentTray.ShowPanel();
+		return true;
 	}
 
 	private void ShowControl(Control? control, string controlName)
@@ -367,25 +560,24 @@ public partial class ShopFloor : Control
 
 	private void StoreShopFloorPanelState()
 	{
-		_hudWasVisible = _hud is not null && _hud.Visible;
 		_inventoryWasVisible = _inventoryPanel is not null && _inventoryPanel.Visible;
 		_brewWasVisible = _brewPanel is not null && _brewPanel.Visible;
 		_potionBookWasVisible = _potionBookPanel is not null && _potionBookPanel.Visible;
-		_treatmentTrayWasVisible = _treatmentTray is not null && _treatmentTray.Visible;
+		_ingredientBookWasVisible = _ingredientBookPanel is not null && _ingredientBookPanel.Visible;
 	}
 
 	private void RestoreShopFloorPanelState()
 	{
-		if (_hud is not null)
-			_hud.Visible = _hudWasVisible;
 		if (_inventoryPanel is not null)
 			_inventoryPanel.Visible = _inventoryWasVisible;
 		if (_brewPanel is not null)
 			_brewPanel.Visible = _brewWasVisible;
 		if (_potionBookPanel is not null)
 			_potionBookPanel.Visible = _potionBookWasVisible;
+		if (_ingredientBookPanel is not null)
+			_ingredientBookPanel.Visible = _ingredientBookWasVisible;
 		if (_treatmentTray is not null)
-			_treatmentTray.Visible = _treatmentTrayWasVisible;
+			_treatmentTray.Visible = true;
 	}
 
 	private Button? GetRequiredButton(NodePath path, string exportName)
@@ -420,5 +612,11 @@ public partial class ShopFloor : Control
 			return;
 
 		button.Pressed -= handler;
+	}
+
+	private enum BookPanelKind
+	{
+		Potion,
+		Ingredient
 	}
 }

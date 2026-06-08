@@ -315,6 +315,14 @@ public partial class InventoryPanel : Control
 		return _itemDetailPanel.GetNodeOrNull<Control>("Panel") ?? _itemDetailPanel;
 	}
 
+	public void OpenItemDetail(string itemId)
+	{
+		if (string.IsNullOrWhiteSpace(itemId))
+			return;
+
+		ShowItemDetail(itemId);
+	}
+
 	public Button? GetItemDetailBrewButton()
 	{
 		return _itemDetailBrewButton;

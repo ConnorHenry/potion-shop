@@ -6,6 +6,7 @@ using ImGuiNET;
 using OccultShop.Controllers;
 using OccultShop.Autoload;
 using OccultShop.Models;
+using OccultShop.Systems;
 using Vector2 = System.Numerics.Vector2;
 
 namespace OccultShop.Debug;
@@ -15,9 +16,12 @@ public partial class RuntimeDebugImGui : Node
 	private readonly List<string> _potionItemIds = new();
 	private readonly List<string> _consumableItemIds = new();
 	private readonly List<string> _ingredientItemIds = new();
+	private readonly List<string> _bookPotionRecipeIds = new();
+	private readonly List<string> _bookIngredientItemIds = new();
 	private readonly List<string> _traitNames = new();
 	private readonly Dictionary<string, List<string>> _traitToItemIds = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Dictionary<string, string> _itemDisplayNames = new(StringComparer.OrdinalIgnoreCase);
+	private readonly Dictionary<string, string> _bookPotionDisplayNames = new(StringComparer.OrdinalIgnoreCase);
 
 	private GameState _gameState = default!;
 	private DataDb _dataDb = default!;
@@ -38,6 +42,8 @@ public partial class RuntimeDebugImGui : Node
 	private int _selectedConsumableRemoveIndex;
 	private int _selectedTraitIndex;
 	private int _selectedTraitItemIndex;
+	private int _selectedBookPotionIndex;
+	private int _selectedBookIngredientIndex;
 	private string _statusMessage = string.Empty;
 	private string _runtimeItemIdInput = string.Empty;
 	private string _runtimeItemNameInput = string.Empty;
@@ -123,6 +129,8 @@ public partial class RuntimeDebugImGui : Node
 		DrawConsumableSection();
 		ImGui.Separator();
 		DrawIngredientSection();
+		ImGui.Separator();
+		DrawBookRecordingSection();
 		ImGui.Separator();
 		DrawTraitSection();
 		ImGui.Separator();
@@ -402,6 +410,125 @@ public partial class RuntimeDebugImGui : Node
 		}
 	}
 
+	private void DrawBookRecordingSection()
+	{
+		if (!ImGui.CollapsingHeader("Book Recording", ImGuiTreeNodeFlags.DefaultOpen))
+			return;
+
+		DrawPotionBookRecordingControls();
+		ImGui.Separator();
+		DrawIngredientBookRecordingControls();
+	}
+
+	private void DrawPotionBookRecordingControls()
+	{
+		ImGui.Text("Potion Book");
+		if (_bookPotionRecipeIds.Count == 0)
+		{
+			ImGui.Text("No authored potion recipes available.");
+			return;
+		}
+
+		var safePotionIndex = ClampIndex(_selectedBookPotionIndex, _bookPotionRecipeIds.Count);
+		var recipeId = _bookPotionRecipeIds[safePotionIndex];
+		if (ImGui.BeginCombo("Authored Potion", BuildBookPotionLabel(recipeId)))
+		{
+			for (var i = 0; i < _bookPotionRecipeIds.Count; i++)
+			{
+				var candidateRecipeId = _bookPotionRecipeIds[i];
+				var isSelected = i == safePotionIndex;
+				if (ImGui.Selectable(BuildBookPotionLabel(candidateRecipeId), isSelected))
+					_selectedBookPotionIndex = i;
+				if (isSelected)
+					ImGui.SetItemDefaultFocus();
+			}
+			ImGui.EndCombo();
+		}
+
+		var recorded = IsPotionRecipeRecordedInBook(recipeId);
+		ImGui.Text(recorded ? "Current: Recorded" : "Current: Unknown");
+		if (!ImGui.Checkbox("Recorded in potion book", ref recorded))
+			return;
+
+		SetPotionRecipeRecordedInBook(recipeId, recorded);
+	}
+
+	private void DrawIngredientBookRecordingControls()
+	{
+		ImGui.Text("Ingredient Book");
+		if (_bookIngredientItemIds.Count == 0)
+		{
+			ImGui.Text("No authored ingredients available.");
+			return;
+		}
+
+		var safeIngredientIndex = ClampIndex(_selectedBookIngredientIndex, _bookIngredientItemIds.Count);
+		var ingredientId = _bookIngredientItemIds[safeIngredientIndex];
+		if (ImGui.BeginCombo("Authored Ingredient", BuildItemLabel(ingredientId)))
+		{
+			for (var i = 0; i < _bookIngredientItemIds.Count; i++)
+			{
+				var candidateIngredientId = _bookIngredientItemIds[i];
+				var isSelected = i == safeIngredientIndex;
+				if (ImGui.Selectable(BuildItemLabel(candidateIngredientId), isSelected))
+					_selectedBookIngredientIndex = i;
+				if (isSelected)
+					ImGui.SetItemDefaultFocus();
+			}
+			ImGui.EndCombo();
+		}
+
+		var recorded = _gameState.KnowsIngredient(ingredientId);
+		ImGui.Text(recorded ? "Current: Recorded" : "Current: Unknown");
+		if (!ImGui.Checkbox("Recorded in ingredient book", ref recorded))
+			return;
+
+		SetIngredientRecordedInBook(ingredientId, recorded);
+	}
+
+	private bool IsPotionRecipeRecordedInBook(string recipeId)
+	{
+		if (string.IsNullOrWhiteSpace(recipeId))
+			return false;
+
+		return _gameState.KnowsPotion(recipeId) ||
+			_gameState.KnowsPotion(PotionVariantIdBuilder.BuildPredefinedPotionItemId(recipeId));
+	}
+
+	private void SetPotionRecipeRecordedInBook(string recipeId, bool recorded)
+	{
+		if (string.IsNullOrWhiteSpace(recipeId))
+			return;
+
+		var potionItemId = PotionVariantIdBuilder.BuildPredefinedPotionItemId(recipeId);
+		if (recorded)
+		{
+			_gameState.LearnPotion(potionItemId);
+			_statusMessage = $"Recorded {BuildBookPotionLabel(recipeId)} in the potion book.";
+			return;
+		}
+
+		_gameState.ForgetPotion(recipeId);
+		_gameState.ForgetPotion(potionItemId);
+		_statusMessage = $"Marked {BuildBookPotionLabel(recipeId)} unknown in the potion book.";
+	}
+
+	private void SetIngredientRecordedInBook(string ingredientId, bool recorded)
+	{
+		if (string.IsNullOrWhiteSpace(ingredientId))
+			return;
+
+		if (recorded)
+		{
+			_gameState.LearnIngredient(ingredientId);
+			_statusMessage = $"Recorded {BuildItemLabel(ingredientId)} in the ingredient book.";
+			return;
+		}
+
+		_gameState.ForgetIngredient(ingredientId);
+		_statusMessage = $"Marked {BuildItemLabel(ingredientId)} unknown in the ingredient book.";
+	}
+
 	private void DrawTraitSection()
 	{
 		if (!ImGui.CollapsingHeader("Traits Present", ImGuiTreeNodeFlags.DefaultOpen))
@@ -677,9 +804,30 @@ public partial class RuntimeDebugImGui : Node
 		_potionItemIds.Clear();
 		_consumableItemIds.Clear();
 		_ingredientItemIds.Clear();
+		_bookPotionRecipeIds.Clear();
+		_bookIngredientItemIds.Clear();
 		_traitNames.Clear();
 		_traitToItemIds.Clear();
 		_itemDisplayNames.Clear();
+		_bookPotionDisplayNames.Clear();
+
+		foreach (var recipe in _dataDb.PotionRecipes)
+		{
+			if (recipe is null || string.IsNullOrWhiteSpace(recipe.Id))
+				continue;
+
+			_bookPotionRecipeIds.Add(recipe.Id);
+			_bookPotionDisplayNames[recipe.Id] = string.IsNullOrWhiteSpace(recipe.Name) ? recipe.Id : recipe.Name;
+		}
+
+		foreach (var pair in _dataDb.Items)
+		{
+			var item = pair.Value;
+			if (!IsBookIngredient(item))
+				continue;
+
+			_bookIngredientItemIds.Add(item.Id);
+		}
 
 		var merged = new Dictionary<string, ItemDef>(StringComparer.OrdinalIgnoreCase);
 		foreach (var pair in _dataDb.Items)
@@ -730,6 +878,8 @@ public partial class RuntimeDebugImGui : Node
 		_potionItemIds.Sort((a, b) => string.Compare(BuildItemLabel(a), BuildItemLabel(b), StringComparison.OrdinalIgnoreCase));
 		_consumableItemIds.Sort((a, b) => string.Compare(BuildItemLabel(a), BuildItemLabel(b), StringComparison.OrdinalIgnoreCase));
 		_ingredientItemIds.Sort((a, b) => string.Compare(BuildItemLabel(a), BuildItemLabel(b), StringComparison.OrdinalIgnoreCase));
+		_bookPotionRecipeIds.Sort((a, b) => string.Compare(BuildBookPotionLabel(a), BuildBookPotionLabel(b), StringComparison.OrdinalIgnoreCase));
+		_bookIngredientItemIds.Sort((a, b) => string.Compare(BuildItemLabel(a), BuildItemLabel(b), StringComparison.OrdinalIgnoreCase));
 		_traitNames.Sort((a, b) => string.Compare(a, b, StringComparison.OrdinalIgnoreCase));
 
 		foreach (var pair in _traitToItemIds)
@@ -738,6 +888,8 @@ public partial class RuntimeDebugImGui : Node
 		_selectedPotionIndex = ClampIndex(_selectedPotionIndex, _potionItemIds.Count);
 		_selectedConsumableIndex = ClampIndex(_selectedConsumableIndex, _consumableItemIds.Count);
 		_selectedTraitIndex = ClampIndex(_selectedTraitIndex, _traitNames.Count);
+		_selectedBookPotionIndex = ClampIndex(_selectedBookPotionIndex, _bookPotionRecipeIds.Count);
+		_selectedBookIngredientIndex = ClampIndex(_selectedBookIngredientIndex, _bookIngredientItemIds.Count);
 	}
 
 	private List<KeyValuePair<string, int>> BuildInventoryTraitTotals()
@@ -838,12 +990,28 @@ public partial class RuntimeDebugImGui : Node
 		return false;
 	}
 
+	private static bool IsBookIngredient(ItemDef? item)
+	{
+		if (item is null || string.IsNullOrWhiteSpace(item.Id) || item.Treatment is not null)
+			return false;
+
+		return HasTag(item, "ingredient");
+	}
+
 	private string BuildItemLabel(string itemId)
 	{
 		if (_itemDisplayNames.TryGetValue(itemId, out var name))
 			return $"{name} ({itemId})";
 
 		return itemId;
+	}
+
+	private string BuildBookPotionLabel(string recipeId)
+	{
+		if (_bookPotionDisplayNames.TryGetValue(recipeId, out var name))
+			return $"{name} ({recipeId})";
+
+		return recipeId;
 	}
 
 	private static int ClampIndex(int index, int count)

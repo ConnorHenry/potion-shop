@@ -20,11 +20,16 @@ internal static class SceneAndHudWiringTests
         runner.Run("Game UI keeps the potion trait filter wired", TestGameUiKeepsPotionTraitFilterWired);
         runner.Run("Customer closeup uses split art and customer data image paths", TestCustomerCloseupUsesSplitArt);
         runner.Run("Shop floor shelf opens potion brewing station view", TestShopFloorShelfOpensPotionBrewingStation);
+        runner.Run("Potion brewing station links to bedroom view", TestPotionBrewingStationLinksBedroom);
         runner.Run("Potion brewing station owns diegetic shelf inventory", TestPotionBrewingStationShelfInventory);
+        runner.Run("Potion brewing station owns separate potion inventory row", TestPotionBrewingStationPotionInventoryRow);
         runner.Run("Brew entry points open the potion brewing station", TestBrewEntryPointsOpenPotionBrewingStation);
         runner.Run("Scenario debugger can set the shop stop timer", TestScenarioDebuggerStopTimerControls);
+        runner.Run("Scenario debugger can toggle book records", TestScenarioDebuggerBookRecordingControls);
+        runner.Run("Persistent HUD owns global HUD visibility", TestPersistentHudOwnsGlobalHudVisibility);
         runner.Run("Hud return-to-menu does not auto-save", TestHudReturnToMainMenuDoesNotAutoSave);
         runner.Run("Hud settings panel closes on outside click", TestHudSettingsPanelClosesOnOutsideClick);
+        runner.Run("Hud ambient rain settings are wired", TestHudAmbientRainSettingsAreWired);
     }
 
     private static void TestUiClassPresenceAndBaseTypes()
@@ -42,7 +47,7 @@ internal static class SceneAndHudWiringTests
             ["OccultShop.UI.InventoryItemSlot"] = "Button",
             ["OccultShop.UI.InventoryPanel"] = "Control",
             ["OccultShop.UI.StationShelfInventory"] = "Control",
-            ["OccultShop.UI.RecipeBookPanel"] = "Control",
+            ["OccultShop.UI.PotionInventoryRow"] = "Control",
             ["OccultShop.UI.Garden"] = "Control",
             ["MainMenu"] = "Control"
         };
@@ -151,6 +156,57 @@ internal static class SceneAndHudWiringTests
             shopFloor.Contains("_potionBrewingStationView.Visible = false"));
     }
 
+    private static void TestPotionBrewingStationLinksBedroom()
+    {
+        var scene = ReadProjectFile("Scenes/UI/GameUi.tscn");
+        var shopFloor = ReadProjectFile("Scripts/UI/ShopFloor.cs");
+
+        AssertTrue("GameUi references the bedroom concept art",
+            scene.Contains("path=\"res://Assets/ConceptArt/Bedroom/rural_irish_bedroom_concept.png\""));
+        AssertTrue("GameUi defines the bedroom view with its background",
+            scene.Contains("[node name=\"BedroomView\" type=\"Control\" parent=\".\"]") &&
+            scene.Contains("[node name=\"Background\" type=\"TextureRect\" parent=\"BedroomView\"]") &&
+            scene.Contains("texture = ExtResource(\"42_bedroom\")"));
+        AssertTrue("GameUi defines a right bedroom hotspot on the brewing station view",
+            scene.Contains("[node name=\"BedroomHotspotRight\" type=\"Button\" parent=\"PotionBrewingStationView\"]") &&
+            scene.Contains("anchor_left = 0.82") &&
+            scene.Contains("anchor_right = 1.0") &&
+            scene.Contains("tooltip_text = \"Bedroom\""));
+        AssertTrue("GameUi defines a left return hotspot on the bedroom view",
+            scene.Contains("[node name=\"ReturnHotspotLeft\" type=\"Button\" parent=\"BedroomView\"]") &&
+            scene.Contains("anchor_right = 0.18") &&
+            scene.Contains("tooltip_text = \"Return to potion brewing station\""));
+        AssertTrue("GameUi defines an invisible bed hotspot for ending the day",
+            scene.Contains("[node name=\"EndDayHotspot\" type=\"Button\" parent=\"BedroomView\"]") &&
+            scene.Contains("anchor_left = 0.24") &&
+            scene.Contains("anchor_top = 0.42") &&
+            scene.Contains("anchor_right = 0.84") &&
+            scene.Contains("anchor_bottom = 0.72") &&
+            scene.Contains("tooltip_text = \"End day\""));
+        AssertTrue("ShopFloor exposes bedroom navigation paths",
+            shopFloor.Contains("BedroomButtonPath = new(\"../PotionBrewingStationView/BedroomHotspotRight\")") &&
+            shopFloor.Contains("BedroomViewPath = new(\"../BedroomView\")") &&
+            shopFloor.Contains("BedroomReturnButtonPath = new(\"../BedroomView/ReturnHotspotLeft\")") &&
+            shopFloor.Contains("BedroomEndDayButtonPath = new(\"../BedroomView/EndDayHotspot\")"));
+        AssertTrue("ShopFloor connects bedroom navigation buttons",
+            shopFloor.Contains("ConnectButton(_bedroomButton, OnBedroomPressed)") &&
+            shopFloor.Contains("ConnectButton(_bedroomReturnButton, OnReturnFromBedroomPressed)") &&
+            shopFloor.Contains("ConnectButton(_bedroomEndDayButton, OnBedroomEndDayPressed)"));
+        AssertTrue("ShopFloor swaps bedroom and potion station views",
+            shopFloor.Contains("private void ShowBedroom()") &&
+            shopFloor.Contains("_potionBrewingStationView.Visible = false;") &&
+            shopFloor.Contains("_bedroomView.Visible = true;") &&
+            shopFloor.Contains("private void ReturnFromBedroomToPotionBrewingStation()") &&
+            shopFloor.Contains("_bedroomView.Visible = false;") &&
+            shopFloor.Contains("_potionBrewingStationView.Visible = true;"));
+        AssertTrue("ShopFloor disables the bed end-day hotspot while the shop is open",
+            shopFloor.Contains("ShopStateChanged += UpdateBedroomEndDayHotspotState") &&
+            shopFloor.Contains("_bedroomEndDayButton.Disabled = _dayController is null || _dayController.IsShopOpen"));
+        AssertTrue("ShopFloor routes the bedroom bed hotspot through day end behavior",
+            shopFloor.Contains("private void OnBedroomEndDayPressed()") &&
+            shopFloor.Contains("_dayController.EndDayAndRunNight();"));
+    }
+
     private static void TestPotionBrewingStationShelfInventory()
     {
         var scene = ReadProjectFile("Scenes/UI/GameUi.tscn");
@@ -182,6 +238,46 @@ internal static class SceneAndHudWiringTests
             shelf.Contains("UpdatePageButtons"));
     }
 
+    private static void TestPotionBrewingStationPotionInventoryRow()
+    {
+        var scene = ReadProjectFile("Scenes/UI/GameUi.tscn");
+        var row = ReadProjectFile("Scripts/UI/PotionInventoryRow.cs");
+        var inventoryPanel = ReadProjectFile("Scripts/UI/InventoryPanel.cs");
+
+        AssertTrue("GameUi defines a separate potion inventory row under the brewing station view",
+            scene.Contains("[node name=\"PotionInventoryRow\" type=\"Control\" parent=\"PotionBrewingStationView\"]") &&
+            scene.Contains("script = ExtResource(\"43_potion_row\")") &&
+            !scene.Contains("[node name=\"PotionInventoryRow\" type=\"Control\" parent=\"PotionBrewingStationView/StationShelfInventory\"]"));
+		AssertTrue("Potion row owns exactly one four-column slot grid",
+			scene.Contains("PotionSlotsPath = NodePath(\"PotionSlots\")") &&
+			scene.Contains("[node name=\"PotionSlots\" type=\"GridContainer\" parent=\"PotionBrewingStationView/PotionInventoryRow\"]") &&
+			scene.Contains("columns = 4"));
+		AssertTrue("Potion row resolves the root inventory panel from the brewing station view",
+			scene.Contains("InventoryPanelPath = NodePath(\"../../InventoryPanel\")") &&
+			row.Contains("InventoryPanelPath = new(\"../../InventoryPanel\")"));
+		AssertTrue("Potion row renders only current potion stacks from inventory",
+			row.Contains("foreach (var stack in _gameState.Inventory)") &&
+			row.Contains("if (!IsPotion(item))") &&
+            row.Contains("if (stacks.Count >= VisiblePotionSlots)") &&
+            row.Contains("GameState.MaxUniquePotionInventoryQuantity") &&
+            !row.Contains("OrderBy("));
+        AssertTrue("Potion row left-click opens the inventory item detail panel",
+            row.Contains("slot.SlotActivated += ShowPotionDetail;") &&
+            row.Contains("_inventoryPanel.OpenItemDetail(itemId);") &&
+            inventoryPanel.Contains("public void OpenItemDetail(string itemId)") &&
+            inventoryPanel.Contains("ShowItemDetail(itemId);"));
+        AssertTrue("Potion row keeps potion slot previews concise",
+            row.Contains("UiIconLoader.LoadIcon(stack.IconPath)") &&
+            row.Contains("stack.Quantity.ToString()") &&
+            row.Contains("DisplayName(stack.Key, item.Name)") &&
+            !row.Contains("GetItemPrice(stack.Key, item)") &&
+            !row.Contains("TryGetPotionBasePrice(itemId, out var potionBasePrice)") &&
+            !row.Contains("InventoryItemTextFormatter.BuildSlotTraitText(item)") &&
+            !row.Contains("CreateSlotTraitTag") &&
+            row.Contains("HasActiveRisk(item)") &&
+            row.Contains("new Color(0.9f, 0.25f, 0.25f, 1.0f)"));
+    }
+
     private static void TestBrewEntryPointsOpenPotionBrewingStation()
     {
         var shopFloor = ReadProjectFile("Scripts/UI/ShopFloor.cs");
@@ -198,7 +294,7 @@ internal static class SceneAndHudWiringTests
             shopFloor.Contains("_brewPanel.ShowPanel();") &&
             shopFloor.Contains("_brewPanel.Visible = _brewWasVisible;"));
         AssertTrue("Hud brew button routes through ShopFloor when available",
-            hud.Contains("ShopFloorPath = new(\"../ShopFloor\")") &&
+            hud.Contains("ShopFloorPath = new(\"CanvasLayer/ShopFloor\")") &&
             hud.Contains("_shopFloor.OpenPotionBrewingStation();"));
 		AssertTrue("Cauldron drop target is visible and transparent on the station overlay",
 			scene.Contains("[node name=\"BrewPanel\" type=\"Control\" parent=\"PotionBrewingStationView\"]") &&
@@ -230,6 +326,50 @@ internal static class SceneAndHudWiringTests
             dayController.Contains("ForceShopTimerToZeroForTutorial()") && dayController.Contains("TrySetShopTimerSecondsRemaining(0)"));
     }
 
+    private static void TestScenarioDebuggerBookRecordingControls()
+    {
+        var runtimeDebug = ReadProjectFile("Scripts/Debug/RuntimeDebugImGui.cs");
+
+        AssertTrue("Scenario debugger exposes book recording controls",
+            runtimeDebug.Contains("Book Recording") &&
+            runtimeDebug.Contains("Recorded in potion book") &&
+            runtimeDebug.Contains("Recorded in ingredient book"));
+        AssertTrue("Scenario debugger records and forgets potion book entries through GameState",
+            runtimeDebug.Contains("LearnPotion(potionItemId)") &&
+            runtimeDebug.Contains("ForgetPotion(recipeId)") &&
+            runtimeDebug.Contains("ForgetPotion(potionItemId)"));
+        AssertTrue("Scenario debugger records and forgets ingredient book entries through GameState",
+            runtimeDebug.Contains("LearnIngredient(ingredientId)") &&
+            runtimeDebug.Contains("ForgetIngredient(ingredientId)"));
+        AssertTrue("Scenario debugger lists authored book entries",
+            runtimeDebug.Contains("_dataDb.PotionRecipes") &&
+            runtimeDebug.Contains("IsBookIngredient(item)"));
+    }
+
+    private static void TestPersistentHudOwnsGlobalHudVisibility()
+    {
+        var project = ReadProjectFile("project.godot");
+        var autoload = ReadProjectFile("Scripts/Autoload/PersistentHud.cs");
+        var visibility = ReadProjectFile("Scripts/UI/PersistentHudVisibility.cs");
+        var hud = ReadProjectFile("Scripts/UI/Hud.cs");
+        var shopFloor = ReadProjectFile("Scripts/UI/ShopFloor.cs");
+        var main = ReadProjectFile("Main.tscn");
+        var gameUi = ReadProjectFile("Scenes/UI/GameUi.tscn");
+        var mainMenu = ReadProjectFile("MainMenu.tscn");
+        var loadMenu = ReadProjectFile("Scenes/UI/LoadGameMenu.tscn");
+
+        AssertTrue("Project autoloads the persistent HUD", project.Contains("PersistentHud=\"*res://Scripts/Autoload/PersistentHud.cs\""));
+        AssertTrue("PersistentHud loads the HUD scene once", autoload.Contains("res://Scenes/UI/Hud.tscn") && autoload.Contains("InstantiateOrNull<Hud>()"));
+        AssertTrue("PersistentHud refreshes on root scene additions", autoload.Contains("NodeAdded += OnNodeAdded") && autoload.Contains("node == tree.CurrentScene || node.GetParent() == tree.Root"));
+        AssertTrue("Scenes can opt out of the persistent HUD", visibility.Contains("public bool HudVisible") && autoload.Contains("FindVisibilityOverride"));
+        AssertTrue("Hud resolves scene-local controls from the active scene", hud.Contains("public void RefreshSceneBindings()") && hud.Contains("GetTree().CurrentScene"));
+        AssertTrue("Main tutorial controller points at the persistent HUD", main.Contains("HudPath = NodePath(\"/root/PersistentHud/Hud\")"));
+        AssertTrue("GameUi no longer owns a local HUD instance", !gameUi.Contains("[node name=\"Hud\" parent=\".\""));
+        AssertTrue("Main menu hides the persistent HUD", mainMenu.Contains("[node name=\"PersistentHudVisibility\" type=\"Node\" parent=\".\"]") && mainMenu.Contains("HudVisible = false"));
+        AssertTrue("Load game menu hides the persistent HUD", loadMenu.Contains("[node name=\"PersistentHudVisibility\" type=\"Node\" parent=\".\"]") && loadMenu.Contains("HudVisible = false"));
+        AssertTrue("ShopFloor no longer hides HUD for close-up views", !shopFloor.Contains("_hud.Visible = false") && !shopFloor.Contains("HudPath"));
+    }
+
     private static void TestHudReturnToMainMenuDoesNotAutoSave()
     {
         var source = ReadProjectFile("Scripts/UI/Hud.cs");
@@ -245,12 +385,59 @@ internal static class SceneAndHudWiringTests
         var scene = ReadProjectFile("Scenes/UI/GameUi.tscn");
 
         AssertTrue("Hud processes raw input for outside clicks", source.Contains("SetProcessInput(true);"));
-        AssertTrue("Hud checks clicks against the settings panel bounds", source.Contains("_settingsPanel.GetGlobalRect().HasPoint(mouseButton.GlobalPosition)"));
+        AssertTrue("Hud checks clicks against visible settings panel bounds", source.Contains("IsPointInsideVisibleControl(_settingsPanel, mouseButton.GlobalPosition)") && source.Contains("control.GetGlobalRect().HasPoint(point)"));
         AssertTrue("Hud closes settings on outside clicks", source.Contains("SetSettingsPanelVisible(false);"));
         AssertTrue("Hud consumes outside clicks so underlying UI does not steal them", source.Contains("AcceptEvent();"));
         AssertTrue("Hud keeps the settings panel on a dedicated z layer", source.Contains("SettingsPanelZIndex"));
         AssertTrue("Hud brings the settings panel to the front when it opens", source.Contains("_settingsPanel.MoveToFront();"));
-        AssertTrue("Hud still toggles settings from the gear button", source.Contains("SetSettingsPanelVisible(!_settingsPanel.Visible);"));
+        AssertTrue("Hud still toggles settings from the gear button", source.Contains("var shouldOpen = !_settingsPanel.Visible;") && source.Contains("SetSettingsPanelVisible(shouldOpen);"));
         AssertTrue("GameUi scene no longer adds a separate settings backdrop", !scene.Contains("SettingsBackdrop"));
+    }
+
+    private static void TestHudAmbientRainSettingsAreWired()
+    {
+        var source = ReadProjectFile("Scripts/UI/Hud.cs");
+        var scene = ReadProjectFile("Scenes/UI/Hud.tscn");
+        var persistentHud = ReadProjectFile("Scripts/Autoload/PersistentHud.cs");
+        var audioPath = Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory,
+            "..",
+            "..",
+            "..",
+            "..",
+            "..",
+            "Assets",
+            "Audio",
+            "rain-sounds.mp3"));
+
+        AssertTrue("Rain audio asset is in the project", File.Exists(audioPath));
+        AssertTrue("Hud gear menu exposes Settings below Save Game",
+            scene.Contains("[node name=\"SaveGame\" type=\"Button\" parent=\"SettingsPanel/Margin/VBox\"]") &&
+            scene.Contains("[node name=\"OpenSettings\" type=\"Button\" parent=\"SettingsPanel/Margin/VBox\"]") &&
+            scene.Contains("text = \"Settings\""));
+        AssertTrue("Hud defines the Settings panel",
+            scene.Contains("[node name=\"Settings\" type=\"PanelContainer\" parent=\".\"]"));
+        AssertTrue("Settings panel exposes the ambient sounds toggle",
+            scene.Contains("[node name=\"AmbientSounds\" type=\"CheckBox\" parent=\"Settings/Margin/VBox\"]") &&
+            scene.Contains("text = \"ambient sounds\""));
+        AssertTrue("Settings panel exposes the rainfall volume slider",
+            scene.Contains("[node name=\"RainfallVolume\" type=\"HSlider\" parent=\"Settings/Margin/VBox/RainfallVolumeRow\"]") &&
+            scene.Contains("max_value = 1.0") &&
+            scene.Contains("step = 0.01"));
+        AssertTrue("Hud owns an ambient rain player",
+            scene.Contains("[node name=\"AmbientRainPlayer\" type=\"AudioStreamPlayer\" parent=\".\"]"));
+        AssertTrue("Hud loads and persists ambient rain settings",
+            source.Contains("res://Assets/Audio/rain-sounds.mp3") &&
+            source.Contains("user://settings.cfg") &&
+            source.Contains("ConfigFile") &&
+            source.Contains("ambient_sounds_enabled") &&
+            source.Contains("rainfall_volume"));
+        AssertTrue("Hud loops rainfall using the player finished signal",
+            source.Contains("_ambientRainPlayer.Finished += OnAmbientRainFinished") &&
+            source.Contains("private void OnAmbientRainFinished()") &&
+            source.Contains("_ambientRainPlayer.Play();"));
+        AssertTrue("Persistent HUD starts and stops ambient playback with HUD visibility",
+            persistentHud.Contains("SetAmbientPlaybackAllowed(shouldShowHud)") &&
+            persistentHud.Contains("SetAmbientPlaybackAllowed(false)"));
     }
 }

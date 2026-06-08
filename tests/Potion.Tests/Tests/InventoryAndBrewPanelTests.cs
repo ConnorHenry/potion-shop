@@ -28,6 +28,8 @@ internal static class InventoryAndBrewPanelTests
         runner.Run("BrewPanel previews potion names before brewing", TestBrewPanelPreviewNameIsWired);
         runner.Run("Potion inventory is capped at four unique potions with ten per stack", TestPotionInventoryCap);
         runner.Run("Consumable inventory and treatment tray are wired", TestConsumableInventoryAndTreatmentTrayWiring);
+        runner.Run("Ingredient scales are wired on the brewing station", TestIngredientScalesWiring);
+        runner.Run("Measured ingredients are stored for exact-gram requests", TestMeasuredIngredientPersistenceWiring);
         runner.Run("Treatment service creates expected treatment outputs", TestTreatmentServiceCreatesExpectedOutputs);
         runner.Run("Brew and inventory price wiring stays intact", TestBrewAndInventoryPriceWiring);
         runner.Run("BrewPanel splits risk variants for known potion combinations", TestBrewPanelSplitsRiskVariantsForKnownCombinations);
@@ -361,6 +363,133 @@ internal static class InventoryAndBrewPanelTests
             inventoryScene.Contains("[node name=\"PotionsScroll\" type=\"ScrollContainer\" parent=\"Panel/Margin/VBox\"]") &&
             inventoryScene.Contains("custom_minimum_size = Vector2(356, 168)") &&
             inventoryScene.Contains("size_flags_vertical = 0"));
+	}
+
+    private static void TestIngredientScalesWiring()
+    {
+        var scene = ReadProjectFile("Scenes/UI/GameUi.tscn");
+        var scalesPanel = ReadProjectFile("Scripts/UI/IngredientScalesPanel.cs");
+        var scalesDropBox = ReadProjectFile("Scripts/UI/ScalesDropBox.cs");
+        var scaleWeightButton = ReadProjectFile("Scripts/UI/ScaleWeightButton.cs");
+        var brewPanel = ReadProjectFile("Scripts/UI/BrewPanel.cs");
+
+        AssertTrue("Game UI references the generated placeholder scales sprite",
+            scene.Contains("path=\"res://Assets/UI/scales_placeholder.png\"") &&
+            scene.Contains("[node name=\"IngredientScales\" type=\"Control\" parent=\"PotionBrewingStationView\"]") &&
+            scene.Contains("script = ExtResource(\"34_scales_panel\")"));
+        AssertTrue("Scales panel exposes only the ingredient drop box",
+            scene.Contains("[node name=\"IngredientPan\" type=\"PanelContainer\" parent=\"PotionBrewingStationView/IngredientScales\"]") &&
+            scene.Contains("IngredientDropBoxPath = NodePath(\"IngredientPan\")") &&
+            !scene.Contains("WeightDropBoxPath") &&
+            !scene.Contains("[node name=\"WeightPan\"") &&
+            !scene.Contains("AcceptWeights"));
+        AssertTrue("Scales scene provides draggable 1g, 2g, 5g, and 10g weights",
+            scene.Contains("[node name=\"OneGram\" type=\"Button\" parent=\"PotionBrewingStationView/IngredientScales/Weights\"]") &&
+            scene.Contains("Grams = 2") &&
+            scene.Contains("Grams = 5") &&
+            scene.Contains("Grams = 10") &&
+            scene.Contains("script = ExtResource(\"36_scale_weight\")"));
+        AssertTrue("Scales scene uses SVG sprites for each gameplay weight",
+            scene.Contains("path=\"res://Assets/UI/scale_weight_1g.svg\"") &&
+            scene.Contains("path=\"res://Assets/UI/scale_weight_2g.svg\"") &&
+            scene.Contains("path=\"res://Assets/UI/scale_weight_5g.svg\"") &&
+            scene.Contains("path=\"res://Assets/UI/scale_weight_10g.svg\"") &&
+            scene.Contains("[node name=\"Sprite\" type=\"TextureRect\" parent=\"PotionBrewingStationView/IngredientScales/Weights/OneGram\"]") &&
+            scene.Contains("[node name=\"Sprite\" type=\"TextureRect\" parent=\"PotionBrewingStationView/IngredientScales/Weights/TwoGram\"]") &&
+            scene.Contains("[node name=\"Sprite\" type=\"TextureRect\" parent=\"PotionBrewingStationView/IngredientScales/Weights/FiveGram\"]") &&
+            scene.Contains("[node name=\"Sprite\" type=\"TextureRect\" parent=\"PotionBrewingStationView/IngredientScales/Weights/TenGram\"]") &&
+            !scene.Contains("text = \"1g\"") &&
+            !scene.Contains("text = \"2g\"") &&
+            !scene.Contains("text = \"5g\"") &&
+            !scene.Contains("text = \"10g\""));
+        AssertTrue("Scales scene removed the old weight pan preview nodes",
+            !scene.Contains("PlacedWeightsContainerPath") &&
+            !scene.Contains("WeightPanSummaryLabelPath") &&
+            !scene.Contains("[node name=\"PlacedWeights\"") &&
+            !scene.Contains("[node name=\"WeightContent\"") &&
+            !scene.Contains("[node name=\"WeightHint\""));
+        AssertTrue("IngredientScalesPanel reserves dropped ingredients until clear or confirm",
+            scalesPanel.Contains("GetNodeOrNull<GameState>(GameStatePath)") &&
+            scalesPanel.Contains("ReserveSelectedIngredient(itemId)") &&
+            scalesPanel.Contains("_gameState.ConsumeItem(itemId, 1)") &&
+            scalesPanel.Contains("ReturnSelectedIngredient()") &&
+            scalesPanel.Contains("_gameState.AddItem(_selectedIngredientId, 1)") &&
+            scalesPanel.Contains("ResetScaleToDefault(returnIngredient: false)") &&
+            scalesPanel.Contains("TryQueueReservedMeasuredIngredient(_selectedIngredientId, totalGrams)"));
+        AssertTrue("IngredientScalesPanel confirms measured ingredients through BrewPanel",
+            scalesPanel.Contains("TryQueueReservedMeasuredIngredient(_selectedIngredientId, totalGrams)") &&
+            scalesPanel.Contains("public override bool _CanDropData") &&
+            scalesPanel.Contains("public override void _DropData") &&
+            scalesPanel.Contains("MouseFilter = MouseFilterEnum.Stop") &&
+            scalesPanel.Contains("ScaleWeightButton.TryParseDragData(value, out var grams)") &&
+            scalesPanel.Contains("ConnectWeightButtons") &&
+            scalesPanel.Contains("ResetScaleToDefault") &&
+            scalesPanel.Contains("_statusLabel.Text = DefaultStatusText") &&
+            !scalesPanel.Contains("WeightDropBoxPath") &&
+            !scalesPanel.Contains("RenderPlacedWeights") &&
+            scalesPanel.Contains("Drop an ingredient and at least one weight.") &&
+            scalesPanel.Contains("The scales only accept ingredients.") &&
+            !scalesPanel.Contains("_statusLabel.Text = $\"Added"));
+        AssertTrue("ScalesDropBox rejects weight drags and emits ingredient drops",
+            scalesDropBox.Contains("ScaleWeightButton.TryParseDragData") &&
+            scalesDropBox.Contains("return !ScaleWeightButton.TryParseDragData(value, out _)") &&
+            scalesDropBox.Contains("EmitSignal(SignalName.ItemDropped, value)") &&
+            !scalesDropBox.Contains("WeightDropped") &&
+            !scalesDropBox.Contains("AcceptWeights") &&
+            !scalesDropBox.Contains("AcceptItems"));
+        AssertTrue("ScaleWeightButton uses an explicit drag data prefix",
+            scaleWeightButton.Contains("DragDataPrefix = \"scale_weight:\"") &&
+            scaleWeightButton.Contains("BuildDragData(Grams)") &&
+            scaleWeightButton.Contains("TryParseDragData") &&
+            scaleWeightButton.Contains("GetNodeOrNull<TextureRect>(SpritePath)") &&
+            scaleWeightButton.Contains("SetDragPreview(CreateDragPreview())") &&
+            scaleWeightButton.Contains("Modulate = new Color(_defaultModulate.R, _defaultModulate.G, _defaultModulate.B, 0.0f)") &&
+            scaleWeightButton.Contains("WeightActivated") &&
+            scaleWeightButton.Contains("_suppressNextPress") &&
+            scaleWeightButton.Contains("NotificationDragEnd"));
+        AssertTrue("BrewPanel keeps direct and measured queue entry points",
+            brewPanel.Contains("public void TryQueueIngredient(string itemId)") &&
+            brewPanel.Contains("public bool TryQueueMeasuredIngredient(string itemId, int grams)") &&
+            brewPanel.Contains("public bool TryQueueReservedMeasuredIngredient(string itemId, int grams)") &&
+            brewPanel.Contains("TryQueueIngredientPortion(itemId, 0)") &&
+            brewPanel.Contains("TryQueueIngredientPortion(itemId, grams)") &&
+            brewPanel.Contains("TryQueueIngredientPortion(itemId, grams, consumeInventory: false)") &&
+            brewPanel.Contains("if (consumeInventory && !_gameState.HasItem(itemId, 1))") &&
+            brewPanel.Contains("if (consumeInventory && !_gameState.ConsumeItem(itemId, 1))"));
+    }
+
+    private static void TestMeasuredIngredientPersistenceWiring()
+    {
+        var brewPanel = ReadProjectFile("Scripts/UI/BrewPanel.cs");
+        var gameState = ReadProjectFile("Scripts/Autoload/GameState.cs");
+        var saveData = ReadProjectFile("Scripts/Persistence/SaveData.cs");
+        var dataDb = ReadProjectFile("Scripts/Autoload/DataDb.cs");
+        var recipeDef = ReadProjectFile("Scripts/Models/PotionRecipeDef.cs");
+        var customerDef = ReadProjectFile("Scripts/Models/CustomerInteractionDef.cs");
+        var customerPanel = ReadProjectFile("Scripts/UI/CustomerPanel.cs");
+
+        AssertTrue("BrewPanel stores queued ingredients as portions",
+            brewPanel.Contains("private readonly List<IngredientPortionDef> _queuedIngredients = new();") &&
+            brewPanel.Contains("FormatIngredientPortionLabel") &&
+            brewPanel.Contains("RecordPotionRecipe(potionItemId, BuildIngredientIdList(_queuedIngredients))") &&
+            brewPanel.Contains("RecordPotionBatch(potionItemId, _queuedIngredients)"));
+        AssertTrue("GameState stores exact portion batches alongside legacy batches",
+            gameState.Contains("_potionIngredientPortionBatches") &&
+            gameState.Contains("RecordPotionBatch(string potionItemId, IReadOnlyList<IngredientPortionDef> ingredientPortions)") &&
+            gameState.Contains("TryPeekPotionIngredientPortionBatch") &&
+            gameState.Contains("RestoreUnmeasuredPortionBatchesFromLegacyBatches"));
+        AssertTrue("Save data preserves exact portion batches without renaming legacy PotionBatches",
+            saveData.Contains("Dictionary<string, List<List<string>>> PotionBatches") &&
+            saveData.Contains("Dictionary<string, List<List<IngredientPortionDef>>> PotionIngredientPortionBatches"));
+        AssertTrue("Authored data can parse exact recipe and customer gram requirements",
+            recipeDef.Contains("IngredientAmounts") &&
+            customerDef.Contains("RequiredIngredientAmounts") &&
+            dataDb.Contains("ParseIngredientPortions(ReadArray(entry, \"ingredientAmounts\"))") &&
+            dataDb.Contains("ParseIngredientPortions(ReadArray(entry, \"requiredIngredientAmounts\"))"));
+        AssertTrue("CustomerPanel checks exact gram requirements against the potion batch",
+            customerPanel.Contains("DoesPotionBatchSatisfyIngredientAmountRequirements") &&
+            customerPanel.Contains("TryPeekPotionIngredientPortionBatch") &&
+            customerPanel.Contains("portion.Grams == requiredIngredientAmount.Grams"));
     }
 
     private static void TestConsumableInventoryAndTreatmentTrayWiring()
@@ -399,28 +528,50 @@ internal static class InventoryAndBrewPanelTests
             inventoryScene.Contains("[node name=\"ConsumablesSectionHeader\" type=\"Button\" parent=\"Panel/Margin/VBox\"]") &&
             inventoryScene.Contains("[node name=\"Consumables\" type=\"GridContainer\" parent=\"Panel/Margin/VBox/ConsumablesScroll\"]") &&
             inventoryScene.Contains("columns = 4"));
-        AssertTrue("HUD exposes a Treatment Tray button",
-            hud.Contains("TreatmentTrayPanelPath") &&
-            hud.Contains("OnTreatmentTrayPressed") &&
-            hudScene.Contains("[node name=\"TreatmentTray\" type=\"Button\" parent=\".\"]") &&
-            hudScene.Contains("text = \"Treatment Tray\""));
-        AssertTrue("Game UI defines the Treatment Tray panel and drop boxes",
-            gameUiScene.Contains("[node name=\"TreatmentTray\" type=\"Control\" parent=\".\"]") &&
+        AssertTrue("HUD omits the Treatment Tray button",
+            !hud.Contains("TreatmentTrayPanelPath") &&
+            !hud.Contains("OnTreatmentTrayPressed") &&
+            !hudScene.Contains("[node name=\"TreatmentTray\" type=\"Button\" parent=\".\"]") &&
+            !hudScene.Contains("text = \"Treatment Tray\""));
+        AssertTrue("Game UI defines the Treatment Tray sprite drop target and inline actions",
+            gameUiScene.Contains("[node name=\"TreatmentTray\" type=\"Control\" parent=\"PotionBrewingStationView\"]") &&
+            !gameUiScene.Contains("[node name=\"TreatmentTray\" type=\"TextureRect\" parent=\"ShopFloor/Art\"]") &&
+            !gameUiScene.Contains("[node name=\"TreatmentTray\" type=\"Button\" parent=\"ShopFloor/Hotspots\"]") &&
             gameUiScene.Contains("custom_minimum_size = Vector2(430, 286)") &&
-            gameUiScene.Contains("[node name=\"Panel\" type=\"PanelContainer\" parent=\"TreatmentTray\"]") &&
+            gameUiScene.Contains("TrayDropBoxPath = NodePath(\"TreatmentDropBox\")") &&
+            gameUiScene.Contains("HelperLabelPath = NodePath(\"TreatmentHelper\")") &&
+            gameUiScene.Contains("ApplyButtonPath = NodePath(\"Actions/Apply\")") &&
+            gameUiScene.Contains("ClearButtonPath = NodePath(\"Actions/Clear\")") &&
+            gameUiScene.Contains("[node name=\"Treatment\" type=\"Sprite2D\" parent=\"PotionBrewingStationView/TreatmentTray\"]") &&
+            gameUiScene.Contains("[node name=\"TreatmentDropBox\" type=\"PanelContainer\" parent=\"PotionBrewingStationView/TreatmentTray\"]") &&
+            gameUiScene.Contains("[node name=\"TreatmentHelper\" type=\"Label\" parent=\"PotionBrewingStationView/TreatmentTray\"]") &&
+            gameUiScene.Contains("[node name=\"Actions\" type=\"HBoxContainer\" parent=\"PotionBrewingStationView/TreatmentTray\"]") &&
+            gameUiScene.Contains("[node name=\"Apply\" type=\"Button\" parent=\"PotionBrewingStationView/TreatmentTray/Actions\"]") &&
+            gameUiScene.Contains("[node name=\"Clear\" type=\"Button\" parent=\"PotionBrewingStationView/TreatmentTray/Actions\"]") &&
             gameUiScene.Contains("script = ExtResource(\"20_treatment_tray\")") &&
-            gameUiScene.Contains("ConsumableDropBoxPath") &&
-            gameUiScene.Contains("TargetDropBoxPath") &&
+            !gameUiScene.Contains("PanelPath = NodePath(\"Panel\")") &&
+            !gameUiScene.Contains("[node name=\"Panel\" type=\"PanelContainer\" parent=\"PotionBrewingStationView/TreatmentTray\"]") &&
+            !gameUiScene.Contains("HotspotButtonPath") &&
+            !gameUiScene.Contains("ConsumableDropBoxPath") &&
+            !gameUiScene.Contains("TargetDropBoxPath") &&
             gameUiScene.Contains("text = \"Apply Treatment\""));
-        AssertTrue("Treatment Tray panel is draggable from the panel body",
-            gameUiScene.Contains("[node name=\"Panel\" type=\"PanelContainer\" parent=\"TreatmentTray\"]") &&
-            gameUiScene.Contains("script = ExtResource(\"12_6x1m8\")") &&
-            gameUiScene.Contains("DragHandlePath = NodePath(\"\")"));
-        AssertTrue("TreatmentTray normalizes its runtime geometry before showing",
-            treatmentTray.Contains("public Vector2 TraySize") &&
-            treatmentTray.Contains("ApplyTrayGeometry();") &&
-            treatmentTray.Contains("panel.AnchorRight = 0.0f") &&
-            treatmentTray.Contains("panel.Size = normalizedTraySize"));
+        AssertTrue("Treatment Tray removed panel item summaries",
+            !gameUiScene.Contains("[node name=\"SelectionsRow\" type=\"HBoxContainer\" parent=\"PotionBrewingStationView/TreatmentTray/Panel/Margin/VBox\"]") &&
+            !gameUiScene.Contains("[node name=\"ConsumableSelection\" type=\"PanelContainer\" parent=\"PotionBrewingStationView/TreatmentTray/Panel/Margin/VBox/SelectionsRow\"]") &&
+            !gameUiScene.Contains("[node name=\"TargetSelection\" type=\"PanelContainer\" parent=\"PotionBrewingStationView/TreatmentTray/Panel/Margin/VBox/SelectionsRow\"]") &&
+            !gameUiScene.Contains("ConsumableIconPath = NodePath(\"Panel/Margin/VBox/SelectionsRow/ConsumableSelection/Content/Icon\")") &&
+            !gameUiScene.Contains("TargetIconPath = NodePath(\"Panel/Margin/VBox/SelectionsRow/TargetSelection/Content/Icon\")") &&
+            !gameUiScene.Contains("StatusLabelPath = NodePath(\"Panel/Margin/VBox/Status\")"));
+        AssertTrue("TreatmentTray accepts sprite drops without panel behavior",
+            treatmentTray.Contains("TrayDropBoxPath") &&
+            treatmentTray.Contains("_trayDropBox.ItemDropped += OnTrayItemDropped") &&
+            treatmentTray.Contains("ClearStagedItems") &&
+            treatmentTray.Contains("_applyButton.Visible = true") &&
+            treatmentTray.Contains("_applyButton.Visible = false") &&
+            treatmentTray.Contains("_clearButton.Visible = hasAnySelection") &&
+            !treatmentTray.Contains("ShowPanel") &&
+            !treatmentTray.Contains("HidePanel") &&
+            !treatmentTray.Contains("PanelPath"));
         AssertTrue("TreatmentTray reserves dropped items until treatment or clear",
             treatmentTray.Contains("ReserveSlotItem") &&
             treatmentTray.Contains("_gameState.ConsumeItem(itemId, 1)") &&
@@ -442,7 +593,6 @@ internal static class InventoryAndBrewPanelTests
         var runtimeDb = ReadProjectFile("Scripts/Autoload/RuntimeContentDb.cs");
         var inventoryPanel = ReadProjectFile("Scripts/UI/InventoryPanel.cs");
         var potionBookPanel = ReadProjectFile("Scripts/UI/PotionBookPanel.cs");
-        var recipeBookPanel = ReadProjectFile("Scripts/UI/RecipeBookPanel.cs");
 
         AssertTrue("TreatmentService validates remove-risk consumables",
             treatmentService.Contains("ConsumableEffectDef.RemoveRiskKind") &&
@@ -480,10 +630,9 @@ internal static class InventoryAndBrewPanelTests
             itemCatalog.Contains("IsTreatedItem") &&
             runtimeDb.Contains("ConsumableEffect = item.ConsumableEffect is null") &&
             runtimeDb.Contains("Treatment = item.Treatment is null"));
-        AssertTrue("Treated potions cannot be added to or brewed from the potion books",
+        AssertTrue("Treated potions cannot be added to or brewed from the potion book",
 			inventoryPanel.Contains("item.Treatment is not null") &&
-			potionBookPanel.Contains("potion.Treatment is not null") &&
-			recipeBookPanel.Contains("item.Treatment is not null"));
+			potionBookPanel.Contains("potion.Treatment is not null"));
 	}
 
     private static void TestBrewAndInventoryPriceWiring()
@@ -595,7 +744,6 @@ internal static class InventoryAndBrewPanelTests
         var cursorToast = ReadProjectFile("Scripts/UI/CursorToast.cs");
         var inventoryPanel = ReadProjectFile("Scripts/UI/InventoryPanel.cs");
         var potionBookPanel = ReadProjectFile("Scripts/UI/PotionBookPanel.cs");
-        var recipeBookPanel = ReadProjectFile("Scripts/UI/RecipeBookPanel.cs");
 
         AssertTrue("CursorToast renders above the captured cursor position",
             cursorToast.Contains("viewport.GetMousePosition()") &&
@@ -609,8 +757,5 @@ internal static class InventoryAndBrewPanelTests
         AssertTrue("PotionBookPanel brew failure uses cursor toast",
             potionBookPanel.Contains("CursorToast.Show(this, error);") &&
             !potionBookPanel.Contains("GD.PushError(error);"));
-        AssertTrue("RecipeBookPanel brew failure uses cursor toast",
-            recipeBookPanel.Contains("CursorToast.Show(this, error);") &&
-            !recipeBookPanel.Contains("GD.PushError(error);"));
     }
 }

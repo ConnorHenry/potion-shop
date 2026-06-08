@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3 uid="uid://boigrb01slkht"]
+[gd_scene load_steps=3 format=3 uid="uid://boigrb01slkht"]
 
 [ext_resource type="Script" uid="uid://cimefhgyfykx8" path="res://Scripts/UI/MainMenu.cs" id="1_7ivci"]
+[ext_resource type="Script" uid="uid://ceakky6r2bi" path="res://Scripts/UI/PersistentHudVisibility.cs" id="2_hud_visibility"]
 
 [node name="MainMenu" type="Control"]
 layout_mode = 3
@@ -16,6 +17,10 @@ LoadButtonPath = NodePath("CenterContainer/VBox/LoadButton")
 NewGameTutorialPopupPath = NodePath("NewGameTutorialPopup")
 StartTutorialButtonPath = NodePath("NewGameTutorialPopup/Panel/Margin/VBox/Actions/StartTutorialButton")
 SkipTutorialButtonPath = NodePath("NewGameTutorialPopup/Panel/Margin/VBox/Actions/SkipTutorialButton")
+
+[node name="PersistentHudVisibility" type="Node" parent="."]
+script = ExtResource("2_hud_visibility")
+HudVisible = false
 
 [node name="CenterContainer" type="CenterContainer" parent="."]
 layout_mode = 1

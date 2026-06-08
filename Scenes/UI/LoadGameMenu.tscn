@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3 uid="uid://q7h5n3d1p804"]
+[gd_scene load_steps=3 format=3 uid="uid://q7h5n3d1p804"]
 
 [ext_resource type="Script" uid="uid://m4j8t6v2c9n1" path="res://Scripts/UI/LoadGameMenu.cs" id="1_lgmenu"]
+[ext_resource type="Script" uid="uid://d4p8umh8qyw2a" path="res://Scripts/UI/PersistentHudVisibility.cs" id="2_hud_visibility"]
 
 [node name="LoadGameMenu" type="Control"]
 layout_mode = 3
@@ -13,6 +14,10 @@ script = ExtResource("1_lgmenu")
 SaveListPath = NodePath("CenterContainer/Panel/Margin/VBox/Scroll/SaveList")
 EmptyStateLabelPath = NodePath("CenterContainer/Panel/Margin/VBox/EmptyState")
 BackButtonPath = NodePath("CenterContainer/Panel/Margin/VBox/BackButton")
+
+[node name="PersistentHudVisibility" type="Node" parent="."]
+script = ExtResource("2_hud_visibility")
+HudVisible = false
 
 [node name="CenterContainer" type="CenterContainer" parent="."]
 layout_mode = 1

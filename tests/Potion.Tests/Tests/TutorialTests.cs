@@ -79,7 +79,7 @@ internal static class TutorialTests
         AssertTrue("Main scene references TutorialController script", source.Contains("path=\"res://Scripts/Controllers/TutorialController.cs\""));
         AssertTrue("Main scene includes TutorialController node", source.Contains("[node name=\"TutorialController\" type=\"Node\" parent=\".\"]"));
         AssertTrue("TutorialController wires overlay path", source.Contains("TutorialOverlayPath = NodePath(\"../CanvasLayer/TutorialOverlay\")"));
-        AssertTrue("TutorialController wires HUD path", source.Contains("HudPath = NodePath(\"../CanvasLayer/Hud\")"));
+        AssertTrue("TutorialController wires HUD path", source.Contains("HudPath = NodePath(\"/root/PersistentHud/Hud\")"));
         AssertTrue("TutorialController wires day summary panel path", source.Contains("DaySummaryPanelPath = NodePath(\"../CanvasLayer/DaySummaryPanel\")"));
         AssertTrue("TutorialController wires DayController path", source.Contains("DayControllerPath = NodePath(\"../DayController\")"));
     }

@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace OccultShop.Models;
 
 public sealed class StoryCustomerVisitRecord
@@ -11,4 +13,5 @@ public sealed class StoryCustomerVisitRecord
 	public int ArrivalDay { get; set; }
 	public string LastOutcome { get; set; } = "";
 	public int OutcomeDay { get; set; }
+	public List<string> SelectedDialogueOptionIds { get; set; } = new();
 }

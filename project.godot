@@ -22,6 +22,7 @@ ItemCatalog="*res://Scripts/Autoload/ItemCatalogService.cs"
 GameState="*res://Scripts/Autoload/GameState.cs"
 SaveGameManager="*res://Scripts/Autoload/SaveGameManager.cs"
 ImGuiRoot="*res://addons/imgui-godot/data/ImGuiRoot.tscn"
+PersistentHud="*res://Scripts/Autoload/PersistentHud.cs"
 
 [display]
 

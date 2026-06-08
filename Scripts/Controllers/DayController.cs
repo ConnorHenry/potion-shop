@@ -15,7 +15,6 @@ public partial class DayController : Node
 	[Export] public NodePath InventoryPanelPath = default!;
 	[Export] public NodePath CustomerPanelPath = default!;
 	[Export] public NodePath BrewPanelPath = default!;
-	[Export] public NodePath RecipeBookPanelPath = default!;
 	[Export] public NodePath DaySummaryPanelPath = default!;
 	[Export] public NodePath DataDbPath = new(AutoloadNodePaths.DataDb);
 	[Export] public NodePath GameStatePath = new(AutoloadNodePaths.GameState);
@@ -26,7 +25,6 @@ public partial class DayController : Node
 	private UI.InventoryPanel _inventoryPanel = default!;
 	private UI.CustomerPanel _customerPanel = default!;
 	private UI.BrewPanel _brewPanel = default!;
-	private UI.RecipeBookPanel _recipeBookPanel = default!;
 	private UI.DaySummaryPanel _daySummaryPanel = default!;
 	private Godot.Timer _shopTimer = default!;
 	private readonly ShopDayStats _shopDayStats = new();
@@ -49,7 +47,6 @@ public partial class DayController : Node
 		_inventoryPanel = GetNode<UI.InventoryPanel>(InventoryPanelPath);
 		_customerPanel = GetNode<UI.CustomerPanel>(CustomerPanelPath);
 		_brewPanel = GetNode<UI.BrewPanel>(BrewPanelPath);
-		_recipeBookPanel = GetNode<UI.RecipeBookPanel>(RecipeBookPanelPath);
 		_daySummaryPanel = GetNode<UI.DaySummaryPanel>(DaySummaryPanelPath);
 		var dataDb = GetNodeOrNull<DataDb>(DataDbPath);
 		if (dataDb is null)
@@ -79,6 +76,7 @@ public partial class DayController : Node
 
 		_customerPanel.SaleResolved += OnCustomerSaleResolved;
 		_customerPanel.SaleResultClosed += OnCustomerSaleResultClosed;
+		_customerPanel.PlotConversationStarted += OnPlotConversationStarted;
 		_customerPanel.DialogueResolved += OnCustomerDialogueResolved;
 		_customerPanel.CustomerSkipped += OnCustomerSkipped;
 		_daySummaryPanel.ContinuePressed += OnSummaryContinuePressed;
@@ -98,6 +96,8 @@ public partial class DayController : Node
 			_customerPanel.SaleResolved -= OnCustomerSaleResolved;
 		if (_customerPanel != null)
 			_customerPanel.SaleResultClosed -= OnCustomerSaleResultClosed;
+		if (_customerPanel != null)
+			_customerPanel.PlotConversationStarted -= OnPlotConversationStarted;
 		if (_customerPanel != null)
 			_customerPanel.DialogueResolved -= OnCustomerDialogueResolved;
 		if (_daySummaryPanel != null)
@@ -218,7 +218,6 @@ public partial class DayController : Node
 		_daySummaryPanel.HidePanel();
 		_customerPanel.HidePanel();
 		_brewPanel.HidePanel();
-		_recipeBookPanel.HidePanel();
 
 		// Example of an escalating rule that modifies events.
 		if (_gameState.ActiveRules.Contains("thin_veil"))
@@ -323,6 +322,17 @@ public partial class DayController : Node
 		EmitShopStateChanged();
 	}
 
+	private void OnPlotConversationStarted()
+	{
+		if (!IsShopOpen)
+			return;
+
+		if (!_shopTimer.IsStopped())
+			_shopTimer.Stop();
+
+		EmitShopStateChanged();
+	}
+
 	private void OnCustomerDialogueResolved()
 	{
 		if (!IsShopOpen)
@@ -383,7 +393,6 @@ public partial class DayController : Node
 		_customerPanel.SuppressSaleResultPanel = false;
 		_customerPanel.SetCloseShopMode(false);
 		_brewPanel.HidePanel();
-		_recipeBookPanel.HidePanel();
 		_daySummaryPanel.ShowSummary(
 			_gameState.Day,
 			_shopDayStats.CustomersServed,

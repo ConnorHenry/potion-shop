@@ -24,9 +24,67 @@ internal static class PotionBrewingServiceTests
         runner.Run("Failed carried risks do not affect synergies or scoring", TestFailedCarriedRisksDoNotAffectSynergiesOrScoring);
         runner.Run("Synergy-added risks roll before reaching the potion", TestSynergyAddedRisksRollBeforeReachingPotion);
         runner.Run("Applies risk and trait gated synergies", TestRiskAndTraitSynergyRequirement);
+        runner.Run("PotionRecipeLookup exact grams override base recipes", TestPotionRecipeLookupExactGrams);
         runner.Run("Triggers healing_corruption from healing trait and corruption risk", TestHealingCorruptionFromTraitAndRisk);
         runner.Run("Scores a clean positive brew", TestPositiveBrew);
         runner.Run("Handles negative synergy and penalties", TestNegativeBrew);
+    }
+
+    private static void TestPotionRecipeLookupExactGrams()
+    {
+        var lookup = new PotionRecipeLookup();
+        var recipes = new List<PotionRecipeDef>
+        {
+            new()
+            {
+                Id = "base_rest",
+                Name = "Base Rest",
+                IngredientIds = new List<string> { "mooncap_mushroom", "black_ichor", "lavender_ash" }
+            },
+            new()
+            {
+                Id = "exact_rest",
+                Name = "Exact Rest",
+                IngredientIds = new List<string> { "mooncap_mushroom", "black_ichor", "lavender_ash" },
+                IngredientAmounts = new List<IngredientPortionDef>
+                {
+                    new() { IngredientId = "mooncap_mushroom", Grams = 6 },
+                    new() { IngredientId = "black_ichor", Grams = 2 },
+                    new() { IngredientId = "lavender_ash", Grams = 1 }
+                }
+            }
+        };
+
+        lookup.Rebuild(recipes, _ => true);
+
+        var exactPortions = new List<IngredientPortionDef>
+        {
+            new() { IngredientId = "black_ichor", Grams = 2 },
+            new() { IngredientId = "lavender_ash", Grams = 1 },
+            new() { IngredientId = "mooncap_mushroom", Grams = 6 }
+        };
+        var exactMatched = lookup.TryGetRecipe(exactPortions, out var exactRecipe);
+        AssertTrue("Exact measured recipe matches", exactMatched);
+        AssertEqual("Exact recipe id", "exact_rest", exactRecipe.Id);
+        AssertEqual(
+            "Exact combination key",
+            "black_ichor@2g|lavender_ash@1g|mooncap_mushroom@6g",
+            PotionRecipeLookup.BuildCombinationKey(exactPortions));
+
+        exactPortions[2].Grams = 7;
+        var fallbackMatched = lookup.TryGetRecipe(exactPortions, out var fallbackRecipe);
+        AssertTrue("Measured mismatch falls back to base recipe", fallbackMatched);
+        AssertEqual("Fallback recipe id", "base_rest", fallbackRecipe.Id);
+
+        var directPortions = new List<IngredientPortionDef>
+        {
+            new() { IngredientId = "black_ichor" },
+            new() { IngredientId = "lavender_ash" },
+            new() { IngredientId = "mooncap_mushroom" }
+        };
+        var directMatched = lookup.TryGetRecipe(directPortions, out var directRecipe);
+        AssertTrue("Direct unmeasured recipe still matches base", directMatched);
+        AssertEqual("Direct recipe id", "base_rest", directRecipe.Id);
     }
 
     private static void TestRejectsEmptyIngredients()

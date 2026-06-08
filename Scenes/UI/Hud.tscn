@@ -57,24 +57,10 @@ offset_right = 700.0
 offset_bottom = 40.0
 text = "Brew Potion"
 
-[node name="TreatmentTray" type="Button" parent="."]
-layout_mode = 0
-offset_left = 710.0
-offset_right = 840.0
-offset_bottom = 40.0
-text = "Treatment Tray"
-
-[node name="RecipeBook" type="Button" parent="."]
-layout_mode = 0
-offset_left = 850.0
-offset_right = 980.0
-offset_bottom = 40.0
-text = "Potion Book"
-
 [node name="Garden" type="Button" parent="."]
 layout_mode = 0
-offset_left = 990.0
-offset_right = 1090.0
+offset_left = 710.0
+offset_right = 810.0
 offset_bottom = 40.0
 text = "Garden"
 
@@ -97,7 +83,7 @@ anchor_right = 1.0
 offset_left = -250.0
 offset_top = 44.0
 offset_right = -16.0
-offset_bottom = 164.0
+offset_bottom = 204.0
 grow_horizontal = 0
 grow_vertical = 0
 
@@ -120,6 +106,60 @@ text = "Return to Main Menu"
 layout_mode = 2
 text = "Save Game"
 
+[node name="OpenSettings" type="Button" parent="SettingsPanel/Margin/VBox"]
+layout_mode = 2
+text = "Settings"
+
 [node name="ToggleDebugPanel" type="Button" parent="SettingsPanel/Margin/VBox"]
 layout_mode = 2
 text = "Debug Panel"
+
+[node name="Settings" type="PanelContainer" parent="."]
+visible = false
+layout_mode = 0
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -380.0
+offset_top = 44.0
+offset_right = -16.0
+offset_bottom = 206.0
+grow_horizontal = 0
+grow_vertical = 0
+
+[node name="Margin" type="MarginContainer" parent="Settings"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 14
+
+[node name="VBox" type="VBoxContainer" parent="Settings/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="Settings/Margin/VBox"]
+layout_mode = 2
+text = "Settings"
+
+[node name="AmbientSounds" type="CheckBox" parent="Settings/Margin/VBox"]
+layout_mode = 2
+text = "ambient sounds"
+
+[node name="RainfallVolumeRow" type="HBoxContainer" parent="Settings/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="RainfallVolumeLabel" type="Label" parent="Settings/Margin/VBox/RainfallVolumeRow"]
+custom_minimum_size = Vector2(112, 0)
+layout_mode = 2
+text = "Rainfall volume"
+vertical_alignment = 1
+
+[node name="RainfallVolume" type="HSlider" parent="Settings/Margin/VBox/RainfallVolumeRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+max_value = 1.0
+step = 0.01
+value = 0.7
+
+[node name="AmbientRainPlayer" type="AudioStreamPlayer" parent="."]

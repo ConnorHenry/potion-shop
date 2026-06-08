@@ -23,12 +23,16 @@ RightPageHotspotPath = NodePath("BookRow/BookPanel/RightPageHotspot")
 PageIndicatorLabelPath = NodePath("BookRow/BookPanel/Margin/VBox/Header/PageIndicator")
 CloseButtonPath = NodePath("BookRow/BookPanel/Margin/VBox/Header/Close")
 LeftPageTitleLabelPath = NodePath("BookRow/BookPanel/Margin/VBox/Pages/LeftPage/PageTitle")
+LeftPageNumberLabelPath = NodePath("BookRow/BookPanel/Margin/VBox/Pages/LeftPage/PageNumber")
+LeftContentsPath = NodePath("BookRow/BookPanel/Margin/VBox/Pages/LeftPage/Contents")
 LeftIntroLabelPath = NodePath("BookRow/BookPanel/Margin/VBox/Pages/LeftPage/Intro")
 LeftRecipeContentPath = NodePath("BookRow/BookPanel/Margin/VBox/Pages/LeftPage/RecipeContent")
 LeftIngredientsLabelPath = NodePath("BookRow/BookPanel/Margin/VBox/Pages/LeftPage/RecipeContent/Details/IngredientsColumn/Ingredients")
 LeftTraitsLabelPath = NodePath("BookRow/BookPanel/Margin/VBox/Pages/LeftPage/RecipeContent/Details/TraitsColumn/Traits")
 LeftBrewButtonPath = NodePath("BookRow/BookPanel/Margin/VBox/Pages/LeftPage/RecipeContent/Brew")
 RightPageTitleLabelPath = NodePath("BookRow/BookPanel/Margin/VBox/Pages/RightPage/PageTitle")
+RightPageNumberLabelPath = NodePath("BookRow/BookPanel/Margin/VBox/Pages/RightPage/PageNumber")
+RightContentsPath = NodePath("BookRow/BookPanel/Margin/VBox/Pages/RightPage/Contents")
 RightIntroLabelPath = NodePath("BookRow/BookPanel/Margin/VBox/Pages/RightPage/Intro")
 RightRecipeContentPath = NodePath("BookRow/BookPanel/Margin/VBox/Pages/RightPage/RecipeContent")
 RightIngredientsLabelPath = NodePath("BookRow/BookPanel/Margin/VBox/Pages/RightPage/RecipeContent/Details/IngredientsColumn/Ingredients")
@@ -116,6 +120,13 @@ text = "Potion Book"
 horizontal_alignment = 1
 vertical_alignment = 1
 autowrap_mode = 3
+
+[node name="Contents" type="VBoxContainer" parent="BookRow/BookPanel/Margin/VBox/Pages/LeftPage"]
+visible = false
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 6
 
 [node name="Intro" type="Label" parent="BookRow/BookPanel/Margin/VBox/Pages/LeftPage"]
 custom_minimum_size = Vector2(0, 330)
@@ -261,6 +272,15 @@ horizontal_alignment = 1
 vertical_alignment = 1
 autowrap_mode = 3
 
+[node name="PageNumber" type="Label" parent="BookRow/BookPanel/Margin/VBox/Pages/LeftPage"]
+custom_minimum_size = Vector2(0, 24)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.18, 0.09, 0.035, 0.58)
+theme_override_font_sizes/font_size = 15
+text = "1 / 1"
+horizontal_alignment = 1
+vertical_alignment = 1
+
 [node name="CenterFold" type="ColorRect" parent="BookRow/BookPanel/Margin/VBox/Pages"]
 custom_minimum_size = Vector2(3, 0)
 layout_mode = 2
@@ -282,6 +302,13 @@ text = "Potion"
 horizontal_alignment = 1
 vertical_alignment = 1
 autowrap_mode = 3
+
+[node name="Contents" type="VBoxContainer" parent="BookRow/BookPanel/Margin/VBox/Pages/RightPage"]
+visible = false
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 6
 
 [node name="Intro" type="Label" parent="BookRow/BookPanel/Margin/VBox/Pages/RightPage"]
 visible = false
@@ -426,6 +453,15 @@ theme_override_font_sizes/font_size = 15
 horizontal_alignment = 1
 vertical_alignment = 1
 autowrap_mode = 3
+
+[node name="PageNumber" type="Label" parent="BookRow/BookPanel/Margin/VBox/Pages/RightPage"]
+custom_minimum_size = Vector2(0, 24)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.18, 0.09, 0.035, 0.58)
+theme_override_font_sizes/font_size = 15
+text = "2 / 2"
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="LeftPageHotspot" type="Button" parent="BookRow/BookPanel"]
 modulate = Color(1, 1, 1, 0)

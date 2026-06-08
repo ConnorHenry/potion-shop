@@ -11,6 +11,7 @@ Entries = [{
 "name": "Mooncap Mushroom",
 "price": 14,
 "quality": 85,
+"startsKnownInIngredientBook": false,
 "risks": {},
 "tags": ["ingredient", "catalyst"],
 "traits": {
@@ -23,6 +24,7 @@ Entries = [{
 "name": "Grave Mint",
 "price": 7,
 "quality": 70,
+"startsKnownInIngredientBook": true,
 "risks": {},
 "tags": ["ingredient", "catalyst"],
 "traits": {
@@ -35,6 +37,7 @@ Entries = [{
 "name": "Black Ichor",
 "price": 19,
 "quality": 95,
+"startsKnownInIngredientBook": false,
 "risks": {
 "nausea": 1
 },
@@ -49,6 +52,7 @@ Entries = [{
 "name": "Lavender Ash",
 "price": 10,
 "quality": 80,
+"startsKnownInIngredientBook": false,
 "risks": {},
 "tags": ["ingredient", "catalyst"],
 "traits": {
@@ -61,6 +65,7 @@ Entries = [{
 "name": "Obsidian Resin",
 "price": 16,
 "quality": 88,
+"startsKnownInIngredientBook": true,
 "risks": {},
 "tags": ["ingredient", "liquid"],
 "traits": {
@@ -73,6 +78,7 @@ Entries = [{
 "name": "Amber Nightshade",
 "price": 12,
 "quality": 84,
+"startsKnownInIngredientBook": false,
 "risks": {
 "insomnia": 2
 },
@@ -87,6 +93,7 @@ Entries = [{
 "name": "Silver Thorn Bloom",
 "price": 9,
 "quality": 82,
+"startsKnownInIngredientBook": false,
 "risks": {
 "melancholy": 2
 },
@@ -101,6 +108,7 @@ Entries = [{
 "name": "Moonwhisper Orchid",
 "price": 18,
 "quality": 86,
+"startsKnownInIngredientBook": false,
 "risks": {
 "corruption": 2
 },
@@ -115,6 +123,7 @@ Entries = [{
 "name": "Raven Ash Peony",
 "price": 6,
 "quality": 79,
+"startsKnownInIngredientBook": false,
 "risks": {},
 "tags": ["ingredient", "herb"],
 "traits": {
@@ -127,6 +136,7 @@ Entries = [{
 "name": "Iron Lullaby Root",
 "price": 11,
 "quality": 83,
+"startsKnownInIngredientBook": true,
 "risks": {},
 "tags": ["ingredient", "herb"],
 "traits": {

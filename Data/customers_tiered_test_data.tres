@@ -416,5 +416,127 @@ Entries = [
       "corruption": 6,
       "insomnia": 4
     }
+  },
+  {
+    "id": "plot_miss_ives_visit_1",
+    "title": "Miss Ives",
+    "text": "Miss Ives needs a careful sleep draught: restful, calming, and gentle enough not to leave her sick by morning.",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
+    "pool": "plot",
+    "difficulty": 2,
+    "storyCharacterId": "miss_ives",
+    "visitId": "visit_1",
+    "dialogueStartNodeId": "intro",
+    "requires": {
+      "dayMin": 1
+    },
+    "weight": 2,
+    "desiredTraits": {
+      "rest": 5,
+      "calm": 3,
+      "dream": 1
+    },
+    "badTraits": {
+      "nausea": 3
+    },
+    "potionRefusedText": "Miss Ives draws her gloves tight. 'Then I will endure another night.'",
+    "onPotionRefusedEffects": [
+      {
+        "addStoryFlag": "miss_ives_refused_potion"
+      }
+    ],
+    "onSuccessEffects": [
+      {
+        "addStoryFlag": "miss_ives_helped"
+      }
+    ],
+    "onFailureEffects": [
+      {
+        "addStoryFlag": "miss_ives_given_bad_potion"
+      }
+    ],
+    "potionResponses": [
+      {
+        "id": "clean_success",
+        "success": true,
+        "minMatchedDesiredTraits": 2,
+        "maxMatchedBadTraits": 0,
+        "text": "Miss Ives studies the bottle, then nods once. 'Yes. This feels quiet enough to trust.'"
+      },
+      {
+        "id": "risky_failure",
+        "success": false,
+        "text": "Miss Ives accepts the bottle without conviction. 'If this worsens the dreams, I will remember who brewed it.'"
+      }
+    ],
+    "dialogueNodes": [
+      {
+        "id": "intro",
+        "text": "The woman at the counter removes one glove finger by finger. 'Miss Ives. I was told you sell remedies for private troubles.'",
+        "options": [
+          {
+            "id": "intro_who_are_you",
+            "label": "Who are you?",
+            "responseText": "'A housekeeper, for now. Names matter less than locked doors.'",
+            "nextNodeId": "hub"
+          },
+          {
+            "id": "intro_private_trouble",
+            "label": "What private trouble?",
+            "responseText": "'Sleep has become a room I cannot enter. When I do, something waits there.'",
+            "nextNodeId": "hub"
+          },
+          {
+            "id": "intro_request",
+            "label": "What potion do you need?",
+            "responseText": "'Something to let me sleep, but not so deeply that I cannot wake myself.'",
+            "revealsRequest": true,
+            "returnNodeId": "hub"
+          },
+          {
+            "id": "intro_end",
+            "label": "Not tonight.",
+            "responseText": "'Then I have mistaken the hour.'",
+            "endsInteraction": true,
+            "effects": [
+              {
+                "addStoryFlag": "miss_ives_dismissed"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "hub",
+        "text": "Miss Ives folds her gloves on the counter and watches the shop in the glass behind you.",
+        "options": [
+          {
+            "id": "hub_house",
+            "label": "Tell me about the house.",
+            "responseText": "'It keeps its own schedule. Footsteps at noon, bells at midnight, letters under doors no one opened.'",
+            "nextNodeId": "hub"
+          },
+          {
+            "id": "hub_dreams",
+            "label": "What waits in the dreams?",
+            "responseText": "'A mirror with no reflection. A hand knocking from inside it.'",
+            "nextNodeId": "hub"
+          },
+          {
+            "id": "hub_request",
+            "label": "Tell me the potion again.",
+            "responseText": "'Rest, calm, and only a little dreamwork. Nothing that turns the stomach.'",
+            "revealsRequest": true,
+            "returnNodeId": "hub"
+          },
+          {
+            "id": "hub_leave",
+            "label": "That is all for now.",
+            "responseText": "'Then I will leave before the shop changes its mind.'",
+            "endsInteraction": true
+          }
+        ]
+      }
+    ]
   }
 ]

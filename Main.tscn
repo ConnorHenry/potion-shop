@@ -30,7 +30,6 @@ CustomerEventControllerPath = NodePath("../CustomerEventController")
 InventoryPanelPath = NodePath("../CanvasLayer/InventoryPanel")
 CustomerPanelPath = NodePath("../CanvasLayer/CustomerPanel")
 BrewPanelPath = NodePath("../CanvasLayer/PotionBrewingStationView/BrewPanel")
-RecipeBookPanelPath = NodePath("../CanvasLayer/RecipeBookPanel")
 DaySummaryPanelPath = NodePath("../CanvasLayer/DaySummaryPanel")
 
 [node name="RuntimeDebugImGui" type="Node" parent="."]
@@ -52,7 +51,7 @@ mouse_filter = 2
 script = ExtResource("11_drag_preview")
 
 [node name="Icon" type="TextureRect" parent="DragPreviewLayer/InventoryDragPreview"]
-custom_minimum_size = Vector2(70, 70)
+custom_minimum_size = Vector2(140, 140)
 layout_mode = 0
 mouse_filter = 2
 expand_mode = 1
@@ -61,7 +60,7 @@ stretch_mode = 5
 [node name="TutorialController" type="Node" parent="."]
 script = ExtResource("10_tutorial")
 TutorialOverlayPath = NodePath("../CanvasLayer/TutorialOverlay")
-HudPath = NodePath("../CanvasLayer/Hud")
+HudPath = NodePath("/root/PersistentHud/Hud")
 InventoryPanelPath = NodePath("../CanvasLayer/InventoryPanel")
 BrewPanelPath = NodePath("../CanvasLayer/PotionBrewingStationView/BrewPanel")
 CustomerPanelPath = NodePath("../CanvasLayer/CustomerPanel")
