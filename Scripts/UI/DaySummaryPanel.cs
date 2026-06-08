@@ -65,6 +65,11 @@ public partial class DaySummaryPanel : Control
 			_body.Text = string.Empty;
 	}
 
+	public Button? GetContinueButton()
+	{
+		return _continueButton;
+	}
+
 	private void OnContinuePressed()
 	{
 		EmitSignal(SignalName.ContinuePressed);

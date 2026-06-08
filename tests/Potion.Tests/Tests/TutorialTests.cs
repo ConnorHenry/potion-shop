@@ -20,6 +20,7 @@ internal static class TutorialTests
         runner.Run("Tutorial overlay scene wiring stays intact", TestTutorialOverlaySceneWiring);
         runner.Run("Tutorial architecture extraction stays intact", TestTutorialArchitectureExtraction);
         runner.Run("Tutorial next-customer inventory seed stays curated", TestTutorialNextCustomerInventorySeedIsCurated);
+        runner.Run("Tutorial next-customer step accepts tiered customer ids", TestTutorialNextCustomerStepAcceptsTieredCustomerIds);
         runner.Run("Tutorial sale review feedback uses request wording", TestTutorialSaleReviewFeedbackUsesRequestWording);
         runner.Run("Tutorial overlay keeps one dimming strategy", TestTutorialOverlayUsesDynamicCutoutsOnly);
     }
@@ -78,7 +79,8 @@ internal static class TutorialTests
         AssertTrue("Main scene references TutorialController script", source.Contains("path=\"res://Scripts/Controllers/TutorialController.cs\""));
         AssertTrue("Main scene includes TutorialController node", source.Contains("[node name=\"TutorialController\" type=\"Node\" parent=\".\"]"));
         AssertTrue("TutorialController wires overlay path", source.Contains("TutorialOverlayPath = NodePath(\"../CanvasLayer/TutorialOverlay\")"));
-        AssertTrue("TutorialController wires HUD path", source.Contains("HudPath = NodePath(\"../CanvasLayer/Hud\")"));
+        AssertTrue("TutorialController wires HUD path", source.Contains("HudPath = NodePath(\"/root/PersistentHud/Hud\")"));
+        AssertTrue("TutorialController wires day summary panel path", source.Contains("DaySummaryPanelPath = NodePath(\"../CanvasLayer/DaySummaryPanel\")"));
         AssertTrue("TutorialController wires DayController path", source.Contains("DayControllerPath = NodePath(\"../DayController\")"));
     }
 
@@ -122,16 +124,23 @@ internal static class TutorialTests
         AssertTrue("TutorialController highlights status step with a combined HUD rect", controller.Contains("ShowForHighlightRect(stepContent, statusHighlightRect)"));
         AssertTrue("TutorialController builds a combined status highlight rectangle", controller.Contains("TryGetStatusHighlightRect(out var statusHighlightRect)"));
         AssertTrue("TutorialController forces the shop timer to zero before the final tutorial ingredient step", controller.Contains("AddTwoMoreSleepIngredients") && controller.Contains("ForceShopTimerToZeroForTutorial()"));
+        AssertTrue("TutorialController listens for day summary continue", controller.Contains("_daySummaryPanel.ContinuePressed += OnDaySummaryContinuePressed;"));
+        AssertTrue("TutorialController highlights the day summary panel", controller.Contains("case TutorialStepId.DaySummary") && controller.Contains("_overlayPresenter.ShowForTarget(stepContent, _daySummaryPanel)"));
+        AssertTrue("TutorialController allows the day summary continue button", controller.Contains("TutorialStepId.DaySummary => new BaseButton?[] { _daySummaryPanel?.GetContinueButton() }"));
+        AssertTrue("TutorialController includes day summary panel in button locks", controller.Contains("new Node?[] { _hud, _inventoryPanel, _brewPanel, _customerPanel, _daySummaryPanel }"));
         AssertTrue("TutorialOverlayPresenter supports direct highlight rectangles", presenter.Contains("ShowForHighlightRect("));
 
         AssertTrue("TutorialStateMachine is a pure class", stateMachine.Contains("public sealed class TutorialStateMachine"));
         AssertTrue("TutorialStateMachine clamps tutorial step", stateMachine.Contains("public TutorialStepId ClampStep(int rawStep)"));
         AssertTrue("TutorialStateMachine includes close shop prompt transition", stateMachine.Contains("EvaluateCloseShopPrompt("));
-        AssertTrue("TutorialStateMachine completes when the shop closes on the close shop step", stateMachine.Contains("step == TutorialStepId.CloseShop && !isShopOpen"));
+        AssertTrue("TutorialStateMachine advances from close shop to day summary", stateMachine.Contains("step == TutorialStepId.CloseShop && !isShopOpen") && stateMachine.Contains("TutorialTransition.To(TutorialStepId.DaySummary)"));
+        AssertTrue("TutorialStateMachine completes after continuing from the day summary", stateMachine.Contains("EvaluateDaySummaryContinued(") && stateMachine.Contains("step == TutorialStepId.DaySummary"));
         AssertTrue("DayController exposes a tutorial-only timer reset helper", ReadProjectFile("Scripts/Controllers/DayController.cs").Contains("public void ForceShopTimerToZeroForTutorial()"));
         AssertTrue("TutorialContentResource exists", tutorialContent.Contains("public partial class TutorialContentResource : Resource"));
         AssertTrue("TutorialContentResource includes the close shop step copy", tutorialContent.Contains("StepId = (int)TutorialStepId.CloseShop"));
         AssertTrue("TutorialContentResource tells the player to close the shop at night", tutorialContent.Contains("It is night time. Close the shop to end the day."));
+        AssertTrue("TutorialContentResource includes the day summary step copy", tutorialContent.Contains("StepId = (int)TutorialStepId.DaySummary") && tutorialContent.Contains("This is the end of day summary. This will show you how your day has gone. Click on the Continue to Night button."));
+        AssertTrue("DaySummaryPanel exposes the continue button for tutorial locks", ReadProjectFile("Scripts/UI/DaySummaryPanel.cs").Contains("public Button? GetContinueButton()"));
         AssertTrue("Tutorial step content can lock other buttons", tutorialStepContent.Contains("public bool LockOtherButtons { get; set; }"));
         AssertTrue("Tutorial overlay presenter exists", presenter.Contains("public sealed class TutorialOverlayPresenter"));
         AssertTrue("Tutorial interaction gate exists", interactionGate.Contains("public sealed class TutorialInteractionGate"));
@@ -157,6 +166,22 @@ internal static class TutorialTests
             source.Contains("Inventory.Clear();"));
         AssertTrue("Next-customer inventory seeds exactly the curated ingredient list",
             source.Contains("foreach (var (itemId, qty) in NextCustomerTutorialInventory)"));
+    }
+
+    private static void TestTutorialNextCustomerStepAcceptsTieredCustomerIds()
+    {
+        var stateMachine = ReadProjectFile("Scripts/Tutorial/TutorialStateMachine.cs");
+
+        AssertTrue("Next-customer transition uses customer interaction matching",
+            stateMachine.Contains("EvaluateCustomerInteractionShown") &&
+            stateMachine.Contains("IsCustomerInteractionMatch(interactionId, _ambiguousCustomerId)"));
+        AssertTrue("Next-customer active request fallback uses customer interaction matching",
+            stateMachine.Contains("EvaluateAmbiguousCustomerState") &&
+            stateMachine.Contains("IsCustomerInteractionMatch(activeCustomerRequestId ?? string.Empty, _ambiguousCustomerId)"));
+        AssertTrue("Tutorial customer matching accepts tiered suffix ids for legacy tutorial ids",
+            stateMachine.Contains("NormalizeLegacyCustomerRequestId") &&
+            stateMachine.Contains("const string legacyPrefix = \"customer_requests_\"") &&
+            stateMachine.Contains("actualInteractionId.EndsWith(\"_\" + normalizedExpectedId, StringComparison.OrdinalIgnoreCase)"));
     }
 
     private static void TestTutorialSaleReviewFeedbackUsesRequestWording()

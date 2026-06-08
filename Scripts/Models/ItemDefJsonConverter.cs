@@ -44,6 +44,10 @@ public sealed class ItemDefJsonConverter : JsonConverter<ItemDef>
 				case "Description":
 					item.Description = reader.GetString() ?? "";
 					break;
+				case "startsKnownInIngredientBook":
+				case "StartsKnownInIngredientBook":
+					item.StartsKnownInIngredientBook = ReadBooleanValue(ref reader);
+					break;
 				case "tags":
 				case "Tags":
 					item.Tags = JsonSerializer.Deserialize<List<string>>(ref reader, options) ?? new List<string>();
@@ -96,6 +100,8 @@ public sealed class ItemDefJsonConverter : JsonConverter<ItemDef>
 			writer.WriteString("iconPath", value.IconPath);
 
 		writer.WriteString("description", value.Description);
+		if (value.StartsKnownInIngredientBook)
+			writer.WriteBoolean("startsKnownInIngredientBook", true);
 		writer.WritePropertyName("tags");
 		JsonSerializer.Serialize(writer, value.Tags ?? new List<string>(), options);
 		writer.WriteNumber("quality", value.Quality);
@@ -120,5 +126,17 @@ public sealed class ItemDefJsonConverter : JsonConverter<ItemDef>
 			JsonSerializer.Serialize(writer, value.Treatment, options);
 		}
 		writer.WriteEndObject();
+	}
+
+	private static bool ReadBooleanValue(ref Utf8JsonReader reader)
+	{
+		return reader.TokenType switch
+		{
+			JsonTokenType.True => true,
+			JsonTokenType.False => false,
+			JsonTokenType.String => bool.TryParse(reader.GetString(), out var parsed) && parsed,
+			JsonTokenType.Number => reader.TryGetInt32(out var value) && value != 0,
+			_ => false
+		};
 	}
 }

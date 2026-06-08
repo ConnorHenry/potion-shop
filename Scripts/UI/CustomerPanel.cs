@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
@@ -21,11 +22,14 @@ public partial class CustomerPanel : Control
 	public delegate void InteractionShownEventHandler(string interactionId);
 	[Signal]
 	public delegate void DialogueResolvedEventHandler();
+	[Signal]
+	public delegate void PlotConversationStartedEventHandler();
 
 	public bool SuppressSaleResultPanel { get; set; }
+	public string? CurrentCustomerImagePath => _interaction?.CharacterImagePath;
 
+	[Export] public int DialogueTypewriterCharactersPerSecond = 45;
 	[Export] public NodePath TitlePath = default!;
-	[Export] public NodePath PortraitPath = default!;
 	[Export] public NodePath DesiredTraitsPath = default!;
 	[Export] public NodePath BadTraitsPath = default!;
 	[Export] public NodePath DialoguePath = default!;
@@ -39,7 +43,6 @@ public partial class CustomerPanel : Control
 	[Export] public NodePath ItemCatalogPath = new(AutoloadNodePaths.ItemCatalog);
 
 	private Label? _title;
-	private TextureRect _portrait = default!;
 	private RichTextLabel _desiredTraits = default!;
 	private RichTextLabel _badTraits = default!;
 	private RichTextLabel _dialogue = default!;
@@ -49,21 +52,48 @@ public partial class CustomerPanel : Control
 	private RichTextLabel _saleResultBody = default!;
 	private Button _saleResultCloseButton = default!;
 	private Button? _closeButton;
+	private HBoxContainer _potionSlotsRow = default!;
 	private HBoxContainer _customerActions = default!;
+	private VBoxContainer _dialogueOptionsContainer = default!;
+	private HBoxContainer _sellingActions = default!;
 	private Button _comeBackTomorrowButton = default!;
 	private Button _sorryCantHelpYouButton = default!;
 	private Button _nextCustomerButton = default!;
+	private Button _refusePotionButton = default!;
+	private Button _returnToDialogueButton = default!;
 	private CustomerInteractionDef? _interaction;
 	private readonly PotionBrewingService _brewingService = new();
+	private readonly List<Button> _dialogueOptionButtons = new();
+	private readonly List<CustomerDialogueOptionDef> _visibleDialogueOptions = new();
+	private readonly List<string> _conversationHistory = new();
+	private readonly Queue<DialogueLine> _pendingDialogueLines = new();
+	private readonly List<PotionSlotView> _potionSlotViews = new();
 	private GameState _gameState = default!;
 	private ItemCatalogService _itemCatalog = default!;
+	private Godot.Timer? _dialogueTypewriterTimer;
+	private Control.GuiInputEventHandler? _dialogueGuiInputHandler;
+	private DialogueLine? _activeDialogueLine;
+	private int _activeDialogueTextCharacters;
+	private Action? _dialogueQueueCompletedAction;
 	private bool _closeShopMode;
 	private bool _awaitingNextCustomer;
+	private bool _requestRevealed;
+	private bool _sellingMode;
 	private string _activeDialogueNodeId = string.Empty;
+	private string _requestReturnDialogueNodeId = string.Empty;
 	private const int SuccessDreadChange = -2;
 	private const int FailureDreadChange = 4;
+	private const int CustomerPotionSlotCount = 4;
+	private const float CustomerPotionSlotSize = 70.0f;
+	private const float CustomerPotionIconSize = 46.0f;
+	private const string PlayerSpeakerName = "You";
+	private const string CustomerSpeakerName = "Customer";
+	private const string PlayerSpeakerColorHex = "#59D959";
+	private const string CustomerSpeakerColorHex = "#F5D76E";
 	private const string MatchedDesiredColorHex = "#59D959";
 	private const string MatchedRiskColorHex = "#E64040";
+	private static readonly Color SeenDialogueOptionModulate = new(0.58f, 0.58f, 0.58f, 1f);
+	private static readonly Color DefaultButtonModulate = new(1f, 1f, 1f, 1f);
 
 	public override void _Ready()
 	{
@@ -85,7 +115,6 @@ public partial class CustomerPanel : Control
 		_itemCatalog = itemCatalog;
 
 		_title = ResolveOptionalNode(TitlePath, "TitlePath", GetNodeOrNull<Label>);
-		_portrait = GetNode<TextureRect>(PortraitPath);
 		_desiredTraits = GetNode<RichTextLabel>(DesiredTraitsPath);
 		_badTraits = GetNode<RichTextLabel>(BadTraitsPath);
 		_dialogue = GetNode<RichTextLabel>(DialoguePath);
@@ -99,24 +128,42 @@ public partial class CustomerPanel : Control
 
 		_desiredTraits.BbcodeEnabled = true;
 		_badTraits.BbcodeEnabled = true;
+		_dialogue.BbcodeEnabled = true;
+		_dialogue.ScrollActive = true;
+		_dialogue.ScrollFollowing = true;
+		_dialogue.MouseFilter = MouseFilterEnum.Stop;
 
 		MouseFilter = MouseFilterEnum.Ignore;
+		_dialogueTypewriterTimer = new Godot.Timer
+		{
+			OneShot = false,
+			Autostart = false,
+			WaitTime = GetDialogueTypewriterIntervalSeconds()
+		};
+		AddChild(_dialogueTypewriterTimer);
+		_dialogueTypewriterTimer.Timeout += OnDialogueTypewriterTimeout;
+		_dialogueGuiInputHandler = OnDialogueGuiInput;
+		_dialogue.GuiInput += _dialogueGuiInputHandler;
 		//_closeButton.Pressed += HidePanel;
 		if (_comeBackTomorrowButton is not null)
-			_comeBackTomorrowButton.Pressed += OnFirstCustomerActionPressed;
+			_comeBackTomorrowButton.Pressed += OnComeBackTomorrowPressed;
 
 		if (_sorryCantHelpYouButton is not null)
-			_sorryCantHelpYouButton.Pressed += OnSecondCustomerActionPressed;
+			_sorryCantHelpYouButton.Pressed += OnSorryCantHelpYouPressed;
 		if (_nextCustomerButton is not null)
 			_nextCustomerButton.Pressed += OnSaleResultClosePressed;
+		if (_refusePotionButton is not null)
+			_refusePotionButton.Pressed += OnRefusePotionPressed;
+		if (_returnToDialogueButton is not null)
+			_returnToDialogueButton.Pressed += OnReturnToDialoguePressed;
 
 		_saleResultCloseButton.Text = "Next customer";
 		_saleResultCloseButton.Pressed += OnSaleResultClosePressed;
 		_sellDropBox.ItemDropped += OnItemDropped;
 		_sellDropBox.ItemHoverPreview += OnSellDropHoverPreview;
 		_sellDropBox.HoverPreviewCleared += OnSellDropHoverPreviewCleared;
+		_gameState.Changed += RefreshPotionSlotRow;
 		UpdateCloseShopButtonText();
-		_portrait.Visible = false;
 		_saleResultPanel.Visible = false;
 		SetSalePendingState();
 		Visible = false;
@@ -139,19 +186,29 @@ public partial class CustomerPanel : Control
 		if (_closeButton is not null)
 			_closeButton.Pressed -= HidePanel;
 		if (_comeBackTomorrowButton is not null)
-			_comeBackTomorrowButton.Pressed -= OnFirstCustomerActionPressed;
+			_comeBackTomorrowButton.Pressed -= OnComeBackTomorrowPressed;
 		if (_sorryCantHelpYouButton is not null)
-			_sorryCantHelpYouButton.Pressed -= OnSecondCustomerActionPressed;
+			_sorryCantHelpYouButton.Pressed -= OnSorryCantHelpYouPressed;
 		if (_nextCustomerButton is not null)
 			_nextCustomerButton.Pressed -= OnSaleResultClosePressed;
+		if (_refusePotionButton is not null)
+			_refusePotionButton.Pressed -= OnRefusePotionPressed;
+		if (_returnToDialogueButton is not null)
+			_returnToDialogueButton.Pressed -= OnReturnToDialoguePressed;
 		if (_saleResultCloseButton is not null)
 			_saleResultCloseButton.Pressed -= OnSaleResultClosePressed;
+		if (_dialogueTypewriterTimer is not null)
+			_dialogueTypewriterTimer.Timeout -= OnDialogueTypewriterTimeout;
+		if (_dialogue is not null && _dialogueGuiInputHandler is not null)
+			_dialogue.GuiInput -= _dialogueGuiInputHandler;
 		if (_sellDropBox is not null)
 		{
 			_sellDropBox.ItemDropped -= OnItemDropped;
 			_sellDropBox.ItemHoverPreview -= OnSellDropHoverPreview;
 			_sellDropBox.HoverPreviewCleared -= OnSellDropHoverPreviewCleared;
 		}
+		if (_gameState is not null)
+			_gameState.Changed -= RefreshPotionSlotRow;
 	}
 
 	public void ShowInteraction(CustomerInteractionDef interaction)
@@ -160,15 +217,29 @@ public partial class CustomerPanel : Control
 		_interaction = interaction;
 		_awaitingNextCustomer = false;
 		_activeDialogueNodeId = string.Empty;
+		_requestReturnDialogueNodeId = string.Empty;
+		_requestRevealed = false;
+		_sellingMode = false;
 		var request = interaction.BuildRequest();
-		_gameState.SetActiveCustomerRequest(request);
+		if (HasActiveDialogueInteraction())
+			_gameState.ClearActiveCustomerRequest();
+		else
+			_gameState.SetActiveCustomerRequest(request);
 		Visible = true;
-		//_title.Text = interaction.Title;
-		_dialogue.Text = interaction.Text;
-		SetPortrait(interaction.CharacterImagePath);
+		if (_title is not null)
+			_title.Text = interaction.Title;
+		ResetConversationHistory();
+		if (!HasActiveDialogueInteraction())
+			AppendCustomerLine(interaction.Text);
 		SetRequestTraits(request);
-		if (!TryShowDialogueStart())
+		if (TryShowDialogueStart())
+		{
+			EmitSignal(SignalName.PlotConversationStarted);
+		}
+		else
+		{
 			SetSalePendingState();
+		}
 		EmitSignal(SignalName.InteractionShown, interaction.Id);
 	}
 
@@ -191,13 +262,14 @@ public partial class CustomerPanel : Control
 	{
 		_interaction = null;
 		_gameState.ClearActiveCustomerRequest();
-		_portrait.Texture = null;
-		_portrait.Visible = false;
 		_desiredTraits.Text = "";
 		_badTraits.Text = "";
-		_dialogue.Text = "";
+		ResetConversationHistory();
 		_awaitingNextCustomer = false;
 		_activeDialogueNodeId = string.Empty;
+		_requestReturnDialogueNodeId = string.Empty;
+		_requestRevealed = false;
+		_sellingMode = false;
 		SetSalePendingState();
 		HideSaleResult();
 		Visible = false;
@@ -206,6 +278,9 @@ public partial class CustomerPanel : Control
 	private void OnItemDropped(string itemId)
 	{
 		if (_interaction is null)
+			return;
+
+		if (HasActiveDialogueInteraction() && !_sellingMode)
 			return;
 
 		if (!_itemCatalog.TryGetItem(itemId, out _))
@@ -219,6 +294,9 @@ public partial class CustomerPanel : Control
 
 		if (brewResult is null)
 			return;
+
+		if (HasActiveDialogueInteraction())
+			AppendPlayerLine($"Give {DisplayName(itemId, _itemCatalog.GetItemName(itemId))}");
 
 		var saleResult = ApplySale(itemId, brewResult);
 
@@ -270,7 +348,7 @@ public partial class CustomerPanel : Control
 	private (bool IsSuccess, int GoldDelta, int DreadDelta) ApplySale(string itemId, PotionResult brewResult)
 	{
 		var request = _interaction?.BuildRequest();
-		var isSuccess = request is not null && HasAllDesiredTraitsPresent(request, brewResult.Traits);
+		var isSuccess = request is not null && IsRequestSatisfiedByPotion(itemId, request, brewResult);
 		var goldDelta = GetSalePrice(itemId);
 		var dreadDelta = isSuccess ? SuccessDreadChange : FailureDreadChange;
 
@@ -279,6 +357,8 @@ public partial class CustomerPanel : Control
 
 		_gameState.ConsumeItem(itemId, 1);
 		ApplyOutcomeEffects(isSuccess ? _interaction?.OnSuccessEffects : _interaction?.OnFailureEffects);
+		var response = request is null ? null : FindPotionResponse(itemId, request, brewResult, isSuccess);
+		ApplyOutcomeEffects(response?.Effects);
 		if (_interaction is not null)
 		{
 			var outcome = isSuccess
@@ -293,8 +373,13 @@ public partial class CustomerPanel : Control
 	private void ShowSaleResult(string itemId, PotionResult brewResult)
 	{
 		_gameState.ClearActiveCustomerRequest();
+		_requestRevealed = false;
+		_sellingMode = false;
 		var outcomeText = BuildOutcomeText(itemId, brewResult);
-		_dialogue.Text = outcomeText;
+		if (HasActiveDialogueInteraction())
+			AppendCustomerLine(outcomeText);
+		else
+			SetConversationHistory(outcomeText);
 		_saleResultTitle.Text = "Sale Result";
 		_saleResultBody.Text = outcomeText;
 		_awaitingNextCustomer = true;
@@ -317,6 +402,9 @@ public partial class CustomerPanel : Control
 		HideSaleResult();
 		_interaction = null;
 		_activeDialogueNodeId = string.Empty;
+		_requestReturnDialogueNodeId = string.Empty;
+		_requestRevealed = false;
+		_sellingMode = false;
 		EmitSignal(SignalName.SaleResultClosed);
 	}
 
@@ -328,9 +416,16 @@ public partial class CustomerPanel : Control
 		lines.Add($"Potion: {itemName}");
 
 		var request = _interaction?.BuildRequest();
-		var isSuccess = request is not null && HasAllDesiredTraitsPresent(request, brewResult.Traits);
+		var isSuccess = request is not null && IsRequestSatisfiedByPotion(itemId, request, brewResult);
 		lines.Add($"Sale: {(isSuccess ? "Success" : "Failure")}");
 		lines.Add(string.Empty);
+		var authoredResponse = request is null ? null : FindPotionResponse(itemId, request, brewResult, isSuccess);
+		if (authoredResponse is not null)
+		{
+			lines.Add(authoredResponse.Text);
+			return string.Join("\n", lines);
+		}
+
 		var matchedDesiredTraitCount = request is null
 			? 0
 			: CountMatchedDesiredTraits(request, brewResult.Traits);
@@ -372,24 +467,98 @@ public partial class CustomerPanel : Control
 		return matchedDesiredTraitCount;
 	}
 
+	private static int CountMatchedBadTraits(
+		CustomerRequestDef request,
+		IReadOnlyDictionary<string, int> producedRisks)
+	{
+		var matchedBadTraitCount = 0;
+		foreach (var badTrait in request.BadTraits)
+		{
+			if (string.IsNullOrWhiteSpace(badTrait.Key))
+				continue;
+
+			if (!TryGetValueIgnoreCase(producedRisks, badTrait.Key, out var producedValue))
+				continue;
+
+			if (producedValue <= 0)
+				continue;
+
+			matchedBadTraitCount += 1;
+		}
+
+		return matchedBadTraitCount;
+	}
+
+	private CustomerPotionResponseDef? FindPotionResponse(
+		string itemId,
+		CustomerRequestDef request,
+		PotionResult brewResult,
+		bool isSuccess)
+	{
+		if (_interaction is null || _interaction.PotionResponses.Count == 0)
+			return null;
+
+		foreach (var response in _interaction.PotionResponses)
+		{
+			if (!PotionResponseMatches(response, itemId, request, brewResult, isSuccess))
+				continue;
+
+			return response;
+		}
+
+		return null;
+	}
+
+	private static bool PotionResponseMatches(
+		CustomerPotionResponseDef response,
+		string itemId,
+		CustomerRequestDef request,
+		PotionResult brewResult,
+		bool isSuccess)
+	{
+		if (response.Success is bool requiredSuccess && requiredSuccess != isSuccess)
+			return false;
+
+		if (!string.IsNullOrWhiteSpace(response.PotionItemId) &&
+			!string.Equals(response.PotionItemId, itemId, StringComparison.OrdinalIgnoreCase))
+		{
+			return false;
+		}
+
+		if (!string.IsNullOrWhiteSpace(response.Grade) &&
+			!string.Equals(response.Grade, brewResult.Grade, StringComparison.OrdinalIgnoreCase))
+		{
+			return false;
+		}
+
+		if (response.MinFinalScore is int minFinalScore && brewResult.FinalScore < minFinalScore)
+			return false;
+
+		if (response.MaxFinalScore is int maxFinalScore && brewResult.FinalScore > maxFinalScore)
+			return false;
+
+		if (response.MinMatchedDesiredTraits is int minMatchedDesiredTraits &&
+			CountMatchedDesiredTraits(request, brewResult.Traits) < minMatchedDesiredTraits)
+		{
+			return false;
+		}
+
+		if (response.MaxMatchedBadTraits is int maxMatchedBadTraits &&
+			CountMatchedBadTraits(request, brewResult.Risks) > maxMatchedBadTraits)
+		{
+			return false;
+		}
+
+		return true;
+	}
+
 	private void SetRequestTraits(CustomerRequestDef request)
 	{
 		_desiredTraits.Text = FormatTraitListWithMatches(request.DesiredTraits, null, MatchedDesiredColorHex);
+		var ingredientAmountText = FormatIngredientAmountRequirements(request.RequiredIngredientAmounts);
+		if (!string.IsNullOrWhiteSpace(ingredientAmountText))
+			_desiredTraits.Text = $"{_desiredTraits.Text}\n{ingredientAmountText}";
 		_badTraits.Text = FormatTraitListWithMatches(request.BadTraits, null, MatchedRiskColorHex);
-	}
-
-	private void SetPortrait(string? portraitPath)
-	{
-		if (string.IsNullOrWhiteSpace(portraitPath))
-		{
-			_portrait.Texture = null;
-			_portrait.Visible = false;
-			return;
-		}
-
-		var texture = ResourceLoader.Load<Texture2D>(portraitPath);
-		_portrait.Texture = texture;
-		_portrait.Visible = texture is not null;
 	}
 
 	private bool IsPotionItem(string itemId)
@@ -425,6 +594,12 @@ public partial class CustomerPanel : Control
 			return;
 		}
 
+		if (HasActiveDialogueInteraction() && !_sellingMode)
+		{
+			_sellDropBox.SetHoverHighlight(false);
+			return;
+		}
+
 		var request = _interaction.BuildRequest();
 
 		if (!IsPotionItem(itemId))
@@ -450,6 +625,9 @@ public partial class CustomerPanel : Control
 
 		_sellDropBox.SetHoverHighlight(true);
 		_desiredTraits.Text = FormatTraitListWithMatches(request.DesiredTraits, brewResult.Traits, MatchedDesiredColorHex);
+		var ingredientAmountText = FormatIngredientAmountRequirements(request.RequiredIngredientAmounts);
+		if (!string.IsNullOrWhiteSpace(ingredientAmountText))
+			_desiredTraits.Text = $"{_desiredTraits.Text}\n{ingredientAmountText}";
 		_badTraits.Text = FormatTraitListWithMatches(request.BadTraits, brewResult.Risks, MatchedRiskColorHex);
 	}
 
@@ -458,6 +636,9 @@ public partial class CustomerPanel : Control
 		_sellDropBox.SetHoverHighlight(false);
 
 		if (_interaction is null)
+			return;
+
+		if (HasActiveDialogueInteraction() && !_requestRevealed)
 			return;
 
 		SetRequestTraits(_interaction.BuildRequest());
@@ -511,6 +692,53 @@ public partial class CustomerPanel : Control
 		return matchedDesiredTraitCount >= requiredMatchCount;
 	}
 
+	private bool IsRequestSatisfiedByPotion(string potionItemId, CustomerRequestDef request, PotionResult brewResult)
+	{
+		return HasAllDesiredTraitsPresent(request, brewResult.Traits) &&
+			DoesPotionBatchSatisfyIngredientAmountRequirements(potionItemId, request.RequiredIngredientAmounts);
+	}
+
+	private bool DoesPotionBatchSatisfyIngredientAmountRequirements(
+		string potionItemId,
+		IReadOnlyList<IngredientPortionDef>? requiredIngredientAmounts)
+	{
+		if (requiredIngredientAmounts is null || requiredIngredientAmounts.Count == 0)
+			return true;
+
+		if (!_gameState.TryPeekPotionIngredientPortionBatch(potionItemId, out var potionBatch))
+			return false;
+
+		foreach (var requiredIngredientAmount in requiredIngredientAmounts)
+		{
+			if (requiredIngredientAmount is null || string.IsNullOrWhiteSpace(requiredIngredientAmount.IngredientId))
+				continue;
+			if (requiredIngredientAmount.Grams <= 0)
+				continue;
+
+			var hasMatchingPortion = potionBatch.Any(portion =>
+				string.Equals(portion.IngredientId, requiredIngredientAmount.IngredientId, System.StringComparison.OrdinalIgnoreCase) &&
+				portion.Grams == requiredIngredientAmount.Grams);
+			if (!hasMatchingPortion)
+				return false;
+		}
+
+		return true;
+	}
+
+	private static string FormatIngredientAmountRequirements(IReadOnlyList<IngredientPortionDef>? requiredIngredientAmounts)
+	{
+		if (requiredIngredientAmounts is null || requiredIngredientAmounts.Count == 0)
+			return string.Empty;
+
+		var lines = requiredIngredientAmounts
+			.Where(x => x is not null && !string.IsNullOrWhiteSpace(x.IngredientId) && x.Grams > 0)
+			.OrderBy(x => x.IngredientId)
+			.Select(x => $"{EscapeBbCodeText(x.IngredientId)}: {x.Grams}g")
+			.ToList();
+
+		return lines.Count == 0 ? string.Empty : string.Join("\n", lines);
+	}
+
 	private static int GetRequiredDesiredTraitMatchCount(int totalDesiredTraitCount)
 	{
 		if (totalDesiredTraitCount <= 0)
@@ -547,19 +775,226 @@ public partial class CustomerPanel : Control
 			.Replace("]", "[rb]");
 	}
 
-	private void OnFirstCustomerActionPressed()
+	private void ResetConversationHistory()
 	{
-		if (TrySelectDialogueOption(0))
+		StopQueuedDialoguePresentation();
+		_conversationHistory.Clear();
+		_dialogue.Text = "";
+	}
+
+	private void SetConversationHistory(string text)
+	{
+		ResetConversationHistory();
+		if (!string.IsNullOrWhiteSpace(text))
+			_conversationHistory.Add(EscapeBbCodeText(text));
+
+		RefreshConversationHistory();
+	}
+
+	private void AppendCustomerLine(string text)
+	{
+		AppendConversationLine(CustomerSpeakerName, text);
+	}
+
+	private void AppendPlayerLine(string text)
+	{
+		AppendConversationLine(PlayerSpeakerName, text);
+	}
+
+	private void AppendConversationLine(string speaker, string text)
+	{
+		if (string.IsNullOrWhiteSpace(text))
 			return;
 
+		_conversationHistory.Add(FormatConversationLine(speaker, text));
+		RefreshConversationHistory();
+	}
+
+	private void RefreshConversationHistory()
+	{
+		if (_activeDialogueLine is null)
+		{
+			_dialogue.Text = string.Join("\n\n", _conversationHistory);
+			return;
+		}
+
+		var visibleLines = new List<string>(_conversationHistory.Count + 1);
+		visibleLines.AddRange(_conversationHistory);
+		visibleLines.Add(FormatConversationLine(
+			_activeDialogueLine.Speaker,
+			GetVisibleDialogueText(_activeDialogueLine.Text, _activeDialogueTextCharacters)));
+		_dialogue.Text = string.Join("\n\n", visibleLines);
+	}
+
+	private void QueueCustomerLine(string text)
+	{
+		QueueConversationLine(CustomerSpeakerName, text);
+	}
+
+	private void QueuePlayerLine(string text)
+	{
+		QueueConversationLine(PlayerSpeakerName, text);
+	}
+
+	private void QueueConversationLine(string speaker, string text)
+	{
+		if (string.IsNullOrWhiteSpace(text))
+			return;
+
+		_pendingDialogueLines.Enqueue(new DialogueLine(speaker, text));
+	}
+
+	private void PlayQueuedDialogueLines(Action? completedAction)
+	{
+		_dialogueQueueCompletedAction = completedAction;
+		if (_activeDialogueLine is null && _pendingDialogueLines.Count > 0)
+			StartNextQueuedDialogueLine();
+
+		TryCompleteQueuedDialogueLines();
+	}
+
+	private void StartNextQueuedDialogueLine()
+	{
+		if (_pendingDialogueLines.Count == 0)
+		{
+			TryCompleteQueuedDialogueLines();
+			return;
+		}
+
+		_activeDialogueLine = _pendingDialogueLines.Dequeue();
+		_activeDialogueTextCharacters = 0;
+		RefreshConversationHistory();
+
+		if (_dialogueTypewriterTimer is null)
+		{
+			CompleteActiveDialogueLine();
+			return;
+		}
+
+		_dialogueTypewriterTimer.WaitTime = GetDialogueTypewriterIntervalSeconds();
+		_dialogueTypewriterTimer.Start();
+	}
+
+	private void OnDialogueTypewriterTimeout()
+	{
+		if (_activeDialogueLine is null)
+		{
+			_dialogueTypewriterTimer?.Stop();
+			TryCompleteQueuedDialogueLines();
+			return;
+		}
+
+		_activeDialogueTextCharacters += 1;
+		if (_activeDialogueTextCharacters >= _activeDialogueLine.Text.Length)
+		{
+			CompleteActiveDialogueLine();
+			return;
+		}
+
+		RefreshConversationHistory();
+	}
+
+	private void OnDialogueGuiInput(InputEvent @event)
+	{
+		if (@event is not InputEventMouseButton mouseButton)
+			return;
+
+		if (mouseButton.ButtonIndex != MouseButton.Left || !mouseButton.Pressed)
+			return;
+
+		AdvanceQueuedDialoguePresentation();
+	}
+
+	private void AdvanceQueuedDialoguePresentation()
+	{
+		if (_activeDialogueLine is not null)
+		{
+			CompleteActiveDialogueLine();
+			return;
+		}
+
+		if (_pendingDialogueLines.Count > 0)
+			StartNextQueuedDialogueLine();
+	}
+
+	private void CompleteActiveDialogueLine()
+	{
+		if (_activeDialogueLine is null)
+			return;
+
+		_dialogueTypewriterTimer?.Stop();
+		_conversationHistory.Add(FormatConversationLine(_activeDialogueLine.Speaker, _activeDialogueLine.Text));
+		_activeDialogueLine = null;
+		_activeDialogueTextCharacters = 0;
+		RefreshConversationHistory();
+		TryCompleteQueuedDialogueLines();
+	}
+
+	private void TryCompleteQueuedDialogueLines()
+	{
+		if (_activeDialogueLine is not null || _pendingDialogueLines.Count > 0)
+			return;
+
+		var completedAction = _dialogueQueueCompletedAction;
+		_dialogueQueueCompletedAction = null;
+		completedAction?.Invoke();
+	}
+
+	private void StopQueuedDialoguePresentation()
+	{
+		_dialogueTypewriterTimer?.Stop();
+		_pendingDialogueLines.Clear();
+		_activeDialogueLine = null;
+		_activeDialogueTextCharacters = 0;
+		_dialogueQueueCompletedAction = null;
+	}
+
+	private double GetDialogueTypewriterIntervalSeconds()
+	{
+		var charactersPerSecond = Math.Max(1, DialogueTypewriterCharactersPerSecond);
+		return 1.0 / charactersPerSecond;
+	}
+
+	private static string GetVisibleDialogueText(string text, int visibleCharacters)
+	{
+		var characterCount = Math.Min(Math.Max(visibleCharacters, 0), text.Length);
+		return characterCount >= text.Length ? text : text[..characterCount];
+	}
+
+	private static string FormatConversationLine(string speaker, string text)
+	{
+		var safeText = EscapeBbCodeText(text);
+		return $"{FormatSpeakerName(speaker)}\n{safeText}";
+	}
+
+	private static string FormatSpeakerName(string speaker)
+	{
+		var safeSpeaker = EscapeBbCodeText(speaker);
+		var colorHex = GetSpeakerColorHex(speaker);
+		if (string.IsNullOrWhiteSpace(colorHex))
+			return $"[b]{safeSpeaker}[/b]";
+
+		return $"[b][color={colorHex}]{safeSpeaker}[/color][/b]";
+	}
+
+	private static string GetSpeakerColorHex(string speaker)
+	{
+		if (string.Equals(speaker, PlayerSpeakerName, StringComparison.OrdinalIgnoreCase))
+			return PlayerSpeakerColorHex;
+
+		if (string.Equals(speaker, CustomerSpeakerName, StringComparison.OrdinalIgnoreCase))
+			return CustomerSpeakerColorHex;
+
+		return string.Empty;
+	}
+
+	private void OnComeBackTomorrowPressed()
+	{
 		OnSkipCustomerPressed();
 	}
 
-	private void OnSecondCustomerActionPressed()
+	private void OnSorryCantHelpYouPressed()
 	{
-		if (TrySelectDialogueOption(1))
-			return;
-
 		OnSkipCustomerPressed();
 	}
 
@@ -591,18 +1026,39 @@ public partial class CustomerPanel : Control
 			return true;
 		}
 
-		if (optionIndex < 0 || optionIndex >= node.Options.Count)
+		if (optionIndex < 0 || optionIndex >= _visibleDialogueOptions.Count)
 			return true;
 
-		var option = node.Options[optionIndex];
+		var option = _visibleDialogueOptions[optionIndex];
+		SetDialoguePresentationState();
+		QueuePlayerLine(option.Label);
+		if (_interaction is not null)
+			_gameState.RecordStoryCustomerDialogueOptionSelected(_interaction, option.Id);
 		ApplyOutcomeEffects(option.Effects);
+
+		if (!string.IsNullOrWhiteSpace(option.ResponseText))
+			QueueCustomerLine(option.ResponseText);
+
+		if (option.RevealsRequest)
+		{
+			if (string.IsNullOrWhiteSpace(option.ResponseText) && !string.IsNullOrWhiteSpace(_interaction?.Text))
+				QueueCustomerLine(_interaction.Text);
+			PlayQueuedDialogueLines(() => EnterPotionSellingMode(option));
+			return true;
+		}
+
+		if (option.ReturnsToDialogue)
+		{
+			var returnNode = ResolveDialogueReturnNode(option, node);
+			QueueDialogueNodeText(returnNode);
+			_activeDialogueNodeId = returnNode.Id;
+			PlayQueuedDialogueLines(() => FinishShowingDialogueNode(returnNode));
+			return true;
+		}
 
 		if (option.EndsInteraction)
 		{
-			if (!string.IsNullOrWhiteSpace(option.ResponseText))
-				_dialogue.Text = option.ResponseText;
-
-			CompleteDialogueInteraction(option);
+			PlayQueuedDialogueLines(() => CompleteDialogueInteraction(option));
 			return true;
 		}
 
@@ -616,15 +1072,98 @@ public partial class CustomerPanel : Control
 				return true;
 			}
 
-			ShowDialogueNode(nextNode);
+			QueueDialogueNodeText(nextNode);
+			_activeDialogueNodeId = nextNode.Id;
+			PlayQueuedDialogueLines(() => FinishShowingDialogueNode(nextNode));
 			return true;
 		}
 
-		if (!string.IsNullOrWhiteSpace(option.ResponseText))
-			_dialogue.Text = option.ResponseText;
-
-		CompleteDialogueInteraction(option);
+		PlayQueuedDialogueLines(() => SetDialogueOptionState(node));
 		return true;
+	}
+
+	private CustomerDialogueNodeDef ResolveDialogueReturnNode(
+		CustomerDialogueOptionDef option,
+		CustomerDialogueNodeDef fallbackNode)
+	{
+		if (_interaction is null)
+			return fallbackNode;
+
+		var targetNodeId = !string.IsNullOrWhiteSpace(option.ReturnNodeId)
+			? option.ReturnNodeId
+			: option.NextNodeId;
+		if (string.IsNullOrWhiteSpace(targetNodeId))
+			targetNodeId = _requestReturnDialogueNodeId;
+
+		if (!string.IsNullOrWhiteSpace(targetNodeId))
+		{
+			var targetNode = _interaction.GetDialogueNode(targetNodeId);
+			if (targetNode is not null)
+				return targetNode;
+
+			GD.PushError($"CustomerPanel: Dialogue option '{option.Id}' returns to missing node '{targetNodeId}'.");
+		}
+
+		return fallbackNode;
+	}
+
+	private void EnterPotionSellingMode(CustomerDialogueOptionDef option)
+	{
+		if (_interaction is null)
+			return;
+
+		_requestRevealed = true;
+		_sellingMode = true;
+		_requestReturnDialogueNodeId = !string.IsNullOrWhiteSpace(option.ReturnNodeId)
+			? option.ReturnNodeId
+			: _activeDialogueNodeId;
+
+		var request = _interaction.BuildRequest();
+		_gameState.SetActiveCustomerRequest(request);
+		SetRequestTraits(request);
+		SetSellingModeState();
+	}
+
+	private void OnRefusePotionPressed()
+	{
+		if (_interaction is null)
+			return;
+
+		SetDialoguePresentationState();
+		QueuePlayerLine(_refusePotionButton.Text);
+		var responseText = string.IsNullOrWhiteSpace(_interaction.PotionRefusedText)
+			? "The customer leaves without a potion."
+			: _interaction.PotionRefusedText;
+		QueueCustomerLine(responseText);
+		var effects = _interaction.OnPotionRefusedEffects.Count > 0
+			? _interaction.OnPotionRefusedEffects
+			: _interaction.OnSkipEffects;
+		ApplyOutcomeEffects(effects);
+		PlayQueuedDialogueLines(() => CompleteDialogueInteraction("refused"));
+	}
+
+	private void OnReturnToDialoguePressed()
+	{
+		if (!HasActiveDialogueInteraction())
+			return;
+
+		SetDialoguePresentationState();
+		QueuePlayerLine(_returnToDialogueButton.Text);
+		_gameState.ClearActiveCustomerRequest();
+		_requestRevealed = false;
+		_sellingMode = false;
+
+		var fallbackNode = _interaction?.GetDialogueNode(_activeDialogueNodeId);
+		var returnNode = _interaction?.GetDialogueNode(_requestReturnDialogueNodeId) ?? fallbackNode;
+		if (returnNode is null)
+		{
+			GD.PushError($"CustomerPanel: Cannot return to dialogue node '{_requestReturnDialogueNodeId}'.");
+			return;
+		}
+
+		QueueDialogueNodeText(returnNode);
+		_activeDialogueNodeId = returnNode.Id;
+		PlayQueuedDialogueLines(() => FinishShowingDialogueNode(returnNode));
 	}
 
 	private bool HasActiveDialogueInteraction()
@@ -637,9 +1176,19 @@ public partial class CustomerPanel : Control
 	private void ShowDialogueNode(CustomerDialogueNodeDef node)
 	{
 		_activeDialogueNodeId = node.Id;
-		if (!string.IsNullOrWhiteSpace(node.Text))
-			_dialogue.Text = node.Text;
+		SetDialoguePresentationState();
+		QueueDialogueNodeText(node);
+		PlayQueuedDialogueLines(() => FinishShowingDialogueNode(node));
+	}
 
+	private void QueueDialogueNodeText(CustomerDialogueNodeDef node)
+	{
+		if (!string.IsNullOrWhiteSpace(node.Text))
+			QueueCustomerLine(node.Text);
+	}
+
+	private void FinishShowingDialogueNode(CustomerDialogueNodeDef node)
+	{
 		if (node.Options.Count == 0)
 		{
 			CompleteDialogueInteraction("dialogue_complete");
@@ -663,6 +1212,9 @@ public partial class CustomerPanel : Control
 		_gameState.RecordStoryCustomerInteractionOutcome(_interaction, outcome);
 		_gameState.ClearActiveCustomerRequest();
 		_activeDialogueNodeId = string.Empty;
+		_requestReturnDialogueNodeId = string.Empty;
+		_requestRevealed = false;
+		_sellingMode = false;
 		_awaitingNextCustomer = true;
 		SetSaleResolvedState();
 		EmitSignal(SignalName.DialogueResolved);
@@ -709,6 +1261,8 @@ public partial class CustomerPanel : Control
 			customerVBox.AddChild(_customerActions);
 		}
 
+		BindOrCreatePotionSlotRow(customerVBox);
+
 		_comeBackTomorrowButton = _customerActions.GetNodeOrNull<Button>("ComeBackTomorrow");
 		if (_comeBackTomorrowButton is null)
 		{
@@ -745,68 +1299,405 @@ public partial class CustomerPanel : Control
 			};
 			_customerActions.AddChild(_nextCustomerButton);
 		}
+
+		_dialogueOptionsContainer = customerVBox.GetNodeOrNull<VBoxContainer>("DialogueOptions");
+		if (_dialogueOptionsContainer is null)
+		{
+			_dialogueOptionsContainer = new VBoxContainer
+			{
+				Name = "DialogueOptions",
+				Visible = false,
+				SizeFlagsHorizontal = SizeFlags.ExpandFill
+			};
+			_dialogueOptionsContainer.AddThemeConstantOverride("separation", 6);
+			customerVBox.AddChild(_dialogueOptionsContainer);
+		}
+
+		_dialogueOptionButtons.Clear();
+		for (var index = 0; index < CustomerInteractionDef.MaxDialogueOptionsPerNode; index += 1)
+		{
+			var button = _dialogueOptionsContainer.GetNodeOrNull<Button>($"Option{index + 1}");
+			if (button is null)
+			{
+				button = new Button
+				{
+					Name = $"Option{index + 1}",
+					Visible = false,
+					SizeFlagsHorizontal = SizeFlags.ExpandFill
+				};
+				_dialogueOptionsContainer.AddChild(button);
+			}
+
+			var optionIndex = index;
+			button.Pressed += () => TrySelectDialogueOption(optionIndex);
+			_dialogueOptionButtons.Add(button);
+		}
+
+		_sellingActions = customerVBox.GetNodeOrNull<HBoxContainer>("SellingActions");
+		if (_sellingActions is null)
+		{
+			_sellingActions = new HBoxContainer
+			{
+				Name = "SellingActions",
+				Visible = false,
+				SizeFlagsHorizontal = SizeFlags.ExpandFill
+			};
+			_sellingActions.AddThemeConstantOverride("separation", 8);
+			customerVBox.AddChild(_sellingActions);
+		}
+
+		_refusePotionButton = GetOrCreateSellingButton("RefusePotion", "Refuse potion");
+		_returnToDialogueButton = GetOrCreateSellingButton("ReturnToDialogue", "Return to dialogue");
+	}
+
+	private void BindOrCreatePotionSlotRow(VBoxContainer customerVBox)
+	{
+		_potionSlotsRow = customerVBox.GetNodeOrNull<HBoxContainer>("PotionSlots");
+		if (_potionSlotsRow is null)
+		{
+			_potionSlotsRow = new HBoxContainer
+			{
+				Name = "PotionSlots",
+				Visible = false,
+				CustomMinimumSize = new Vector2(0, CustomerPotionSlotSize),
+				SizeFlagsHorizontal = SizeFlags.ExpandFill
+			};
+			_potionSlotsRow.AddThemeConstantOverride("separation", 8);
+			customerVBox.AddChild(_potionSlotsRow);
+		}
+
+		if (_customerActions is not null && _potionSlotsRow.GetParent() == customerVBox)
+			customerVBox.MoveChild(_potionSlotsRow, _customerActions.GetIndex());
+
+		_potionSlotViews.Clear();
+		for (var index = 0; index < CustomerPotionSlotCount; index += 1)
+		{
+			var slotName = $"PotionSlot{index + 1}";
+			var slot = _potionSlotsRow.GetNodeOrNull<InventoryItemSlot>(slotName);
+			if (slot is null)
+			{
+				slot = CreatePotionSlot(slotName);
+				_potionSlotsRow.AddChild(slot);
+			}
+
+			var icon = slot.GetNodeOrNull<TextureRect>("Icon");
+			if (icon is null)
+			{
+				icon = CreatePotionSlotIcon();
+				slot.AddChild(icon);
+			}
+
+			var quantity = slot.GetNodeOrNull<Label>("Quantity");
+			if (quantity is null)
+			{
+				quantity = CreatePotionSlotQuantityLabel();
+				slot.AddChild(quantity);
+			}
+
+			_potionSlotViews.Add(new PotionSlotView(slot, icon, quantity));
+		}
+
+		RefreshPotionSlotRow();
+	}
+
+	private static InventoryItemSlot CreatePotionSlot(string name)
+	{
+		var slot = new InventoryItemSlot
+		{
+			Name = name,
+			Text = "",
+			CustomMinimumSize = new Vector2(CustomerPotionSlotSize, CustomerPotionSlotSize),
+			Size = new Vector2(CustomerPotionSlotSize, CustomerPotionSlotSize),
+			SizeFlagsHorizontal = SizeFlags.ExpandFill,
+			FocusMode = FocusModeEnum.None,
+			Disabled = true
+		};
+		slot.AddThemeStyleboxOverride("normal", CreatePotionSlotStyleBox());
+		slot.AddThemeStyleboxOverride("hover", CreatePotionSlotHoverStyleBox());
+		slot.AddThemeStyleboxOverride("disabled", CreatePotionSlotStyleBox());
+		return slot;
+	}
+
+	private static TextureRect CreatePotionSlotIcon()
+	{
+		return new TextureRect
+		{
+			Name = "Icon",
+			Position = new Vector2((CustomerPotionSlotSize - CustomerPotionIconSize) * 0.5f, 8.0f),
+			CustomMinimumSize = new Vector2(CustomerPotionIconSize, CustomerPotionIconSize),
+			Size = new Vector2(CustomerPotionIconSize, CustomerPotionIconSize),
+			ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+			StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+			MouseFilter = MouseFilterEnum.Ignore
+		};
+	}
+
+	private static Label CreatePotionSlotQuantityLabel()
+	{
+		var quantity = new Label
+		{
+			Name = "Quantity",
+			Position = new Vector2(42.0f, 48.0f),
+			CustomMinimumSize = new Vector2(24.0f, 18.0f),
+			Size = new Vector2(24.0f, 18.0f),
+			HorizontalAlignment = HorizontalAlignment.Center,
+			VerticalAlignment = VerticalAlignment.Center,
+			MouseFilter = MouseFilterEnum.Ignore,
+			Visible = false
+		};
+		quantity.AddThemeFontSizeOverride("font_size", 12);
+		quantity.AddThemeColorOverride("font_color", Colors.White);
+		return quantity;
+	}
+
+	private static StyleBoxFlat CreatePotionSlotStyleBox()
+	{
+		return new StyleBoxFlat
+		{
+			BgColor = new Color(0.08f, 0.09f, 0.12f, 0.88f),
+			BorderWidthLeft = 1,
+			BorderWidthTop = 1,
+			BorderWidthRight = 1,
+			BorderWidthBottom = 1,
+			BorderColor = new Color(0.28f, 0.31f, 0.38f, 0.95f),
+			CornerRadiusTopLeft = 6,
+			CornerRadiusTopRight = 6,
+			CornerRadiusBottomRight = 6,
+			CornerRadiusBottomLeft = 6
+		};
+	}
+
+	private static StyleBoxFlat CreatePotionSlotHoverStyleBox()
+	{
+		var style = CreatePotionSlotStyleBox();
+		style.BorderColor = new Color(0.58f, 0.68f, 0.92f, 1f);
+		return style;
+	}
+
+	private void SetPotionSlotRowVisible(bool visible)
+	{
+		if (_potionSlotsRow is null)
+			return;
+
+		_potionSlotsRow.Visible = visible;
+		if (visible)
+			RefreshPotionSlotRow();
+	}
+
+	private void RefreshPotionSlotRow()
+	{
+		if (_potionSlotsRow is null || _potionSlotViews.Count == 0)
+			return;
+
+		var potionStacks = _gameState.Inventory
+			.Where(stack => IsPotionItem(stack.Key) && stack.Value > 0)
+			.OrderBy(stack => DisplayName(stack.Key, _itemCatalog.GetItemName(stack.Key)))
+			.ThenBy(stack => stack.Key)
+			.Take(CustomerPotionSlotCount)
+			.ToList();
+
+		for (var index = 0; index < _potionSlotViews.Count; index += 1)
+		{
+			if (index < potionStacks.Count)
+				SetPotionSlot(_potionSlotViews[index], potionStacks[index].Key, potionStacks[index].Value);
+			else
+				ClearPotionSlot(_potionSlotViews[index]);
+		}
+	}
+
+	private void SetPotionSlot(PotionSlotView slotView, string itemId, int quantity)
+	{
+		if (!_itemCatalog.TryGetItem(itemId, out var item))
+		{
+			ClearPotionSlot(slotView);
+			return;
+		}
+
+		var displayName = DisplayName(itemId, item.Name);
+		slotView.Button.ItemId = itemId;
+		slotView.Button.ItemName = displayName;
+		slotView.Button.IconPath = item.IconPath;
+		slotView.Button.Quantity = quantity;
+		slotView.Button.Disabled = false;
+		slotView.Button.Text = "";
+		slotView.Button.TooltipText = $"{displayName} x{quantity}";
+		slotView.Icon.Texture = UiIconLoader.LoadIcon(item.IconPath);
+		slotView.Icon.Visible = true;
+		slotView.Quantity.Text = quantity > 1 ? quantity.ToString() : "";
+		slotView.Quantity.Visible = quantity > 1;
+	}
+
+	private static void ClearPotionSlot(PotionSlotView slotView)
+	{
+		slotView.Button.ItemId = "";
+		slotView.Button.ItemName = "";
+		slotView.Button.IconPath = null;
+		slotView.Button.Quantity = 0;
+		slotView.Button.Disabled = true;
+		slotView.Button.Text = "";
+		slotView.Button.TooltipText = "";
+		slotView.Icon.Texture = null;
+		slotView.Icon.Visible = false;
+		slotView.Quantity.Text = "";
+		slotView.Quantity.Visible = false;
+	}
+
+	private Button GetOrCreateSellingButton(string name, string text)
+	{
+		var button = _sellingActions.GetNodeOrNull<Button>(name);
+		if (button is not null)
+			return button;
+
+		button = new Button
+		{
+			Name = name,
+			Text = text,
+			SizeFlagsHorizontal = SizeFlags.ExpandFill
+		};
+		_sellingActions.AddChild(button);
+		return button;
 	}
 
 	private void SetSalePendingState()
 	{
+		if (_customerActions is not null)
+			_customerActions.Visible = true;
+		if (_dialogueOptionsContainer is not null)
+			_dialogueOptionsContainer.Visible = false;
+		if (_sellingActions is not null)
+			_sellingActions.Visible = false;
+		SetPotionSlotRowVisible(true);
+
 		if (_comeBackTomorrowButton is not null)
 		{
 			_comeBackTomorrowButton.Text = "Come back tomorrow";
 			_comeBackTomorrowButton.Visible = true;
+			_comeBackTomorrowButton.Modulate = DefaultButtonModulate;
+			_comeBackTomorrowButton.Disabled = false;
 		}
 
 		if (_sorryCantHelpYouButton is not null)
 		{
 			_sorryCantHelpYouButton.Text = "Sorry can't help you";
 			_sorryCantHelpYouButton.Visible = true;
+			_sorryCantHelpYouButton.Modulate = DefaultButtonModulate;
+			_sorryCantHelpYouButton.Disabled = false;
 		}
 
 		if (_nextCustomerButton is not null)
 			_nextCustomerButton.Visible = false;
 
-		if (_sellDropBox is not null)
-		{
-			_sellDropBox.SetDisabledVisual(false);
-			_sellDropBox.MouseFilter = MouseFilterEnum.Stop;
-			_sellDropBox.SetAcceptDrops(true);
-			_sellDropBox.SetHoverHighlight(false);
-		}
+		SetDropBoxEnabled(true);
 	}
 
 	private void SetDialogueOptionState(CustomerDialogueNodeDef node)
 	{
-		SetDialogueOptionButton(_comeBackTomorrowButton, node, 0);
-		SetDialogueOptionButton(_sorryCantHelpYouButton, node, 1);
+		_visibleDialogueOptions.Clear();
+		if (_customerActions is not null)
+			_customerActions.Visible = false;
+		if (_dialogueOptionsContainer is not null)
+			_dialogueOptionsContainer.Visible = true;
+		if (_sellingActions is not null)
+			_sellingActions.Visible = false;
+		SetPotionSlotRowVisible(false);
+
+		foreach (var option in node.Options)
+		{
+			if (_visibleDialogueOptions.Count >= CustomerInteractionDef.MaxDialogueOptionsPerNode)
+				break;
+			if (!Requirements.Met(_gameState, option.Requires))
+				continue;
+
+			_visibleDialogueOptions.Add(option);
+		}
+
+		if (_visibleDialogueOptions.Count == 0)
+		{
+			CompleteDialogueInteraction("dialogue_no_options");
+			return;
+		}
+
+		for (var index = 0; index < _dialogueOptionButtons.Count; index += 1)
+			SetDialogueOptionButton(_dialogueOptionButtons[index], index);
 
 		if (_nextCustomerButton is not null)
 			_nextCustomerButton.Visible = false;
 
-		if (_sellDropBox is not null)
-		{
-			_sellDropBox.SetDisabledVisual(true);
-			_sellDropBox.MouseFilter = MouseFilterEnum.Ignore;
-			_sellDropBox.SetAcceptDrops(false);
-			_sellDropBox.SetHoverHighlight(false);
-		}
+		SetDropBoxEnabled(false);
 	}
 
-	private static void SetDialogueOptionButton(Button? button, CustomerDialogueNodeDef node, int optionIndex)
+	private void SetDialoguePresentationState()
+	{
+		if (_customerActions is not null)
+			_customerActions.Visible = false;
+		if (_dialogueOptionsContainer is not null)
+			_dialogueOptionsContainer.Visible = false;
+		if (_sellingActions is not null)
+			_sellingActions.Visible = false;
+		foreach (var button in _dialogueOptionButtons)
+			button.Visible = false;
+		SetPotionSlotRowVisible(false);
+		SetDropBoxEnabled(false);
+	}
+
+	private void SetDialogueOptionButton(Button? button, int optionIndex)
 	{
 		if (button is null)
 			return;
 
-		if (optionIndex < 0 || optionIndex >= node.Options.Count)
+		if (optionIndex < 0 || optionIndex >= _visibleDialogueOptions.Count)
 		{
 			button.Visible = false;
 			return;
 		}
 
-		button.Text = node.Options[optionIndex].Label;
+		var option = _visibleDialogueOptions[optionIndex];
+		button.Text = option.Label;
 		button.Visible = true;
+		button.Disabled = false;
+		button.Modulate = _interaction is not null &&
+			_gameState.HasStoryCustomerDialogueOptionSelected(_interaction, option.Id)
+				? SeenDialogueOptionModulate
+				: DefaultButtonModulate;
+	}
+
+	private void SetSellingModeState()
+	{
+		if (_customerActions is not null)
+			_customerActions.Visible = false;
+		if (_dialogueOptionsContainer is not null)
+			_dialogueOptionsContainer.Visible = false;
+		if (_sellingActions is not null)
+			_sellingActions.Visible = true;
+		SetPotionSlotRowVisible(true);
+
+		if (_refusePotionButton is not null)
+		{
+			_refusePotionButton.Visible = true;
+			_refusePotionButton.Disabled = false;
+			_refusePotionButton.Modulate = DefaultButtonModulate;
+		}
+
+		if (_returnToDialogueButton is not null)
+		{
+			_returnToDialogueButton.Visible = true;
+			_returnToDialogueButton.Disabled = false;
+			_returnToDialogueButton.Modulate = DefaultButtonModulate;
+		}
+
+		SetDropBoxEnabled(true);
 	}
 
 	private void SetSaleResolvedState()
 	{
+		if (_customerActions is not null)
+			_customerActions.Visible = true;
+		if (_dialogueOptionsContainer is not null)
+			_dialogueOptionsContainer.Visible = false;
+		if (_sellingActions is not null)
+			_sellingActions.Visible = false;
+		SetPotionSlotRowVisible(false);
+
 		if (_comeBackTomorrowButton is not null)
 			_comeBackTomorrowButton.Visible = false;
 
@@ -816,13 +1707,21 @@ public partial class CustomerPanel : Control
 		if (_nextCustomerButton is not null)
 			_nextCustomerButton.Visible = true;
 
-		if (_sellDropBox is not null)
-		{
-			_sellDropBox.SetDisabledVisual(true);
-			_sellDropBox.MouseFilter = MouseFilterEnum.Ignore;
-			_sellDropBox.SetAcceptDrops(false);
-			_sellDropBox.SetHoverHighlight(false);
-		}
+		foreach (var button in _dialogueOptionButtons)
+			button.Visible = false;
+
+		SetDropBoxEnabled(false);
+	}
+
+	private void SetDropBoxEnabled(bool enabled)
+	{
+		if (_sellDropBox is null)
+			return;
+
+		_sellDropBox.SetDisabledVisual(!enabled);
+		_sellDropBox.MouseFilter = enabled ? MouseFilterEnum.Stop : MouseFilterEnum.Ignore;
+		_sellDropBox.SetAcceptDrops(enabled);
+		_sellDropBox.SetHoverHighlight(false);
 	}
 
 	private void UpdateCloseShopButtonText()
@@ -836,4 +1735,29 @@ public partial class CustomerPanel : Control
 			_nextCustomerButton.Text = buttonText;
 	}
 
+	private sealed class DialogueLine
+	{
+		public DialogueLine(string speaker, string text)
+		{
+			Speaker = speaker;
+			Text = text;
+		}
+
+		public string Speaker { get; }
+		public string Text { get; }
+	}
+
+	private sealed class PotionSlotView
+	{
+		public PotionSlotView(InventoryItemSlot button, TextureRect icon, Label quantity)
+		{
+			Button = button;
+			Icon = icon;
+			Quantity = quantity;
+		}
+
+		public InventoryItemSlot Button { get; }
+		public TextureRect Icon { get; }
+		public Label Quantity { get; }
+	}
 }

@@ -22,6 +22,12 @@ public partial class BrewPanel : Control
 	private const string HerbTypeTag = ItemTags.Herb;
 	private const string LiquidTypeTag = ItemTags.Liquid;
 	private const string CatalystTypeTag = ItemTags.Catalyst;
+	private const int DropAnimationLayerIndex = 2048;
+	private const float IngredientDropIconSize = 70.0f;
+	private const float IngredientDropDurationSeconds = 0.32f;
+	private const float IngredientDropTargetBrewBoxHeightRatio = 0.68f;
+	private const float RightClickDropStartOffset = 120.0f;
+	private const float MinimumCursorDropDistance = 140.0f;
 
 	[Export] public NodePath BrewBoxPath = default!;
 	[Export] public NodePath IngredientSlotOnePath = default!;
@@ -50,6 +56,7 @@ public partial class BrewPanel : Control
 
 	private Button _closeButton = default!;
 	private BrewDropBox _brewBox = default!;
+	private CanvasLayer _dropAnimationLayer = default!;
 	private TextureRect _ingredientSlotOne = default!;
 	private TextureRect _ingredientSlotTwo = default!;
 	private TextureRect _ingredientSlotThree = default!;
@@ -73,7 +80,7 @@ public partial class BrewPanel : Control
 	private DataDb _dataDb = default!;
 	private GameState _gameState = default!;
 	private ItemCatalogService _itemCatalog = default!;
-	private readonly List<string> _queuedIngredients = new();
+	private readonly List<IngredientPortionDef> _queuedIngredients = new();
 	private readonly PotionRecipeLookup _predefinedPotionRecipes = new();
 	private readonly PotionBrewingService _brewingService = new();
 	private PotionInventoryBrewService _inventoryBrewService = default!;
@@ -85,6 +92,7 @@ public partial class BrewPanel : Control
 	private int _draggingSlotIndex = -1;
 	private Vector2 _dragStartGlobalPosition = Vector2.Zero;
 	private bool _slotDragThresholdReached;
+	private readonly List<IngredientDropAnimation> _dropAnimations = new();
 
 	public override void _Ready()
 	{
@@ -124,6 +132,8 @@ public partial class BrewPanel : Control
 		RebuildPredefinedPotionRecipeLookup();
 
 		_brewBox = GetNode<BrewDropBox>(BrewBoxPath);
+		_dropAnimationLayer = CreateDropAnimationLayer();
+		GetTree().Root.AddChild(_dropAnimationLayer);
 		_ingredientSlotOne = GetNode<TextureRect>(IngredientSlotOnePath);
 		_ingredientSlotTwo = GetNode<TextureRect>(IngredientSlotTwoPath);
 		_ingredientSlotThree = GetNode<TextureRect>(IngredientSlotThreePath);
@@ -150,7 +160,7 @@ public partial class BrewPanel : Control
 		SetInteractiveCursor(_ingredientSlotThreeContainer);
 
 		MouseFilter = MouseFilterEnum.Ignore;
-		_brewBox.ItemDropped += TryQueueIngredient;
+		_brewBox.ItemDroppedAt += TryQueueDroppedIngredient;
 		_brewButton.Pressed += TryBrew;
 		_clearButton.Pressed += ClearQueue;
 		_slotOneGuiInputHandler = @event => HandleIngredientSlotGuiInput(0, @event);
@@ -161,12 +171,13 @@ public partial class BrewPanel : Control
 		_ingredientSlotThreeContainer.GuiInput += _slotThreeGuiInputHandler;
 		Visible = false;
 		RefreshIngredientIcons();
+		SetProcess(false);
 	}
 
 	public override void _ExitTree()
 	{
 		if (_brewBox is not null)
-			_brewBox.ItemDropped -= TryQueueIngredient;
+			_brewBox.ItemDroppedAt -= TryQueueDroppedIngredient;
 		if (_brewButton is not null)
 			_brewButton.Pressed -= TryBrew;
 		if (_clearButton is not null)
@@ -177,6 +188,10 @@ public partial class BrewPanel : Control
 			_ingredientSlotTwoContainer.GuiInput -= _slotTwoGuiInputHandler;
 		if (_slotThreeGuiInputHandler is not null)
 			_ingredientSlotThreeContainer.GuiInput -= _slotThreeGuiInputHandler;
+
+		ClearDropAnimations();
+		if (_dropAnimationLayer is not null && GodotObject.IsInstanceValid(_dropAnimationLayer))
+			_dropAnimationLayer.QueueFree();
 	}
 
 	public void Toggle()
@@ -206,6 +221,7 @@ public partial class BrewPanel : Control
 	{
 		ReturnQueuedIngredients();
 		ResetSlotDragState();
+		ClearDropAnimations();
 		Visible = false;
 		_resultLabel.Text = "";
 		RefreshIngredientIcons();
@@ -243,12 +259,149 @@ public partial class BrewPanel : Control
 		ResetSlotDragState();
 	}
 
+	public override void _Process(double delta)
+	{
+		if (_dropAnimations.Count == 0)
+		{
+			SetProcess(false);
+			return;
+		}
+
+		for (var i = _dropAnimations.Count - 1; i >= 0; i--)
+		{
+			var animation = _dropAnimations[i];
+			animation.ElapsedSeconds += delta;
+
+			var progress = Mathf.Clamp((float)(animation.ElapsedSeconds / IngredientDropDurationSeconds), 0.0f, 1.0f);
+			var easedProgress = progress * progress;
+			animation.Icon.Position = animation.StartTopLeft.Lerp(animation.EndTopLeft, easedProgress);
+
+			if (progress < 1.0f)
+				continue;
+
+			animation.Icon.QueueFree();
+			_dropAnimations.RemoveAt(i);
+		}
+
+		if (_dropAnimations.Count == 0)
+			SetProcess(false);
+	}
+
 	public void TryQueueIngredient(string itemId)
+	{
+		if (TryQueueIngredientPortion(itemId, 0))
+			PlayQueuedIngredientDrop(itemId, GetRightClickDropStartPosition());
+	}
+
+	private void TryQueueDroppedIngredient(string itemId, Vector2 dropGlobalPosition)
+	{
+		if (TryQueueIngredientPortion(itemId, 0))
+			PlayQueuedIngredientDrop(itemId, dropGlobalPosition);
+	}
+
+	public bool TryQueueMeasuredIngredient(string itemId, int grams)
+	{
+		if (grams <= 0)
+		{
+			_resultLabel.Text = "Measured ingredients need at least 1g.";
+			return false;
+		}
+
+		return TryQueueIngredientPortion(itemId, grams);
+	}
+
+	public bool TryQueueReservedMeasuredIngredient(string itemId, int grams)
+	{
+		if (grams <= 0)
+		{
+			_resultLabel.Text = "Measured ingredients need at least 1g.";
+			return false;
+		}
+
+		return TryQueueIngredientPortion(itemId, grams, consumeInventory: false);
+	}
+
+	private void PlayQueuedIngredientDrop(string itemId, Vector2 startCenterGlobalPosition)
+	{
+		if (!_itemCatalog.TryGetItem(itemId, out var item))
+			return;
+
+		if (string.IsNullOrWhiteSpace(item.IconPath))
+			return;
+
+		var endCenterGlobalPosition = GetDropEndPosition(startCenterGlobalPosition);
+		if (InventoryDragPreview.TryPlayBrewDropAnimation(item.IconPath, startCenterGlobalPosition, endCenterGlobalPosition))
+			return;
+
+		var texture = UiIconLoader.LoadIcon(item.IconPath);
+		if (texture is null)
+			return;
+
+		var iconSize = new Vector2(IngredientDropIconSize, IngredientDropIconSize);
+		var icon = new TextureRect
+		{
+			Name = "BrewIngredientDrop",
+			Texture = texture,
+			CustomMinimumSize = iconSize,
+			Size = iconSize,
+			MouseFilter = MouseFilterEnum.Ignore,
+			ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+			StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+			ZIndex = 4096
+		};
+
+		_dropAnimationLayer.AddChild(icon);
+
+		var halfSize = iconSize * 0.5f;
+		var animation = new IngredientDropAnimation
+		{
+			Icon = icon,
+			StartTopLeft = startCenterGlobalPosition - halfSize,
+			EndTopLeft = endCenterGlobalPosition - halfSize
+		};
+
+		icon.Position = animation.StartTopLeft;
+		_dropAnimations.Add(animation);
+		SetProcess(true);
+	}
+
+	private static CanvasLayer CreateDropAnimationLayer()
+	{
+		var layer = new CanvasLayer
+		{
+			Name = "BrewDropAnimationLayer",
+			Layer = DropAnimationLayerIndex
+		};
+		return layer;
+	}
+
+	private Vector2 GetRightClickDropStartPosition()
+	{
+		var brewBoxRect = _brewBox.GetGlobalRect();
+		return new Vector2(
+			brewBoxRect.Position.X + (brewBoxRect.Size.X * 0.5f),
+			brewBoxRect.Position.Y - RightClickDropStartOffset);
+	}
+
+	private Vector2 GetDropEndPosition(Vector2 startCenterGlobalPosition)
+	{
+		var brewBoxRect = _brewBox.GetGlobalRect();
+		var brewBoxTargetY = brewBoxRect.Position.Y + (brewBoxRect.Size.Y * IngredientDropTargetBrewBoxHeightRatio);
+		var targetY = Mathf.Max(startCenterGlobalPosition.Y + MinimumCursorDropDistance, brewBoxTargetY);
+		return new Vector2(startCenterGlobalPosition.X, targetY);
+	}
+
+	private bool TryQueueIngredientPortion(string itemId, int grams)
+	{
+		return TryQueueIngredientPortion(itemId, grams, consumeInventory: true);
+	}
+
+	private bool TryQueueIngredientPortion(string itemId, int grams, bool consumeInventory)
 	{
 		if (!_itemCatalog.TryGetItem(itemId, out var item))
 		{
 			_resultLabel.Text = "That item is not recognized.";
-			return;
+			return false;
 		}
 
 		if (!IsIngredient(item))
@@ -256,19 +409,21 @@ public partial class BrewPanel : Control
 			_resultLabel.Text = IsPotion(itemId)
 				? "Brewing only accepts ingredients, not potions."
 				: "Brewing only accepts ingredients.";
-			return;
+			return false;
 		}
 
-		if (_queuedIngredients.Any(x => string.Equals(x, itemId, System.StringComparison.OrdinalIgnoreCase)))
+		if (_queuedIngredients.Any(x => string.Equals(x.IngredientId, itemId, System.StringComparison.OrdinalIgnoreCase)))
 		{
 			_resultLabel.Text = "Each ingredient can only be used once per potion.";
-			return;
+			return false;
 		}
 
-		var queuedWithCandidate = new List<string>(_queuedIngredients)
+		var queuedWithCandidate = CloneQueuedIngredients(_queuedIngredients);
+		queuedWithCandidate.Add(new IngredientPortionDef
 		{
-			itemId
-		};
+			IngredientId = itemId,
+			Grams = Math.Max(0, grams)
+		});
 
 		var followsPredefinedRecipe = _predefinedPotionRecipes.MatchesAnyRecipePrefix(queuedWithCandidate);
 		if (!followsPredefinedRecipe)
@@ -276,37 +431,43 @@ public partial class BrewPanel : Control
 			if (!TryGetIngredientType(item, out _))
 			{
 				_resultLabel.Text = "Ingredient type is missing.";
-				return;
+				return false;
 			}
 		}
 
 		if (_queuedIngredients.Count >= 3)
 		{
 			_resultLabel.Text = "Brewing requires exactly 3 ingredients.";
-			return;
+			return false;
 		}
 
-		if (!_gameState.HasItem(itemId, 1))
+		if (consumeInventory && !_gameState.HasItem(itemId, 1))
 		{
 			_resultLabel.Text = "Not enough stock for that ingredient.";
-			return;
+			return false;
 		}
 
-		if (!_gameState.ConsumeItem(itemId, 1))
+		if (consumeInventory && !_gameState.ConsumeItem(itemId, 1))
 		{
 			_resultLabel.Text = "Could not take that ingredient.";
-			return;
+			return false;
 		}
 
-		_queuedIngredients.Add(itemId);
+		_queuedIngredients.Add(new IngredientPortionDef
+		{
+			IngredientId = itemId,
+			Grams = Math.Max(0, grams)
+		});
 		_resultLabel.Text = "";
 		RefreshIngredientIcons();
 		EmitSignal(SignalName.IngredientQueued, itemId, _queuedIngredients.Count);
+		return true;
 	}
 
 	private void ClearQueue()
 	{
 		ResetSlotDragState();
+		ClearDropAnimations();
 		ReturnQueuedIngredients();
 		_queuedIngredients.Clear();
 		_resultLabel.Text = "";
@@ -322,7 +483,7 @@ public partial class BrewPanel : Control
 		}
 
 		var combinationKey = PotionRecipeLookup.BuildCombinationKey(_queuedIngredients);
-		var hasPredefinedRecipe = _predefinedPotionRecipes.TryGetRecipe(combinationKey, out var predefinedRecipe);
+		var hasPredefinedRecipe = _predefinedPotionRecipes.TryGetRecipe(_queuedIngredients, out var predefinedRecipe);
 
 		if (!TryBuildIngredientDefs(_queuedIngredients, out var ingredientDefs, out var ingredientError))
 		{
@@ -414,7 +575,7 @@ public partial class BrewPanel : Control
 		_gameState.RegisterPotionBasePrice(potionItemId, potionBasePrice);
 		_runtimeContentDb.TrySetRuntimeItemBasePrice(potionItemId, potionBasePrice);
 
-		_gameState.RecordPotionRecipe(potionItemId, _queuedIngredients);
+		_gameState.RecordPotionRecipe(potionItemId, BuildIngredientIdList(_queuedIngredients));
 		_gameState.AddItem(potionItemId, BrewedPotionOutputQuantity);
 		_gameState.RecordPotionBatch(potionItemId, _queuedIngredients);
 		EmitSignal(SignalName.PotionBrewed, potionItemId);
@@ -426,8 +587,8 @@ public partial class BrewPanel : Control
 
 	private void ReturnQueuedIngredients()
 	{
-		foreach (var itemId in _queuedIngredients)
-			_gameState.AddItem(itemId, 1);
+		foreach (var ingredient in _queuedIngredients)
+			_gameState.AddItem(ingredient.IngredientId, 1);
 	}
 
 	private void HandleIngredientSlotGuiInput(int slotIndex, InputEvent @event)
@@ -467,7 +628,7 @@ public partial class BrewPanel : Control
 		if (slotIndex < 0 || slotIndex >= _queuedIngredients.Count)
 			return;
 
-		var removedIngredientId = _queuedIngredients[slotIndex];
+		var removedIngredientId = _queuedIngredients[slotIndex].IngredientId;
 		_queuedIngredients.RemoveAt(slotIndex);
 		_gameState.AddItem(removedIngredientId, 1);
 		_resultLabel.Text = "";
@@ -507,7 +668,8 @@ public partial class BrewPanel : Control
 				continue;
 			}
 
-			var ingredientId = _queuedIngredients[i];
+			var ingredient = _queuedIngredients[i];
+			var ingredientId = ingredient.IngredientId;
 			if (!_itemCatalog.TryGetItem(ingredientId, out var item))
 			{
 				slots[i].Texture = null;
@@ -516,7 +678,7 @@ public partial class BrewPanel : Control
 			}
 
 			slots[i].Texture = UiIconLoader.LoadIcon(item.IconPath);
-			labels[i].Text = ItemName(ingredientId);
+			labels[i].Text = FormatIngredientPortionLabel(ingredient);
 		}
 
 		RefreshBrewPreview();
@@ -526,11 +688,9 @@ public partial class BrewPanel : Control
 	{
 		var ingredientCount = _queuedIngredients.Count;
 		var totalIngredientPrice = CalculateIngredientTotalPrice(_queuedIngredients);
-		_ingredientCountLabel.Text = $"{ingredientCount}/3";
-		_ingredientCountLabel.AddThemeColorOverride("font_color", ingredientCount == 3
-			? new Color(0.43f, 0.83f, 0.48f, 1f)
-			: new Color(0.65f, 0.68f, 0.72f, 1f));
-		_pricePreviewLabel.Text = $"Estimated Sell Price: \u00A3{totalIngredientPrice}";
+		_ingredientCountLabel.Text = BuildIngredientInstructionText(ingredientCount);
+		_ingredientCountLabel.AddThemeColorOverride("font_color", new Color(0.055f, 0.039f, 0.025f, 1f));
+		_pricePreviewLabel.Text = $"\u00A3{totalIngredientPrice}";
 
 		if (ingredientCount < 3)
 		{
@@ -545,8 +705,10 @@ public partial class BrewPanel : Control
 		}
 
 		var combinationKey = PotionRecipeLookup.BuildCombinationKey(_queuedIngredients);
-		_potionNamePreviewLabel.Text = GetPreviewPotionName(combinationKey);
-		_potionNamePreviewLabel.AddThemeColorOverride("font_color", new Color(0.95f, 0.96f, 0.98f, 1f));
+		_potionNamePreviewLabel.Text = _predefinedPotionRecipes.TryGetRecipe(_queuedIngredients, out var predefinedPreviewRecipe)
+			? predefinedPreviewRecipe.Name
+			: GetPreviewPotionName(combinationKey);
+		_potionNamePreviewLabel.AddThemeColorOverride("font_color", new Color(0.055f, 0.039f, 0.025f, 1f));
 
 		var previewResult = _brewingService.PreviewPotion(
 			ingredientDefs,
@@ -563,14 +725,26 @@ public partial class BrewPanel : Control
 	private void SetIncompletePreviewState()
 	{
 		ClearPreviewPotionName();
-		_potionNamePreviewLabel.Text = "Add 3 ingredients to preview";
-		_potionNamePreviewLabel.AddThemeColorOverride("font_color", new Color(0.73f, 0.76f, 0.79f, 1f));
+		_potionNamePreviewLabel.Text = "Unfinished Brew";
+		_potionNamePreviewLabel.AddThemeColorOverride("font_color", new Color(0.055f, 0.039f, 0.025f, 1f));
 		_traitPreviewLabel.Text = "-\n-\n-";
 		_riskPreviewLabel.Text = "-";
 		_riskStatusIconLabel.Text = "v";
 		_riskStatusLabel.Text = "Waiting for 3 ingredients";
 		_riskStatusIconLabel.AddThemeColorOverride("font_color", new Color(0.65f, 0.68f, 0.72f, 1f));
 		_riskStatusLabel.AddThemeColorOverride("font_color", new Color(0.65f, 0.68f, 0.72f, 1f));
+	}
+
+	private static string BuildIngredientInstructionText(int ingredientCount)
+	{
+		var remainingIngredients = Math.Clamp(3 - ingredientCount, 0, 3);
+		return remainingIngredients switch
+		{
+			3 => "Add 3 ingredients to the cauldron.",
+			2 => "Add 2 more ingredients to the cauldron.",
+			1 => "Add 1 more ingredient to the cauldron.",
+			_ => "Ready to brew."
+		};
 	}
 
 	private void SetRiskStatusPreview(bool hasNoRisks)
@@ -708,6 +882,14 @@ public partial class BrewPanel : Control
 		return PotionDisplayName(itemId, DefaultItemName(itemId));
 	}
 
+	private string FormatIngredientPortionLabel(IngredientPortionDef ingredient)
+	{
+		var itemName = ItemName(ingredient.IngredientId);
+		return ingredient.Grams > 0
+			? $"{itemName} ({ingredient.Grams}g)"
+			: itemName;
+	}
+
 	private string PotionDisplayName(string itemId, string fallbackName)
 	{
 		if (IsPotion(itemId))
@@ -737,8 +919,9 @@ public partial class BrewPanel : Control
 
 	private bool HasQueuedIngredientType(string ingredientType)
 	{
-		foreach (var queuedItemId in _queuedIngredients)
+		foreach (var queuedIngredient in _queuedIngredients)
 		{
+			var queuedItemId = queuedIngredient.IngredientId;
 			if (!_itemCatalog.TryGetItem(queuedItemId, out var queuedItem))
 				continue;
 
@@ -761,8 +944,9 @@ public partial class BrewPanel : Control
 			[CatalystTypeTag] = 0
 		};
 
-		foreach (var queuedItemId in _queuedIngredients)
+		foreach (var queuedIngredient in _queuedIngredients)
 		{
+			var queuedItemId = queuedIngredient.IngredientId;
 			if (!_itemCatalog.TryGetItem(queuedItemId, out var queuedItem))
 			{
 				error = $"Unknown ingredient: {queuedItemId}";
@@ -906,12 +1090,13 @@ public partial class BrewPanel : Control
 		return Math.Max(5, rawCost);
 	}
 
-	private int CalculateIngredientTotalPrice(IReadOnlyList<string> ingredientIds)
+	private int CalculateIngredientTotalPrice(IReadOnlyList<IngredientPortionDef> ingredients)
 	{
 		var totalPrice = 0;
 
-		foreach (var itemId in ingredientIds)
+		foreach (var ingredientPortion in ingredients)
 		{
+			var itemId = ingredientPortion.IngredientId;
 			if (!_itemCatalog.TryGetItem(itemId, out var item))
 				continue;
 
@@ -952,14 +1137,15 @@ public partial class BrewPanel : Control
 	}
 
 	private bool TryBuildIngredientDefs(
-		IReadOnlyList<string> ingredientIds,
+		IReadOnlyList<IngredientPortionDef> ingredientPortions,
 		out List<IngredientDef> ingredients,
 		out string error)
 	{
 		ingredients = new List<IngredientDef>();
 
-		foreach (var itemId in ingredientIds)
+		foreach (var ingredientPortion in ingredientPortions)
 		{
+			var itemId = ingredientPortion.IngredientId;
 			if (!_itemCatalog.TryGetItem(itemId, out var item))
 			{
 				error = $"Unknown ingredient: {itemId}";
@@ -974,4 +1160,43 @@ public partial class BrewPanel : Control
 		error = string.Empty;
 		return true;
 	}
+
+	private static List<IngredientPortionDef> CloneQueuedIngredients(IReadOnlyList<IngredientPortionDef> ingredients)
+	{
+		var clones = new List<IngredientPortionDef>(ingredients.Count);
+		foreach (var ingredient in ingredients)
+			clones.Add(ingredient.Clone());
+
+		return clones;
+	}
+
+	private static List<string> BuildIngredientIdList(IReadOnlyList<IngredientPortionDef> ingredients)
+	{
+		var ingredientIds = new List<string>(ingredients.Count);
+		foreach (var ingredient in ingredients)
+			ingredientIds.Add(ingredient.IngredientId);
+
+		return ingredientIds;
+	}
+
+	private void ClearDropAnimations()
+	{
+		foreach (var animation in _dropAnimations)
+		{
+			if (GodotObject.IsInstanceValid(animation.Icon))
+				animation.Icon.QueueFree();
+		}
+
+		_dropAnimations.Clear();
+		SetProcess(false);
+	}
+
+	private sealed class IngredientDropAnimation
+	{
+		public TextureRect Icon = default!;
+		public Vector2 StartTopLeft;
+		public Vector2 EndTopLeft;
+		public double ElapsedSeconds;
+	}
+
 }

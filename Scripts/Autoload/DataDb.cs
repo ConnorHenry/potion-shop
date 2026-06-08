@@ -113,6 +113,7 @@ public partial class DataDb : Node
 				Name = ReadString(entry, "name"),
 				IconPath = ReadNullableString(entry, "iconPath"),
 				Description = ReadString(entry, "description"),
+				StartsKnownInIngredientBook = ReadBool(entry, "startsKnownInIngredientBook"),
 				Tags = ReadStringList(entry, "tags"),
 				Quality = ReadInt(entry, "quality", 50),
 				Traits = ReadStringIntDictionary(entry, "traits"),
@@ -255,9 +256,13 @@ public partial class DataDb : Node
 				Weight = ReadInt(entry, "weight", 1),
 				DesiredTraits = ReadStringIntDictionary(entry, "desiredTraits"),
 				BadTraits = ReadStringIntDictionary(entry, "badTraits"),
+				RequiredIngredientAmounts = ParseIngredientPortions(ReadArray(entry, "requiredIngredientAmounts")),
 				OnSuccessEffects = ParseEffects(ReadArray(entry, "onSuccessEffects")),
 				OnFailureEffects = ParseEffects(ReadArray(entry, "onFailureEffects")),
-				OnSkipEffects = ParseEffects(ReadArray(entry, "onSkipEffects"))
+				OnSkipEffects = ParseEffects(ReadArray(entry, "onSkipEffects")),
+				PotionRefusedText = ReadString(entry, "potionRefusedText"),
+				OnPotionRefusedEffects = ParseEffects(ReadArray(entry, "onPotionRefusedEffects")),
+				PotionResponses = ParseCustomerPotionResponses(ReadArray(entry, "potionResponses"))
 			});
 		}
 
@@ -305,12 +310,46 @@ public partial class DataDb : Node
 				Label = label,
 				ResponseText = ReadString(entry, "responseText"),
 				NextNodeId = ReadString(entry, "nextNodeId"),
+				ReturnNodeId = ReadString(entry, "returnNodeId"),
+				RevealsRequest = ReadBool(entry, "revealsRequest"),
+				ReturnsToDialogue = ReadBool(entry, "returnsToDialogue"),
 				EndsInteraction = ReadBool(entry, "endsInteraction"),
+				Requires = ParseRequirements(ReadDictionary(entry, "requires")),
 				Effects = ParseEffects(ReadArray(entry, "effects"))
 			});
 		}
 
 		return options;
+	}
+
+	private static List<CustomerPotionResponseDef> ParseCustomerPotionResponses(Godot.Collections.Array entries)
+	{
+		var responses = new List<CustomerPotionResponseDef>(entries.Count);
+		foreach (var entryValue in entries)
+		{
+			if (!TryReadDictionary(entryValue, out var entry))
+				continue;
+
+			var text = ReadString(entry, "text");
+			if (string.IsNullOrWhiteSpace(text))
+				continue;
+
+			responses.Add(new CustomerPotionResponseDef
+			{
+				Id = ReadString(entry, "id"),
+				Success = ReadNullableBool(entry, "success"),
+				PotionItemId = ReadString(entry, "potionItemId"),
+				Grade = ReadString(entry, "grade"),
+				MinFinalScore = ReadNullableInt(entry, "minFinalScore"),
+				MaxFinalScore = ReadNullableInt(entry, "maxFinalScore"),
+				MinMatchedDesiredTraits = ReadNullableInt(entry, "minMatchedDesiredTraits"),
+				MaxMatchedBadTraits = ReadNullableInt(entry, "maxMatchedBadTraits"),
+				Text = text,
+				Effects = ParseEffects(ReadArray(entry, "effects"))
+			});
+		}
+
+		return responses;
 	}
 
 	private static List<SynergyRule> ParseSynergies(Godot.Collections.Array entries)
@@ -358,6 +397,9 @@ public partial class DataDb : Node
 				.Select(x => x.Trim())
 				.Where(x => !string.IsNullOrWhiteSpace(x))
 				.ToList();
+			var ingredientAmounts = ParseIngredientPortions(ReadArray(entry, "ingredientAmounts"));
+			if (ingredientIds.Count == 0 && ingredientAmounts.Count > 0)
+				ingredientIds = ingredientAmounts.Select(x => x.IngredientId).ToList();
 			if (ingredientIds.Count == 0)
 				continue;
 
@@ -371,11 +413,38 @@ public partial class DataDb : Node
 				Id = id,
 				Name = name,
 				IngredientIds = ingredientIds,
+				IngredientAmounts = ingredientAmounts,
 				Traits = traits
 			});
 		}
 
 		return recipes;
+	}
+
+	private static List<IngredientPortionDef> ParseIngredientPortions(Godot.Collections.Array entries)
+	{
+		var portions = new List<IngredientPortionDef>(entries.Count);
+		foreach (var entryValue in entries)
+		{
+			if (!TryReadDictionary(entryValue, out var entry))
+				continue;
+
+			var ingredientId = ReadString(entry, "ingredientId", ReadString(entry, "itemId"));
+			if (string.IsNullOrWhiteSpace(ingredientId))
+				continue;
+
+			var grams = ReadInt(entry, "grams", 0);
+			if (grams <= 0)
+				continue;
+
+			portions.Add(new IngredientPortionDef
+			{
+				IngredientId = ingredientId.Trim(),
+				Grams = grams
+			});
+		}
+
+		return portions;
 	}
 
 	private static List<EventChoiceDef> ParseEventChoices(Godot.Collections.Array entries)
@@ -574,6 +643,27 @@ public partial class DataDb : Node
 			return intValue != 0;
 
 		return fallback;
+	}
+
+	private static bool? ReadNullableBool(Godot.Collections.Dictionary source, string key)
+	{
+		if (!source.ContainsKey(key))
+			return null;
+
+		var value = source[key];
+		if (value.VariantType == Variant.Type.Nil)
+			return null;
+		if (value.VariantType == Variant.Type.Bool)
+			return value.As<bool>();
+
+		var text = ReadVariantString(value);
+		if (bool.TryParse(text, out var boolValue))
+			return boolValue;
+
+		if (TryConvertToInt(value, out var intValue))
+			return intValue != 0;
+
+		return null;
 	}
 
 	private static bool TryReadDictionary(Variant value, out Godot.Collections.Dictionary dictionary)

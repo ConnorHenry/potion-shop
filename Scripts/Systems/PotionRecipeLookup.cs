@@ -51,14 +51,17 @@ public sealed class PotionRecipeLookup
 			if (hasUnknownIngredient)
 				continue;
 
-			var combinationKey = BuildCombinationKey(normalizedIngredientIds);
+			if (!TryBuildRecipePortions(recipe, normalizedIngredientIds, reportError, out var recipePortions))
+				continue;
+
+			var combinationKey = BuildCombinationKey(recipePortions);
 			if (_recipesByCombination.ContainsKey(combinationKey))
 			{
 				reportError?.Invoke($"Duplicate predefined recipe combination '{combinationKey}'.");
 				continue;
 			}
 
-			_recipesByCombination[combinationKey] = new RecipeEntry(recipe, normalizedIngredientIds);
+			_recipesByCombination[combinationKey] = new RecipeEntry(recipe, normalizedIngredientIds, recipePortions);
 		}
 	}
 
@@ -74,17 +77,38 @@ public sealed class PotionRecipeLookup
 		return false;
 	}
 
+	public bool TryGetRecipe(IReadOnlyList<IngredientPortionDef> ingredientPortions, out PotionRecipeDef recipe)
+	{
+		if (TryGetRecipe(BuildCombinationKey(ingredientPortions), out recipe))
+			return true;
+
+		return TryGetRecipe(BuildBaseCombinationKey(ingredientPortions), out recipe);
+	}
+
 	public bool MatchesAnyRecipePrefix(IReadOnlyList<string> ingredientIds)
 	{
-		if (ingredientIds.Count == 0)
+		var ingredientPortions = ingredientIds
+			.Select(id => new IngredientPortionDef
+			{
+				IngredientId = id,
+				Grams = 0
+			})
+			.ToList();
+
+		return MatchesAnyRecipePrefix(ingredientPortions);
+	}
+
+	public bool MatchesAnyRecipePrefix(IReadOnlyList<IngredientPortionDef> ingredientPortions)
+	{
+		if (ingredientPortions.Count == 0)
 			return false;
 
 		foreach (var entry in _recipesByCombination.Values)
 		{
 			var matches = true;
-			foreach (var ingredientId in ingredientIds)
+			foreach (var ingredientPortion in ingredientPortions)
 			{
-				if (!entry.IngredientIds.Any(x => string.Equals(x, ingredientId, StringComparison.OrdinalIgnoreCase)))
+				if (!entry.IngredientPortions.Any(x => IngredientPortionMatchesRequirement(ingredientPortion, x)))
 				{
 					matches = false;
 					break;
@@ -103,15 +127,113 @@ public sealed class PotionRecipeLookup
 		return string.Join("|", ingredientIds.OrderBy(x => x, StringComparer.OrdinalIgnoreCase));
 	}
 
+	public static string BuildCombinationKey(IReadOnlyList<IngredientPortionDef> ingredientPortions)
+	{
+		return string.Join(
+			"|",
+			ingredientPortions
+				.Where(x => x is not null && !string.IsNullOrWhiteSpace(x.IngredientId))
+				.Select(BuildCombinationKeyPart)
+				.OrderBy(x => x, StringComparer.OrdinalIgnoreCase));
+	}
+
+	private static string BuildBaseCombinationKey(IReadOnlyList<IngredientPortionDef> ingredientPortions)
+	{
+		return BuildCombinationKey(
+			ingredientPortions
+				.Where(x => x is not null && !string.IsNullOrWhiteSpace(x.IngredientId))
+				.Select(x => x.IngredientId)
+				.ToList());
+	}
+
+	private static string BuildCombinationKeyPart(IngredientPortionDef ingredientPortion)
+	{
+		var ingredientId = ingredientPortion.IngredientId.Trim();
+		return ingredientPortion.Grams > 0
+			? $"{ingredientId}@{ingredientPortion.Grams}g"
+			: ingredientId;
+	}
+
+	private static bool IngredientPortionMatchesRequirement(
+		IngredientPortionDef candidate,
+		IngredientPortionDef requirement)
+	{
+		if (!string.Equals(candidate.IngredientId, requirement.IngredientId, StringComparison.OrdinalIgnoreCase))
+			return false;
+
+		return requirement.Grams <= 0 || candidate.Grams == requirement.Grams;
+	}
+
+	private static bool TryBuildRecipePortions(
+		PotionRecipeDef recipe,
+		IReadOnlyList<string> normalizedIngredientIds,
+		Action<string>? reportError,
+		out IReadOnlyList<IngredientPortionDef> ingredientPortions)
+	{
+		ingredientPortions = Array.Empty<IngredientPortionDef>();
+		if (recipe.IngredientAmounts is null || recipe.IngredientAmounts.Count == 0)
+		{
+			ingredientPortions = normalizedIngredientIds
+				.Select(id => new IngredientPortionDef
+				{
+					IngredientId = id,
+					Grams = 0
+				})
+				.ToList();
+			return true;
+		}
+
+		var portions = recipe.IngredientAmounts
+			.Where(x => x is not null && !string.IsNullOrWhiteSpace(x.IngredientId) && x.Grams > 0)
+			.Select(x => new IngredientPortionDef
+			{
+				IngredientId = x.IngredientId.Trim(),
+				Grams = x.Grams
+			})
+			.ToList();
+		if (portions.Count != 3)
+		{
+			reportError?.Invoke($"Predefined recipe '{recipe.Id}' must define exactly 3 ingredient amounts when exact grams are used.");
+			return false;
+		}
+
+		var portionIngredientIds = portions
+			.Select(x => x.IngredientId)
+			.Distinct(StringComparer.OrdinalIgnoreCase)
+			.ToList();
+		if (portionIngredientIds.Count != 3)
+		{
+			reportError?.Invoke($"Predefined recipe '{recipe.Id}' includes duplicate ingredient amount ids.");
+			return false;
+		}
+
+		foreach (var ingredientId in portionIngredientIds)
+		{
+			if (normalizedIngredientIds.Any(x => string.Equals(x, ingredientId, StringComparison.OrdinalIgnoreCase)))
+				continue;
+
+			reportError?.Invoke($"Predefined recipe '{recipe.Id}' ingredient amounts do not match ingredientIds.");
+			return false;
+		}
+
+		ingredientPortions = portions;
+		return true;
+	}
+
 	private sealed class RecipeEntry
 	{
-		public RecipeEntry(PotionRecipeDef recipe, IReadOnlyList<string> ingredientIds)
+		public RecipeEntry(
+			PotionRecipeDef recipe,
+			IReadOnlyList<string> ingredientIds,
+			IReadOnlyList<IngredientPortionDef> ingredientPortions)
 		{
 			Recipe = recipe;
 			IngredientIds = ingredientIds;
+			IngredientPortions = ingredientPortions;
 		}
 
 		public PotionRecipeDef Recipe { get; }
 		public IReadOnlyList<string> IngredientIds { get; }
+		public IReadOnlyList<IngredientPortionDef> IngredientPortions { get; }
 	}
 }

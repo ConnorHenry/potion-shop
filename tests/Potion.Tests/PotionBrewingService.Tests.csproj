@@ -12,11 +12,14 @@
     <Compile Include="..\..\Scripts\Models\IngredientDef.cs" Link="Linked\IngredientDef.cs" />
     <Compile Include="..\..\Scripts\Models\ItemDef.cs" Link="Linked\ItemDef.cs" />
     <Compile Include="..\..\Scripts\Models\ItemDefJsonConverter.cs" Link="Linked\ItemDefJsonConverter.cs" />
+    <Compile Include="..\..\Scripts\Models\IngredientPortionDef.cs" Link="Linked\IngredientPortionDef.cs" />
+    <Compile Include="..\..\Scripts\Models\PotionRecipeDef.cs" Link="Linked\PotionRecipeDef.cs" />
     <Compile Include="..\..\Scripts\Models\PotionResultDef.cs" Link="Linked\PotionResultDef.cs" />
     <Compile Include="..\..\Scripts\Models\RequirementsDef.cs" Link="Linked\RequirementsDef.cs" />
     <Compile Include="..\..\Scripts\Models\SynergyRule.cs" Link="Linked\SynergyRule.cs" />
     <Compile Include="..\..\Scripts\Models\CustomerInteractionDef.cs" Link="Linked\CustomerInteractionDef.cs" />
     <Compile Include="..\..\Scripts\Systems\PotionBrewingService.cs" Link="Linked\PotionBrewingService.cs" />
+    <Compile Include="..\..\Scripts\Systems\PotionRecipeLookup.cs" Link="Linked\PotionRecipeLookup.cs" />
     <Compile Include="..\..\Scripts\Systems\PotionVariantIdBuilder.cs" Link="Linked\PotionVariantIdBuilder.cs" />
   </ItemGroup>
 </Project>

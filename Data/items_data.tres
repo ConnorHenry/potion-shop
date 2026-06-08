@@ -6,11 +6,12 @@
 script = ExtResource("1")
 Entries = [{
 "description": "A rare mushroom that only grows in the light of a full moon. Said to have mild sedative properties and a faintly luminescent quality.",
-"iconPath": "res://Assets/Items/mandrake_root.svg",
+"iconPath": "res://Assets/Items/mooncap_mushroom.png",
 "id": "mooncap_mushroom",
 "name": "Mooncap Mushroom",
 "price": 14,
 "quality": 85,
+"startsKnownInIngredientBook": false,
 "risks": {},
 "tags": ["ingredient", "catalyst"],
 "traits": {
@@ -18,11 +19,12 @@ Entries = [{
 }
 }, {
 "description": "A hardy mint that grows in graveyards and other places touched by death. It has a refreshing aroma and a bitter, earthy flavor.",
-"iconPath": "res://Assets/Items/henbane_leaf.svg",
+"iconPath": "res://Assets/Items/grave_mint.png",
 "id": "grave_mint",
 "name": "Grave Mint",
 "price": 7,
 "quality": 70,
+"startsKnownInIngredientBook": true,
 "risks": {},
 "tags": ["ingredient", "catalyst"],
 "traits": {
@@ -30,11 +32,12 @@ Entries = [{
 }
 }, {
 "description": "A viscous, tar-like substance that seeps from the wounds of certain cursed creatures. It is highly toxic and has a corrupting influence on those who handle it.",
-"iconPath": "res://Assets/Items/black_candle.svg",
+"iconPath": "res://Assets/Items/black_ichor.png",
 "id": "black_ichor",
 "name": "Black Ichor",
 "price": 19,
 "quality": 95,
+"startsKnownInIngredientBook": false,
 "risks": {
 "nausea": 1
 },
@@ -44,11 +47,12 @@ Entries = [{
 }
 }, {
 "description": "A fine ash made from burned lavender flowers. It has a soothing scent and is often used in calming rituals and sleep aids.",
-"iconPath": "res://Assets/Items/bone_charm.svg",
+"iconPath": "res://Assets/Items/lavender_ash.png",
 "id": "lavender_ash",
 "name": "Lavender Ash",
 "price": 10,
 "quality": 80,
+"startsKnownInIngredientBook": false,
 "risks": {},
 "tags": ["ingredient", "catalyst"],
 "traits": {
@@ -56,11 +60,12 @@ Entries = [{
 }
 }, {
 "description": "A glossy, pitch-dark resin that hardens in moonless air. Brewers prize it for binding volatile mixtures into stable tinctures.",
-"iconPath": "res://Assets/Items/myrrh_resin.svg",
+"iconPath": "res://Assets/Items/obsidian_resin.png",
 "id": "obsidian_resin",
 "name": "Obsidian Resin",
 "price": 16,
 "quality": 88,
+"startsKnownInIngredientBook": true,
 "risks": {},
 "tags": ["ingredient", "liquid"],
 "traits": {
@@ -68,11 +73,12 @@ Entries = [{
 }
 }, {
 "description": "A poisonous nightshade blossom sealed in honey-colored sap. Its warm scent lingers in the mind and draws out vivid nocturnal reveries.",
-"iconPath": "res://Assets/Items/amber_nightshade.svg",
+"iconPath": "res://Assets/Items/amber_nightshade.png",
 "id": "amber_nightshade",
 "name": "Amber Nightshade",
 "price": 12,
 "quality": 84,
+"startsKnownInIngredientBook": false,
 "risks": {
 "insomnia": 2
 },
@@ -82,11 +88,12 @@ Entries = [{
 }
 }, {
 "description": "A pale flower with needle-fine petals that glint like silver in dusk light. Distillers value it for sharp clarity and wakeful focus.",
-"iconPath": "res://Assets/Items/silver_thorn_bloom.svg",
+"iconPath": "res://Assets/Items/silver_thorn_bloom.png",
 "id": "silver_thorn_bloom",
 "name": "Silver Thorn Bloom",
 "price": 9,
 "quality": 82,
+"startsKnownInIngredientBook": false,
 "risks": {
 "melancholy": 2
 },
@@ -96,11 +103,12 @@ Entries = [{
 }
 }, {
 "description": "A dusk-bloom orchid whose petals shimmer pale blue under moonlight. Its fragrance soothes the mind while coaxing vivid dreams.",
-"iconPath": "res://Assets/Items/moonwhisper_orchid.svg",
+"iconPath": "res://Assets/Items/moonwhisper_orchid.png",
 "id": "moonwhisper_orchid",
 "name": "Moonwhisper Orchid",
 "price": 18,
 "quality": 86,
+"startsKnownInIngredientBook": false,
 "risks": {
 "corruption": 2
 },
@@ -110,11 +118,12 @@ Entries = [{
 }
 }, {
 "description": "A smoke-dark peony harvested from old funeral grounds. When crushed, it releases a soft gray ash that steadies trembling hands.",
-"iconPath": "res://Assets/Items/raven_ash_peony.svg",
+"iconPath": "res://Assets/Items/raven_ash_peony.png",
 "id": "raven_ash_peony",
 "name": "Raven Ash Peony",
 "price": 6,
 "quality": 79,
+"startsKnownInIngredientBook": false,
 "risks": {},
 "tags": ["ingredient", "herb"],
 "traits": {
@@ -122,11 +131,12 @@ Entries = [{
 }
 }, {
 "description": "A knotted root with a hard metallic skin and a strangely comforting scent. Brewers grate it into tonics meant to quiet panic and blunt pain.",
-"iconPath": "res://Assets/Items/iron_lullaby_root.svg",
+"iconPath": "res://Assets/Items/iron_lullaby_root.png",
 "id": "iron_lullaby_root",
 "name": "Iron Lullaby Root",
 "price": 11,
 "quality": 83,
+"startsKnownInIngredientBook": true,
 "risks": {},
 "tags": ["ingredient", "herb"],
 "traits": {

@@ -10,6 +10,7 @@ public partial class ItemDefResource : Resource
 	private string _name = string.Empty;
 	private string _iconPath = string.Empty;
 	private string _description = string.Empty;
+	private bool _startsKnownInIngredientBook;
 	private int _quality = 50;
 	private int _basePrice;
 	private Godot.Collections.Array<string> _tags = new();
@@ -49,6 +50,13 @@ public partial class ItemDefResource : Resource
 	{
 		get => _description;
 		set => SetString(ref _description, value);
+	}
+
+	[Export]
+	public bool StartsKnownInIngredientBook
+	{
+		get => _startsKnownInIngredientBook;
+		set => SetBool(ref _startsKnownInIngredientBook, value);
 	}
 
 	[Export]
@@ -184,6 +192,7 @@ public partial class ItemDefResource : Resource
 			Name = Name,
 			IconPath = string.IsNullOrWhiteSpace(IconPath) ? null : IconPath,
 			Description = Description,
+			StartsKnownInIngredientBook = StartsKnownInIngredientBook,
 			Tags = tags,
 			Quality = Quality,
 			Traits = traits,
@@ -242,6 +251,7 @@ public partial class ItemDefResource : Resource
 		Name = item.Name;
 		IconPath = item.IconPath ?? string.Empty;
 		Description = item.Description;
+		StartsKnownInIngredientBook = item.StartsKnownInIngredientBook;
 		Quality = item.Quality;
 		BasePrice = item.BasePrice;
 
@@ -314,6 +324,15 @@ public partial class ItemDefResource : Resource
 	}
 
 	private void SetInt(ref int target, int value)
+	{
+		if (target == value)
+			return;
+
+		target = value;
+		EmitChanged();
+	}
+
+	private void SetBool(ref bool target, bool value)
 	{
 		if (target == value)
 			return;

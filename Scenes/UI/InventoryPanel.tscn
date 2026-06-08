@@ -20,8 +20,6 @@ script = ExtResource("1_5bh8f")
 PotionsContainerPath = NodePath("Panel/Margin/VBox/PotionsScroll/Potions")
 ConsumablesContainerPath = NodePath("Panel/Margin/VBox/ConsumablesScroll/Consumables")
 IngredientsContainerPath = NodePath("Panel/Margin/VBox/IngredientsScroll/Ingredients")
-PotionsSortButtonPath = NodePath("Panel/Margin/VBox/PotionsHeaderRow/Sort")
-ConsumablesSortButtonPath = NodePath("Panel/Margin/VBox/ConsumablesHeaderRow/Sort")
 PotionsTraitFilterPath = NodePath("Panel/Margin/VBox/PotionsHeaderRow/TraitFilter")
 PotionsRiskFilterPath = NodePath("Panel/Margin/VBox/PotionsHeaderRow/RiskFilter")
 PotionsClearFilterButtonPath = NodePath("Panel/Margin/VBox/PotionsHeaderRow/Clear")
@@ -113,10 +111,6 @@ layout_mode = 2
 [node name="RiskFilter" type="OptionButton" parent="Panel/Margin/VBox/PotionsHeaderRow"]
 layout_mode = 2
 
-[node name="Sort" type="Button" parent="Panel/Margin/VBox/PotionsHeaderRow"]
-layout_mode = 2
-text = "A-Z"
-
 [node name="PotionsScroll" type="ScrollContainer" parent="Panel/Margin/VBox"]
 custom_minimum_size = Vector2(356, 168)
 layout_mode = 2
@@ -149,10 +143,6 @@ visible = false
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Consumables"
-
-[node name="Sort" type="Button" parent="Panel/Margin/VBox/ConsumablesHeaderRow"]
-layout_mode = 2
-text = "A-Z"
 
 [node name="ConsumablesScroll" type="ScrollContainer" parent="Panel/Margin/VBox"]
 custom_minimum_size = Vector2(356, 168)

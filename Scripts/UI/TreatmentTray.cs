@@ -6,27 +6,16 @@ namespace OccultShop.UI;
 
 public partial class TreatmentTray : Control
 {
-	[Export] public NodePath ConsumableDropBoxPath = default!;
-	[Export] public NodePath TargetDropBoxPath = default!;
-	[Export] public NodePath ConsumableIconPath = default!;
-	[Export] public NodePath TargetIconPath = default!;
-	[Export] public NodePath ConsumableNamePath = default!;
-	[Export] public NodePath TargetNamePath = default!;
-	[Export] public NodePath StatusLabelPath = default!;
+	[Export] public NodePath TrayDropBoxPath = default!;
+	[Export] public NodePath HelperLabelPath = default!;
 	[Export] public NodePath ApplyButtonPath = default!;
 	[Export] public NodePath ClearButtonPath = default!;
-	[Export] public Vector2 TraySize { get; set; } = new(430.0f, 286.0f);
 	[Export] public NodePath RuntimeContentDbPath = new(AutoloadNodePaths.RuntimeContentDb);
 	[Export] public NodePath GameStatePath = new(AutoloadNodePaths.GameState);
 	[Export] public NodePath ItemCatalogPath = new(AutoloadNodePaths.ItemCatalog);
 
-	private BrewDropBox _consumableDropBox = default!;
-	private BrewDropBox _targetDropBox = default!;
-	private TextureRect _consumableIcon = default!;
-	private TextureRect _targetIcon = default!;
-	private Label _consumableName = default!;
-	private Label _targetName = default!;
-	private Label _statusLabel = default!;
+	private BrewDropBox _trayDropBox = default!;
+	private Label _helperLabel = default!;
 	private Button _applyButton = default!;
 	private Button _clearButton = default!;
 	private GameState _gameState = default!;
@@ -62,118 +51,85 @@ public partial class TreatmentTray : Control
 		_itemCatalog = itemCatalog;
 		_treatmentService = new TreatmentService(_gameState, _itemCatalog, runtimeContentDb);
 
-		_consumableDropBox = GetNode<BrewDropBox>(ConsumableDropBoxPath);
-		_targetDropBox = GetNode<BrewDropBox>(TargetDropBoxPath);
-		_consumableIcon = GetNode<TextureRect>(ConsumableIconPath);
-		_targetIcon = GetNode<TextureRect>(TargetIconPath);
-		_consumableName = GetNode<Label>(ConsumableNamePath);
-		_targetName = GetNode<Label>(TargetNamePath);
-		_statusLabel = GetNode<Label>(StatusLabelPath);
+		_trayDropBox = GetNode<BrewDropBox>(TrayDropBoxPath);
+		_helperLabel = GetNode<Label>(HelperLabelPath);
 		_applyButton = GetNode<Button>(ApplyButtonPath);
 		_clearButton = GetNode<Button>(ClearButtonPath);
 
-		_consumableDropBox.ItemDropped += OnConsumableDropped;
-		_targetDropBox.ItemDropped += OnTargetDropped;
+		_trayDropBox.ItemDropped += OnTrayItemDropped;
 		_applyButton.Pressed += TryApplyTreatment;
-		_clearButton.Pressed += ClearSelections;
+		_clearButton.Pressed += ClearStagedItems;
 		_gameState.Changed += OnGameStateChanged;
 
-		Visible = false;
+		Visible = true;
 		Refresh();
 	}
 
 	public override void _ExitTree()
 	{
-		if (_consumableDropBox is not null)
-			_consumableDropBox.ItemDropped -= OnConsumableDropped;
-		if (_targetDropBox is not null)
-			_targetDropBox.ItemDropped -= OnTargetDropped;
+		if (_trayDropBox is not null)
+			_trayDropBox.ItemDropped -= OnTrayItemDropped;
 		if (_applyButton is not null)
 			_applyButton.Pressed -= TryApplyTreatment;
 		if (_clearButton is not null)
-			_clearButton.Pressed -= ClearSelections;
+			_clearButton.Pressed -= ClearStagedItems;
 		if (_gameState is not null)
 			_gameState.Changed -= OnGameStateChanged;
 	}
 
-	public void Toggle()
+	public void ClearStagedItems()
 	{
-		if (Visible)
-		{
-			HidePanel();
-			return;
-		}
-
-		ShowPanel();
-	}
-
-	public void ShowPanel()
-	{
-		ApplyTrayGeometry();
-		Visible = true;
-		MoveToFront();
+		ReturnSelectedItems();
+		_selectedConsumableId = string.Empty;
+		_selectedTargetId = string.Empty;
 		Refresh();
 	}
 
-	public void HidePanel()
+	private void OnTrayItemDropped(string itemId)
 	{
-		ClearSelections();
-		Visible = false;
+		if (TryReserveDroppedItem(itemId))
+			Refresh();
 	}
 
-	private void OnConsumableDropped(string itemId)
+	private bool TryReserveDroppedItem(string itemId)
 	{
 		if (!_itemCatalog.IsConsumable(itemId))
 		{
-			_statusLabel.Text = "First slot only accepts consumables.";
-			return;
+			if (_itemCatalog.IsIngredient(itemId) || _itemCatalog.IsPotion(itemId))
+				return ReserveTargetItem(itemId);
+
+			SetStatusText("Drop a consumable, ingredient, or potion.");
+			return false;
 		}
 
-		if (!ReserveSlotItem(itemId, ref _selectedConsumableId, "Could not take that consumable."))
-			return;
-
-		Refresh();
+		return ReserveConsumableItem(itemId);
 	}
 
-	private void OnTargetDropped(string itemId)
+	private bool ReserveConsumableItem(string itemId)
 	{
-		if (_itemCatalog.IsConsumable(itemId))
-		{
-			_statusLabel.Text = "Second slot accepts ingredients or potions.";
-			return;
-		}
+		return ReserveSlotItem(itemId, ref _selectedConsumableId, "Could not take that consumable.");
+	}
 
+	private bool ReserveTargetItem(string itemId)
+	{
 		if (!_itemCatalog.IsIngredient(itemId) && !_itemCatalog.IsPotion(itemId))
 		{
-			_statusLabel.Text = "Second slot only accepts ingredients or potions.";
-			return;
+			SetStatusText("Drop an ingredient or potion to treat.");
+			return false;
 		}
 
-		if (!ReserveSlotItem(itemId, ref _selectedTargetId, "Could not take that item."))
-			return;
-
-		Refresh();
+		return ReserveSlotItem(itemId, ref _selectedTargetId, "Could not take that item.");
 	}
 
 	private void TryApplyTreatment()
 	{
-		if (!_treatmentService.TryApplyReservedTreatment(_selectedConsumableId, _selectedTargetId, out var treatedItemId, out var error))
+		if (!_treatmentService.TryApplyReservedTreatment(_selectedConsumableId, _selectedTargetId, out _, out var error))
 		{
-			_statusLabel.Text = error;
+			SetStatusText(error);
 			UpdateApplyState();
 			return;
 		}
 
-		var treatedName = ItemName(treatedItemId);
-		_selectedConsumableId = string.Empty;
-		_selectedTargetId = string.Empty;
-		Refresh();
-		_statusLabel.Text = $"Created {treatedName}.";
-	}
-
-	private void ClearSelections()
-	{
-		ReturnSelectedItems();
 		_selectedConsumableId = string.Empty;
 		_selectedTargetId = string.Empty;
 		Refresh();
@@ -191,14 +147,14 @@ public partial class TreatmentTray : Control
 
 		if (!_gameState.HasItem(itemId, 1))
 		{
-			_statusLabel.Text = "Not enough stock for that item.";
+			SetStatusText("Not enough stock for that item.");
 			return false;
 		}
 
 		var previousItemId = selectedItemId;
 		if (!_gameState.ConsumeItem(itemId, 1))
 		{
-			_statusLabel.Text = failureText;
+			SetStatusText(failureText);
 			return false;
 		}
 
@@ -219,63 +175,59 @@ public partial class TreatmentTray : Control
 
 	private void Refresh()
 	{
-		RefreshSlot(_selectedConsumableId, _consumableIcon, _consumableName, "Drop consumable");
-		RefreshSlot(_selectedTargetId, _targetIcon, _targetName, "Drop item");
 		UpdateApplyState();
-	}
-
-	private void ApplyTrayGeometry()
-	{
-		var normalizedTraySize = new Vector2(
-			Mathf.Max(360.0f, TraySize.X),
-			Mathf.Max(240.0f, TraySize.Y));
-		CustomMinimumSize = normalizedTraySize;
-		Size = normalizedTraySize;
-
-		var panel = GetNodeOrNull<Control>("Panel");
-		if (panel is null)
-		{
-			GD.PushError("TreatmentTray: Panel node is missing.");
-			return;
-		}
-
-		panel.AnchorLeft = 0.0f;
-		panel.AnchorTop = 0.0f;
-		panel.AnchorRight = 0.0f;
-		panel.AnchorBottom = 0.0f;
-		panel.Position = Vector2.Zero;
-		panel.CustomMinimumSize = normalizedTraySize;
-		panel.Size = normalizedTraySize;
-	}
-
-	private void RefreshSlot(string itemId, TextureRect icon, Label label, string emptyText)
-	{
-		if (string.IsNullOrWhiteSpace(itemId) || !_itemCatalog.TryGetItem(itemId, out var item))
-		{
-			icon.Texture = null;
-			label.Text = emptyText;
-			return;
-		}
-
-		icon.Texture = UiIconLoader.LoadIcon(item.IconPath);
-		label.Text = ItemName(itemId);
 	}
 
 	private void UpdateApplyState()
 	{
-		if (_applyButton is null)
+		if (_applyButton is null || _clearButton is null)
 			return;
 
+		var hasConsumable = !string.IsNullOrWhiteSpace(_selectedConsumableId);
+		var hasTarget = !string.IsNullOrWhiteSpace(_selectedTargetId);
+		var hasAnySelection = hasConsumable || hasTarget;
+
+		_clearButton.Visible = hasAnySelection;
+		_clearButton.Disabled = !hasAnySelection;
+
+		if (!hasConsumable || !hasTarget)
+		{
+			var prompt = BuildWaitingPrompt(hasConsumable, hasTarget);
+			_applyButton.Visible = false;
+			_applyButton.Disabled = true;
+			_applyButton.TooltipText = prompt;
+			SetStatusText(prompt);
+			return;
+		}
+
+		_applyButton.Visible = true;
 		var canApply = _treatmentService.CanApplyReservedTreatment(_selectedConsumableId, _selectedTargetId, out var error);
 		_applyButton.Disabled = !canApply;
 		_applyButton.TooltipText = canApply ? "Apply this treatment." : error;
 
 		if (!string.IsNullOrWhiteSpace(error))
-			_statusLabel.Text = error;
+			SetStatusText(error);
 		else if (canApply)
-			_statusLabel.Text = "Ready to apply treatment.";
+			SetStatusText("Ready to apply treatment.");
 		else
-			_statusLabel.Text = "Choose a consumable and an item.";
+			SetStatusText("Drop a consumable and an item onto the tray.");
+	}
+
+	private string BuildWaitingPrompt(bool hasConsumable, bool hasTarget)
+	{
+		if (!hasConsumable && !hasTarget)
+			return "Drop a consumable and an item onto the tray.";
+
+		if (hasConsumable)
+			return $"{ItemName(_selectedConsumableId)} placed. Drop an ingredient or potion, or clear the tray.";
+
+		return $"{ItemName(_selectedTargetId)} placed. Drop a consumable, or clear the tray.";
+	}
+
+	private void SetStatusText(string text)
+	{
+		if (_helperLabel is not null)
+			_helperLabel.Text = text;
 	}
 
 	private string ItemName(string itemId)

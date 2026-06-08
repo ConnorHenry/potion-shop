@@ -9,7 +9,7 @@ Entries = [
     "id": "tier1_sleep_draught",
     "title": "Sleep Draught",
     "text": "A tired customer rubs their eyes and asks for something simple to help them sleep through the night.",
-    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
     "pool": "tier1_simple",
     "difficulty": 1,
     "requires": {
@@ -27,7 +27,7 @@ Entries = [
     "id": "tier1_pain_relief_tonic",
     "title": "Pain Relief Tonic",
     "text": "A labourer clutches their back and asks for a straightforward tonic to soothe pain after a long week of hauling crates.",
-    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
     "pool": "tier1_simple",
     "difficulty": 1,
     "requires": {
@@ -45,7 +45,7 @@ Entries = [
     "id": "tier1_focus_elixir",
     "title": "Focus Elixir",
     "text": "A student says their exam is tomorrow and asks for something to help their thoughts feel clear and steady.",
-    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
     "pool": "tier1_simple",
     "difficulty": 1,
     "requires": {
@@ -63,7 +63,7 @@ Entries = [
     "id": "tier1_steady_hands_tincture",
     "title": "Steady Hands Tincture",
     "text": "A clockmaker says their hands shake around tiny gears and asks for a simple tincture to calm their nerves.",
-    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
     "pool": "tier1_simple",
     "difficulty": 1,
     "requires": {
@@ -81,7 +81,7 @@ Entries = [
     "id": "tier2_clean_sleep_draught",
     "title": "Clean Sleep Draught",
     "text": "A customer needs sleep, but they refuse anything that might leave them sick in the morning.",
-    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
     "pool": "tier2_risk",
     "difficulty": 2,
     "requires": {
@@ -102,7 +102,7 @@ Entries = [
     "id": "tier2_dawn_energy_tonic",
     "title": "Dawn Energy Tonic",
     "text": "A baker has ovens to tend before sunrise and needs energy without anything that will keep them awake tomorrow night.",
-    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
     "pool": "tier2_risk",
     "difficulty": 2,
     "requires": {
@@ -123,7 +123,7 @@ Entries = [
     "id": "tier2_clear_voice_balm",
     "title": "Clear Voice Balm",
     "text": "A market singer croaks that their voice is nearly gone and asks for something soothing that will not darken their mood.",
-    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
     "pool": "tier2_risk",
     "difficulty": 2,
     "requires": {
@@ -144,7 +144,7 @@ Entries = [
     "id": "tier2_uncorrupted_charm_philter",
     "title": "Uncorrupted Charm Philter",
     "text": "A hopeful customer wants to feel warm and appealing at a dance, but they are wary of anything with a corrupting edge.",
-    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
     "pool": "tier2_risk",
     "difficulty": 2,
     "requires": {
@@ -165,7 +165,7 @@ Entries = [
     "id": "tier3_nightmare_ward",
     "title": "Nightmare Ward",
     "text": "A nervous customer needs strong dreamwork and enough courage to face the same nightmare, but they cannot risk waking sick.",
-    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
     "pool": "tier3_threshold",
     "difficulty": 3,
     "requires": {
@@ -186,7 +186,7 @@ Entries = [
     "id": "tier3_antidote_potion",
     "title": "Antidote Potion",
     "text": "A queasy customer drank something strange at the tavern and needs a strong cleanser that will settle the damage without corrupting them further.",
-    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
     "pool": "tier3_threshold",
     "difficulty": 3,
     "requires": {
@@ -207,7 +207,7 @@ Entries = [
     "id": "tier3_confidence_draught",
     "title": "Confidence Draught",
     "text": "A customer must speak before the council and needs clear courage, but nothing that leaves them sleepless or grim.",
-    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
     "pool": "tier3_threshold",
     "difficulty": 3,
     "requires": {
@@ -229,7 +229,7 @@ Entries = [
     "id": "tier3_recovery_brew",
     "title": "Recovery Brew",
     "text": "A pale customer says the fever has passed, but their body still needs a strong mending brew without nausea.",
-    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
     "pool": "tier3_threshold",
     "difficulty": 3,
     "requires": {
@@ -337,7 +337,7 @@ Entries = [
     "id": "tier5_curse_cleanser",
     "title": "Curse Cleanser",
     "text": "A frightened customer whispers that bad luck has followed them home. They need an especially strong cleanser, courage to endure it, and no trace of corruption or nausea.",
-    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
     "pool": "tier5_expert",
     "difficulty": 5,
     "requires": {
@@ -379,7 +379,7 @@ Entries = [
     "id": "tier5_obsidian_mending_draught",
     "title": "Obsidian Mending Draught",
     "text": "A surgeon asks for a precise mending draught. It must mend strongly, keep the mind clear, and avoid melancholy during recovery.",
-    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
     "pool": "tier5_expert",
     "difficulty": 5,
     "requires": {
@@ -400,7 +400,7 @@ Entries = [
     "id": "tier5_nightshade_reverie",
     "title": "Nightshade Reverie",
     "text": "A poet wants a vivid reverie for their final performance, but the mixture must be charming and dreamlike without corruption taking hold.",
-    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
     "pool": "tier5_expert",
     "difficulty": 5,
     "requires": {
@@ -416,5 +416,127 @@ Entries = [
       "corruption": 6,
       "insomnia": 4
     }
+  },
+  {
+    "id": "plot_miss_ives_visit_1",
+    "title": "Miss Ives",
+    "text": "Miss Ives needs a careful sleep draught: restful, calming, and gentle enough not to leave her sick by morning.",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
+    "pool": "plot",
+    "difficulty": 2,
+    "storyCharacterId": "miss_ives",
+    "visitId": "visit_1",
+    "dialogueStartNodeId": "intro",
+    "requires": {
+      "dayMin": 1
+    },
+    "weight": 2,
+    "desiredTraits": {
+      "rest": 5,
+      "calm": 3,
+      "dream": 1
+    },
+    "badTraits": {
+      "nausea": 3
+    },
+    "potionRefusedText": "Miss Ives draws her gloves tight. 'Then I will endure another night.'",
+    "onPotionRefusedEffects": [
+      {
+        "addStoryFlag": "miss_ives_refused_potion"
+      }
+    ],
+    "onSuccessEffects": [
+      {
+        "addStoryFlag": "miss_ives_helped"
+      }
+    ],
+    "onFailureEffects": [
+      {
+        "addStoryFlag": "miss_ives_given_bad_potion"
+      }
+    ],
+    "potionResponses": [
+      {
+        "id": "clean_success",
+        "success": true,
+        "minMatchedDesiredTraits": 2,
+        "maxMatchedBadTraits": 0,
+        "text": "Miss Ives studies the bottle, then nods once. 'Yes. This feels quiet enough to trust.'"
+      },
+      {
+        "id": "risky_failure",
+        "success": false,
+        "text": "Miss Ives accepts the bottle without conviction. 'If this worsens the dreams, I will remember who brewed it.'"
+      }
+    ],
+    "dialogueNodes": [
+      {
+        "id": "intro",
+        "text": "The woman at the counter removes one glove finger by finger. 'Miss Ives. I was told you sell remedies for private troubles.'",
+        "options": [
+          {
+            "id": "intro_who_are_you",
+            "label": "Who are you?",
+            "responseText": "'A housekeeper, for now. Names matter less than locked doors.'",
+            "nextNodeId": "hub"
+          },
+          {
+            "id": "intro_private_trouble",
+            "label": "What private trouble?",
+            "responseText": "'Sleep has become a room I cannot enter. When I do, something waits there.'",
+            "nextNodeId": "hub"
+          },
+          {
+            "id": "intro_request",
+            "label": "What potion do you need?",
+            "responseText": "'Something to let me sleep, but not so deeply that I cannot wake myself.'",
+            "revealsRequest": true,
+            "returnNodeId": "hub"
+          },
+          {
+            "id": "intro_end",
+            "label": "Not tonight.",
+            "responseText": "'Then I have mistaken the hour.'",
+            "endsInteraction": true,
+            "effects": [
+              {
+                "addStoryFlag": "miss_ives_dismissed"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "hub",
+        "text": "Miss Ives folds her gloves on the counter and watches the shop in the glass behind you.",
+        "options": [
+          {
+            "id": "hub_house",
+            "label": "Tell me about the house.",
+            "responseText": "'It keeps its own schedule. Footsteps at noon, bells at midnight, letters under doors no one opened.'",
+            "nextNodeId": "hub"
+          },
+          {
+            "id": "hub_dreams",
+            "label": "What waits in the dreams?",
+            "responseText": "'A mirror with no reflection. A hand knocking from inside it.'",
+            "nextNodeId": "hub"
+          },
+          {
+            "id": "hub_request",
+            "label": "Tell me the potion again.",
+            "responseText": "'Rest, calm, and only a little dreamwork. Nothing that turns the stomach.'",
+            "revealsRequest": true,
+            "returnNodeId": "hub"
+          },
+          {
+            "id": "hub_leave",
+            "label": "That is all for now.",
+            "responseText": "'Then I will leave before the shop changes its mind.'",
+            "endsInteraction": true
+          }
+        ]
+      }
+    ]
   }
 ]

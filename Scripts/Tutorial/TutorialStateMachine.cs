@@ -28,8 +28,8 @@ public sealed class TutorialStateMachine
 		if (rawStep <= (int)TutorialStepId.Welcome)
 			return TutorialStepId.Welcome;
 
-		if (rawStep >= (int)TutorialStepId.CloseShop)
-			return TutorialStepId.CloseShop;
+		if (rawStep >= (int)TutorialStepId.DaySummary)
+			return TutorialStepId.DaySummary;
 
 		return (TutorialStepId)rawStep;
 	}
@@ -86,6 +86,14 @@ public sealed class TutorialStateMachine
 			return TutorialTransition.To(TutorialStepId.SellPotion);
 
 		if (step == TutorialStepId.CloseShop && !isShopOpen)
+			return TutorialTransition.To(TutorialStepId.DaySummary);
+
+		return TutorialTransition.None;
+	}
+
+	public TutorialTransition EvaluateDaySummaryContinued(TutorialStepId step)
+	{
+		if (step == TutorialStepId.DaySummary)
 			return TutorialTransition.Complete();
 
 		return TutorialTransition.None;
@@ -109,7 +117,7 @@ public sealed class TutorialStateMachine
 
 	public TutorialTransition EvaluateCustomerInteractionShown(TutorialStepId step, string interactionId)
 	{
-		if (step == TutorialStepId.NextCustomer && IsItem(interactionId, _ambiguousCustomerId))
+		if (step == TutorialStepId.NextCustomer && IsCustomerInteractionMatch(interactionId, _ambiguousCustomerId))
 			return TutorialTransition.To(TutorialStepId.AmbiguousCustomer);
 
 		return TutorialTransition.None;
@@ -125,7 +133,7 @@ public sealed class TutorialStateMachine
 
 	public TutorialTransition EvaluateAmbiguousCustomerState(TutorialStepId step, string? activeCustomerRequestId)
 	{
-		if (step == TutorialStepId.NextCustomer && IsItem(activeCustomerRequestId ?? string.Empty, _ambiguousCustomerId))
+		if (step == TutorialStepId.NextCustomer && IsCustomerInteractionMatch(activeCustomerRequestId ?? string.Empty, _ambiguousCustomerId))
 			return TutorialTransition.To(TutorialStepId.AmbiguousCustomer);
 
 		return TutorialTransition.None;
@@ -134,5 +142,23 @@ public sealed class TutorialStateMachine
 	private static bool IsItem(string actualItemId, string expectedItemId)
 	{
 		return string.Equals(actualItemId, expectedItemId, StringComparison.OrdinalIgnoreCase);
+	}
+
+	private static bool IsCustomerInteractionMatch(string actualInteractionId, string expectedInteractionId)
+	{
+		if (IsItem(actualInteractionId, expectedInteractionId))
+			return true;
+
+		var normalizedExpectedId = NormalizeLegacyCustomerRequestId(expectedInteractionId);
+		return !string.IsNullOrWhiteSpace(normalizedExpectedId) &&
+			actualInteractionId.EndsWith("_" + normalizedExpectedId, StringComparison.OrdinalIgnoreCase);
+	}
+
+	private static string NormalizeLegacyCustomerRequestId(string interactionId)
+	{
+		const string legacyPrefix = "customer_requests_";
+		return interactionId.StartsWith(legacyPrefix, StringComparison.OrdinalIgnoreCase)
+			? interactionId[legacyPrefix.Length..]
+			: interactionId;
 	}
 }

@@ -324,6 +324,7 @@ public partial class RuntimeContentDb : Node
 			Name = item.Name,
 			IconPath = item.IconPath,
 			Description = item.Description,
+			StartsKnownInIngredientBook = item.StartsKnownInIngredientBook,
 			Tags = item.Tags?.ToList() ?? new List<string>(),
 			Quality = item.Quality,
 			Traits = item.Traits is null ? new Dictionary<string, int>() : new Dictionary<string, int>(item.Traits),

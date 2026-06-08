@@ -80,7 +80,6 @@ internal static class RuntimeContentAndDataDbTests
 
         var brewPanel = ReadProjectFile("Scripts/UI/BrewPanel.cs");
         var inventoryPanel = ReadProjectFile("Scripts/UI/InventoryPanel.cs");
-        var recipeBookPanel = ReadProjectFile("Scripts/UI/RecipeBookPanel.cs");
         var customerPanel = ReadProjectFile("Scripts/UI/CustomerPanel.cs");
         var brewService = ReadProjectFile("Scripts/Systems/PotionInventoryBrewService.cs");
 
@@ -88,7 +87,6 @@ internal static class RuntimeContentAndDataDbTests
         AssertTrue("InventoryPanel resolves ItemCatalogService through an exported path", inventoryPanel.Contains("GetNodeOrNull<ItemCatalogService>(ItemCatalogPath)"));
         AssertTrue("InventoryPanel exposes item type tag path for detail view", ReadProjectFile("Scenes/UI/InventoryPanel.tscn").Contains("ItemDetailTypeTagPath = NodePath(\"../InventoryItemDetail/Panel/Margin/VBox/TopRow/Identity/TypeTag\")"));
         AssertTrue("InventoryPanel uses player-visible tag rules for item type text", inventoryPanel.Contains("ItemTagDisplayRules"));
-        AssertTrue("RecipeBookPanel resolves ItemCatalogService through an exported path", recipeBookPanel.Contains("GetNodeOrNull<ItemCatalogService>(ItemCatalogPath)"));
         AssertTrue("CustomerPanel resolves ItemCatalogService through an exported path", customerPanel.Contains("GetNodeOrNull<ItemCatalogService>(ItemCatalogPath)"));
         AssertTrue("PotionInventoryBrewService uses constructor-injected ItemCatalogService", brewService.Contains("PotionInventoryBrewService(GameState gameState, ItemCatalogService itemCatalog)"));
         AssertTrue("BrewPanel still registers runtime potions separately", brewPanel.Contains("RegisterRuntimePotionItem"));

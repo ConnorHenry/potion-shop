@@ -9,7 +9,7 @@ Entries = [
     "id": "customer_requests_sleep_draught",
     "title": "Sleep Draught",
     "text": "A tired customer rubs their eyes and says they have not slept properly in days. They need something to help their body settle and their mind drift away.",
-    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
     "pool": "early",
     "difficulty": 1,
     "requires": {
@@ -28,7 +28,7 @@ Entries = [
     "id": "customer_requests_nightmare_ward",
     "title": "Nightmare Ward",
     "text": "A nervous customer says the same nightmare waits for them every night. They are afraid to close their eyes and need something to help them face their dreams.",
-    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
     "pool": "mid",
     "difficulty": 2,
     "requires": {
@@ -47,7 +47,7 @@ Entries = [
     "id": "customer_requests_pain_relief_tonic",
     "title": "Pain Relief Tonic",
     "text": "A weary labourer clutches their back and says every step hurts after a week of hauling crates. They need something to ease the pain and help them recover.",
-    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
     "pool": "early",
     "difficulty": 1,
     "requires": {
@@ -66,7 +66,7 @@ Entries = [
     "id": "customer_requests_love_philter",
     "title": "Love Philter",
     "text": "A hopeful customer admits they want to be noticed at the dance tonight. They need something to make them feel appealing, warm, and impossible to ignore.",
-    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
     "pool": "mid",
     "difficulty": 2,
     "requires": {
@@ -85,7 +85,7 @@ Entries = [
     "id": "customer_requests_focus_elixir",
     "title": "Focus Elixir",
     "text": "A student arrives in a panic and says their exam is tomorrow, but their thoughts feel thick and useless. They need something to help them think clearly and stay alert.",
-    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
     "pool": "early",
     "difficulty": 1,
     "requires": {
@@ -104,7 +104,7 @@ Entries = [
     "id": "customer_requests_steady_hands_tincture",
     "title": "Steady Hands Tincture",
     "text": "A clockmaker says their hands have started shaking whenever the gears get too small. They need something to steady their nerves and keep their focus sharp.",
-    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
     "pool": "early",
     "difficulty": 1,
     "requires": {
@@ -123,7 +123,7 @@ Entries = [
     "id": "customer_requests_sore_throat_balm",
     "title": "Sore Throat Balm",
     "text": "A market singer croaks that their voice is nearly gone before the evening crowd. They need something soothing that helps the soreness mend cleanly.",
-    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
     "pool": "early",
     "difficulty": 1,
     "requires": {
@@ -142,7 +142,7 @@ Entries = [
     "id": "customer_requests_dawn_energy_tonic",
     "title": "Dawn Energy Tonic",
     "text": "A baker has been awake since midnight and still has ovens to tend. They need a bright tonic that keeps them alert without making them reckless.",
-    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
     "pool": "early",
     "difficulty": 1,
     "requires": {
@@ -161,7 +161,7 @@ Entries = [
     "id": "customer_requests_sweet_dream_cordial",
     "title": "Sweet Dream Cordial",
     "text": "A childminder says the little ones wake frightened from strange dreams. They need a gentle cordial for soft sleep and kinder dreams.",
-    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
     "pool": "early",
     "difficulty": 1,
     "requires": {
@@ -180,7 +180,7 @@ Entries = [
     "id": "customer_requests_clean_start_draught",
     "title": "Clean Start Draught",
     "text": "A tenant says their new room smells of old smoke and worse memories. They need a draught that clears the air and leaves their mind settled.",
-    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
     "pool": "early",
     "difficulty": 1,
     "requires": {
@@ -199,7 +199,7 @@ Entries = [
     "id": "customer_requests_curse_cleanser",
     "title": "Curse Cleanser",
     "text": "A frightened customer whispers that something foul has followed them home. Bad luck clings to them, and they need something to drive it out.",
-    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
     "pool": "late",
     "difficulty": 3,
     "requires": {
@@ -217,7 +217,7 @@ Entries = [
     "id": "customer_requests_recovery_brew",
     "title": "Recovery Brew",
     "text": "A pale customer says they have been sick for days. The fever has passed, but their body still feels weak and slow to heal.",
-    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
     "pool": "mid",
     "difficulty": 2,
     "requires": {
@@ -236,7 +236,7 @@ Entries = [
     "id": "customer_requests_confidence_draught",
     "title": "Confidence Draught",
     "text": "A customer admits they must give a speech before the council, but the thought of everyone staring at them makes their hands shake.",
-    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
     "pool": "mid",
     "difficulty": 2,
     "requires": {
@@ -255,7 +255,7 @@ Entries = [
     "id": "customer_requests_inspiration_tonic",
     "title": "Inspiration Tonic",
     "text": "A tired artist says their work has gone lifeless. They need something to stir the imagination and bring energy back to their ideas.",
-    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
     "pool": "mid",
     "difficulty": 2,
     "requires": {
@@ -274,7 +274,7 @@ Entries = [
     "id": "customer_requests_antidote_potion",
     "title": "Antidote Potion",
     "text": "A queasy customer says they drank something strange at the tavern and now their stomach is turning. They need something to purge the poison and settle the damage.",
-    "characterImagePath": "res://Assets/Characters/store_customer.svg",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
     "pool": "mid",
     "difficulty": 2,
     "requires": {

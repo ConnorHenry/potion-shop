@@ -8,157 +8,128 @@ namespace OccultShop.UI;
 public partial class Hud : Control
 {
 	private const int SettingsPanelZIndex = 4096;
+	private const int SettingsDetailsPanelZIndex = SettingsPanelZIndex;
 	private const string SaveGameButtonDefaultText = "Save Game";
 	private const string SaveGameButtonSavingText = "Saving Game...";
 	private const string SaveGameButtonSavedText = "Game Saved!";
 	private const string GardenScenePath = "res://Scenes/Main/Garden.tscn";
+	private const string RainfallAudioPath = "res://Assets/Audio/rain-sounds.mp3";
+	private const string AmbientSettingsPath = "user://settings.cfg";
+	private const string AmbientSettingsSection = "audio";
+	private const string AmbientSoundsEnabledKey = "ambient_sounds_enabled";
+	private const string RainfallVolumeKey = "rainfall_volume";
+	private const bool DefaultAmbientSoundsEnabled = true;
+	private const double DefaultRainfallVolume = 0.7;
 
 	[Export] public NodePath GoldLabelPath = default!;
 	[Export] public NodePath DreadLabelPath = default!;
 	[Export] public NodePath DayLabelPath = default!;
-	[Export] public NodePath ShopTimerLabelPath = default!;
+	[Export] public NodePath ShopTimerLabelPath = new("ShopTimer");
 	[Export] public NodePath GameStatePath = new(AutoloadNodePaths.GameState);
 	[Export] public NodePath SaveGameManagerPath = new(AutoloadNodePaths.SaveGameManager);
-	[Export] public NodePath DayControllerPath = new("/root/Main/DayController");
-	[Export] public NodePath BrewPanelPath = new("../BrewPanel");
-	[Export] public NodePath TreatmentTrayPanelPath = new("../TreatmentTray");
-	[Export] public NodePath RecipeBookPanelPath = new("../RecipeBookPanel");
+	[Export] public NodePath DayControllerPath = new("DayController");
+	[Export] public NodePath BrewPanelPath = new("CanvasLayer/PotionBrewingStationView/BrewPanel");
+	[Export] public NodePath ShopFloorPath = new("CanvasLayer/ShopFloor");
 
 	private Label _gold = default!;
 	private Label _dread = default!;
 	private Label _day = default!;
 	private Label? _shopTimer;
-	private Button _endDayButton = default!;
 	private Button _serveCustomerButton = default!;
 	private Button _brewPotionButton = default!;
-	private Button _treatmentTrayButton = default!;
-	private Button _recipeBookButton = default!;
 	private Button _gardenButton = default!;
 	private Button _settingsButton = default!;
 	private Button _returnToMainMenuButton = default!;
 	private Button _saveGameButton = default!;
+	private Button _openSettingsButton = default!;
 	private Button _toggleDebugPanelButton = default!;
+	private CheckBox _ambientSoundsToggle = default!;
+	private HSlider _rainfallVolumeSlider = default!;
+	private AudioStreamPlayer _ambientRainPlayer = default!;
 	private GameState? _gameState;
 	private SaveGameManager? _saveGameManager;
 	private DayController? _dayController;
 	private Control? _brewPanel;
-	private Control? _treatmentTrayPanel;
-	private Control? _recipeBookPanel;
+	private ShopFloor? _shopFloor;
 	private Control _settingsPanel = default!;
+	private Control _settingsDetailsPanel = default!;
 	private bool _isSavingGame;
+	private bool _ambientSoundsEnabled = DefaultAmbientSoundsEnabled;
+	private bool _ambientPlaybackAllowed;
+	private double _rainfallVolume = DefaultRainfallVolume;
 
 	public override void _Ready()
 	{
-		var gameState = GetNodeOrNull<GameState>(GameStatePath);
-		if (gameState is null)
-		{
-			GD.PushError($"Hud: GameState was not found at '{GameStatePath}'.");
-			return;
-		}
-
-		var saveGameManager = GetNodeOrNull<SaveGameManager>(SaveGameManagerPath);
-		if (saveGameManager is null)
-		{
-			GD.PushError($"Hud: SaveGameManager was not found at '{SaveGameManagerPath}'.");
-			return;
-		}
-
-		var dayController = GetNodeOrNull<DayController>(DayControllerPath);
-		if (dayController is null)
-		{
-			GD.PushError($"Hud: DayController was not found at '{DayControllerPath}'.");
-			return;
-		}
-
-		var brewPanel = GetNodeOrNull<Control>(BrewPanelPath);
-		if (brewPanel is null)
-		{
-			GD.PushError($"Hud: BrewPanel was not found at '{BrewPanelPath}'.");
-			return;
-		}
-
-		var treatmentTrayPanel = GetNodeOrNull<Control>(TreatmentTrayPanelPath);
-		if (treatmentTrayPanel is null)
-		{
-			GD.PushError($"Hud: TreatmentTray was not found at '{TreatmentTrayPanelPath}'.");
-			return;
-		}
-
-		var recipeBookPanel = GetNodeOrNull<Control>(RecipeBookPanelPath);
-		if (recipeBookPanel is null)
-		{
-			GD.PushError($"Hud: RecipeBookPanel was not found at '{RecipeBookPanelPath}'.");
-			return;
-		}
-
-		_gameState = gameState;
-		_saveGameManager = saveGameManager;
-		_dayController = dayController;
-		_brewPanel = brewPanel;
-		_treatmentTrayPanel = treatmentTrayPanel;
-		_recipeBookPanel = recipeBookPanel;
-
 		_gold = GetNode<Label>(GoldLabelPath);
 		_dread = GetNode<Label>(DreadLabelPath);
 		_day = GetNode<Label>(DayLabelPath);
-		_shopTimer = GetNodeOrNull<Label>(ShopTimerLabelPath);
-		if (_shopTimer is null)
-			_shopTimer = GetNodeOrNull<Label>("ShopTimer");
-
+		_shopTimer = GetNodeOrNull<Label>(ShopTimerLabelPath) ?? GetNodeOrNull<Label>("ShopTimer");
 		if (_shopTimer is null)
 			GD.PushError("Hud: Shop timer label node is missing.");
 
-		_endDayButton = GetNode<Button>("EndDay");
 		_serveCustomerButton = GetNode<Button>("ServeCustomer");
 		_brewPotionButton = GetNode<Button>("BrewPotion");
-		_treatmentTrayButton = GetNode<Button>("TreatmentTray");
-		_recipeBookButton = GetNode<Button>("RecipeBook");
 		_gardenButton = GetNode<Button>("Garden");
 		_settingsButton = GetNode<Button>("MainMenu");
 		_returnToMainMenuButton = GetNode<Button>("SettingsPanel/Margin/VBox/ReturnToMainMenu");
 		_saveGameButton = GetNode<Button>("SettingsPanel/Margin/VBox/SaveGame");
+		_openSettingsButton = GetNode<Button>("SettingsPanel/Margin/VBox/OpenSettings");
 		_toggleDebugPanelButton = GetNode<Button>("SettingsPanel/Margin/VBox/ToggleDebugPanel");
 		_settingsPanel = GetNode<Control>("SettingsPanel");
+		_settingsDetailsPanel = GetNode<Control>("Settings");
+		_ambientSoundsToggle = GetNode<CheckBox>("Settings/Margin/VBox/AmbientSounds");
+		_rainfallVolumeSlider = GetNode<HSlider>("Settings/Margin/VBox/RainfallVolumeRow/RainfallVolume");
+		_ambientRainPlayer = GetNode<AudioStreamPlayer>("AmbientRainPlayer");
+
+		_gameState = GetNodeOrNull<GameState>(GameStatePath);
+		if (_gameState is null)
+			GD.PushError($"Hud: GameState was not found at '{GameStatePath}'.");
+
+		_saveGameManager = GetNodeOrNull<SaveGameManager>(SaveGameManagerPath);
+		if (_saveGameManager is null)
+			GD.PushError($"Hud: SaveGameManager was not found at '{SaveGameManagerPath}'.");
 
 		_settingsPanel.ZIndex = SettingsPanelZIndex;
+		_settingsDetailsPanel.ZIndex = SettingsDetailsPanelZIndex;
+		LoadAmbientSettings();
+		ConfigureAmbientRainPlayer();
+		ApplyAmbientSettingsToControls();
 		SetProcessInput(true);
 
-		_endDayButton.Pressed += OnEndDayPressed;
 		_serveCustomerButton.Pressed += OnStartDayPressed;
 		_brewPotionButton.Pressed += OnBrewPotionPressed;
-		_treatmentTrayButton.Pressed += OnTreatmentTrayPressed;
-		_recipeBookButton.Pressed += OnRecipeBookPressed;
 		_gardenButton.Pressed += OnGardenPressed;
 		_settingsButton.Pressed += OnSettingsPressed;
 		_returnToMainMenuButton.Pressed += OnReturnToMainMenuPressed;
 		_saveGameButton.Pressed += OnSaveGamePressed;
+		_openSettingsButton.Pressed += OnOpenSettingsPressed;
 		_toggleDebugPanelButton.Pressed += OnToggleDebugPanelPressed;
+		_ambientSoundsToggle.Toggled += OnAmbientSoundsToggled;
+		_rainfallVolumeSlider.ValueChanged += OnRainfallVolumeChanged;
+		_ambientRainPlayer.Finished += OnAmbientRainFinished;
 
-		_gameState.Changed += Refresh;
-		_dayController.ShopStateChanged += RefreshShopState;
+		if (_gameState is not null)
+			_gameState.Changed += Refresh;
+
 		_toggleDebugPanelButton.Text = ImGuiGD.Visible ? "Debug Panel: On" : "Debug Panel: Off";
 		SetSettingsPanelVisible(false);
+		SetSettingsDetailsVisible(false);
+		RefreshSceneBindings();
 		Refresh();
-		RefreshShopState();
 		_saveGameButton.Text = SaveGameButtonDefaultText;
+		_saveGameButton.Disabled = _saveGameManager is null;
+		SetAmbientPlaybackAllowed(Visible);
 	}
 
 	public override void _ExitTree()
 	{
 		if (_gameState is not null)
 			_gameState.Changed -= Refresh;
-		if (_dayController is not null)
-			_dayController.ShopStateChanged -= RefreshShopState;
-		if (_endDayButton is not null)
-			_endDayButton.Pressed -= OnEndDayPressed;
+		DisconnectSceneBindings();
 		if (_serveCustomerButton is not null)
 			_serveCustomerButton.Pressed -= OnStartDayPressed;
 		if (_brewPotionButton is not null)
 			_brewPotionButton.Pressed -= OnBrewPotionPressed;
-		if (_treatmentTrayButton is not null)
-			_treatmentTrayButton.Pressed -= OnTreatmentTrayPressed;
-		if (_recipeBookButton is not null)
-			_recipeBookButton.Pressed -= OnRecipeBookPressed;
 		if (_gardenButton is not null)
 			_gardenButton.Pressed -= OnGardenPressed;
 		if (_settingsButton is not null)
@@ -167,13 +138,21 @@ public partial class Hud : Control
 			_returnToMainMenuButton.Pressed -= OnReturnToMainMenuPressed;
 		if (_saveGameButton is not null)
 			_saveGameButton.Pressed -= OnSaveGamePressed;
+		if (_openSettingsButton is not null)
+			_openSettingsButton.Pressed -= OnOpenSettingsPressed;
 		if (_toggleDebugPanelButton is not null)
 			_toggleDebugPanelButton.Pressed -= OnToggleDebugPanelPressed;
+		if (_ambientSoundsToggle is not null)
+			_ambientSoundsToggle.Toggled -= OnAmbientSoundsToggled;
+		if (_rainfallVolumeSlider is not null)
+			_rainfallVolumeSlider.ValueChanged -= OnRainfallVolumeChanged;
+		if (_ambientRainPlayer is not null)
+			_ambientRainPlayer.Finished -= OnAmbientRainFinished;
 	}
 
 	public override void _Input(InputEvent @event)
 	{
-		if (!_settingsPanel.Visible)
+		if (!_settingsPanel.Visible && !_settingsDetailsPanel.Visible)
 			return;
 
 		if (@event is not InputEventMouseButton mouseButton)
@@ -182,30 +161,73 @@ public partial class Hud : Control
 		if (mouseButton.ButtonIndex != MouseButton.Left || !mouseButton.Pressed)
 			return;
 
-		if (_settingsPanel.GetGlobalRect().HasPoint(mouseButton.GlobalPosition))
+		if (IsPointInsideVisibleControl(_settingsPanel, mouseButton.GlobalPosition)
+			|| IsPointInsideVisibleControl(_settingsDetailsPanel, mouseButton.GlobalPosition))
 			return;
 
 		AcceptEvent();
 		SetSettingsPanelVisible(false);
+		SetSettingsDetailsVisible(false);
+	}
+
+	public void RefreshSceneBindings()
+	{
+		DisconnectSceneBindings();
+
+		var currentScene = GetTree().CurrentScene;
+		if (currentScene is not null)
+		{
+			_dayController = GetSceneNodeOrNull<DayController>(currentScene, DayControllerPath);
+			_brewPanel = GetSceneNodeOrNull<Control>(currentScene, BrewPanelPath);
+			_shopFloor = GetSceneNodeOrNull<ShopFloor>(currentScene, ShopFloorPath);
+		}
+
+		if (_dayController is not null)
+			_dayController.ShopStateChanged += RefreshShopState;
+
+		Refresh();
+	}
+
+	public void HideSettingsPanel()
+	{
+		if (_settingsPanel is null)
+			return;
+
+		SetSettingsPanelVisible(false);
+		SetSettingsDetailsVisible(false);
+	}
+
+	public void SetAmbientPlaybackAllowed(bool allowed)
+	{
+		_ambientPlaybackAllowed = allowed;
+		RefreshAmbientRainPlayback();
+	}
+
+	private void DisconnectSceneBindings()
+	{
+		if (_dayController is not null)
+			_dayController.ShopStateChanged -= RefreshShopState;
+
+		_dayController = null;
+		_brewPanel = null;
+		_shopFloor = null;
+	}
+
+	private static TNode? GetSceneNodeOrNull<TNode>(Node currentScene, NodePath path) where TNode : Node
+	{
+		return currentScene.GetNodeOrNull<TNode>(path);
 	}
 
 	private void Refresh()
 	{
-		if (_gameState is null)
-			return;
+		if (_gameState is not null)
+		{
+			_gold.Text = $"Gold: {_gameState.Gold}";
+			_dread.Text = $"Dread: {_gameState.Dread}";
+			_day.Text = $"Day: {_gameState.Day}";
+		}
 
-		_gold.Text = $"Gold: {_gameState.Gold}";
-		_dread.Text = $"Dread: {_gameState.Dread}";
-		_day.Text = $"Day: {_gameState.Day}";
 		RefreshShopState();
-	}
-
-	private void OnEndDayPressed()
-	{
-		if (_dayController is null)
-			return;
-
-		_dayController.EndDayAndRunNight();
 	}
 
 	private void OnStartDayPressed()
@@ -218,45 +240,23 @@ public partial class Hud : Control
 
 	private void OnBrewPotionPressed()
 	{
+		if (_shopFloor is not null)
+		{
+			_shopFloor.OpenPotionBrewingStation();
+			return;
+		}
+
 		if (_brewPanel is null)
 			return;
 
 		_brewPanel.Visible = !_brewPanel.Visible;
 	}
 
-	private void OnTreatmentTrayPressed()
-	{
-		if (_treatmentTrayPanel is null)
-			return;
-
-		if (_treatmentTrayPanel is TreatmentTray treatmentTray)
-		{
-			treatmentTray.Toggle();
-			return;
-		}
-
-		_treatmentTrayPanel.Visible = !_treatmentTrayPanel.Visible;
-	}
-
-	private void OnRecipeBookPressed()
-	{
-		if (_recipeBookPanel is null)
-			return;
-
-		if (_recipeBookPanel is PotionBookPanel potionBookPanel)
-		{
-			potionBookPanel.Toggle();
-			return;
-		}
-
-		_recipeBookPanel.Visible = !_recipeBookPanel.Visible;
-	}
-
 	private void OnGardenPressed()
 	{
-		if (_dayController is null)
+		if (_dayController is not null && _dayController.IsShopOpen)
 			return;
-		if (_dayController.IsShopOpen)
+		if (GetTree().CurrentScene is Garden)
 			return;
 
 		TryAutoSave("entering the garden");
@@ -269,7 +269,16 @@ public partial class Hud : Control
 
 	private void OnSettingsPressed()
 	{
-		SetSettingsPanelVisible(!_settingsPanel.Visible);
+		var shouldOpen = !_settingsPanel.Visible;
+		SetSettingsPanelVisible(shouldOpen);
+		if (shouldOpen)
+			SetSettingsDetailsVisible(false);
+	}
+
+	private void OnOpenSettingsPressed()
+	{
+		SetSettingsPanelVisible(false);
+		SetSettingsDetailsVisible(true);
 	}
 
 	private void OnReturnToMainMenuPressed()
@@ -325,10 +334,30 @@ public partial class Hud : Control
 		_toggleDebugPanelButton.Text = ImGuiGD.Visible ? "Debug Panel: On" : "Debug Panel: Off";
 	}
 
+	private void OnAmbientSoundsToggled(bool enabled)
+	{
+		_ambientSoundsEnabled = enabled;
+		SaveAmbientSettings();
+		RefreshAmbientRainPlayback();
+	}
+
+	private void OnRainfallVolumeChanged(double value)
+	{
+		_rainfallVolume = ClampNormalizedVolume(value);
+		SaveAmbientSettings();
+		RefreshAmbientRainPlayback();
+	}
+
+	private void OnAmbientRainFinished()
+	{
+		if (ShouldPlayAmbientRain())
+			_ambientRainPlayer.Play();
+	}
+
 	private void FinishSaveGame(bool saveSucceeded)
 	{
 		_isSavingGame = false;
-		_saveGameButton.Disabled = false;
+		_saveGameButton.Disabled = _saveGameManager is null;
 
 		if (!_settingsPanel.Visible)
 		{
@@ -345,7 +374,7 @@ public partial class Hud : Control
 	{
 		_saveGameButton.Text = SaveGameButtonDefaultText;
 		if (!_isSavingGame)
-			_saveGameButton.Disabled = false;
+			_saveGameButton.Disabled = _saveGameManager is null;
 	}
 
 	private void SetSettingsPanelVisible(bool visible)
@@ -359,22 +388,133 @@ public partial class Hud : Control
 			ResetSaveGameButtonText();
 	}
 
-	private void RefreshShopState()
+	private void SetSettingsDetailsVisible(bool visible)
 	{
-		if (_dayController is null)
+		_settingsDetailsPanel.Visible = visible;
+
+		if (visible)
+			_settingsDetailsPanel.MoveToFront();
+	}
+
+	private void LoadAmbientSettings()
+	{
+		var config = new ConfigFile();
+		Error error = config.Load(AmbientSettingsPath);
+		if (error == Error.FileNotFound)
+			return;
+		if (error != Error.Ok)
+		{
+			GD.PushError($"Hud: Failed to load ambient audio settings. Error: {error}");
+			return;
+		}
+
+		_ambientSoundsEnabled = config
+			.GetValue(AmbientSettingsSection, AmbientSoundsEnabledKey, DefaultAmbientSoundsEnabled)
+			.AsBool();
+		_rainfallVolume = ClampNormalizedVolume(config
+			.GetValue(AmbientSettingsSection, RainfallVolumeKey, DefaultRainfallVolume)
+			.AsDouble());
+	}
+
+	private void SaveAmbientSettings()
+	{
+		var config = new ConfigFile();
+		config.SetValue(AmbientSettingsSection, AmbientSoundsEnabledKey, _ambientSoundsEnabled);
+		config.SetValue(AmbientSettingsSection, RainfallVolumeKey, _rainfallVolume);
+
+		Error error = config.Save(AmbientSettingsPath);
+		if (error != Error.Ok)
+			GD.PushError($"Hud: Failed to save ambient audio settings. Error: {error}");
+	}
+
+	private void ConfigureAmbientRainPlayer()
+	{
+		var stream = ResourceLoader.Load<AudioStream>(RainfallAudioPath);
+		if (stream is null)
+		{
+			GD.PushError($"Hud: Rainfall audio stream could not be loaded from '{RainfallAudioPath}'.");
+			return;
+		}
+
+		_ambientRainPlayer.Stream = stream;
+		_ambientRainPlayer.VolumeDb = GetRainfallVolumeDb();
+	}
+
+	private void ApplyAmbientSettingsToControls()
+	{
+		_ambientSoundsToggle.ButtonPressed = _ambientSoundsEnabled;
+		_rainfallVolumeSlider.Value = _rainfallVolume;
+	}
+
+	private void RefreshAmbientRainPlayback()
+	{
+		if (_ambientRainPlayer is null)
 			return;
 
-		var isShopOpen = _dayController.IsShopOpen;
-		var secondsRemaining = _dayController.SecondsRemaining;
+		_ambientRainPlayer.VolumeDb = GetRainfallVolumeDb();
+		if (ShouldPlayAmbientRain())
+		{
+			if (!_ambientRainPlayer.Playing)
+				_ambientRainPlayer.Play();
+			return;
+		}
+
+		if (_ambientRainPlayer.Playing)
+			_ambientRainPlayer.Stop();
+	}
+
+	private bool ShouldPlayAmbientRain()
+	{
+		return _ambientPlaybackAllowed
+			&& _ambientSoundsEnabled
+			&& _ambientRainPlayer is not null
+			&& _ambientRainPlayer.Stream is not null;
+	}
+
+	private float GetRainfallVolumeDb()
+	{
+		return _rainfallVolume <= 0.0001
+			? -80.0f
+			: Mathf.LinearToDb((float)_rainfallVolume);
+	}
+
+	private static double ClampNormalizedVolume(double value)
+	{
+		if (value < 0.0)
+			return 0.0;
+		if (value > 1.0)
+			return 1.0;
+
+		return value;
+	}
+
+	private static bool IsPointInsideVisibleControl(Control control, Vector2 point)
+	{
+		return control.Visible && control.GetGlobalRect().HasPoint(point);
+	}
+
+	private void RefreshShopState()
+	{
+		var isShopOpen = _dayController is not null && _dayController.IsShopOpen;
+		var secondsRemaining = _dayController?.SecondsRemaining ?? 0;
 
 		if (_shopTimer is not null)
-			_shopTimer.Text = isShopOpen
-				? $"Shop Timer: {secondsRemaining}s"
-				: "Shop Timer: Closed";
+			_shopTimer.Text = _dayController is null
+				? "Shop Timer: Away"
+				: isShopOpen
+					? $"Shop Timer: {secondsRemaining}s"
+					: "Shop Timer: Closed";
 
 		_serveCustomerButton.Text = isShopOpen ? "Shop Open" : "Start Day";
-		_serveCustomerButton.Disabled = isShopOpen;
-		_endDayButton.Disabled = isShopOpen;
+		_serveCustomerButton.Disabled = _dayController is null || isShopOpen;
+		_brewPotionButton.Disabled = !CanOpenBrew();
 		_gardenButton.Disabled = isShopOpen;
+		if (GetTree().CurrentScene is Garden)
+			_gardenButton.Disabled = true;
+	}
+
+	private bool CanOpenBrew()
+	{
+		return _shopFloor is not null || _brewPanel is not null;
 	}
 }

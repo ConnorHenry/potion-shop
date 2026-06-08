@@ -1,0 +1,427 @@
+[gd_scene load_steps=3 format=3 uid="uid://dvn3xmx0rq7fp"]
+
+[ext_resource type="Script" uid="uid://bgw0skeg18f4k" path="res://Scripts/UI/IngredientBookPanel.cs" id="1_ingredient_book_script"]
+[ext_resource type="Theme" uid="uid://bimj2f6p05ivj" path="res://Assets/UI/PotionBookTheme.tres" id="2_potion_book_theme"]
+
+[node name="IngredientBookPanel" type="Control"]
+layout_mode = 3
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -610.0
+offset_top = -350.0
+offset_right = 610.0
+offset_bottom = 350.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_potion_book_theme")
+script = ExtResource("1_ingredient_book_script")
+LeftPageHotspotPath = NodePath("BookRow/BookPanel/LeftPageHotspot")
+RightPageHotspotPath = NodePath("BookRow/BookPanel/RightPageHotspot")
+PageIndicatorLabelPath = NodePath("BookRow/BookPanel/Margin/VBox/Header/PageIndicator")
+CloseButtonPath = NodePath("BookRow/BookPanel/Margin/VBox/Header/Close")
+LeftPageTitleLabelPath = NodePath("BookRow/BookPanel/Margin/VBox/Pages/LeftPage/PageTitle")
+LeftPageNumberLabelPath = NodePath("BookRow/BookPanel/Margin/VBox/Pages/LeftPage/PageNumber")
+LeftContentsPath = NodePath("BookRow/BookPanel/Margin/VBox/Pages/LeftPage/Contents")
+LeftIngredientContentPath = NodePath("BookRow/BookPanel/Margin/VBox/Pages/LeftPage/IngredientContent")
+LeftIconPath = NodePath("BookRow/BookPanel/Margin/VBox/Pages/LeftPage/IngredientContent/IconFrame/Icon")
+LeftUnknownIconPath = NodePath("BookRow/BookPanel/Margin/VBox/Pages/LeftPage/IngredientContent/IconFrame/UnknownIcon")
+LeftTraitsLabelPath = NodePath("BookRow/BookPanel/Margin/VBox/Pages/LeftPage/IngredientContent/Stats/TraitsColumn/Traits")
+LeftRisksLabelPath = NodePath("BookRow/BookPanel/Margin/VBox/Pages/LeftPage/IngredientContent/Stats/RisksColumn/Risks")
+LeftDescriptionLabelPath = NodePath("BookRow/BookPanel/Margin/VBox/Pages/LeftPage/IngredientContent/Description")
+RightPageTitleLabelPath = NodePath("BookRow/BookPanel/Margin/VBox/Pages/RightPage/PageTitle")
+RightPageNumberLabelPath = NodePath("BookRow/BookPanel/Margin/VBox/Pages/RightPage/PageNumber")
+RightContentsPath = NodePath("BookRow/BookPanel/Margin/VBox/Pages/RightPage/Contents")
+RightIngredientContentPath = NodePath("BookRow/BookPanel/Margin/VBox/Pages/RightPage/IngredientContent")
+RightIconPath = NodePath("BookRow/BookPanel/Margin/VBox/Pages/RightPage/IngredientContent/IconFrame/Icon")
+RightUnknownIconPath = NodePath("BookRow/BookPanel/Margin/VBox/Pages/RightPage/IngredientContent/IconFrame/UnknownIcon")
+RightTraitsLabelPath = NodePath("BookRow/BookPanel/Margin/VBox/Pages/RightPage/IngredientContent/Stats/TraitsColumn/Traits")
+RightRisksLabelPath = NodePath("BookRow/BookPanel/Margin/VBox/Pages/RightPage/IngredientContent/Stats/RisksColumn/Risks")
+RightDescriptionLabelPath = NodePath("BookRow/BookPanel/Margin/VBox/Pages/RightPage/IngredientContent/Description")
+
+[node name="BookRow" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 18
+alignment = 1
+
+[node name="BookPanel" type="Control" parent="BookRow"]
+custom_minimum_size = Vector2(1040, 700)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 3
+mouse_filter = 1
+
+[node name="Margin" type="MarginContainer" parent="BookRow/BookPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 58
+theme_override_constants/margin_top = 54
+theme_override_constants/margin_right = 58
+theme_override_constants/margin_bottom = 58
+
+[node name="VBox" type="VBoxContainer" parent="BookRow/BookPanel/Margin"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 12
+
+[node name="Header" type="HBoxContainer" parent="BookRow/BookPanel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 10
+
+[node name="PageIndicator" type="Label" parent="BookRow/BookPanel/Margin/VBox/Header"]
+visible = false
+layout_mode = 2
+theme_override_colors/font_color = Color(0.19, 0.105, 0.045, 0.72)
+theme_override_font_sizes/font_size = 17
+text = "Pages 1-2/10"
+vertical_alignment = 1
+
+[node name="Spacer" type="Control" parent="BookRow/BookPanel/Margin/VBox/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Close" type="Button" parent="BookRow/BookPanel/Margin/VBox/Header"]
+visible = false
+custom_minimum_size = Vector2(76, 34)
+layout_mode = 2
+tooltip_text = "Close ingredient book"
+text = "Close"
+
+[node name="Pages" type="HBoxContainer" parent="BookRow/BookPanel/Margin/VBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 28
+
+[node name="LeftPage" type="VBoxContainer" parent="BookRow/BookPanel/Margin/VBox/Pages"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 10
+
+[node name="PageTitle" type="Label" parent="BookRow/BookPanel/Margin/VBox/Pages/LeftPage"]
+custom_minimum_size = Vector2(0, 70)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.08, 0.035, 0.012, 1)
+theme_override_font_sizes/font_size = 31
+text = "Ingredient"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="Contents" type="VBoxContainer" parent="BookRow/BookPanel/Margin/VBox/Pages/LeftPage"]
+visible = false
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 6
+
+[node name="IngredientContent" type="VBoxContainer" parent="BookRow/BookPanel/Margin/VBox/Pages/LeftPage"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 12
+
+[node name="IconFrame" type="PanelContainer" parent="BookRow/BookPanel/Margin/VBox/Pages/LeftPage/IngredientContent"]
+custom_minimum_size = Vector2(128, 128)
+layout_mode = 2
+size_flags_horizontal = 4
+mouse_filter = 2
+
+[node name="Icon" type="TextureRect" parent="BookRow/BookPanel/Margin/VBox/Pages/LeftPage/IngredientContent/IconFrame"]
+layout_mode = 2
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="UnknownIcon" type="Label" parent="BookRow/BookPanel/Margin/VBox/Pages/LeftPage/IngredientContent/IconFrame"]
+visible = false
+layout_mode = 2
+theme_override_colors/font_color = Color(0.11, 0.06, 0.025, 0.45)
+theme_override_font_sizes/font_size = 58
+text = "?"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Stats" type="HBoxContainer" parent="BookRow/BookPanel/Margin/VBox/Pages/LeftPage/IngredientContent"]
+custom_minimum_size = Vector2(0, 150)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 14
+
+[node name="TraitsColumn" type="VBoxContainer" parent="BookRow/BookPanel/Margin/VBox/Pages/LeftPage/IngredientContent/Stats"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="Header" type="Label" parent="BookRow/BookPanel/Margin/VBox/Pages/LeftPage/IngredientContent/Stats/TraitsColumn"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.105, 0.05, 0.018, 0.98)
+theme_override_font_sizes/font_size = 20
+text = "Traits"
+horizontal_alignment = 1
+
+[node name="Rule" type="ColorRect" parent="BookRow/BookPanel/Margin/VBox/Pages/LeftPage/IngredientContent/Stats/TraitsColumn"]
+custom_minimum_size = Vector2(0, 2)
+layout_mode = 2
+mouse_filter = 2
+color = Color(0.17, 0.08, 0.025, 0.38)
+
+[node name="Traits" type="Label" parent="BookRow/BookPanel/Margin/VBox/Pages/LeftPage/IngredientContent/Stats/TraitsColumn"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.08, 0.035, 0.012, 0.98)
+theme_override_font_sizes/font_size = 18
+text = "None"
+autowrap_mode = 3
+
+[node name="Divider" type="VSeparator" parent="BookRow/BookPanel/Margin/VBox/Pages/LeftPage/IngredientContent/Stats"]
+custom_minimum_size = Vector2(10, 0)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RisksColumn" type="VBoxContainer" parent="BookRow/BookPanel/Margin/VBox/Pages/LeftPage/IngredientContent/Stats"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="Header" type="Label" parent="BookRow/BookPanel/Margin/VBox/Pages/LeftPage/IngredientContent/Stats/RisksColumn"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.105, 0.05, 0.018, 0.98)
+theme_override_font_sizes/font_size = 20
+text = "Risks"
+horizontal_alignment = 1
+
+[node name="Rule" type="ColorRect" parent="BookRow/BookPanel/Margin/VBox/Pages/LeftPage/IngredientContent/Stats/RisksColumn"]
+custom_minimum_size = Vector2(0, 2)
+layout_mode = 2
+mouse_filter = 2
+color = Color(0.17, 0.08, 0.025, 0.38)
+
+[node name="Risks" type="Label" parent="BookRow/BookPanel/Margin/VBox/Pages/LeftPage/IngredientContent/Stats/RisksColumn"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.08, 0.035, 0.012, 0.98)
+theme_override_font_sizes/font_size = 18
+text = "None"
+autowrap_mode = 3
+
+[node name="DescriptionHeader" type="Label" parent="BookRow/BookPanel/Margin/VBox/Pages/LeftPage/IngredientContent"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.105, 0.05, 0.018, 0.98)
+theme_override_font_sizes/font_size = 20
+text = "Description"
+horizontal_alignment = 1
+
+[node name="DescriptionRule" type="ColorRect" parent="BookRow/BookPanel/Margin/VBox/Pages/LeftPage/IngredientContent"]
+custom_minimum_size = Vector2(0, 2)
+layout_mode = 2
+mouse_filter = 2
+color = Color(0.17, 0.08, 0.025, 0.38)
+
+[node name="Description" type="Label" parent="BookRow/BookPanel/Margin/VBox/Pages/LeftPage/IngredientContent"]
+custom_minimum_size = Vector2(0, 150)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_colors/font_color = Color(0.08, 0.035, 0.012, 0.98)
+theme_override_font_sizes/font_size = 18
+text = "Description"
+autowrap_mode = 3
+
+[node name="PageNumber" type="Label" parent="BookRow/BookPanel/Margin/VBox/Pages/LeftPage"]
+custom_minimum_size = Vector2(0, 24)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.18, 0.09, 0.035, 0.58)
+theme_override_font_sizes/font_size = 15
+text = "1 / 1"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="CenterFold" type="ColorRect" parent="BookRow/BookPanel/Margin/VBox/Pages"]
+custom_minimum_size = Vector2(3, 0)
+layout_mode = 2
+mouse_filter = 2
+color = Color(0.17, 0.08, 0.025, 0.22)
+
+[node name="RightPage" type="VBoxContainer" parent="BookRow/BookPanel/Margin/VBox/Pages"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 10
+
+[node name="PageTitle" type="Label" parent="BookRow/BookPanel/Margin/VBox/Pages/RightPage"]
+custom_minimum_size = Vector2(0, 70)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.08, 0.035, 0.012, 1)
+theme_override_font_sizes/font_size = 31
+text = "Ingredient"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="Contents" type="VBoxContainer" parent="BookRow/BookPanel/Margin/VBox/Pages/RightPage"]
+visible = false
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 6
+
+[node name="IngredientContent" type="VBoxContainer" parent="BookRow/BookPanel/Margin/VBox/Pages/RightPage"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 12
+
+[node name="IconFrame" type="PanelContainer" parent="BookRow/BookPanel/Margin/VBox/Pages/RightPage/IngredientContent"]
+custom_minimum_size = Vector2(128, 128)
+layout_mode = 2
+size_flags_horizontal = 4
+mouse_filter = 2
+
+[node name="Icon" type="TextureRect" parent="BookRow/BookPanel/Margin/VBox/Pages/RightPage/IngredientContent/IconFrame"]
+layout_mode = 2
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="UnknownIcon" type="Label" parent="BookRow/BookPanel/Margin/VBox/Pages/RightPage/IngredientContent/IconFrame"]
+visible = false
+layout_mode = 2
+theme_override_colors/font_color = Color(0.11, 0.06, 0.025, 0.45)
+theme_override_font_sizes/font_size = 58
+text = "?"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Stats" type="HBoxContainer" parent="BookRow/BookPanel/Margin/VBox/Pages/RightPage/IngredientContent"]
+custom_minimum_size = Vector2(0, 150)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 14
+
+[node name="TraitsColumn" type="VBoxContainer" parent="BookRow/BookPanel/Margin/VBox/Pages/RightPage/IngredientContent/Stats"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="Header" type="Label" parent="BookRow/BookPanel/Margin/VBox/Pages/RightPage/IngredientContent/Stats/TraitsColumn"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.105, 0.05, 0.018, 0.98)
+theme_override_font_sizes/font_size = 20
+text = "Traits"
+horizontal_alignment = 1
+
+[node name="Rule" type="ColorRect" parent="BookRow/BookPanel/Margin/VBox/Pages/RightPage/IngredientContent/Stats/TraitsColumn"]
+custom_minimum_size = Vector2(0, 2)
+layout_mode = 2
+mouse_filter = 2
+color = Color(0.17, 0.08, 0.025, 0.38)
+
+[node name="Traits" type="Label" parent="BookRow/BookPanel/Margin/VBox/Pages/RightPage/IngredientContent/Stats/TraitsColumn"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.08, 0.035, 0.012, 0.98)
+theme_override_font_sizes/font_size = 18
+text = "None"
+autowrap_mode = 3
+
+[node name="Divider" type="VSeparator" parent="BookRow/BookPanel/Margin/VBox/Pages/RightPage/IngredientContent/Stats"]
+custom_minimum_size = Vector2(10, 0)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="RisksColumn" type="VBoxContainer" parent="BookRow/BookPanel/Margin/VBox/Pages/RightPage/IngredientContent/Stats"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="Header" type="Label" parent="BookRow/BookPanel/Margin/VBox/Pages/RightPage/IngredientContent/Stats/RisksColumn"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.105, 0.05, 0.018, 0.98)
+theme_override_font_sizes/font_size = 20
+text = "Risks"
+horizontal_alignment = 1
+
+[node name="Rule" type="ColorRect" parent="BookRow/BookPanel/Margin/VBox/Pages/RightPage/IngredientContent/Stats/RisksColumn"]
+custom_minimum_size = Vector2(0, 2)
+layout_mode = 2
+mouse_filter = 2
+color = Color(0.17, 0.08, 0.025, 0.38)
+
+[node name="Risks" type="Label" parent="BookRow/BookPanel/Margin/VBox/Pages/RightPage/IngredientContent/Stats/RisksColumn"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.08, 0.035, 0.012, 0.98)
+theme_override_font_sizes/font_size = 18
+text = "None"
+autowrap_mode = 3
+
+[node name="DescriptionHeader" type="Label" parent="BookRow/BookPanel/Margin/VBox/Pages/RightPage/IngredientContent"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.105, 0.05, 0.018, 0.98)
+theme_override_font_sizes/font_size = 20
+text = "Description"
+horizontal_alignment = 1
+
+[node name="DescriptionRule" type="ColorRect" parent="BookRow/BookPanel/Margin/VBox/Pages/RightPage/IngredientContent"]
+custom_minimum_size = Vector2(0, 2)
+layout_mode = 2
+mouse_filter = 2
+color = Color(0.17, 0.08, 0.025, 0.38)
+
+[node name="Description" type="Label" parent="BookRow/BookPanel/Margin/VBox/Pages/RightPage/IngredientContent"]
+custom_minimum_size = Vector2(0, 150)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_colors/font_color = Color(0.08, 0.035, 0.012, 0.98)
+theme_override_font_sizes/font_size = 18
+text = "Description"
+autowrap_mode = 3
+
+[node name="PageNumber" type="Label" parent="BookRow/BookPanel/Margin/VBox/Pages/RightPage"]
+custom_minimum_size = Vector2(0, 24)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.18, 0.09, 0.035, 0.58)
+theme_override_font_sizes/font_size = 15
+text = "2 / 2"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="LeftPageHotspot" type="Button" parent="BookRow/BookPanel"]
+modulate = Color(1, 1, 1, 0)
+layout_mode = 1
+anchors_preset = -1
+anchor_right = 0.16
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_default_cursor_shape = 2
+flat = true
+
+[node name="RightPageHotspot" type="Button" parent="BookRow/BookPanel"]
+modulate = Color(1, 1, 1, 0)
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.84
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 0
+grow_vertical = 2
+mouse_default_cursor_shape = 2
+flat = true

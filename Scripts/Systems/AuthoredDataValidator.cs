@@ -101,7 +101,11 @@ public static class AuthoredDataValidator
 			foreach (var ingredientId in normalizedIngredientIds)
 				ValidateIngredientReference(items, ingredientId, context);
 
-			var combinationKey = PotionRecipeLookup.BuildCombinationKey(normalizedIngredientIds);
+			var recipePortions = BuildRecipePortionsForValidation(recipe, normalizedIngredientIds);
+			if (recipePortions.Count == 0)
+				continue;
+
+			var combinationKey = PotionRecipeLookup.BuildCombinationKey(recipePortions);
 			if (recipeIdsByCombination.TryGetValue(combinationKey, out var existingRecipeId))
 			{
 				PushDataWarning($"{context} duplicates ingredient combination '{combinationKey}' already used by recipe '{existingRecipeId}'.");
@@ -143,9 +147,12 @@ public static class AuthoredDataValidator
 		{
 			var context = $"Customer interaction '{interaction.Id}'";
 			ValidateRequirements(items, interaction.Requires, $"{context} requirements");
+			ValidateIngredientAmounts(items, interaction.RequiredIngredientAmounts, $"{context} required ingredient amounts");
 			ValidateEffects(items, rules, interaction.OnSuccessEffects, $"{context} success effects");
 			ValidateEffects(items, rules, interaction.OnFailureEffects, $"{context} failure effects");
 			ValidateEffects(items, rules, interaction.OnSkipEffects, $"{context} skip effects");
+			ValidateEffects(items, rules, interaction.OnPotionRefusedEffects, $"{context} potion refused effects");
+			ValidatePotionResponses(items, rules, interaction);
 			ValidateDialogueTree(items, rules, interaction);
 		}
 	}
@@ -176,11 +183,22 @@ public static class AuthoredDataValidator
 			PushDataWarning($"Customer interaction '{interaction.Id}' starts at missing dialogue node '{interaction.DialogueStartNodeId}'.");
 		}
 
+		var optionIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 		foreach (var node in interaction.DialogueNodes)
 		{
+			if (node.Options.Count > CustomerInteractionDef.MaxDialogueOptionsPerNode)
+			{
+				PushDataWarning(
+					$"Customer interaction '{interaction.Id}' dialogue node '{node.Id}' defines {node.Options.Count} options; only {CustomerInteractionDef.MaxDialogueOptionsPerNode} are shown.");
+			}
+
 			foreach (var option in node.Options)
 			{
 				var optionContext = $"Customer interaction '{interaction.Id}' dialogue node '{node.Id}' option '{option.Id}'";
+				if (!string.IsNullOrWhiteSpace(option.Id) && !optionIds.Add(option.Id))
+					PushDataWarning($"{optionContext} duplicates a dialogue option id used elsewhere in this interaction.");
+
+				ValidateRequirements(items, option.Requires, $"{optionContext} requirements");
 				ValidateEffects(items, rules, option.Effects, $"{optionContext} effects");
 
 				if (!option.EndsInteraction &&
@@ -189,7 +207,52 @@ public static class AuthoredDataValidator
 				{
 					PushDataWarning($"{optionContext} points to missing dialogue node '{option.NextNodeId}'.");
 				}
+
+				if (!string.IsNullOrWhiteSpace(option.ReturnNodeId) && !nodeIds.Contains(option.ReturnNodeId))
+					PushDataWarning($"{optionContext} returns to missing dialogue node '{option.ReturnNodeId}'.");
+
+				if (option.RevealsRequest && option.EndsInteraction)
+					PushDataWarning($"{optionContext} both reveals the potion request and ends the interaction.");
+
+				if (option.ReturnsToDialogue && option.EndsInteraction)
+					PushDataWarning($"{optionContext} both returns to dialogue and ends the interaction.");
+
+				if (!option.RevealsRequest &&
+					!option.ReturnsToDialogue &&
+					!option.EndsInteraction &&
+					string.IsNullOrWhiteSpace(option.NextNodeId) &&
+					string.IsNullOrWhiteSpace(option.ResponseText))
+				{
+					PushDataWarning($"{optionContext} has no response, target node, request reveal, or terminal action.");
+				}
 			}
+		}
+	}
+
+	private static void ValidatePotionResponses(
+		IReadOnlyDictionary<string, ItemDef> items,
+		IReadOnlyDictionary<string, RuleDef> rules,
+		CustomerInteractionDef interaction)
+	{
+		foreach (var response in interaction.PotionResponses)
+		{
+			var responseContext = string.IsNullOrWhiteSpace(response.Id)
+				? $"Customer interaction '{interaction.Id}' potion response"
+				: $"Customer interaction '{interaction.Id}' potion response '{response.Id}'";
+
+			if (!string.IsNullOrWhiteSpace(response.PotionItemId))
+				ValidateKnownItemReference(items, response.PotionItemId, $"{responseContext} potion item");
+
+			if (response.MinFinalScore is int minScore && response.MaxFinalScore is int maxScore && minScore > maxScore)
+				PushDataWarning($"{responseContext} has minFinalScore greater than maxFinalScore.");
+
+			if (response.MinMatchedDesiredTraits is int minMatchedDesiredTraits && minMatchedDesiredTraits < 0)
+				PushDataWarning($"{responseContext} has a negative minMatchedDesiredTraits.");
+
+			if (response.MaxMatchedBadTraits is int maxMatchedBadTraits && maxMatchedBadTraits < 0)
+				PushDataWarning($"{responseContext} has a negative maxMatchedBadTraits.");
+
+			ValidateEffects(items, rules, response.Effects, $"{responseContext} effects");
 		}
 	}
 
@@ -238,6 +301,84 @@ public static class AuthoredDataValidator
 
 		if (!HasTag(item, ItemTags.Ingredient))
 			PushDataWarning($"{context} references item '{ingredientId}', but it is not tagged as an ingredient.");
+	}
+
+	private static List<IngredientPortionDef> BuildRecipePortionsForValidation(
+		PotionRecipeDef recipe,
+		IReadOnlyList<string> normalizedIngredientIds)
+	{
+		var context = $"Potion recipe '{recipe.Id}'";
+		if (recipe.IngredientAmounts is null || recipe.IngredientAmounts.Count == 0)
+		{
+			return normalizedIngredientIds
+				.Select(id => new IngredientPortionDef
+				{
+					IngredientId = id,
+					Grams = 0
+				})
+				.ToList();
+		}
+
+		if (recipe.IngredientAmounts.Count != PotionRecipeIngredientCount)
+		{
+			PushDataWarning($"{context} should define exactly {PotionRecipeIngredientCount} ingredient amounts when exact grams are used.");
+			return new List<IngredientPortionDef>();
+		}
+
+		var portions = new List<IngredientPortionDef>();
+		foreach (var portion in recipe.IngredientAmounts)
+		{
+			if (portion is null || string.IsNullOrWhiteSpace(portion.IngredientId))
+			{
+				PushDataWarning($"{context} includes an empty ingredient amount id.");
+				return new List<IngredientPortionDef>();
+			}
+
+			if (portion.Grams <= 0)
+			{
+				PushDataWarning($"{context} ingredient amount '{portion.IngredientId}' must be greater than 0g.");
+				return new List<IngredientPortionDef>();
+			}
+
+			if (!normalizedIngredientIds.Any(id => string.Equals(id, portion.IngredientId, StringComparison.OrdinalIgnoreCase)))
+			{
+				PushDataWarning($"{context} ingredient amount '{portion.IngredientId}' is not listed in ingredientIds.");
+				return new List<IngredientPortionDef>();
+			}
+
+			portions.Add(new IngredientPortionDef
+			{
+				IngredientId = portion.IngredientId,
+				Grams = portion.Grams
+			});
+		}
+
+		if (ContainsDuplicateText(portions.Select(x => x.IngredientId)))
+		{
+			PushDataWarning($"{context} includes duplicate ingredient amount ids.");
+			return new List<IngredientPortionDef>();
+		}
+
+		return portions;
+	}
+
+	private static void ValidateIngredientAmounts(
+		IReadOnlyDictionary<string, ItemDef> items,
+		IReadOnlyList<IngredientPortionDef>? ingredientAmounts,
+		string context)
+	{
+		if (ingredientAmounts is null || ingredientAmounts.Count == 0)
+			return;
+
+		foreach (var ingredientAmount in ingredientAmounts)
+		{
+			if (ingredientAmount is null)
+				continue;
+
+			ValidateIngredientReference(items, ingredientAmount.IngredientId, context);
+			if (ingredientAmount.Grams <= 0)
+				PushDataWarning($"{context} for '{ingredientAmount.IngredientId}' must be greater than 0g.");
+		}
 	}
 
 	private static void ValidateKnownItemReference(IReadOnlyDictionary<string, ItemDef> items, string itemId, string context)

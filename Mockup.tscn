@@ -1,0 +1,57 @@
+[gd_scene load_steps=9 format=3 uid="uid://cdatla8xkdy06"]
+
+[ext_resource type="Texture2D" uid="uid://cbxrar5udr721" path="res://art/Background - Evening.png" id="1_1pus8"]
+[ext_resource type="Texture2D" uid="uid://blrnbsxdow4uf" path="res://art/Inventory-Shelf.png" id="2_pceak"]
+[ext_resource type="Texture2D" uid="uid://b4yl005rxxasi" path="res://art/Middleclass-Woman.png" id="3_35oa3"]
+[ext_resource type="Texture2D" uid="uid://dgcd8wifymat4" path="res://art/Counter.png" id="4_nwaye"]
+[ext_resource type="Texture2D" uid="uid://8jjhq3fa08lc" path="res://art/Potion-Book.png" id="5_mejed"]
+[ext_resource type="Texture2D" uid="uid://dlfgk6ebk5i0d" path="res://art/Treatment.png" id="6_7rdjm"]
+[ext_resource type="Texture2D" uid="uid://dn78p6bkqhtfv" path="res://art/Counter_Closeup_1920x1080.png" id="7_35oa3"]
+[ext_resource type="Texture2D" uid="uid://din8yn3lbdgck" path="res://art/Blank-Potion-Book.png" id="7_pceak"]
+
+[node name="Node2D" type="Node2D"]
+
+[node name="Background-Evening" type="Sprite2D" parent="."]
+position = Vector2(1012, 707)
+scale = Vector2(1.56459, 1.60255)
+texture = ExtResource("1_1pus8")
+
+[node name="Inventory-shelf" type="Sprite2D" parent="."]
+visible = false
+position = Vector2(1839, 513)
+scale = Vector2(0.670056, 0.6642)
+texture = ExtResource("2_pceak")
+
+[node name="Middleclass-woman" type="Sprite2D" parent="."]
+visible = false
+position = Vector2(951, 965)
+scale = Vector2(1.2915, 1.2915)
+texture = ExtResource("3_35oa3")
+
+[node name="Counter" type="Sprite2D" parent="."]
+visible = false
+position = Vector2(2263, 748)
+scale = Vector2(8.19734, 6.4538)
+texture = ExtResource("4_nwaye")
+
+[node name="Potion-book" type="Sprite2D" parent="."]
+visible = false
+position = Vector2(1486, 900)
+scale = Vector2(0.335635, 0.355433)
+texture = ExtResource("5_mejed")
+
+[node name="Treatment" type="Sprite2D" parent="."]
+visible = false
+position = Vector2(217, 850)
+scale = Vector2(0.246212, 0.246212)
+texture = ExtResource("6_7rdjm")
+
+[node name="CounterCloseup1920x1080" type="Sprite2D" parent="."]
+position = Vector2(1033, 626)
+scale = Vector2(1.26703, 1.27593)
+texture = ExtResource("7_35oa3")
+
+[node name="Blank-potion-book" type="Sprite2D" parent="."]
+position = Vector2(958, 503)
+scale = Vector2(1.14075, 1.14075)
+texture = ExtResource("7_pceak")

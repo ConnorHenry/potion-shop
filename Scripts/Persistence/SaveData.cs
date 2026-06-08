@@ -31,11 +31,14 @@ public sealed class GameStateSnapshot
 	public List<string> StoryFlags { get; set; } = new();
 	public List<string> KnownPotions { get; set; } = new();
 	public List<string> KnownPotionOrder { get; set; } = new();
+	public List<string> KnownIngredients { get; set; } = new();
+	public List<string> KnownIngredientOrder { get; set; } = new();
 	public Dictionary<string, string> PotionDisplayNames { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 	public Dictionary<string, int> PotionBasePrices { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 	public Dictionary<string, List<string>> PotionRecipes { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 	public Dictionary<string, string> CombinationPotionItems { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 	public Dictionary<string, List<List<string>>> PotionBatches { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+	public Dictionary<string, List<List<IngredientPortionDef>>> PotionIngredientPortionBatches { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 	public bool GardenInitialized { get; set; }
 	public int GardenPotCount { get; set; }
 	public Dictionary<string, int> SeedInventory { get; set; } = new(StringComparer.OrdinalIgnoreCase);
