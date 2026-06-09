@@ -10,6 +10,7 @@ public sealed class PotionResult
 
 	public List<string> TriggeredSynergies { get; set; } = new();
 	public List<TriggeredSynergyDef> TriggeredSynergyDetails { get; set; } = new();
+	public List<TriggeredIngredientEffectDef> TriggeredIngredientEffects { get; set; } = new();
 
 	public int IngredientQualityScore { get; set; }
 	public int EffectFitScore { get; set; }
@@ -22,6 +23,15 @@ public sealed class PotionResult
 	public string Grade { get; set; } = "";
 
 	public List<string> Notes { get; set; } = new();
+}
+
+public sealed class TriggeredIngredientEffectDef
+{
+	public string IngredientId { get; set; } = "";
+	public string IngredientName { get; set; } = "";
+	public string EffectName { get; set; } = "";
+	public string Description { get; set; } = "";
+	public string ResultText { get; set; } = "";
 }
 
 public sealed class TriggeredSynergyDef

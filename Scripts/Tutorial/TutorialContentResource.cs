@@ -86,8 +86,8 @@ public partial class TutorialContentResource : Resource
 			new()
 			{
 				StepId = (int)TutorialStepId.Status,
-				Title = "Gold, Dread, and Day",
-				Body = "Gold pays for brewing. Dread tracks how dangerous the shop has become. Day shows your current run progress.",
+				Title = "Gold and Day",
+				Body = "Gold pays for brewing. Day shows your current run progress.",
 				ShowNextButton = true,
 				PanelAtTop = false
 			},
@@ -95,7 +95,7 @@ public partial class TutorialContentResource : Resource
 			{
 				StepId = (int)TutorialStepId.OpenBrewPanel,
 				Title = "Open the Brew Panel",
-				Body = "Click Brew Potion to open the cauldron controls.",
+				Body = "Click the brewing station shelf to open the cauldron controls.",
 				ShowNextButton = false,
 				PanelAtTop = false,
 				LockOtherButtons = true
@@ -140,7 +140,7 @@ public partial class TutorialContentResource : Resource
 			{
 				StepId = (int)TutorialStepId.StartDay,
 				Title = "Open the Shop",
-				Body = "Click Start Day. The tutorial will send in a customer who wants Gravekeeper's Balm.",
+				Body = "Click Start Day, then click the customer in the shop front to read their request.",
 				ShowNextButton = false,
 				PanelAtTop = false,
 				LockOtherButtons = true

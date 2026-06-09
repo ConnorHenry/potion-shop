@@ -1,5 +1,6 @@
 using Godot;
 using OccultShop.Autoload;
+using OccultShop.Infrastructure;
 
 namespace OccultShop.UI;
 
@@ -25,6 +26,7 @@ public partial class StationShelfInventory : Control
 	[Export] public NodePath ConsumablePreviousButtonPath = default!;
 	[Export] public NodePath ConsumableNextButtonPath = default!;
 	[Export] public NodePath BrewPanelPath = default!;
+	[Export] public NodePath InventoryPanelPath = new("../../InventoryPanel");
 	[Export] public NodePath GameStatePath = new(AutoloadNodePaths.GameState);
 	[Export] public NodePath ItemCatalogPath = new(AutoloadNodePaths.ItemCatalog);
 	[Export] public int IngredientVisibleSlots = IngredientDefaultVisibleSlots;
@@ -37,6 +39,7 @@ public partial class StationShelfInventory : Control
 	private Button _consumablePreviousButton = default!;
 	private Button _consumableNextButton = default!;
 	private BrewPanel _brewPanel = default!;
+	private InventoryPanel? _inventoryPanel;
 	private GameState _gameState = default!;
 	private ItemCatalogService _itemCatalog = default!;
 	private int _ingredientPage;
@@ -68,23 +71,56 @@ public partial class StationShelfInventory : Control
 		_gameState = gameState;
 		_itemCatalog = itemCatalog;
 		_brewPanel = brewPanel;
+		_inventoryPanel = GetNodeOrNull<InventoryPanel>(InventoryPanelPath);
+		if (_inventoryPanel is null)
+			GD.PushError($"StationShelfInventory: InventoryPanel was not found at '{InventoryPanelPath}'.");
 
-		_ingredientSlots = GetRequiredNode<GridContainer>(IngredientSlotsPath, nameof(IngredientSlotsPath));
-		_consumableSlots = GetRequiredNode<GridContainer>(ConsumableSlotsPath, nameof(ConsumableSlotsPath));
-		_ingredientPreviousButton = GetRequiredNode<Button>(IngredientPreviousButtonPath, nameof(IngredientPreviousButtonPath));
-		_ingredientNextButton = GetRequiredNode<Button>(IngredientNextButtonPath, nameof(IngredientNextButtonPath));
-		_consumablePreviousButton = GetRequiredNode<Button>(ConsumablePreviousButtonPath, nameof(ConsumablePreviousButtonPath));
-		_consumableNextButton = GetRequiredNode<Button>(ConsumableNextButtonPath, nameof(ConsumableNextButtonPath));
-		if (_ingredientSlots is null ||
-			_consumableSlots is null ||
-			_ingredientPreviousButton is null ||
-			_ingredientNextButton is null ||
-			_consumablePreviousButton is null ||
-			_consumableNextButton is null)
+		var ingredientSlots = NodeLookup.GetRequiredNodeOrNull<GridContainer>(
+			this,
+			IngredientSlotsPath,
+			nameof(StationShelfInventory),
+			nameof(IngredientSlotsPath));
+		var consumableSlots = NodeLookup.GetRequiredNodeOrNull<GridContainer>(
+			this,
+			ConsumableSlotsPath,
+			nameof(StationShelfInventory),
+			nameof(ConsumableSlotsPath));
+		var ingredientPreviousButton = NodeLookup.GetRequiredNodeOrNull<Button>(
+			this,
+			IngredientPreviousButtonPath,
+			nameof(StationShelfInventory),
+			nameof(IngredientPreviousButtonPath));
+		var ingredientNextButton = NodeLookup.GetRequiredNodeOrNull<Button>(
+			this,
+			IngredientNextButtonPath,
+			nameof(StationShelfInventory),
+			nameof(IngredientNextButtonPath));
+		var consumablePreviousButton = NodeLookup.GetRequiredNodeOrNull<Button>(
+			this,
+			ConsumablePreviousButtonPath,
+			nameof(StationShelfInventory),
+			nameof(ConsumablePreviousButtonPath));
+		var consumableNextButton = NodeLookup.GetRequiredNodeOrNull<Button>(
+			this,
+			ConsumableNextButtonPath,
+			nameof(StationShelfInventory),
+			nameof(ConsumableNextButtonPath));
+		if (ingredientSlots is null ||
+			consumableSlots is null ||
+			ingredientPreviousButton is null ||
+			ingredientNextButton is null ||
+			consumablePreviousButton is null ||
+			consumableNextButton is null)
 		{
 			return;
 		}
 
+		_ingredientSlots = ingredientSlots;
+		_consumableSlots = consumableSlots;
+		_ingredientPreviousButton = ingredientPreviousButton;
+		_ingredientNextButton = ingredientNextButton;
+		_consumablePreviousButton = consumablePreviousButton;
+		_consumableNextButton = consumableNextButton;
 		MouseFilter = MouseFilterEnum.Ignore;
 		_ingredientPreviousButton.Pressed += ShowPreviousIngredientPage;
 		_ingredientNextButton.Pressed += ShowNextIngredientPage;
@@ -190,12 +226,23 @@ public partial class StationShelfInventory : Control
 			IconPath = stack.IconPath,
 			Quantity = stack.Quantity
 		};
-		slot.AddThemeStyleboxOverride("normal", CreateSlotStyleBox(new Color(0.08f, 0.055f, 0.035f, 0.08f), new Color(0.36f, 0.24f, 0.13f, 0.16f)));
-		slot.AddThemeStyleboxOverride("hover", CreateSlotStyleBox(new Color(0.16f, 0.1f, 0.055f, 0.32f), new Color(0.74f, 0.48f, 0.2f, 0.6f)));
-		slot.AddThemeStyleboxOverride("pressed", CreateSlotStyleBox(new Color(0.06f, 0.038f, 0.024f, 0.38f), new Color(0.48f, 0.29f, 0.13f, 0.62f)));
+		var normalStyle = CreateSlotStyleBox(new Color(0.08f, 0.055f, 0.035f, 0.08f), new Color(0.36f, 0.24f, 0.13f, 0.16f));
+		slot.AddThemeStyleboxOverride("normal", normalStyle);
+		slot.AddThemeStyleboxOverride("hover", normalStyle);
+		slot.AddThemeStyleboxOverride("pressed", normalStyle);
 		slot.AddThemeStyleboxOverride("disabled", CreateSlotStyleBox(new Color(0.05f, 0.04f, 0.034f, 0.12f), new Color(0.22f, 0.17f, 0.12f, 0.22f)));
+		slot.SlotActivated += ShowItemDetail;
 		if (connectIngredientRequest)
 			slot.IngredientRequested += QueueIngredientFromShelf;
+
+		var hoverOutline = new PanelContainer
+		{
+			MouseFilter = MouseFilterEnum.Ignore,
+			Visible = false
+		};
+		hoverOutline.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+		hoverOutline.AddThemeStyleboxOverride("panel", CreateHoverOutlineStyleBox());
+		slot.SetHoverOutline(hoverOutline);
 
 		var content = new Control
 		{
@@ -232,6 +279,7 @@ public partial class StationShelfInventory : Control
 		content.AddChild(quantity);
 		content.AddChild(name);
 		slot.AddChild(content);
+		slot.AddChild(hoverOutline);
 		return slot;
 	}
 
@@ -315,6 +363,14 @@ public partial class StationShelfInventory : Control
 		_brewPanel.TryQueueIngredient(itemId);
 	}
 
+	private void ShowItemDetail(string itemId)
+	{
+		if (string.IsNullOrWhiteSpace(itemId))
+			return;
+
+		_inventoryPanel?.OpenItemDetail(itemId);
+	}
+
 	private void ShowPreviousIngredientPage()
 	{
 		if (_ingredientPage <= 0)
@@ -383,18 +439,6 @@ public partial class StationShelfInventory : Control
 		return configuredValue > 0 ? configuredValue : fallbackValue;
 	}
 
-	private TNode GetRequiredNode<TNode>(NodePath path, string exportName) where TNode : Node
-	{
-		var node = GetNodeOrNull<TNode>(path);
-		if (node is null)
-		{
-			GD.PushError($"StationShelfInventory: {exportName} was not found at '{path}'.");
-			return default!;
-		}
-
-		return node;
-	}
-
 	private static void ClearContainer(Node container)
 	{
 		foreach (var child in container.GetChildren())
@@ -414,6 +458,23 @@ public partial class StationShelfInventory : Control
 			BorderWidthRight = 1,
 			BorderWidthBottom = 1,
 			BorderColor = borderColor,
+			CornerRadiusTopLeft = 5,
+			CornerRadiusTopRight = 5,
+			CornerRadiusBottomRight = 5,
+			CornerRadiusBottomLeft = 5
+		};
+	}
+
+	private static StyleBoxFlat CreateHoverOutlineStyleBox()
+	{
+		return new StyleBoxFlat
+		{
+			BgColor = new Color(0.16f, 0.1f, 0.055f, 0.24f),
+			BorderWidthLeft = 1,
+			BorderWidthTop = 1,
+			BorderWidthRight = 1,
+			BorderWidthBottom = 1,
+			BorderColor = new Color(0.74f, 0.48f, 0.2f, 0.72f),
 			CornerRadiusTopLeft = 5,
 			CornerRadiusTopRight = 5,
 			CornerRadiusBottomRight = 5,

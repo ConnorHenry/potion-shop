@@ -271,6 +271,7 @@ public sealed class TreatmentService
 			Quality = target.Quality,
 			Traits = target.Traits is null ? new Dictionary<string, int>() : new Dictionary<string, int>(target.Traits),
 			Risks = risks,
+			IngredientEffects = CloneIngredientEffects(target.IngredientEffects),
 			BasePrice = basePrice,
 			Treatment = new ItemTreatmentDef
 			{
@@ -320,6 +321,7 @@ public sealed class TreatmentService
 			Quality = target.Quality,
 			Traits = target.Traits is null ? new Dictionary<string, int>() : new Dictionary<string, int>(target.Traits),
 			Risks = new Dictionary<string, int>(remainingRisks, StringComparer.OrdinalIgnoreCase),
+			IngredientEffects = CloneIngredientEffects(target.IngredientEffects),
 			BasePrice = ResolveItemPrice(basePotionItemId, target)
 		};
 
@@ -432,6 +434,33 @@ public sealed class TreatmentService
 			return string.Empty;
 
 		return char.ToUpperInvariant(normalized[0]) + normalized[1..];
+	}
+
+	private static List<IngredientEffectDef> CloneIngredientEffects(List<IngredientEffectDef>? effects)
+	{
+		var clones = new List<IngredientEffectDef>();
+		if (effects is null)
+			return clones;
+
+		foreach (var effect in effects)
+		{
+			if (effect is null)
+				continue;
+
+			clones.Add(new IngredientEffectDef
+			{
+				Kind = effect.Kind,
+				Family = effect.Family,
+				Name = effect.Name,
+				Description = effect.Description,
+				Amount = effect.Amount,
+				SecondaryAmount = effect.SecondaryAmount,
+				TraitId = effect.TraitId,
+				RiskId = effect.RiskId
+			});
+		}
+
+		return clones;
 	}
 
 	private readonly record struct TreatmentCandidate(string OutputItemId, ItemDef? RuntimeItem, string RemovedRisk);

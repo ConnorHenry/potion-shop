@@ -93,7 +93,7 @@ public partial class MainMenu : Control
 
 	private void OnLoadButtonPressed()
 	{
-		Error error = GetTree().ChangeSceneToFile("res://Scenes/UI/LoadGameMenu.tscn");
+		Error error = GetTree().ChangeSceneToFile(ScenePaths.LoadGameMenu);
 		if (error != Error.Ok)
 		{
 			GD.PushError($"MainMenu: Failed to load save browser scene. Error: {error}");
@@ -124,7 +124,7 @@ public partial class MainMenu : Control
 		_newGameTutorialPopup.Visible = false;
 		_saveGameManager.StartNewGame(startTutorial);
 
-		Error error = GetTree().ChangeSceneToFile("res://Main.tscn");
+		Error error = GetTree().ChangeSceneToFile(ScenePaths.Main);
 		if (error != Error.Ok)
 		{
 			GD.PushError($"MainMenu: Failed to load main scene. Error: {error}");
@@ -136,7 +136,7 @@ public partial class MainMenu : Control
 		if (!_saveGameManager.LoadLatestGameIfExists())
 			_saveGameManager.StartNewGame();
 
-		Error error = GetTree().ChangeSceneToFile("res://Main.tscn");
+		Error error = GetTree().ChangeSceneToFile(ScenePaths.Main);
 		if (error != Error.Ok)
 		{
 			GD.PushError($"MainMenu: Failed to load main scene. Error: {error}");

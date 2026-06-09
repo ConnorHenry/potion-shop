@@ -498,7 +498,7 @@ public partial class BrewPanel : Control
 
 		var totalIngredientPrice = CalculateIngredientTotalPrice(_queuedIngredients);
 		var potionBasePrice = Math.Max(0, totalIngredientPrice - brewResult.RiskIngredientPricePenalty);
-		var brewCost = CalculateBrewCost(totalIngredientPrice, brewResult);
+		var brewCost = BrewPricing.CalculateBrewCost(totalIngredientPrice, brewResult);
 		if (_gameState.Gold < brewCost)
 		{
 			_resultLabel.Text = $"Need {brewCost} gold to brew this potion.";
@@ -582,7 +582,9 @@ public partial class BrewPanel : Control
 		_queuedIngredients.Clear();
 		ResetSlotDragState();
 		RefreshIngredientIcons();
-		_resultLabel.Text = BuildBrewResultText(potionItemId, brewResult);
+		_resultLabel.Text = BrewPanelTextFormatter.BuildBrewResultText(
+			PotionDisplayName(potionItemId, DefaultItemName(potionItemId)),
+			brewResult);
 	}
 
 	private void ReturnQueuedIngredients()
@@ -688,11 +690,11 @@ public partial class BrewPanel : Control
 	{
 		var ingredientCount = _queuedIngredients.Count;
 		var totalIngredientPrice = CalculateIngredientTotalPrice(_queuedIngredients);
-		_ingredientCountLabel.Text = BuildIngredientInstructionText(ingredientCount);
+		_ingredientCountLabel.Text = BrewPanelTextFormatter.BuildIngredientInstructionText(ingredientCount);
 		_ingredientCountLabel.AddThemeColorOverride("font_color", new Color(0.055f, 0.039f, 0.025f, 1f));
 		_pricePreviewLabel.Text = $"\u00A3{totalIngredientPrice}";
 
-		if (ingredientCount < 3)
+		if (ingredientCount == 0)
 		{
 			SetIncompletePreviewState();
 			return;
@@ -704,22 +706,42 @@ public partial class BrewPanel : Control
 			return;
 		}
 
+		var previewResult = _brewingService.PreviewPotion(
+			ingredientDefs,
+			null,
+			_dataDb.Synergies.ToList());
+
+		if (ingredientCount < 3)
+		{
+			SetPartialPreviewState(previewResult);
+			return;
+		}
+
 		var combinationKey = PotionRecipeLookup.BuildCombinationKey(_queuedIngredients);
 		_potionNamePreviewLabel.Text = _predefinedPotionRecipes.TryGetRecipe(_queuedIngredients, out var predefinedPreviewRecipe)
 			? predefinedPreviewRecipe.Name
 			: GetPreviewPotionName(combinationKey);
 		_potionNamePreviewLabel.AddThemeColorOverride("font_color", new Color(0.055f, 0.039f, 0.025f, 1f));
 
-		var previewResult = _brewingService.PreviewPotion(
-			ingredientDefs,
-			null,
-			_dataDb.Synergies.ToList());
+		SetPreviewResultState(previewResult, isPartial: false);
+	}
 
-		_traitPreviewLabel.Text = BuildStatListText(previewResult.Traits, 3);
+	private void SetPartialPreviewState(PotionResult previewResult)
+	{
+		ClearPreviewPotionName();
+		_potionNamePreviewLabel.Text = "Unfinished Brew";
+		_potionNamePreviewLabel.AddThemeColorOverride("font_color", new Color(0.055f, 0.039f, 0.025f, 1f));
+		SetPreviewResultState(previewResult, isPartial: true);
+	}
+
+	private void SetPreviewResultState(PotionResult previewResult, bool isPartial)
+	{
+		_traitPreviewLabel.Text = BrewPanelTextFormatter.BuildStatListText(previewResult.Traits, 3);
 		_riskPreviewLabel.Text = previewResult.PossibleRisks.Count == 0
 			? "None detected"
-			: BuildRiskChanceListText(previewResult.PossibleRisks, 2);
-		SetRiskStatusPreview(previewResult.PossibleRisks.Count == 0);
+			: BrewPanelTextFormatter.BuildRiskChanceListText(previewResult.PossibleRisks, 2);
+		SetRiskStatusPreview(previewResult.PossibleRisks.Count == 0, isPartial);
+		_resultLabel.Text = BrewPanelTextFormatter.BuildPreviewEffectText(previewResult);
 	}
 
 	private void SetIncompletePreviewState()
@@ -731,35 +753,24 @@ public partial class BrewPanel : Control
 		_riskPreviewLabel.Text = "-";
 		_riskStatusIconLabel.Text = "v";
 		_riskStatusLabel.Text = "Waiting for 3 ingredients";
+		_resultLabel.Text = "";
 		_riskStatusIconLabel.AddThemeColorOverride("font_color", new Color(0.65f, 0.68f, 0.72f, 1f));
 		_riskStatusLabel.AddThemeColorOverride("font_color", new Color(0.65f, 0.68f, 0.72f, 1f));
 	}
 
-	private static string BuildIngredientInstructionText(int ingredientCount)
-	{
-		var remainingIngredients = Math.Clamp(3 - ingredientCount, 0, 3);
-		return remainingIngredients switch
-		{
-			3 => "Add 3 ingredients to the cauldron.",
-			2 => "Add 2 more ingredients to the cauldron.",
-			1 => "Add 1 more ingredient to the cauldron.",
-			_ => "Ready to brew."
-		};
-	}
-
-	private void SetRiskStatusPreview(bool hasNoRisks)
+	private void SetRiskStatusPreview(bool hasNoRisks, bool isPartial)
 	{
 		if (hasNoRisks)
 		{
 			_riskStatusIconLabel.Text = "v";
-			_riskStatusLabel.Text = "No detected risks";
+			_riskStatusLabel.Text = isPartial ? "No detected risks yet" : "No detected risks";
 			_riskStatusIconLabel.AddThemeColorOverride("font_color", new Color(0.43f, 0.83f, 0.48f, 1f));
 			_riskStatusLabel.AddThemeColorOverride("font_color", new Color(0.43f, 0.83f, 0.48f, 1f));
 			return;
 		}
 
 		_riskStatusIconLabel.Text = "!";
-		_riskStatusLabel.Text = "Risks detected";
+		_riskStatusLabel.Text = isPartial ? "Possible risks detected" : "Risks detected";
 		_riskStatusIconLabel.AddThemeColorOverride("font_color", new Color(0.94f, 0.38f, 0.33f, 1f));
 		_riskStatusLabel.AddThemeColorOverride("font_color", new Color(0.94f, 0.38f, 0.33f, 1f));
 	}
@@ -829,47 +840,6 @@ public partial class BrewPanel : Control
 		return traits.Count > 0
 			? traits
 			: new Dictionary<string, int>(brewResult.Traits);
-	}
-
-	private static string BuildStatListText(IReadOnlyDictionary<string, int> values, int maxCount)
-	{
-		if (values.Count == 0)
-			return "None detected";
-
-		var lines = values
-			.OrderByDescending(x => x.Value)
-			.ThenBy(x => x.Key)
-			.Take(maxCount)
-			.Select(x => $"{x.Key} +{x.Value}")
-			.ToList();
-
-		if (lines.Count == 0)
-			return "None detected";
-
-		return string.Join("\n", lines);
-	}
-
-	private static string BuildRiskChanceListText(IReadOnlyDictionary<string, int> values, int maxCount)
-	{
-		if (values.Count == 0)
-			return "None detected";
-
-		var lines = values
-			.OrderByDescending(x => x.Value)
-			.ThenBy(x => x.Key)
-			.Take(maxCount)
-			.Select(x => $"{x.Key} {GetRiskChancePercent(x.Value)}%")
-			.ToList();
-
-		if (lines.Count == 0)
-			return "None detected";
-
-		return string.Join("\n", lines);
-	}
-
-	private static int GetRiskChancePercent(int chanceValue)
-	{
-		return System.Math.Clamp(chanceValue, 0, 10) * 10;
 	}
 
 	private static void SetInteractiveCursor(Control control)
@@ -1029,65 +999,6 @@ public partial class BrewPanel : Control
 		}
 
 		return $"{prefixes[Random.Shared.Next(prefixes.Length)]} {suffixes[Random.Shared.Next(suffixes.Length)]}";
-	}
-
-	private string BuildBrewResultText(string potionItemId, PotionResult brewResult)
-	{
-		var potionName = PotionDisplayName(potionItemId, DefaultItemName(potionItemId));
-		var lines = new List<string>
-		{
-			$"Brewed: {EscapeBbCodeText(potionName)}"
-		};
-
-		foreach (var risk in brewResult.Risks
-			.Where(x => !string.IsNullOrWhiteSpace(x.Key) && x.Value > 0)
-			.OrderBy(x => x.Key))
-		{
-			lines.Add(
-				$"[color=#E7C84E]{EscapeBbCodeText(potionName)}[/color] has been tainted with - [color=#E64040]{EscapeBbCodeText(risk.Key)}[/color]");
-		}
-
-		if (brewResult.TriggeredSynergyDetails.Count == 0)
-			return string.Join("\n", lines);
-
-		foreach (var synergy in brewResult.TriggeredSynergyDetails)
-		{
-			lines.Add($"Synergy triggered: {EscapeBbCodeText(synergy.Id)}");
-
-			var contributingTraits = synergy.ContributingTraits.Count == 0
-				? "None"
-				: string.Join(", ", synergy.ContributingTraits
-					.OrderBy(x => x.Key)
-					.Select(x => $"{EscapeBbCodeText(x.Key)} {x.Value}"));
-
-			var contributingRisks = synergy.ContributingRisks.Count == 0
-				? "None"
-				: string.Join(", ", synergy.ContributingRisks
-					.OrderBy(x => x.Key)
-					.Select(x => $"{EscapeBbCodeText(x.Key)} {x.Value}"));
-
-			lines.Add($"Traits: {contributingTraits}");
-			lines.Add($"Risks: {contributingRisks}");
-
-			if (!string.IsNullOrWhiteSpace(synergy.Description))
-				lines.Add(EscapeBbCodeText(synergy.Description));
-		}
-
-		return string.Join("\n", lines);
-	}
-
-	private static string EscapeBbCodeText(string text)
-	{
-		return text
-			.Replace("[", "[lb]")
-			.Replace("]", "[rb]");
-	}
-
-	private int CalculateBrewCost(int totalIngredientPrice, PotionResult brewResult)
-	{
-		var qualityBonus = Math.Max(0, brewResult.IngredientQualityScore - 50) / 10;
-		var rawCost = (int)MathF.Round((totalIngredientPrice * 0.30f) + qualityBonus);
-		return Math.Max(5, rawCost);
 	}
 
 	private int CalculateIngredientTotalPrice(IReadOnlyList<IngredientPortionDef> ingredients)

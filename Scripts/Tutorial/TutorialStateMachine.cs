@@ -9,6 +9,7 @@ public sealed class TutorialStateMachine
 	private readonly string _ironLullabyRootId;
 	private readonly string _blackIchorId;
 	private readonly string _tutorialPotionId;
+	private readonly string _tutorialCustomerId;
 	private readonly string _ambiguousCustomerId;
 
 	public TutorialStateMachine(TutorialContentResource content)
@@ -20,6 +21,7 @@ public sealed class TutorialStateMachine
 		_ironLullabyRootId = content.IronLullabyRootId;
 		_blackIchorId = content.BlackIchorId;
 		_tutorialPotionId = content.TutorialPotionId;
+		_tutorialCustomerId = content.TutorialCustomerId;
 		_ambiguousCustomerId = content.AmbiguousTutorialCustomerId;
 	}
 
@@ -82,9 +84,6 @@ public sealed class TutorialStateMachine
 
 	public TutorialTransition EvaluateShopStateChanged(TutorialStepId step, bool isShopOpen)
 	{
-		if (step == TutorialStepId.StartDay && isShopOpen)
-			return TutorialTransition.To(TutorialStepId.SellPotion);
-
 		if (step == TutorialStepId.CloseShop && !isShopOpen)
 			return TutorialTransition.To(TutorialStepId.DaySummary);
 
@@ -117,6 +116,9 @@ public sealed class TutorialStateMachine
 
 	public TutorialTransition EvaluateCustomerInteractionShown(TutorialStepId step, string interactionId)
 	{
+		if (step == TutorialStepId.StartDay && IsCustomerInteractionMatch(interactionId, _tutorialCustomerId))
+			return TutorialTransition.To(TutorialStepId.SellPotion);
+
 		if (step == TutorialStepId.NextCustomer && IsCustomerInteractionMatch(interactionId, _ambiguousCustomerId))
 			return TutorialTransition.To(TutorialStepId.AmbiguousCustomer);
 

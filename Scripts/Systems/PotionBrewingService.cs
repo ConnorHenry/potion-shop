@@ -107,32 +107,36 @@ public sealed class PotionBrewingService
         var combinedTraits = CombineTraits(validIngredients);
         result.Traits = combinedTraits;
 
-        // 3) Combine ingredient risks as chance values, then roll actual carried risks
+        // 3) Combine ingredient risks as chance values, then apply visible ingredient effects
         var possibleRisks = CombineRisks(validIngredients);
+        ApplyPreRiskIngredientEffects(validIngredients, combinedTraits, possibleRisks, result);
+
+        // 4) Roll actual carried risks, then apply conditional ingredient effects
         var carriedRisks = rollRisks
             ? RollCarriedRisks(possibleRisks)
             : new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        ApplyPostRiskIngredientEffects(validIngredients, combinedTraits, carriedRisks, possibleRisks, result, rollRisks);
         result.RiskIngredientPricePenalty = CalculateRiskIngredientPricePenalty(validIngredients, carriedRisks);
 
-        // 4) Calculate ingredient quality (Q)
+        // 5) Calculate ingredient quality (Q)
         result.IngredientQualityScore = CalculateIngredientQuality(validIngredients);
 
-        // 5) Apply synergies (Y)
+        // 6) Apply synergies (Y)
         var synergyEval = ApplySynergies(combinedTraits, carriedRisks, possibleRisks, synergyRules, result, rollRisks);
         result.SynergyScore = synergyEval.Score;
         result.Risks = carriedRisks;
         result.PossibleRisks = possibleRisks;
 
-        // 6) Calculate effect fit (F)
+        // 7) Calculate effect fit (F)
         result.EffectFitScore = CalculateEffectFit(request, combinedTraits, carriedRisks, result);
 
-        // 7) Calculate stability (T)
+        // 8) Calculate stability (T)
         result.StabilityScore = CalculateStability(combinedTraits, carriedRisks, synergyEval.NegativeMagnitude);
 
-        // 8) Calculate penalties (P)
+        // 9) Calculate penalties (P)
         result.PenaltyScore = CalculatePenalties(carriedRisks, synergyEval.NegativeMagnitude, result.StabilityScore);
 
-        // 9) Calculate final score (S)
+        // 10) Calculate final score (S)
         var finalScore =
             (QualityWeight * result.IngredientQualityScore) +
             (FitWeight * result.EffectFitScore) +
@@ -142,7 +146,7 @@ public sealed class PotionBrewingService
 
         result.FinalScore = MathF.Round(finalScore, 2);
 
-        // 10) Convert final score to grade
+        // 11) Convert final score to grade
         result.Grade = GradeFromScore(result.FinalScore);
 
         result.Notes.Add(
@@ -214,6 +218,406 @@ public sealed class PotionBrewingService
 
         ClampRiskChances(combined);
         return combined;
+    }
+
+    private static void ApplyPreRiskIngredientEffects(
+        List<IngredientDef> ingredients,
+        Dictionary<string, int> traits,
+        Dictionary<string, int> possibleRisks,
+        PotionResult result)
+    {
+        foreach (var entry in BuildOrderedIngredientEffectEntries(ingredients))
+        {
+            var ingredient = entry.Ingredient;
+            var effect = entry.Effect;
+
+            switch (effect.Kind)
+            {
+                case IngredientEffectDef.BoostLowestOtherTraitKind:
+                    ApplyBoostLowestOtherTrait(ingredients, ingredient, effect, traits, result);
+                    break;
+                case IngredientEffectDef.BoostStrongestTraitAddRiskKind:
+                    ApplyBoostStrongestTraitAddRisk(ingredient, effect, traits, possibleRisks, result);
+                    break;
+                case IngredientEffectDef.CopyStrongestOtherTraitKind:
+                    ApplyCopyStrongestOtherTrait(ingredients, ingredient, effect, traits, result);
+                    break;
+                case IngredientEffectDef.HalveOtherRisksKind:
+                    ApplyHalveOtherRisks(ingredients, ingredient, effect, possibleRisks, result);
+                    break;
+                case IngredientEffectDef.ReduceHighestRiskKind:
+                    ApplyReduceHighestRisk(ingredient, effect, possibleRisks, result);
+                    break;
+                case IngredientEffectDef.TemperTraitsKind:
+                    ApplyTemperTraits(ingredient, effect, traits, result);
+                    break;
+            }
+        }
+    }
+
+    private static void ApplyPostRiskIngredientEffects(
+        List<IngredientDef> ingredients,
+        Dictionary<string, int> traits,
+        Dictionary<string, int> carriedRisks,
+        Dictionary<string, int> possibleRisks,
+        PotionResult result,
+        bool rollRisks)
+    {
+        foreach (var entry in BuildOrderedIngredientEffectEntries(ingredients))
+        {
+            var ingredient = entry.Ingredient;
+            var effect = entry.Effect;
+
+            switch (effect.Kind)
+            {
+                case IngredientEffectDef.BoostLowestTraitIfNoRiskCarriesKind:
+                    ApplyBoostLowestTraitIfNoRiskCarries(ingredient, effect, traits, carriedRisks, possibleRisks, result, rollRisks);
+                    break;
+                case IngredientEffectDef.SuppressSingleCarriedRiskKind:
+                    ApplySuppressSingleCarriedRisk(ingredient, effect, carriedRisks, result, rollRisks);
+                    break;
+                case IngredientEffectDef.AddTraitIfRiskCarriesKind:
+                    ApplyAddTraitIfRiskCarries(ingredient, effect, traits, carriedRisks, result, rollRisks);
+                    break;
+            }
+        }
+    }
+
+    private static List<IngredientEffectEntry> BuildOrderedIngredientEffectEntries(List<IngredientDef> ingredients)
+    {
+        var entries = new List<IngredientEffectEntry>();
+        foreach (var ingredient in ingredients)
+        {
+            if (ingredient.IngredientEffects is null || ingredient.IngredientEffects.Count == 0)
+                continue;
+
+            foreach (var effect in ingredient.IngredientEffects)
+            {
+                if (effect is null || string.IsNullOrWhiteSpace(effect.Kind))
+                    continue;
+
+                entries.Add(new IngredientEffectEntry(ingredient, effect));
+            }
+        }
+
+        entries.Sort(CompareIngredientEffectEntries);
+        return entries;
+    }
+
+    private static int CompareIngredientEffectEntries(IngredientEffectEntry left, IngredientEffectEntry right)
+    {
+        var ingredientComparison = string.Compare(left.Ingredient.Id, right.Ingredient.Id, StringComparison.OrdinalIgnoreCase);
+        if (ingredientComparison != 0)
+            return ingredientComparison;
+
+        var kindComparison = string.Compare(left.Effect.Kind, right.Effect.Kind, StringComparison.OrdinalIgnoreCase);
+        if (kindComparison != 0)
+            return kindComparison;
+
+        return string.Compare(left.Effect.Name, right.Effect.Name, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void ApplyBoostLowestOtherTrait(
+        List<IngredientDef> ingredients,
+        IngredientDef source,
+        IngredientEffectDef effect,
+        Dictionary<string, int> traits,
+        PotionResult result)
+    {
+        var otherTraits = CombineTraitsExcept(ingredients, source);
+        if (!TryGetLowestPositiveValue(otherTraits, out var selectedTrait))
+            return;
+
+        var amount = GetEffectAmount(effect, 1);
+        AddValue(traits, selectedTrait.Key, amount);
+        RecordTriggeredIngredientEffect(source, effect, result, $"{DisplayStatName(selectedTrait.Key)} +{amount}");
+    }
+
+    private static void ApplyBoostStrongestTraitAddRisk(
+        IngredientDef source,
+        IngredientEffectDef effect,
+        Dictionary<string, int> traits,
+        Dictionary<string, int> possibleRisks,
+        PotionResult result)
+    {
+        if (!TryGetHighestPositiveValue(traits, out var selectedTrait))
+            return;
+
+        var amount = GetEffectAmount(effect, 1);
+        AddValue(traits, selectedTrait.Key, amount);
+
+        var riskAmount = effect.SecondaryAmount > 0 ? effect.SecondaryAmount : amount;
+        if (!string.IsNullOrWhiteSpace(effect.RiskId) && riskAmount > 0)
+            AddRiskChance(possibleRisks, effect.RiskId, riskAmount);
+
+        var resultText = string.IsNullOrWhiteSpace(effect.RiskId) || riskAmount <= 0
+            ? $"{DisplayStatName(selectedTrait.Key)} +{amount}"
+            : $"{DisplayStatName(selectedTrait.Key)} +{amount}, {DisplayStatName(effect.RiskId)} risk +{riskAmount}";
+        RecordTriggeredIngredientEffect(source, effect, result, resultText);
+    }
+
+    private static void ApplyCopyStrongestOtherTrait(
+        List<IngredientDef> ingredients,
+        IngredientDef source,
+        IngredientEffectDef effect,
+        Dictionary<string, int> traits,
+        PotionResult result)
+    {
+        var otherTraits = CombineTraitsExcept(ingredients, source);
+        if (!TryGetHighestPositiveValue(otherTraits, out var selectedTrait))
+            return;
+
+        var amount = GetEffectAmount(effect, Math.Max(1, (int)MathF.Ceiling(selectedTrait.Value * 0.5f)));
+        AddValue(traits, selectedTrait.Key, amount);
+        RecordTriggeredIngredientEffect(source, effect, result, $"{DisplayStatName(selectedTrait.Key)} +{amount}");
+    }
+
+    private static void ApplyHalveOtherRisks(
+        List<IngredientDef> ingredients,
+        IngredientDef source,
+        IngredientEffectDef effect,
+        Dictionary<string, int> possibleRisks,
+        PotionResult result)
+    {
+        var otherRisks = CombineRisksExcept(ingredients, source);
+        var totalReduction = 0;
+        foreach (var risk in otherRisks.OrderBy(x => x.Key))
+        {
+            var halvedRisk = (risk.Value + 1) / 2;
+            var reduction = Math.Max(0, risk.Value - halvedRisk);
+            if (reduction <= 0)
+                continue;
+
+            totalReduction += ReduceRiskChance(possibleRisks, risk.Key, reduction);
+        }
+
+        if (totalReduction <= 0)
+            return;
+
+        RecordTriggeredIngredientEffect(source, effect, result, $"Other risk chances -{totalReduction}");
+    }
+
+    private static void ApplyReduceHighestRisk(
+        IngredientDef source,
+        IngredientEffectDef effect,
+        Dictionary<string, int> possibleRisks,
+        PotionResult result)
+    {
+        if (!TryGetHighestPositiveValue(possibleRisks, out var selectedRisk))
+            return;
+
+        var amount = GetEffectAmount(effect, 1);
+        var actualReduction = ReduceRiskChance(possibleRisks, selectedRisk.Key, amount);
+        if (actualReduction <= 0)
+            return;
+
+        RecordTriggeredIngredientEffect(source, effect, result, $"{DisplayStatName(selectedRisk.Key)} risk -{actualReduction}");
+    }
+
+    private static void ApplyTemperTraits(
+        IngredientDef source,
+        IngredientEffectDef effect,
+        Dictionary<string, int> traits,
+        PotionResult result)
+    {
+        if (!TryGetHighestPositiveValue(traits, out var highestTrait))
+            return;
+        if (!TryGetLowestPositiveValue(traits, out var lowestTrait))
+            return;
+        if (string.Equals(highestTrait.Key, lowestTrait.Key, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        var amount = GetEffectAmount(effect, 1);
+        var reduction = ReduceTraitToMinimumOne(traits, highestTrait.Key, amount);
+        AddValue(traits, lowestTrait.Key, amount);
+        RecordTriggeredIngredientEffect(
+            source,
+            effect,
+            result,
+            $"{DisplayStatName(lowestTrait.Key)} +{amount}, {DisplayStatName(highestTrait.Key)} -{reduction}");
+    }
+
+    private static void ApplyBoostLowestTraitIfNoRiskCarries(
+        IngredientDef source,
+        IngredientEffectDef effect,
+        Dictionary<string, int> traits,
+        Dictionary<string, int> carriedRisks,
+        Dictionary<string, int> possibleRisks,
+        PotionResult result,
+        bool rollRisks)
+    {
+        if (carriedRisks.Count > 0)
+            return;
+        if (!rollRisks && possibleRisks.Count > 0)
+            return;
+        if (!TryGetLowestPositiveValue(traits, out var selectedTrait))
+            return;
+
+        var amount = GetEffectAmount(effect, 1);
+        AddValue(traits, selectedTrait.Key, amount);
+        RecordTriggeredIngredientEffect(source, effect, result, $"{DisplayStatName(selectedTrait.Key)} +{amount}; no risk carried");
+    }
+
+    private static void ApplySuppressSingleCarriedRisk(
+        IngredientDef source,
+        IngredientEffectDef effect,
+        Dictionary<string, int> carriedRisks,
+        PotionResult result,
+        bool rollRisks)
+    {
+        if (!rollRisks || carriedRisks.Count != 1)
+            return;
+
+        var selectedRisk = carriedRisks
+            .Where(x => !string.IsNullOrWhiteSpace(x.Key) && x.Value > 0)
+            .OrderBy(x => x.Key)
+            .FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(selectedRisk.Key))
+            return;
+
+        carriedRisks.Remove(selectedRisk.Key);
+        RecordTriggeredIngredientEffect(source, effect, result, $"Suppressed {DisplayStatName(selectedRisk.Key)}");
+    }
+
+    private static void ApplyAddTraitIfRiskCarries(
+        IngredientDef source,
+        IngredientEffectDef effect,
+        Dictionary<string, int> traits,
+        Dictionary<string, int> carriedRisks,
+        PotionResult result,
+        bool rollRisks)
+    {
+        if (!rollRisks || carriedRisks.Count == 0 || string.IsNullOrWhiteSpace(effect.TraitId))
+            return;
+
+        var amount = GetEffectAmount(effect, 1);
+        AddValue(traits, effect.TraitId, amount);
+        RecordTriggeredIngredientEffect(source, effect, result, $"{DisplayStatName(effect.TraitId)} +{amount}; risk carried");
+    }
+
+    private static Dictionary<string, int> CombineTraitsExcept(List<IngredientDef> ingredients, IngredientDef excludedIngredient)
+    {
+        var combined = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var ingredient in ingredients)
+        {
+            if (ReferenceEquals(ingredient, excludedIngredient))
+                continue;
+
+            foreach (var trait in ingredient.Traits)
+            {
+                if (string.IsNullOrWhiteSpace(trait.Key) || trait.Value <= 0)
+                    continue;
+
+                AddValue(combined, trait.Key, trait.Value);
+            }
+        }
+
+        return combined;
+    }
+
+    private static Dictionary<string, int> CombineRisksExcept(List<IngredientDef> ingredients, IngredientDef excludedIngredient)
+    {
+        var combined = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var ingredient in ingredients)
+        {
+            if (ReferenceEquals(ingredient, excludedIngredient))
+                continue;
+
+            foreach (var risk in ingredient.Risks)
+            {
+                if (string.IsNullOrWhiteSpace(risk.Key) || risk.Value <= 0)
+                    continue;
+
+                AddRiskChance(combined, risk.Key, risk.Value);
+            }
+        }
+
+        return combined;
+    }
+
+    private static bool TryGetHighestPositiveValue(
+        Dictionary<string, int> values,
+        out KeyValuePair<string, int> selected)
+    {
+        selected = values
+            .Where(x => !string.IsNullOrWhiteSpace(x.Key) && x.Value > 0)
+            .OrderByDescending(x => x.Value)
+            .ThenBy(x => x.Key)
+            .FirstOrDefault();
+
+        return !string.IsNullOrWhiteSpace(selected.Key) && selected.Value > 0;
+    }
+
+    private static bool TryGetLowestPositiveValue(
+        Dictionary<string, int> values,
+        out KeyValuePair<string, int> selected)
+    {
+        selected = values
+            .Where(x => !string.IsNullOrWhiteSpace(x.Key) && x.Value > 0)
+            .OrderBy(x => x.Value)
+            .ThenBy(x => x.Key)
+            .FirstOrDefault();
+
+        return !string.IsNullOrWhiteSpace(selected.Key) && selected.Value > 0;
+    }
+
+    private static int GetEffectAmount(IngredientEffectDef effect, int fallback)
+    {
+        return effect.Amount > 0 ? effect.Amount : Math.Max(1, fallback);
+    }
+
+    private static int ReduceRiskChance(Dictionary<string, int> values, string key, int amount)
+    {
+        if (string.IsNullOrWhiteSpace(key) || amount <= 0)
+            return 0;
+        if (!values.TryGetValue(key, out var currentValue) || currentValue <= 0)
+            return 0;
+
+        var newValue = Math.Max(0, currentValue - amount);
+        var actualReduction = currentValue - newValue;
+        if (newValue <= 0)
+            values.Remove(key);
+        else
+            values[key] = newValue;
+
+        return actualReduction;
+    }
+
+    private static int ReduceTraitToMinimumOne(Dictionary<string, int> values, string key, int amount)
+    {
+        if (string.IsNullOrWhiteSpace(key) || amount <= 0)
+            return 0;
+        if (!values.TryGetValue(key, out var currentValue) || currentValue <= 1)
+            return 0;
+
+        var newValue = Math.Max(1, currentValue - amount);
+        var actualReduction = currentValue - newValue;
+        values[key] = newValue;
+        return actualReduction;
+    }
+
+    private static void RecordTriggeredIngredientEffect(
+        IngredientDef source,
+        IngredientEffectDef effect,
+        PotionResult result,
+        string resultText)
+    {
+        var effectName = !string.IsNullOrWhiteSpace(effect.Name)
+            ? effect.Name
+            : !string.IsNullOrWhiteSpace(effect.Family)
+                ? effect.Family
+                : effect.Kind;
+
+        result.TriggeredIngredientEffects.Add(new TriggeredIngredientEffectDef
+        {
+            IngredientId = source.Id,
+            IngredientName = source.Name,
+            EffectName = effectName,
+            Description = effect.Description,
+            ResultText = resultText
+        });
+
+        result.Notes.Add($"{source.Name}: {effectName} ({resultText})");
     }
 
     private Dictionary<string, int> RollCarriedRisks(Dictionary<string, int> possibleRisks)
@@ -589,4 +993,18 @@ public sealed class PotionBrewingService
         if (score >= 50.0f) return "D";
         return "F";
     }
+
+    private static string DisplayStatName(string key)
+    {
+        if (string.IsNullOrWhiteSpace(key))
+            return string.Empty;
+
+        var normalized = key.Replace('_', ' ').Trim();
+        if (normalized.Length == 0)
+            return string.Empty;
+
+        return char.ToUpperInvariant(normalized[0]) + normalized[1..];
+    }
+
+    private readonly record struct IngredientEffectEntry(IngredientDef Ingredient, IngredientEffectDef Effect);
 }

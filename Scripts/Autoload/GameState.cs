@@ -4,6 +4,7 @@ using System.Linq;
 using Godot;
 using OccultShop.Models;
 using OccultShop.Persistence;
+using OccultShop.Systems;
 using OccultShop.Tutorial;
 
 namespace OccultShop.Autoload;
@@ -14,8 +15,8 @@ public partial class GameState : Node
 	public const string StoryCustomerOutcomeSuccess = "success";
 	public const string StoryCustomerOutcomeFailure = "failure";
 	public const string StoryCustomerOutcomeSkipped = "skipped";
-	public const int StartingGardenPotCount = 3;
-	public const int DefaultGardenHarvestYield = 2;
+	public const int StartingGardenPotCount = GardenState.StartingPotCount;
+	public const int DefaultGardenHarvestYield = GardenState.DefaultHarvestYield;
 	public const int MaxUniquePotionInventoryQuantity = 4;
 	public const int MaxPotionStackQuantity = 10;
 	public const int MaxUniqueConsumableInventoryQuantity = 4;
@@ -27,28 +28,28 @@ public partial class GameState : Node
 	public int Day { get; private set; } = 1;
 	public int Gold { get; private set; } = 50000;
 	public int Dread { get; private set; } = 0;
-	public TutorialStatus TutorialProgressStatus { get; private set; } = TutorialStatus.NotStarted;
-	public bool TutorialRequested => TutorialProgressStatus == TutorialStatus.InProgress;
-	public bool TutorialCompleted => TutorialProgressStatus == TutorialStatus.Completed;
-	public bool TutorialSkipped => TutorialProgressStatus == TutorialStatus.Skipped;
-	public int TutorialStep { get; private set; }
-	public string PendingConsumableItemId { get; private set; } = string.Empty;
-	public int PendingConsumableQuantity { get; private set; }
-	public bool HasPendingConsumableGrant => !string.IsNullOrWhiteSpace(PendingConsumableItemId) && PendingConsumableQuantity > 0;
+	public TutorialStatus TutorialProgressStatus => _tutorialProgressState.Status;
+	public bool TutorialRequested => _tutorialProgressState.Requested;
+	public bool TutorialCompleted => _tutorialProgressState.Completed;
+	public bool TutorialSkipped => _tutorialProgressState.Skipped;
+	public int TutorialStep => _tutorialProgressState.Step;
+	public string PendingConsumableItemId => _inventoryState.PendingConsumableItemId;
+	public int PendingConsumableQuantity => _inventoryState.PendingConsumableQuantity;
+	public bool HasPendingConsumableGrant => _inventoryState.HasPendingConsumableGrant;
 
 	// itemId -> qty
 	public Dictionary<string, int> Inventory { get; } = new();
 	public HashSet<string> ActiveRules { get; } = new();
 	public HashSet<string> StoryFlags { get; } = new(StringComparer.OrdinalIgnoreCase);
-	public IReadOnlyDictionary<string, StoryCustomerVisitRecord> StoryCustomerVisits => _storyCustomerVisits;
+	public IReadOnlyDictionary<string, StoryCustomerVisitRecord> StoryCustomerVisits => _storyCustomerVisitState.Visits;
 	public HashSet<string> KnownPotions { get; } = new();
 	public List<string> KnownPotionOrder { get; } = new();
 	public HashSet<string> KnownIngredients { get; } = new(StringComparer.OrdinalIgnoreCase);
 	public List<string> KnownIngredientOrder { get; } = new();
 	public Dictionary<string, string> PotionDisplayNames { get; } = new(StringComparer.OrdinalIgnoreCase);
-	public IReadOnlyDictionary<string, int> SeedInventory => _seedInventory;
-	public IReadOnlyList<GardenPotState> GardenPots => _gardenPots;
-	public IReadOnlyList<GardenCropDef> GardenCrops => GardenCropDefinitions;
+	public IReadOnlyDictionary<string, int> SeedInventory => _gardenState.SeedInventory;
+	public IReadOnlyList<GardenPotState> GardenPots => _gardenState.GardenPots;
+	public IReadOnlyList<GardenCropDef> GardenCrops => _gardenState.GardenCrops;
 	private static readonly (string ItemId, int Quantity)[] StartingInventory =
 	{
 		("grave_mint", 1),
@@ -68,43 +69,40 @@ public partial class GameState : Node
 		("moonwhisper_orchid", 1),
 		("raven_ash_peony", 1)
 	};
-	private static readonly GardenCropDef[] GardenCropDefinitions =
-	{
-		CreateGardenCrop("amber_nightshade", growthDays: 1),
-		CreateGardenCrop("obsidian_resin", growthDays: 2),
-		CreateGardenCrop("iron_lullaby_root", growthDays: 3),
-		CreateGardenCrop("mooncap_mushroom", growthDays: 1),
-		CreateGardenCrop("grave_mint", growthDays: 2),
-		CreateGardenCrop("black_ichor", growthDays: 1),
-		CreateGardenCrop("lavender_ash", growthDays: 3),
-		CreateGardenCrop("silver_thorn_bloom", growthDays: 2),
-		CreateGardenCrop("moonwhisper_orchid", growthDays: 3),
-		CreateGardenCrop("raven_ash_peony", growthDays: 1)
-	};
-	private static readonly Dictionary<string, GardenCropDef> GardenCropsByIngredientId = GardenCropDefinitions
-		.ToDictionary(x => x.IngredientId, x => x, StringComparer.OrdinalIgnoreCase);
-	private static readonly Dictionary<string, GardenCropDef> GardenCropsBySeedId = GardenCropDefinitions
-		.ToDictionary(x => x.SeedId, x => x, StringComparer.OrdinalIgnoreCase);
-	private static readonly (string SeedId, int Quantity)[] StartingSeedInventory =
-	{
-		("seed_amber_nightshade", 1),
-		("seed_obsidian_resin", 1),
-		("seed_iron_lullaby_root", 1)
-	};
-	private readonly Dictionary<string, int> _potionBasePrices = new(StringComparer.OrdinalIgnoreCase);
-	private readonly Dictionary<string, List<string>> _potionRecipes = new(StringComparer.OrdinalIgnoreCase);
-	private readonly Dictionary<string, string> _combinationPotionItems = new(StringComparer.OrdinalIgnoreCase);
-	private readonly Dictionary<string, Queue<List<string>>> _potionBatches = new(StringComparer.OrdinalIgnoreCase);
-	private readonly Dictionary<string, Queue<List<IngredientPortionDef>>> _potionIngredientPortionBatches = new(StringComparer.OrdinalIgnoreCase);
-	private readonly Dictionary<string, StoryCustomerVisitRecord> _storyCustomerVisits = new(StringComparer.OrdinalIgnoreCase);
-	private readonly Dictionary<string, int> _seedInventory = new(StringComparer.OrdinalIgnoreCase);
-	private readonly List<GardenPotState> _gardenPots = new();
-	private readonly Random _gardenYieldRandom = new();
+	private readonly PotionKnowledgeState _potionKnowledgeState;
+	private readonly InventoryState _inventoryState;
+	private readonly GardenState _gardenState;
+	private readonly PotionBatchStore _potionBatchStore = new();
+	private readonly StoryCustomerVisitState _storyCustomerVisitState = new();
+	private readonly TutorialProgressState _tutorialProgressState = new();
 	public CustomerRequestDef? ActiveCustomerRequest { get; private set; }
 
 	public event Action? Changed;
 	private ItemCatalogService _itemCatalog = default!;
 	private DataDb? _dataDb;
+
+	public GameState()
+	{
+		_potionKnowledgeState = new PotionKnowledgeState(
+			KnownPotions,
+			KnownPotionOrder,
+			KnownIngredients,
+			KnownIngredientOrder,
+			PotionDisplayNames,
+			ResolveKnownIngredientIdOrNull);
+		_inventoryState = new InventoryState(
+			Inventory,
+			ItemExists,
+			IsPotionItem,
+			IsConsumableItem,
+			IsIngredientItem,
+			PushGameStateError,
+			MaxUniquePotionInventoryQuantity,
+			MaxPotionStackQuantity,
+			MaxUniqueConsumableInventoryQuantity,
+			MaxConsumableStackQuantity);
+		_gardenState = new GardenState(ItemExists, PushGameStateError);
+	}
 
 	public override void _Ready()
 	{
@@ -128,32 +126,18 @@ public partial class GameState : Node
 		Day = 1;
 		Gold = 50000;
 		Dread = 0;
-		TutorialProgressStatus = TutorialStatus.NotStarted;
-		TutorialStep = 0;
-		Inventory.Clear();
-		PendingConsumableItemId = string.Empty;
-		PendingConsumableQuantity = 0;
+		_tutorialProgressState.Reset();
+		_inventoryState.Clear();
 		ActiveRules.Clear();
 		StoryFlags.Clear();
-		_storyCustomerVisits.Clear();
-		KnownPotions.Clear();
-		KnownPotionOrder.Clear();
-		KnownIngredients.Clear();
-		KnownIngredientOrder.Clear();
-		PotionDisplayNames.Clear();
-		_potionBasePrices.Clear();
-		_potionRecipes.Clear();
-		_combinationPotionItems.Clear();
-		_potionBatches.Clear();
-		_potionIngredientPortionBatches.Clear();
-		_seedInventory.Clear();
-		_gardenPots.Clear();
+		_storyCustomerVisitState.Clear();
+		_potionKnowledgeState.Clear();
+		_potionBatchStore.Clear();
+		_gardenState.InitializeNewGarden();
 		ActiveCustomerRequest = null;
 
 		SeedStartingInventory();
 		SeedStartingIngredientBookKnowledge();
-		EnsureGardenPotCount(StartingGardenPotCount);
-		SeedStartingSeedInventory();
 		EmitChanged();
 	}
 
@@ -165,7 +149,7 @@ public partial class GameState : Node
 			return;
 		}
 
-		Inventory.Clear();
+		_inventoryState.Clear();
 		foreach (var (itemId, qty) in NextCustomerTutorialInventory)
 		{
 			if (!_itemCatalog.TryGetItem(itemId, out _))
@@ -193,26 +177,26 @@ public partial class GameState : Node
 			TutorialCompleted = TutorialCompleted,
 			TutorialSkipped = TutorialSkipped,
 			TutorialStep = TutorialStep,
-			Inventory = new Dictionary<string, int>(Inventory),
+			Inventory = _inventoryState.CloneInventory(),
 			PendingConsumableItemId = PendingConsumableItemId,
 			PendingConsumableQuantity = PendingConsumableQuantity,
 			ActiveRules = ActiveRules.ToList(),
 			StoryFlags = StoryFlags.ToList(),
-			KnownPotions = KnownPotionOrder.Count > 0 ? new List<string>(KnownPotionOrder) : KnownPotions.ToList(),
-			KnownPotionOrder = new List<string>(KnownPotionOrder),
-			KnownIngredients = KnownIngredientOrder.Count > 0 ? new List<string>(KnownIngredientOrder) : KnownIngredients.ToList(),
-			KnownIngredientOrder = new List<string>(KnownIngredientOrder),
-			PotionDisplayNames = new Dictionary<string, string>(PotionDisplayNames, StringComparer.OrdinalIgnoreCase),
-			PotionBasePrices = new Dictionary<string, int>(_potionBasePrices, StringComparer.OrdinalIgnoreCase),
-			PotionRecipes = ClonePotionRecipes(),
-			CombinationPotionItems = new Dictionary<string, string>(_combinationPotionItems, StringComparer.OrdinalIgnoreCase),
-			PotionBatches = ClonePotionBatches(),
-			PotionIngredientPortionBatches = ClonePotionIngredientPortionBatches(),
+			KnownPotions = _potionKnowledgeState.BuildKnownPotionSnapshot(),
+			KnownPotionOrder = _potionKnowledgeState.CloneKnownPotionOrder(),
+			KnownIngredients = _potionKnowledgeState.BuildKnownIngredientSnapshot(),
+			KnownIngredientOrder = _potionKnowledgeState.CloneKnownIngredientOrder(),
+			PotionDisplayNames = _potionKnowledgeState.ClonePotionDisplayNames(),
+			PotionBasePrices = _potionKnowledgeState.ClonePotionBasePrices(),
+			PotionRecipes = _potionKnowledgeState.ClonePotionRecipes(),
+			CombinationPotionItems = _potionKnowledgeState.CloneCombinationPotionItems(),
+			PotionBatches = _potionBatchStore.ClonePotionBatches(),
+			PotionIngredientPortionBatches = _potionBatchStore.ClonePotionIngredientPortionBatches(),
 			GardenInitialized = true,
-			GardenPotCount = _gardenPots.Count,
-			SeedInventory = new Dictionary<string, int>(_seedInventory, StringComparer.OrdinalIgnoreCase),
-			GardenPots = CloneGardenPots(),
-			StoryCustomerVisits = CloneStoryCustomerVisits(),
+			GardenPotCount = _gardenState.PotCount,
+			SeedInventory = _gardenState.CloneSeedInventory(),
+			GardenPots = _gardenState.CloneGardenPots(),
+			StoryCustomerVisits = _storyCustomerVisitState.CloneStoryCustomerVisits(),
 			ActiveCustomerRequest = CloneCustomerRequest(ActiveCustomerRequest)
 		};
 
@@ -230,29 +214,9 @@ public partial class GameState : Node
 		Day = Math.Max(1, snapshot.Day);
 		Gold = Math.Max(0, snapshot.Gold);
 		Dread = Math.Clamp(snapshot.Dread, 0, 100);
-		TutorialProgressStatus = ResolveTutorialStatus(snapshot);
-		var restoredStep = snapshot.TutorialStepIndex > 0
-			? snapshot.TutorialStepIndex
-			: snapshot.TutorialStep;
-		TutorialStep = Math.Max(0, restoredStep);
+		_tutorialProgressState.ApplySnapshot(snapshot);
 
-		Inventory.Clear();
-		PendingConsumableItemId = string.Empty;
-		PendingConsumableQuantity = 0;
-		if (snapshot.Inventory is not null)
-		{
-			foreach (var pair in snapshot.Inventory)
-			{
-				if (string.IsNullOrWhiteSpace(pair.Key) || pair.Value <= 0)
-					continue;
-				if (!_itemCatalog.TryGetItem(pair.Key, out _))
-					continue;
-
-				Inventory[pair.Key] = pair.Value;
-			}
-		}
-
-		RestorePendingConsumableGrant(snapshot.PendingConsumableItemId, snapshot.PendingConsumableQuantity);
+		_inventoryState.Restore(snapshot.Inventory, snapshot.PendingConsumableItemId, snapshot.PendingConsumableQuantity);
 
 		ActiveRules.Clear();
 		if (snapshot.ActiveRules is not null)
@@ -274,176 +238,13 @@ public partial class GameState : Node
 			}
 		}
 
-		_storyCustomerVisits.Clear();
-		if (snapshot.StoryCustomerVisits is not null)
-		{
-			foreach (var visit in snapshot.StoryCustomerVisits)
-				RestoreStoryCustomerVisit(visit);
-		}
+		_storyCustomerVisitState.Restore(snapshot.StoryCustomerVisits, StoryCustomerOutcomeArrived);
 
-		KnownPotions.Clear();
-		if (snapshot.KnownPotions is not null)
-		{
-			foreach (var potionId in snapshot.KnownPotions)
-			{
-				if (!string.IsNullOrWhiteSpace(potionId))
-					KnownPotions.Add(potionId);
-			}
-		}
+		_potionKnowledgeState.Restore(snapshot);
 
-		KnownPotionOrder.Clear();
-		var potionOrderSource = snapshot.KnownPotionOrder is { Count: > 0 }
-			? snapshot.KnownPotionOrder
-			: snapshot.KnownPotions;
-		if (potionOrderSource is not null)
-		{
-			foreach (var potionId in potionOrderSource)
-			{
-				if (string.IsNullOrWhiteSpace(potionId))
-					continue;
-				if (!KnownPotions.Contains(potionId))
-					continue;
-				if (KnownPotionOrder.Contains(potionId))
-					continue;
+		_potionBatchStore.Restore(snapshot.PotionBatches, snapshot.PotionIngredientPortionBatches);
 
-				KnownPotionOrder.Add(potionId);
-			}
-		}
-
-		foreach (var potionId in KnownPotions)
-		{
-			if (KnownPotionOrder.Contains(potionId))
-				continue;
-
-			KnownPotionOrder.Add(potionId);
-		}
-
-		KnownIngredients.Clear();
-		if (snapshot.KnownIngredients is not null)
-		{
-			foreach (var ingredientId in snapshot.KnownIngredients)
-				AddKnownIngredient(ingredientId, emitChanged: false);
-		}
-
-		KnownIngredientOrder.Clear();
-		var ingredientOrderSource = snapshot.KnownIngredientOrder is { Count: > 0 }
-			? snapshot.KnownIngredientOrder
-			: snapshot.KnownIngredients;
-		if (ingredientOrderSource is not null)
-		{
-			foreach (var ingredientId in ingredientOrderSource)
-				AddKnownIngredient(ingredientId, emitChanged: false);
-		}
-
-		PotionDisplayNames.Clear();
-		if (snapshot.PotionDisplayNames is not null)
-		{
-			foreach (var pair in snapshot.PotionDisplayNames)
-			{
-				if (string.IsNullOrWhiteSpace(pair.Key) || string.IsNullOrWhiteSpace(pair.Value))
-					continue;
-
-				PotionDisplayNames[pair.Key] = pair.Value;
-			}
-		}
-
-		_potionBasePrices.Clear();
-		if (snapshot.PotionBasePrices is not null)
-		{
-			foreach (var pair in snapshot.PotionBasePrices)
-			{
-				if (string.IsNullOrWhiteSpace(pair.Key) || pair.Value < 0)
-					continue;
-
-				_potionBasePrices[pair.Key] = pair.Value;
-			}
-		}
-
-		_potionRecipes.Clear();
-		if (snapshot.PotionRecipes is not null)
-		{
-			foreach (var pair in snapshot.PotionRecipes)
-			{
-				if (string.IsNullOrWhiteSpace(pair.Key) || pair.Value is null || pair.Value.Count == 0)
-					continue;
-
-				_potionRecipes[pair.Key] = new List<string>(pair.Value);
-			}
-		}
-
-		_combinationPotionItems.Clear();
-		if (snapshot.CombinationPotionItems is not null)
-		{
-			foreach (var pair in snapshot.CombinationPotionItems)
-			{
-				if (string.IsNullOrWhiteSpace(pair.Key) || string.IsNullOrWhiteSpace(pair.Value))
-					continue;
-
-				_combinationPotionItems[pair.Key] = pair.Value;
-			}
-		}
-
-		_potionBatches.Clear();
-		if (snapshot.PotionBatches is not null)
-		{
-			foreach (var pair in snapshot.PotionBatches)
-			{
-				if (string.IsNullOrWhiteSpace(pair.Key) || pair.Value is null || pair.Value.Count == 0)
-					continue;
-
-				var queue = new Queue<List<string>>();
-				foreach (var batch in pair.Value)
-				{
-					if (batch is null || batch.Count == 0)
-						continue;
-
-					queue.Enqueue(new List<string>(batch));
-				}
-
-				if (queue.Count > 0)
-					_potionBatches[pair.Key] = queue;
-			}
-		}
-
-		_potionIngredientPortionBatches.Clear();
-		if (snapshot.PotionIngredientPortionBatches is not null && snapshot.PotionIngredientPortionBatches.Count > 0)
-		{
-			foreach (var pair in snapshot.PotionIngredientPortionBatches)
-			{
-				if (string.IsNullOrWhiteSpace(pair.Key) || pair.Value is null || pair.Value.Count == 0)
-					continue;
-
-				var queue = new Queue<List<IngredientPortionDef>>();
-				foreach (var batch in pair.Value)
-				{
-					var normalizedBatch = CloneIngredientPortionBatch(batch);
-					if (normalizedBatch.Count == 0)
-						continue;
-
-					queue.Enqueue(normalizedBatch);
-				}
-
-				if (queue.Count > 0)
-					_potionIngredientPortionBatches[pair.Key] = queue;
-			}
-		}
-		else
-		{
-			RestoreUnmeasuredPortionBatchesFromLegacyBatches();
-		}
-
-		_seedInventory.Clear();
-		_gardenPots.Clear();
-		if (snapshot.GardenInitialized)
-		{
-			RestoreSeedInventory(snapshot.SeedInventory);
-			RestoreGardenPots(snapshot.GardenPots, snapshot.GardenPotCount);
-		}
-		else
-		{
-			EnsureGardenPotCount(StartingGardenPotCount);
-			SeedStartingSeedInventory();
-		}
+		_gardenState.Restore(snapshot.GardenInitialized, snapshot.SeedInventory, snapshot.GardenPots, snapshot.GardenPotCount);
 
 		ActiveCustomerRequest = CloneCustomerRequest(snapshot.ActiveCustomerRequest);
 		BackfillKnownIngredients();
@@ -452,7 +253,7 @@ public partial class GameState : Node
 
 	public void NextDay()
 	{
-		AdvanceGardenGrowth();
+		_gardenState.AdvanceGrowth();
 		Day += 1;
 		EmitChanged();
 	}
@@ -501,249 +302,97 @@ public partial class GameState : Node
 
 	public bool HasStoryCustomerVisitArrived(CustomerInteractionDef interaction)
 	{
-		var visitKey = BuildStoryCustomerVisitKey(interaction);
-		return !string.IsNullOrWhiteSpace(visitKey) &&
-			_storyCustomerVisits.TryGetValue(visitKey, out var visit) &&
-			visit.HasArrived;
+		return _storyCustomerVisitState.HasStoryCustomerVisitArrived(interaction);
 	}
 
 	public void RecordStoryCustomerArrived(CustomerInteractionDef interaction)
 	{
-		var visitKey = BuildStoryCustomerVisitKey(interaction);
-		if (string.IsNullOrWhiteSpace(visitKey))
-			return;
-
-		var visit = GetOrCreateStoryCustomerVisit(interaction, visitKey);
-		visit.HasArrived = true;
-		if (visit.ArrivalDay <= 0)
-			visit.ArrivalDay = Day;
-		if (string.IsNullOrWhiteSpace(visit.LastOutcome))
-			visit.LastOutcome = StoryCustomerOutcomeArrived;
-
-		EmitChanged();
+		if (_storyCustomerVisitState.RecordStoryCustomerArrived(interaction, Day, StoryCustomerOutcomeArrived))
+			EmitChanged();
 	}
 
 	public void RecordStoryCustomerInteractionOutcome(CustomerInteractionDef interaction, string outcome)
 	{
-		var visitKey = BuildStoryCustomerVisitKey(interaction);
-		if (string.IsNullOrWhiteSpace(visitKey))
-			return;
-
-		var normalizedOutcome = NormalizeStoryCustomerOutcome(outcome);
-		var visit = GetOrCreateStoryCustomerVisit(interaction, visitKey);
-		visit.HasArrived = true;
-		if (visit.ArrivalDay <= 0)
-			visit.ArrivalDay = Day;
-		visit.LastOutcome = normalizedOutcome;
-		visit.OutcomeDay = Day;
-
-		EmitChanged();
+		if (_storyCustomerVisitState.RecordStoryCustomerInteractionOutcome(interaction, outcome, Day, StoryCustomerOutcomeArrived))
+			EmitChanged();
 	}
 
 	public bool HasStoryCustomerDialogueOptionSelected(CustomerInteractionDef interaction, string optionId)
 	{
-		if (string.IsNullOrWhiteSpace(optionId))
-			return false;
-
-		var visitKey = BuildStoryCustomerVisitKey(interaction);
-		return !string.IsNullOrWhiteSpace(visitKey) &&
-			_storyCustomerVisits.TryGetValue(visitKey, out var visit) &&
-			visit.SelectedDialogueOptionIds.Any(id => string.Equals(id, optionId, StringComparison.OrdinalIgnoreCase));
+		return _storyCustomerVisitState.HasStoryCustomerDialogueOptionSelected(interaction, optionId);
 	}
 
 	public void RecordStoryCustomerDialogueOptionSelected(CustomerInteractionDef interaction, string optionId)
 	{
-		if (string.IsNullOrWhiteSpace(optionId))
-			return;
-
-		var visitKey = BuildStoryCustomerVisitKey(interaction);
-		if (string.IsNullOrWhiteSpace(visitKey))
-			return;
-
-		var visit = GetOrCreateStoryCustomerVisit(interaction, visitKey);
-		if (visit.SelectedDialogueOptionIds.Any(id => string.Equals(id, optionId, StringComparison.OrdinalIgnoreCase)))
-			return;
-
-		visit.SelectedDialogueOptionIds.Add(optionId);
-		EmitChanged();
+		if (_storyCustomerVisitState.RecordStoryCustomerDialogueOptionSelected(interaction, optionId, Day))
+			EmitChanged();
 	}
 
 	public void RequestTutorial()
 	{
-		TutorialProgressStatus = TutorialStatus.InProgress;
-		TutorialStep = 0;
+		_tutorialProgressState.Request();
 		EmitChanged();
 	}
 
 	public void SkipTutorial()
 	{
-		TutorialProgressStatus = TutorialStatus.Skipped;
-		TutorialStep = 0;
+		_tutorialProgressState.Skip();
 		EmitChanged();
 	}
 
 	public void CompleteTutorial()
 	{
-		TutorialProgressStatus = TutorialStatus.Completed;
-		TutorialStep = 0;
+		_tutorialProgressState.Complete();
 		EmitChanged();
 	}
 
 	public void SetTutorialStep(int step)
 	{
-		var normalizedStep = Math.Max(0, step);
-		if (TutorialStep == normalizedStep)
-			return;
-
-		TutorialStep = normalizedStep;
-		EmitChanged();
-	}
-
-	private static TutorialStatus ResolveTutorialStatus(GameStateSnapshot snapshot)
-	{
-		if (snapshot.TutorialStatus is TutorialStatus explicitStatus)
-			return NormalizeTutorialStatus(explicitStatus);
-
-		if (snapshot.TutorialCompleted)
-			return TutorialStatus.Completed;
-		if (snapshot.TutorialSkipped)
-			return TutorialStatus.Skipped;
-		if (snapshot.TutorialRequested)
-			return TutorialStatus.InProgress;
-
-		return TutorialStatus.NotStarted;
-	}
-
-	private static TutorialStatus NormalizeTutorialStatus(TutorialStatus status)
-	{
-		return status switch
-		{
-			TutorialStatus.InProgress => TutorialStatus.InProgress,
-			TutorialStatus.Completed => TutorialStatus.Completed,
-			TutorialStatus.Skipped => TutorialStatus.Skipped,
-			_ => TutorialStatus.NotStarted
-		};
+		if (_tutorialProgressState.SetStep(step))
+			EmitChanged();
 	}
 
 	public bool HasItem(string itemId, int qty)
-		=> Inventory.TryGetValue(itemId, out var have) && have >= qty;
+		=> _inventoryState.HasItem(itemId, qty);
 
 	public void AddItem(string itemId, int qty)
 	{
-		if (qty <= 0 || string.IsNullOrWhiteSpace(itemId))
-			return;
-		if (!_itemCatalog.TryGetItem(itemId, out _))
-		{
-			GD.PushError($"GameState: Cannot add unknown item '{itemId}' to inventory.");
-			return;
-		}
-
-		var quantityToAdd = ResolveInventoryAddQuantity(itemId, qty);
-		if (quantityToAdd <= 0)
-			return;
-
-		Inventory[itemId] = Inventory.GetValueOrDefault(itemId) + quantityToAdd;
-		AddKnownIngredient(itemId, emitChanged: false);
-		EmitChanged();
+		var result = _inventoryState.AddItem(itemId, qty);
+		if (result.AddedQuantity > 0)
+			AddKnownIngredient(itemId, emitChanged: false);
+		if (result.Changed)
+			EmitChanged();
 	}
 
 	public bool ConsumeItem(string itemId, int qty)
 	{
-		if (qty <= 0) return true;
-		if (!HasItem(itemId, qty)) return false;
-		Inventory[itemId] -= qty;
-		ConsumePotionBatches(itemId, qty);
-		if (Inventory[itemId] <= 0) Inventory.Remove(itemId);
+		if (qty <= 0)
+			return true;
+		if (!_inventoryState.ConsumeItem(itemId, qty))
+			return false;
+
+		_potionBatchStore.ConsumePotionBatches(itemId, qty);
 		EmitChanged();
 		return true;
 	}
 
 	public bool TryAcceptPendingConsumableByDiscarding(string discardItemId, out string error)
 	{
-		error = string.Empty;
-		if (!HasPendingConsumableGrant)
-		{
-			error = "No pending consumable is waiting.";
-			return false;
-		}
-
-		if (string.IsNullOrWhiteSpace(discardItemId))
-		{
-			error = "Choose a consumable to discard.";
-			return false;
-		}
-
-		if (!_itemCatalog.IsConsumable(discardItemId))
-		{
-			error = "Only consumables can be discarded to make room.";
-			return false;
-		}
-
-		if (!Inventory.TryGetValue(discardItemId, out var discardQuantity) || discardQuantity <= 0)
-		{
-			error = "Selected consumable is not in inventory.";
-			return false;
-		}
-
-		var pendingItemId = PendingConsumableItemId;
-		var pendingQuantity = PendingConsumableQuantity;
-		if (!_itemCatalog.TryGetItem(pendingItemId, out _) || !_itemCatalog.IsConsumable(pendingItemId))
-		{
-			ClearPendingConsumableGrant();
-			error = "Pending consumable no longer exists.";
+		var result = _inventoryState.TryAcceptPendingConsumableByDiscarding(discardItemId, out error);
+		if (result.Changed)
 			EmitChanged();
-			return false;
-		}
-
-		Inventory.Remove(discardItemId);
-		var quantityToAdd = Math.Min(Math.Max(1, pendingQuantity), MaxConsumableStackQuantity);
-		Inventory[pendingItemId] = Inventory.GetValueOrDefault(pendingItemId) + quantityToAdd;
-		if (quantityToAdd < pendingQuantity)
-			GD.PushError($"GameState: Added {quantityToAdd} of consumable '{pendingItemId}' because consumable stacks are capped at {MaxConsumableStackQuantity}.");
-
-		ClearPendingConsumableGrant();
-		EmitChanged();
-		return true;
+		return result.Accepted;
 	}
 
 	public void DeclinePendingConsumableGrant()
 	{
-		if (!HasPendingConsumableGrant)
-			return;
-
-		ClearPendingConsumableGrant();
-		EmitChanged();
+		if (_inventoryState.DeclinePendingConsumableGrant())
+			EmitChanged();
 	}
 
 	public int ConsumeEachIngredient(int qty)
 	{
-		if (qty <= 0)
-			return 0;
-
-		var consumedCount = 0;
-		var ingredientIds = new List<string>();
-		foreach (var pair in Inventory)
-		{
-			if (pair.Value <= 0)
-				continue;
-			if (!_itemCatalog.IsIngredient(pair.Key))
-				continue;
-
-			ingredientIds.Add(pair.Key);
-		}
-
-		foreach (var ingredientId in ingredientIds)
-		{
-			var consumeQty = Math.Min(qty, Inventory.GetValueOrDefault(ingredientId));
-			if (consumeQty <= 0)
-				continue;
-
-			Inventory[ingredientId] -= consumeQty;
-			consumedCount += consumeQty;
-			if (Inventory[ingredientId] <= 0)
-				Inventory.Remove(ingredientId);
-		}
-
+		var consumedCount = _inventoryState.ConsumeEachIngredient(qty);
 		if (consumedCount > 0)
 			EmitChanged();
 
@@ -752,114 +401,55 @@ public partial class GameState : Node
 
 	public static string BuildSeedId(string ingredientId)
 	{
-		return string.IsNullOrWhiteSpace(ingredientId)
-			? string.Empty
-			: $"seed_{ingredientId.Trim()}";
+		return GardenState.BuildSeedId(ingredientId);
 	}
 
 	public bool TryGetGardenCropBySeedId(string seedId, out GardenCropDef crop)
 	{
-		return GardenCropsBySeedId.TryGetValue(seedId, out crop!);
+		return _gardenState.TryGetCropBySeedId(seedId, out crop);
 	}
 
 	public bool TryGetGardenCropByIngredientId(string ingredientId, out GardenCropDef crop)
 	{
-		return GardenCropsByIngredientId.TryGetValue(ingredientId, out crop!);
+		return _gardenState.TryGetCropByIngredientId(ingredientId, out crop);
 	}
 
 	public int GetSeedQuantity(string seedId)
 	{
-		return _seedInventory.TryGetValue(seedId, out var quantity) ? quantity : 0;
+		return _gardenState.GetSeedQuantity(seedId);
 	}
 
 	public void AddSeed(string seedId, int quantity)
 	{
 		if (quantity <= 0 || string.IsNullOrWhiteSpace(seedId))
 			return;
-		if (!GardenCropsBySeedId.ContainsKey(seedId))
+		if (!_gardenState.IsKnownSeed(seedId))
 		{
 			GD.PushError($"GameState: Cannot add unknown garden seed '{seedId}'.");
 			return;
 		}
 
-		AddSeedStack(seedId, quantity);
-		EmitChanged();
+		if (_gardenState.AddSeed(seedId, quantity))
+			EmitChanged();
 	}
 
 	public bool TryPlantSeed(int potIndex, string seedId, out string error)
 	{
-		error = string.Empty;
-		if (!TryGetGardenPot(potIndex, out var pot))
-		{
-			error = "Garden pot is missing.";
+		if (!_gardenState.TryPlantSeed(potIndex, seedId, Day, out var plantedIngredientId, out error))
 			return false;
-		}
 
-		if (!pot.IsEmpty)
-		{
-			error = "Garden pot is already planted.";
-			return false;
-		}
-
-		if (!GardenCropsBySeedId.TryGetValue(seedId, out var crop))
-		{
-			error = "Seed cannot be planted.";
-			return false;
-		}
-
-		if (GetSeedQuantity(seedId) <= 0)
-		{
-			error = "No seeds available.";
-			return false;
-		}
-
-		ConsumeSeed(seedId, 1);
-		pot.SeedId = crop.SeedId;
-		pot.IngredientId = crop.IngredientId;
-		pot.PlantedDay = Day;
-		pot.DaysGrown = 0;
-		pot.RequiredGrowthDays = Math.Max(1, crop.GrowthDays);
-		pot.HarvestYieldMin = Math.Max(1, crop.HarvestYieldMin);
-		pot.HarvestYieldMax = Math.Max(pot.HarvestYieldMin, crop.HarvestYieldMax);
-		AddKnownIngredient(crop.IngredientId, emitChanged: false);
-
+		AddKnownIngredient(plantedIngredientId, emitChanged: false);
 		EmitChanged();
 		return true;
 	}
 
 	public bool TryHarvestGardenPot(int potIndex, out string error)
 	{
-		error = string.Empty;
-		if (!TryGetGardenPot(potIndex, out var pot))
-		{
-			error = "Garden pot is missing.";
+		if (!_gardenState.TryHarvestGardenPot(potIndex, out var harvest, out error))
 			return false;
-		}
 
-		if (pot.IsEmpty)
-		{
-			error = "Garden pot is empty.";
-			return false;
-		}
-
-		if (!pot.IsReady)
-		{
-			error = "Ingredient is still growing.";
-			return false;
-		}
-
-		if (!_itemCatalog.TryGetItem(pot.IngredientId, out _))
-		{
-			error = "Harvest ingredient is missing from the item catalog.";
-			GD.PushError($"GameState: Cannot harvest unknown ingredient '{pot.IngredientId}'.");
-			return false;
-		}
-
-		var harvestYield = ResolveHarvestYield(pot);
-		Inventory[pot.IngredientId] = Inventory.GetValueOrDefault(pot.IngredientId) + harvestYield;
-		AddKnownIngredient(pot.IngredientId, emitChanged: false);
-		AddSeedStack(pot.SeedId, 1);
-		ClearGardenPot(pot);
+		_inventoryState.AddRawStack(harvest.IngredientId, harvest.Quantity);
+		AddKnownIngredient(harvest.IngredientId, emitChanged: false);
 
 		EmitChanged();
 		return true;
@@ -867,41 +457,21 @@ public partial class GameState : Node
 
 	public void SetUnlockedGardenPotCount(int potCount)
 	{
-		var normalizedPotCount = Math.Max(StartingGardenPotCount, potCount);
-		if (_gardenPots.Count >= normalizedPotCount)
-			return;
-
-		EnsureGardenPotCount(normalizedPotCount);
-		EmitChanged();
+		if (_gardenState.SetUnlockedPotCount(potCount))
+			EmitChanged();
 	}
 
 	public void LearnPotion(string potionId)
 	{
-		if (string.IsNullOrWhiteSpace(potionId))
-			return;
-
-		var knownPotionAdded = KnownPotions.Add(potionId);
-		var orderAdded = false;
-		if (!KnownPotionOrder.Contains(potionId))
-		{
-			KnownPotionOrder.Add(potionId);
-			orderAdded = true;
-		}
-
-		if (knownPotionAdded || orderAdded)
+		if (_potionKnowledgeState.LearnPotion(potionId))
 			EmitChanged();
 	}
 
-	public bool KnowsPotion(string potionId) => KnownPotions.Contains(potionId);
+	public bool KnowsPotion(string potionId) => _potionKnowledgeState.KnowsPotion(potionId);
 
 	public void ForgetPotion(string potionId)
 	{
-		if (string.IsNullOrWhiteSpace(potionId))
-			return;
-
-		var removedKnown = KnownPotions.RemoveWhere(id => string.Equals(id, potionId, StringComparison.OrdinalIgnoreCase)) > 0;
-		var removedOrder = KnownPotionOrder.RemoveAll(id => string.Equals(id, potionId, StringComparison.OrdinalIgnoreCase)) > 0;
-		if (removedKnown || removedOrder)
+		if (_potionKnowledgeState.ForgetPotion(potionId))
 			EmitChanged();
 	}
 
@@ -912,132 +482,76 @@ public partial class GameState : Node
 
 	public bool KnowsIngredient(string ingredientId)
 	{
-		return !string.IsNullOrWhiteSpace(ingredientId) && KnownIngredients.Contains(ingredientId);
+		return _potionKnowledgeState.KnowsIngredient(ingredientId);
 	}
 
 	public void ForgetIngredient(string ingredientId)
 	{
-		if (string.IsNullOrWhiteSpace(ingredientId))
-			return;
-
-		var knownIngredientId = TryResolveKnownIngredientId(ingredientId, out var resolvedIngredientId)
-			? resolvedIngredientId
-			: ingredientId.Trim();
-		var removedKnown = KnownIngredients.RemoveWhere(id => string.Equals(id, knownIngredientId, StringComparison.OrdinalIgnoreCase)) > 0;
-		var removedOrder = KnownIngredientOrder.RemoveAll(id => string.Equals(id, knownIngredientId, StringComparison.OrdinalIgnoreCase)) > 0;
-		if (removedKnown || removedOrder)
+		if (_potionKnowledgeState.ForgetIngredient(ingredientId))
 			EmitChanged();
 	}
 
 	public void RecordPotionRecipe(string potionItemId, IReadOnlyList<string> ingredientIds)
 	{
-		if (string.IsNullOrWhiteSpace(potionItemId) || ingredientIds is null || ingredientIds.Count == 0)
-			return;
-
-		var changed = false;
-		if (!_potionRecipes.ContainsKey(potionItemId))
-		{
-			_potionRecipes[potionItemId] = new List<string>(ingredientIds);
-			changed = true;
-		}
-
-		foreach (var ingredientId in ingredientIds)
-			changed |= AddKnownIngredient(ingredientId, emitChanged: false);
-
-		if (changed)
+		if (_potionKnowledgeState.RecordPotionRecipe(potionItemId, ingredientIds))
 			EmitChanged();
 	}
 
 	public bool TryGetPotionRecipe(string potionItemId, out List<string> ingredientIds)
 	{
-		ingredientIds = new List<string>();
-		if (!_potionRecipes.TryGetValue(potionItemId, out var stored))
-			return false;
-
-		ingredientIds = new List<string>(stored);
-		return true;
+		return _potionKnowledgeState.TryGetPotionRecipe(potionItemId, out ingredientIds);
 	}
 
 	public void SetPotionDisplayName(string potionId, string displayName)
 	{
-		if (string.IsNullOrWhiteSpace(potionId) || string.IsNullOrWhiteSpace(displayName))
-			return;
-
-		PotionDisplayNames[potionId] = displayName;
-		EmitChanged();
+		if (_potionKnowledgeState.SetPotionDisplayName(potionId, displayName))
+			EmitChanged();
 	}
 
 	public void RegisterPotionBasePrice(string potionId, int basePrice)
 	{
-		if (string.IsNullOrWhiteSpace(potionId) || basePrice < 0)
-			return;
-
-		if (_potionBasePrices.ContainsKey(potionId))
-			return;
-
-		_potionBasePrices[potionId] = basePrice;
-		EmitChanged();
+		if (_potionKnowledgeState.RegisterPotionBasePrice(potionId, basePrice))
+			EmitChanged();
 	}
 
 	public bool TryGetPotionBasePrice(string potionId, out int basePrice)
 	{
-		return _potionBasePrices.TryGetValue(potionId, out basePrice);
+		return _potionKnowledgeState.TryGetPotionBasePrice(potionId, out basePrice);
 	}
 
 	public string? GetPotionDisplayName(string potionId)
 	{
-		return PotionDisplayNames.TryGetValue(potionId, out var displayName) ? displayName : null;
+		return _potionKnowledgeState.GetPotionDisplayName(potionId);
 	}
 
 	public bool TryGetPotionForCombination(string combinationKey, out string potionItemId)
 	{
-		return _combinationPotionItems.TryGetValue(combinationKey, out potionItemId!);
+		return _potionKnowledgeState.TryGetPotionForCombination(combinationKey, out potionItemId);
 	}
 
 	public void SetPotionForCombination(string combinationKey, string potionItemId)
 	{
-		if (string.IsNullOrWhiteSpace(combinationKey) || string.IsNullOrWhiteSpace(potionItemId))
-			return;
-
-		_combinationPotionItems[combinationKey] = potionItemId;
+		_potionKnowledgeState.SetPotionForCombination(combinationKey, potionItemId);
 	}
 
 	public void RecordPotionBatch(string potionItemId, IReadOnlyList<string> ingredientIds)
 	{
-		if (string.IsNullOrWhiteSpace(potionItemId) || ingredientIds is null || ingredientIds.Count == 0)
-			return;
-
-		EnqueuePotionBatch(potionItemId, ingredientIds);
-		EnqueuePotionIngredientPortionBatch(potionItemId, BuildUnmeasuredPortions(ingredientIds));
+		_potionBatchStore.RecordPotionBatch(potionItemId, ingredientIds);
 	}
 
 	public void RecordPotionBatch(string potionItemId, IReadOnlyList<IngredientPortionDef> ingredientPortions)
 	{
-		if (string.IsNullOrWhiteSpace(potionItemId) || ingredientPortions is null || ingredientPortions.Count == 0)
-			return;
-
-		EnqueuePotionBatch(potionItemId, ingredientPortions.Select(x => x.IngredientId).ToList());
-		EnqueuePotionIngredientPortionBatch(potionItemId, ingredientPortions);
+		_potionBatchStore.RecordPotionBatch(potionItemId, ingredientPortions);
 	}
 
 	public bool TryPeekPotionBatch(string potionItemId, out List<string> ingredientIds)
 	{
-		ingredientIds = new List<string>();
-		if (!_potionBatches.TryGetValue(potionItemId, out var queue) || queue.Count == 0)
-			return false;
-
-		ingredientIds = new List<string>(queue.Peek());
-		return true;
+		return _potionBatchStore.TryPeekPotionBatch(potionItemId, out ingredientIds);
 	}
 
 	public bool TryPeekPotionIngredientPortionBatch(string potionItemId, out List<IngredientPortionDef> ingredientPortions)
 	{
-		ingredientPortions = new List<IngredientPortionDef>();
-		if (!_potionIngredientPortionBatches.TryGetValue(potionItemId, out var queue) || queue.Count == 0)
-			return false;
-
-		ingredientPortions = CloneIngredientPortionBatch(queue.Peek());
-		return true;
+		return _potionBatchStore.TryPeekPotionIngredientPortionBatch(potionItemId, out ingredientPortions);
 	}
 
 	public void SetActiveCustomerRequest(CustomerRequestDef? request)
@@ -1053,166 +567,6 @@ public partial class GameState : Node
 
 		ActiveCustomerRequest = null;
 		EmitChanged();
-	}
-
-	private static GardenCropDef CreateGardenCrop(string ingredientId, int growthDays)
-	{
-		return new GardenCropDef
-		{
-			IngredientId = ingredientId,
-			SeedId = BuildSeedId(ingredientId),
-			GrowthDays = Math.Max(1, growthDays),
-			HarvestYieldMin = DefaultGardenHarvestYield,
-			HarvestYieldMax = DefaultGardenHarvestYield
-		};
-	}
-
-	private void SeedStartingSeedInventory()
-	{
-		foreach (var (seedId, quantity) in StartingSeedInventory)
-			AddSeedStack(seedId, quantity);
-	}
-
-	private void AddSeedStack(string seedId, int quantity)
-	{
-		if (quantity <= 0 || string.IsNullOrWhiteSpace(seedId))
-			return;
-		if (!GardenCropsBySeedId.ContainsKey(seedId))
-			return;
-
-		_seedInventory[seedId] = _seedInventory.GetValueOrDefault(seedId) + quantity;
-	}
-
-	private bool ConsumeSeed(string seedId, int quantity)
-	{
-		if (quantity <= 0)
-			return true;
-		if (!_seedInventory.TryGetValue(seedId, out var existing) || existing < quantity)
-			return false;
-
-		var remaining = existing - quantity;
-		if (remaining <= 0)
-			_seedInventory.Remove(seedId);
-		else
-			_seedInventory[seedId] = remaining;
-
-		return true;
-	}
-
-	private bool TryGetGardenPot(int potIndex, out GardenPotState pot)
-	{
-		pot = default!;
-		if (potIndex < 0 || potIndex >= _gardenPots.Count)
-			return false;
-
-		pot = _gardenPots[potIndex];
-		return true;
-	}
-
-	private void ClearGardenPot(GardenPotState pot)
-	{
-		pot.SeedId = string.Empty;
-		pot.IngredientId = string.Empty;
-		pot.PlantedDay = 0;
-		pot.DaysGrown = 0;
-		pot.RequiredGrowthDays = 0;
-		pot.HarvestYieldMin = 0;
-		pot.HarvestYieldMax = 0;
-	}
-
-	private void AdvanceGardenGrowth()
-	{
-		foreach (var pot in _gardenPots)
-		{
-			if (pot.IsEmpty)
-				continue;
-			if (pot.DaysGrown >= pot.RequiredGrowthDays)
-				continue;
-
-			pot.DaysGrown += 1;
-		}
-	}
-
-	private int ResolveHarvestYield(GardenPotState pot)
-	{
-		var minYield = Math.Max(1, pot.HarvestYieldMin);
-		var maxYield = Math.Max(minYield, pot.HarvestYieldMax);
-		return minYield == maxYield ? minYield : _gardenYieldRandom.Next(minYield, maxYield + 1);
-	}
-
-	private void EnsureGardenPotCount(int potCount)
-	{
-		var targetCount = Math.Max(StartingGardenPotCount, potCount);
-		while (_gardenPots.Count < targetCount)
-		{
-			_gardenPots.Add(new GardenPotState
-			{
-				PotIndex = _gardenPots.Count
-			});
-		}
-	}
-
-	private void RestoreSeedInventory(Dictionary<string, int>? seedInventory)
-	{
-		if (seedInventory is null)
-			return;
-
-		foreach (var pair in seedInventory)
-		{
-			if (string.IsNullOrWhiteSpace(pair.Key) || pair.Value <= 0)
-				continue;
-			if (!GardenCropsBySeedId.ContainsKey(pair.Key))
-				continue;
-
-			_seedInventory[pair.Key] = pair.Value;
-		}
-	}
-
-	private void RestoreGardenPots(List<GardenPotState>? gardenPots, int savedPotCount)
-	{
-		var targetPotCount = Math.Max(StartingGardenPotCount, savedPotCount);
-		if (gardenPots is not null && gardenPots.Count > targetPotCount)
-			targetPotCount = gardenPots.Count;
-
-		EnsureGardenPotCount(targetPotCount);
-		if (gardenPots is null)
-			return;
-
-		foreach (var savedPot in gardenPots)
-		{
-			if (savedPot is null)
-				continue;
-			if (savedPot.PotIndex < 0 || savedPot.PotIndex >= _gardenPots.Count)
-				continue;
-
-			_gardenPots[savedPot.PotIndex] = NormalizeGardenPot(savedPot);
-		}
-	}
-
-	private static GardenPotState NormalizeGardenPot(GardenPotState savedPot)
-	{
-		var pot = new GardenPotState
-		{
-			PotIndex = Math.Max(0, savedPot.PotIndex)
-		};
-
-		if (string.IsNullOrWhiteSpace(savedPot.IngredientId))
-			return pot;
-
-		if (!GardenCropsByIngredientId.TryGetValue(savedPot.IngredientId, out var crop))
-			return pot;
-
-		pot.SeedId = string.IsNullOrWhiteSpace(savedPot.SeedId) || !GardenCropsBySeedId.ContainsKey(savedPot.SeedId)
-			? crop.SeedId
-			: savedPot.SeedId;
-		pot.IngredientId = crop.IngredientId;
-		pot.PlantedDay = Math.Max(1, savedPot.PlantedDay);
-		pot.DaysGrown = Math.Max(0, savedPot.DaysGrown);
-		pot.RequiredGrowthDays = Math.Max(1, savedPot.RequiredGrowthDays > 0 ? savedPot.RequiredGrowthDays : crop.GrowthDays);
-		pot.HarvestYieldMin = Math.Max(1, savedPot.HarvestYieldMin > 0 ? savedPot.HarvestYieldMin : crop.HarvestYieldMin);
-		var savedMax = savedPot.HarvestYieldMax > 0 ? savedPot.HarvestYieldMax : crop.HarvestYieldMax;
-		pot.HarvestYieldMax = Math.Max(pot.HarvestYieldMin, savedMax);
-		return pot;
 	}
 
 	private void EmitChanged() => Changed?.Invoke();
@@ -1242,8 +596,8 @@ public partial class GameState : Node
 		if (qty <= 0 || string.IsNullOrWhiteSpace(itemId))
 			return;
 
-		Inventory[itemId] = Inventory.GetValueOrDefault(itemId) + qty;
-		AddKnownIngredient(itemId, emitChanged: false);
+		if (_inventoryState.AddRawStack(itemId, qty))
+			AddKnownIngredient(itemId, emitChanged: false);
 	}
 
 	private void SeedStartingIngredientBookKnowledge()
@@ -1267,7 +621,7 @@ public partial class GameState : Node
 		SeedStartingIngredientBookKnowledge();
 		BackfillKnownIngredientsFromInventory();
 		BackfillKnownIngredientsFromGardenPots();
-		BackfillKnownIngredientsFromKnownRecipes();
+		_potionKnowledgeState.BackfillKnownIngredientsFromKnownRecipes();
 	}
 
 	private void BackfillKnownIngredientsFromInventory()
@@ -1283,7 +637,7 @@ public partial class GameState : Node
 
 	private void BackfillKnownIngredientsFromGardenPots()
 	{
-		foreach (var pot in _gardenPots)
+		foreach (var pot in GardenPots)
 		{
 			if (pot is null || pot.IsEmpty)
 				continue;
@@ -1292,36 +646,18 @@ public partial class GameState : Node
 		}
 	}
 
-	private void BackfillKnownIngredientsFromKnownRecipes()
-	{
-		foreach (var potionId in KnownPotions)
-		{
-			if (!_potionRecipes.TryGetValue(potionId, out var ingredientIds))
-				continue;
-
-			foreach (var ingredientId in ingredientIds)
-				AddKnownIngredient(ingredientId, emitChanged: false);
-		}
-	}
-
 	private bool AddKnownIngredient(string ingredientId, bool emitChanged)
 	{
-		if (!TryResolveKnownIngredientId(ingredientId, out var knownIngredientId))
-			return false;
-
-		var knownIngredientAdded = KnownIngredients.Add(knownIngredientId);
-		var orderAdded = false;
-		if (!KnownIngredientOrder.Any(id => string.Equals(id, knownIngredientId, StringComparison.OrdinalIgnoreCase)))
-		{
-			KnownIngredientOrder.Add(knownIngredientId);
-			orderAdded = true;
-		}
-
-		var changed = knownIngredientAdded || orderAdded;
+		var changed = _potionKnowledgeState.AddKnownIngredient(ingredientId);
 		if (changed && emitChanged)
 			EmitChanged();
 
 		return changed;
+	}
+
+	private string? ResolveKnownIngredientIdOrNull(string itemId)
+	{
+		return TryResolveKnownIngredientId(itemId, out var knownIngredientId) ? knownIngredientId : null;
 	}
 
 	private bool TryResolveKnownIngredientId(string itemId, out string knownIngredientId)
@@ -1349,124 +685,14 @@ public partial class GameState : Node
 		return true;
 	}
 
-	private int ResolveInventoryAddQuantity(string itemId, int requestedQuantity)
-	{
-		if (!_itemCatalog.IsPotion(itemId))
-		{
-			if (_itemCatalog.IsConsumable(itemId))
-				return ResolveConsumableInventoryAddQuantity(itemId, requestedQuantity);
-
-			return requestedQuantity;
-		}
-
-		var currentQuantity = Inventory.GetValueOrDefault(itemId);
-		if (currentQuantity <= 0 && CountInventoryPotionStacks() >= MaxUniquePotionInventoryQuantity)
-		{
-			GD.PushError($"GameState: Cannot add potion '{itemId}'. Potion inventory already has {MaxUniquePotionInventoryQuantity} unique potions.");
-			return 0;
-		}
-
-		var availableQuantity = MaxPotionStackQuantity - currentQuantity;
-		if (availableQuantity <= 0)
-		{
-			GD.PushError($"GameState: Cannot add potion '{itemId}'. Potion stack already has {MaxPotionStackQuantity} items.");
-			return 0;
-		}
-
-		var quantityToAdd = Math.Min(requestedQuantity, availableQuantity);
-		if (quantityToAdd < requestedQuantity)
-			GD.PushError($"GameState: Added {quantityToAdd} of potion '{itemId}' because potion stacks are capped at {MaxPotionStackQuantity}.");
-
-		return quantityToAdd;
-	}
-
-	private int ResolveConsumableInventoryAddQuantity(string itemId, int requestedQuantity)
-	{
-		var currentQuantity = Inventory.GetValueOrDefault(itemId);
-		if (currentQuantity <= 0 && CountInventoryConsumableStacks() >= MaxUniqueConsumableInventoryQuantity)
-		{
-			SetPendingConsumableGrant(itemId, requestedQuantity);
-			GD.PushError($"GameState: Cannot add consumable '{itemId}'. Consumable inventory already has {MaxUniqueConsumableInventoryQuantity} unique consumables.");
-			EmitChanged();
-			return 0;
-		}
-
-		var availableQuantity = MaxConsumableStackQuantity - currentQuantity;
-		if (availableQuantity <= 0)
-		{
-			GD.PushError($"GameState: Cannot add consumable '{itemId}'. Consumable stack already has {MaxConsumableStackQuantity} items.");
-			return 0;
-		}
-
-		var quantityToAdd = Math.Min(requestedQuantity, availableQuantity);
-		if (quantityToAdd < requestedQuantity)
-			GD.PushError($"GameState: Added {quantityToAdd} of consumable '{itemId}' because consumable stacks are capped at {MaxConsumableStackQuantity}.");
-
-		return quantityToAdd;
-	}
-
-	private int CountInventoryPotionStacks()
-	{
-		var count = 0;
-		foreach (var pair in Inventory)
-		{
-			if (pair.Value <= 0)
-				continue;
-			if (!_itemCatalog.IsPotion(pair.Key))
-				continue;
-
-			count++;
-		}
-
-		return count;
-	}
-
 	public int CountOwnedUniquePotions()
 	{
-		return CountInventoryPotionStacks();
+		return _inventoryState.CountPotionStacks();
 	}
 
 	public int CountOwnedUniqueConsumables()
 	{
-		return CountInventoryConsumableStacks();
-	}
-
-	private int CountInventoryConsumableStacks()
-	{
-		var count = 0;
-		foreach (var pair in Inventory)
-		{
-			if (pair.Value <= 0)
-				continue;
-			if (!_itemCatalog.IsConsumable(pair.Key))
-				continue;
-
-			count++;
-		}
-
-		return count;
-	}
-
-	private void SetPendingConsumableGrant(string itemId, int quantity)
-	{
-		PendingConsumableItemId = itemId;
-		PendingConsumableQuantity = Math.Max(1, quantity);
-	}
-
-	private void ClearPendingConsumableGrant()
-	{
-		PendingConsumableItemId = string.Empty;
-		PendingConsumableQuantity = 0;
-	}
-
-	private void RestorePendingConsumableGrant(string itemId, int quantity)
-	{
-		if (string.IsNullOrWhiteSpace(itemId) || quantity <= 0)
-			return;
-		if (!_itemCatalog.TryGetItem(itemId, out _) || !_itemCatalog.IsConsumable(itemId))
-			return;
-
-		SetPendingConsumableGrant(itemId, quantity);
+		return _inventoryState.CountConsumableStacks();
 	}
 
 	private static bool IsIngredient(ItemDef item)
@@ -1477,219 +703,29 @@ public partial class GameState : Node
 		return item.Tags.Any(tag => string.Equals(tag, ItemTags.Ingredient, StringComparison.OrdinalIgnoreCase));
 	}
 
-	private Dictionary<string, List<string>> ClonePotionRecipes()
+	private bool ItemExists(string itemId)
 	{
-		var copy = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
-		foreach (var pair in _potionRecipes)
-			copy[pair.Key] = new List<string>(pair.Value);
-
-		return copy;
+		return _itemCatalog.TryGetItem(itemId, out _);
 	}
 
-	private Dictionary<string, List<List<string>>> ClonePotionBatches()
+	private bool IsPotionItem(string itemId)
 	{
-		var copy = new Dictionary<string, List<List<string>>>(StringComparer.OrdinalIgnoreCase);
-		foreach (var pair in _potionBatches)
-			copy[pair.Key] = pair.Value.Select(batch => new List<string>(batch)).ToList();
-
-		return copy;
+		return _itemCatalog.IsPotion(itemId);
 	}
 
-	private Dictionary<string, List<List<IngredientPortionDef>>> ClonePotionIngredientPortionBatches()
+	private bool IsConsumableItem(string itemId)
 	{
-		var copy = new Dictionary<string, List<List<IngredientPortionDef>>>(StringComparer.OrdinalIgnoreCase);
-		foreach (var pair in _potionIngredientPortionBatches)
-			copy[pair.Key] = pair.Value.Select(CloneIngredientPortionBatch).ToList();
-
-		return copy;
+		return _itemCatalog.IsConsumable(itemId);
 	}
 
-	private static List<IngredientPortionDef> CloneIngredientPortionBatch(IReadOnlyList<IngredientPortionDef>? batch)
+	private bool IsIngredientItem(string itemId)
 	{
-		var clones = new List<IngredientPortionDef>();
-		if (batch is null)
-			return clones;
-
-		foreach (var ingredientPortion in batch)
-		{
-			if (ingredientPortion is null || string.IsNullOrWhiteSpace(ingredientPortion.IngredientId))
-				continue;
-
-			clones.Add(new IngredientPortionDef
-			{
-				IngredientId = ingredientPortion.IngredientId,
-				Grams = Math.Max(0, ingredientPortion.Grams)
-			});
-		}
-
-		return clones;
+		return _itemCatalog.IsIngredient(itemId);
 	}
 
-	private void RestoreUnmeasuredPortionBatchesFromLegacyBatches()
+	private static void PushGameStateError(string message)
 	{
-		foreach (var pair in _potionBatches)
-		{
-			var queue = new Queue<List<IngredientPortionDef>>();
-			foreach (var batch in pair.Value)
-			{
-				var portionBatch = BuildUnmeasuredPortions(batch);
-				if (portionBatch.Count > 0)
-					queue.Enqueue(portionBatch);
-			}
-
-			if (queue.Count > 0)
-				_potionIngredientPortionBatches[pair.Key] = queue;
-		}
-	}
-
-	private List<GardenPotState> CloneGardenPots()
-	{
-		var pots = new List<GardenPotState>(_gardenPots.Count);
-		foreach (var pot in _gardenPots)
-			pots.Add(CloneGardenPot(pot));
-
-		return pots;
-	}
-
-	private static GardenPotState CloneGardenPot(GardenPotState pot)
-	{
-		return new GardenPotState
-		{
-			PotIndex = pot.PotIndex,
-			SeedId = pot.SeedId,
-			IngredientId = pot.IngredientId,
-			PlantedDay = pot.PlantedDay,
-			DaysGrown = pot.DaysGrown,
-			RequiredGrowthDays = pot.RequiredGrowthDays,
-			HarvestYieldMin = pot.HarvestYieldMin,
-			HarvestYieldMax = pot.HarvestYieldMax
-		};
-	}
-
-	private List<StoryCustomerVisitRecord> CloneStoryCustomerVisits()
-	{
-		var visits = new List<StoryCustomerVisitRecord>(_storyCustomerVisits.Count);
-		foreach (var visit in _storyCustomerVisits.Values)
-			visits.Add(CloneStoryCustomerVisit(visit));
-
-		return visits;
-	}
-
-	private static StoryCustomerVisitRecord CloneStoryCustomerVisit(StoryCustomerVisitRecord visit)
-	{
-		return new StoryCustomerVisitRecord
-		{
-			VisitKey = visit.VisitKey,
-			StoryCharacterId = visit.StoryCharacterId,
-			VisitId = visit.VisitId,
-			InteractionId = visit.InteractionId,
-			ScheduledDay = visit.ScheduledDay,
-			HasArrived = visit.HasArrived,
-			ArrivalDay = visit.ArrivalDay,
-			LastOutcome = visit.LastOutcome,
-			OutcomeDay = visit.OutcomeDay,
-			SelectedDialogueOptionIds = CloneSelectedDialogueOptionIds(visit.SelectedDialogueOptionIds)
-		};
-	}
-
-	private void RestoreStoryCustomerVisit(StoryCustomerVisitRecord? visit)
-	{
-		if (visit is null)
-			return;
-
-		var visitKey = string.IsNullOrWhiteSpace(visit.VisitKey)
-			? BuildStoryCustomerVisitKey(visit.StoryCharacterId, visit.VisitId, visit.InteractionId)
-			: visit.VisitKey;
-		if (string.IsNullOrWhiteSpace(visitKey))
-			return;
-
-		_storyCustomerVisits[visitKey] = new StoryCustomerVisitRecord
-		{
-			VisitKey = visitKey,
-			StoryCharacterId = visit.StoryCharacterId,
-			VisitId = string.IsNullOrWhiteSpace(visit.VisitId) ? visit.InteractionId : visit.VisitId,
-			InteractionId = visit.InteractionId,
-			ScheduledDay = Math.Max(0, visit.ScheduledDay),
-			HasArrived = visit.HasArrived,
-			ArrivalDay = Math.Max(0, visit.ArrivalDay),
-			LastOutcome = NormalizeStoryCustomerOutcome(visit.LastOutcome),
-			OutcomeDay = Math.Max(0, visit.OutcomeDay),
-			SelectedDialogueOptionIds = CloneSelectedDialogueOptionIds(visit.SelectedDialogueOptionIds)
-		};
-	}
-
-	private static List<string> CloneSelectedDialogueOptionIds(IEnumerable<string>? selectedOptionIds)
-	{
-		var result = new List<string>();
-		if (selectedOptionIds is null)
-			return result;
-
-		foreach (var selectedOptionId in selectedOptionIds)
-		{
-			if (string.IsNullOrWhiteSpace(selectedOptionId))
-				continue;
-			if (result.Any(id => string.Equals(id, selectedOptionId, StringComparison.OrdinalIgnoreCase)))
-				continue;
-
-			result.Add(selectedOptionId);
-		}
-
-		return result;
-	}
-
-	private StoryCustomerVisitRecord GetOrCreateStoryCustomerVisit(CustomerInteractionDef interaction, string visitKey)
-	{
-		if (_storyCustomerVisits.TryGetValue(visitKey, out var visit))
-			return visit;
-
-		visit = new StoryCustomerVisitRecord
-		{
-			VisitKey = visitKey,
-			StoryCharacterId = interaction.StoryCharacterId,
-			VisitId = interaction.GetStoryVisitId(),
-			InteractionId = interaction.Id,
-			ScheduledDay = ResolveStoryCustomerScheduledDay(interaction)
-		};
-		_storyCustomerVisits[visitKey] = visit;
-		return visit;
-	}
-
-	private int ResolveStoryCustomerScheduledDay(CustomerInteractionDef interaction)
-	{
-		if (interaction.Requires?.DayExact is int dayExact)
-			return Math.Max(1, dayExact);
-		if (interaction.Requires?.DayMin is int dayMin)
-			return Math.Max(1, dayMin);
-
-		return Day;
-	}
-
-	private static string BuildStoryCustomerVisitKey(CustomerInteractionDef interaction)
-	{
-		if (!interaction.IsStoryInteraction)
-			return string.Empty;
-
-		return BuildStoryCustomerVisitKey(interaction.StoryCharacterId, interaction.GetStoryVisitId(), interaction.Id);
-	}
-
-	private static string BuildStoryCustomerVisitKey(string storyCharacterId, string visitId, string interactionId)
-	{
-		if (string.IsNullOrWhiteSpace(storyCharacterId))
-			return string.Empty;
-
-		var resolvedVisitId = string.IsNullOrWhiteSpace(visitId) ? interactionId : visitId;
-		if (string.IsNullOrWhiteSpace(resolvedVisitId))
-			return string.Empty;
-
-		return $"{storyCharacterId.Trim()}:{resolvedVisitId.Trim()}";
-	}
-
-	private static string NormalizeStoryCustomerOutcome(string? outcome)
-	{
-		if (string.IsNullOrWhiteSpace(outcome))
-			return StoryCustomerOutcomeArrived;
-
-		return outcome.Trim().ToLowerInvariant();
+		GD.PushError(message);
 	}
 
 	private static CustomerRequestDef? CloneCustomerRequest(CustomerRequestDef? request)
@@ -1703,76 +739,12 @@ public partial class GameState : Node
 			Description = request.Description,
 			DesiredTraits = request.DesiredTraits is null ? new Dictionary<string, int>() : new Dictionary<string, int>(request.DesiredTraits),
 			BadTraits = request.BadTraits is null ? new Dictionary<string, int>() : new Dictionary<string, int>(request.BadTraits),
+			RequiredMinTraits = request.RequiredMinTraits is null ? new Dictionary<string, int>() : new Dictionary<string, int>(request.RequiredMinTraits),
+			RequiredMaxTraits = request.RequiredMaxTraits is null ? new Dictionary<string, int>() : new Dictionary<string, int>(request.RequiredMaxTraits),
 			RequiredIngredientAmounts = request.RequiredIngredientAmounts is null
 				? new List<IngredientPortionDef>()
 				: request.RequiredIngredientAmounts.Select(x => x.Clone()).ToList()
 		};
 	}
 
-	private void EnqueuePotionBatch(string potionItemId, IReadOnlyList<string> ingredientIds)
-	{
-		if (!_potionBatches.TryGetValue(potionItemId, out var queue))
-		{
-			queue = new Queue<List<string>>();
-			_potionBatches[potionItemId] = queue;
-		}
-
-		queue.Enqueue(new List<string>(ingredientIds));
-	}
-
-	private void EnqueuePotionIngredientPortionBatch(
-		string potionItemId,
-		IReadOnlyList<IngredientPortionDef> ingredientPortions)
-	{
-		var batch = CloneIngredientPortionBatch(ingredientPortions);
-		if (batch.Count == 0)
-			return;
-
-		if (!_potionIngredientPortionBatches.TryGetValue(potionItemId, out var queue))
-		{
-			queue = new Queue<List<IngredientPortionDef>>();
-			_potionIngredientPortionBatches[potionItemId] = queue;
-		}
-
-		queue.Enqueue(batch);
-	}
-
-	private static List<IngredientPortionDef> BuildUnmeasuredPortions(IReadOnlyList<string> ingredientIds)
-	{
-		var portions = new List<IngredientPortionDef>(ingredientIds.Count);
-		foreach (var ingredientId in ingredientIds)
-		{
-			if (string.IsNullOrWhiteSpace(ingredientId))
-				continue;
-
-			portions.Add(new IngredientPortionDef
-			{
-				IngredientId = ingredientId,
-				Grams = 0
-			});
-		}
-
-		return portions;
-	}
-
-	private void ConsumePotionBatches(string itemId, int qty)
-	{
-		ConsumePotionBatchQueue(_potionBatches, itemId, qty);
-		ConsumePotionBatchQueue(_potionIngredientPortionBatches, itemId, qty);
-	}
-
-	private static void ConsumePotionBatchQueue<TBatch>(
-		Dictionary<string, Queue<List<TBatch>>> batches,
-		string itemId,
-		int qty)
-	{
-		if (!batches.TryGetValue(itemId, out var queue) || queue.Count == 0)
-			return;
-
-		for (var i = 0; i < qty && queue.Count > 0; i++)
-			queue.Dequeue();
-
-		if (queue.Count == 0)
-			batches.Remove(itemId);
-	}
 }

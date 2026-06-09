@@ -20,12 +20,15 @@ internal static class InventoryAndBrewPanelTests
         runner.Run("InventoryPanel top-traits formatting is stable", TestInventoryPanelFormatTopTraits);
         runner.Run("InventoryPanel potion filter uses only top traits", TestInventoryPanelPotionFilterUsesOnlyTopTraits);
         runner.Run("InventoryPanel closes detail after successful right-click queue of same ingredient", TestInventoryPanelRightClickQueueClosesMatchingDetail);
+        runner.Run("Inventory item slot clears highlight on outside click", TestInventoryItemSlotClearsHighlightOnOutsideClick);
+        runner.Run("InventoryPanel item detail descriptions include item effects", TestInventoryPanelItemDetailDescriptionsIncludeItemEffects);
         runner.Run("InventoryPanel risk filter is wired", TestInventoryPanelRiskFilterIsWired);
         runner.Run("InventoryPanel colors risky potion names red", TestInventoryPanelRiskyPotionNamesAreRed);
         runner.Run("InventoryPanel clear buttons reserve layout space until filters are active", TestInventoryPanelClearButtonsReserveLayoutSpaceUntilFiltersAreActive);
         runner.Run("InventoryPanel ingredient type filter is populated and fixed", TestInventoryPanelTypeFilterIsPopulatedAndFixed);
         runner.Run("BrewPanel ingredient tag detection is case-insensitive", TestBrewPanelIsIngredient);
         runner.Run("BrewPanel previews potion names before brewing", TestBrewPanelPreviewNameIsWired);
+        runner.Run("BrewPanel previews live partial brew results", TestBrewPanelPreviewsLivePartialResults);
         runner.Run("Potion inventory is capped at four unique potions with ten per stack", TestPotionInventoryCap);
         runner.Run("Consumable inventory and treatment tray are wired", TestConsumableInventoryAndTreatmentTrayWiring);
         runner.Run("Ingredient scales are wired on the brewing station", TestIngredientScalesWiring);
@@ -129,11 +132,14 @@ internal static class InventoryAndBrewPanelTests
     private static void TestInventoryPanelPotionFilterUsesOnlyTopTraits()
     {
         var inventoryPanel = ReadProjectFile("Scripts/UI/InventoryPanel.cs");
+        var stackQuery = ReadProjectFile("Scripts/UI/InventoryPanelStackQuery.cs");
 
+        AssertTrue("InventoryPanel delegates stack filtering to the query helper",
+            inventoryPanel.Contains("InventoryPanelStackQuery.Build("));
         AssertTrue("InventoryPanel builds potion trait names from the top three traits only",
-            inventoryPanel.Contains("ItemFilterUtilities.BuildTopTraitNames(potionStacks.Select(x => x.Key), 3, _itemCatalog)"));
+            stackQuery.Contains("ItemFilterUtilities.BuildTopTraitNames(potionStacks.Select(stack => stack.Key), 3, itemCatalog)"));
         AssertTrue("InventoryPanel keeps ingredient trait names unchanged",
-            inventoryPanel.Contains("ItemFilterUtilities.BuildTraitNames(ingredientStacks.Select(x => x.Key), _itemCatalog)"));
+            stackQuery.Contains("ItemFilterUtilities.BuildTraitNames(ingredientStacks.Select(stack => stack.Key), itemCatalog)"));
         AssertTrue("InventoryPanel top-trait helper limits the selected traits",
             ReadProjectFile("Scripts/UI/ItemFilterUtilities.cs").Contains(".Take(maxCount)"));
     }
@@ -159,9 +165,77 @@ internal static class InventoryAndBrewPanelTests
             source.Contains("HideItemDetail();"));
     }
 
+    private static void TestInventoryItemSlotClearsHighlightOnOutsideClick()
+    {
+        var source = ReadProjectFile("Scripts/UI/InventoryItemSlot.cs");
+
+        AssertTrue("InventoryItemSlot receives global input for outside clicks",
+            source.Contains("public override void _Input(InputEvent @event)") &&
+            source.Contains("@event is not InputEventMouseButton mouseButton"));
+        AssertTrue("InventoryItemSlot only clears after left or right mouse presses outside its bounds",
+            source.Contains("mouseButton.ButtonIndex != MouseButton.Left && mouseButton.ButtonIndex != MouseButton.Right") &&
+            source.Contains("GetGlobalRect().HasPoint(mouseButton.GlobalPosition)"));
+        AssertTrue("InventoryItemSlot clears hover outline and button state",
+            source.Contains("_isHovered = false;") &&
+            source.Contains("ButtonPressed = false;") &&
+            source.Contains("ReleaseFocus();") &&
+            source.Contains("UpdateHoverOutline();"));
+        AssertTrue("InventoryItemSlot only releases focus while inside the tree",
+            source.Contains("ReleaseFocusIfInsideTree()") &&
+            source.Contains("if (!IsInsideTree())"));
+    }
+
+    private static void TestInventoryPanelItemDetailDescriptionsIncludeItemEffects()
+    {
+        var inventoryPanel = ReadProjectFile("Scripts/UI/InventoryPanel.cs");
+        var formatter = ReadProjectFile("Scripts/UI/InventoryItemTextFormatter.cs");
+
+        AssertTrue("InventoryPanel uses effects-only item detail text for ingredients",
+            inventoryPanel.Contains("_itemDetailDescription.Text = InventoryItemTextFormatter.BuildIngredientEffectsText(item);"));
+        AssertTrue("InventoryPanel shows the hidden description controls when detail text exists",
+            inventoryPanel.Contains("_itemDetailDetailsSeparator") &&
+            inventoryPanel.Contains("_itemDetailDescriptionHeader") &&
+            inventoryPanel.Contains("UpdateItemDetailDescriptionVisibility();") &&
+            inventoryPanel.Contains("_itemDetailDescription.Visible = visible;"));
+        AssertTrue("Item detail formatter preserves authored ingredient effects",
+            formatter.Contains("BuildIngredientEffectsText(item)") &&
+            formatter.Contains("BuildAuthoredIngredientEffectText(effect)") &&
+            formatter.Contains("return $\"{effect.Name}: {effect.Description}\";"));
+        AssertTrue("Ingredient book descriptions still include ingredient descriptions",
+            formatter.Contains("public static string BuildDescriptionWithIngredientEffects(ItemDef item)") &&
+            formatter.Contains("lines.Add(item.Description);"));
+
+        var itemType = GetTypeFromUiAssembly("OccultShop.Models.ItemDef");
+        var effectType = GetTypeFromUiAssembly("OccultShop.Models.IngredientEffectDef");
+        var formatterType = GetTypeFromUiAssembly("OccultShop.UI.InventoryItemTextFormatter");
+        var item = Activator.CreateInstance(itemType)
+            ?? throw new InvalidOperationException("Failed to create ItemDef instance.");
+        var effect = Activator.CreateInstance(effectType)
+            ?? throw new InvalidOperationException("Failed to create IngredientEffectDef instance.");
+        var effects = (System.Collections.IList)(Activator.CreateInstance(typeof(List<>).MakeGenericType(effectType))
+            ?? throw new InvalidOperationException("Failed to create ingredient effects list."));
+
+        SetProperty(item, "Description", "Raven Ash Peony body text.");
+        SetProperty(effect, "Kind", IngredientEffectDef.AddTraitIfRiskCarriesKind);
+        SetProperty(effect, "Name", "Steady Hand");
+        SetProperty(effect, "Description", "If any risk carries, adds Courage +2.");
+        SetProperty(effect, "Amount", 2);
+        effects.Add(effect);
+        SetProperty(item, "IngredientEffects", effects);
+
+        var method = formatterType.GetMethod("BuildIngredientEffectsText", BindingFlags.Public | BindingFlags.Static)
+            ?? throw new InvalidOperationException("BuildIngredientEffectsText was not found.");
+        var text = method.Invoke(null, new[] { item }) as string ?? string.Empty;
+
+        AssertTrue("Raven Ash Peony-style detail text shows only the authored effect",
+            text == "Steady Hand: If any risk carries, adds Courage +2." &&
+            !text.Contains("Raven Ash Peony body text."));
+    }
+
     private static void TestInventoryPanelRiskFilterIsWired()
     {
         var inventoryPanel = ReadProjectFile("Scripts/UI/InventoryPanel.cs");
+        var stackQuery = ReadProjectFile("Scripts/UI/InventoryPanelStackQuery.cs");
         var scene = ReadProjectFile("Scenes/UI/InventoryPanel.tscn");
 
         AssertTrue("InventoryPanel exports a potion risk filter path",
@@ -173,13 +247,13 @@ internal static class InventoryAndBrewPanelTests
         AssertTrue("InventoryPanel keeps fixed ingredient type options",
             inventoryPanel.Contains("IngredientTypeFilterOptions"));
         AssertTrue("InventoryPanel filters ingredients by selected type",
-            inventoryPanel.Contains("ItemHasIngredientType(stack.Key, _activeIngredientTypeFilter)"));
+            stackQuery.Contains("ItemHasIngredientType(stack.Key, activeIngredientTypeFilter, itemCatalog)"));
         AssertTrue("InventoryPanel builds risk names",
-            inventoryPanel.Contains("ItemFilterUtilities.BuildRiskNames(potionStacks.Select(x => x.Key), _itemCatalog)"));
+            stackQuery.Contains("ItemFilterUtilities.BuildRiskNames(potionStacks.Select(stack => stack.Key), itemCatalog)"));
         AssertTrue("InventoryPanel checks potion risks",
-            inventoryPanel.Contains("ItemFilterUtilities.ItemHasRisk(stack.Key, _activePotionRiskFilter, _itemCatalog)"));
+            stackQuery.Contains("ItemFilterUtilities.ItemHasRisk(stack.Key, activePotionRiskFilter, itemCatalog)"));
         AssertTrue("InventoryPanel checks ingredient risks",
-            inventoryPanel.Contains("ItemFilterUtilities.ItemHasRisk(stack.Key, _activeIngredientRiskFilter, _itemCatalog)"));
+            stackQuery.Contains("ItemFilterUtilities.ItemHasRisk(stack.Key, activeIngredientRiskFilter, itemCatalog)"));
         AssertTrue("InventoryPanel defines potion risk filter in the scene",
             scene.Contains("PotionsRiskFilterPath = NodePath(\"Panel/Margin/VBox/PotionsHeaderRow/RiskFilter\")"));
         AssertTrue("InventoryPanel type filter wiring is provided by scene path or fallback lookup",
@@ -198,12 +272,13 @@ internal static class InventoryAndBrewPanelTests
     private static void TestInventoryPanelRiskyPotionNamesAreRed()
     {
         var inventoryPanel = ReadProjectFile("Scripts/UI/InventoryPanel.cs");
+        var detailRules = ReadProjectFile("Scripts/UI/InventoryItemDetailRules.cs");
 
         AssertTrue("InventoryPanel checks potion risk state before coloring slot names",
-            inventoryPanel.Contains("var shouldShowRiskNameColor = IsPotion(itemId) && HasActiveRisk(item);"));
+            inventoryPanel.Contains("var shouldShowRiskNameColor = IsPotion(itemId) && InventoryItemDetailRules.HasActiveRisk(item);"));
         AssertTrue("InventoryPanel only treats positive risks as active",
-            inventoryPanel.Contains("private static bool HasActiveRisk(ItemDef? item)") &&
-            inventoryPanel.Contains("risk.Value > 0"));
+            detailRules.Contains("public static bool HasActiveRisk(ItemDef? item)") &&
+            detailRules.Contains("risk.Value > 0"));
         AssertTrue("InventoryPanel colors the first potion name line red",
             inventoryPanel.Contains("name.AddThemeColorOverride(\"font_color\", new Color(0.9f, 0.25f, 0.25f, 1f));"));
         AssertTrue("InventoryPanel colors the second potion name line red",
@@ -243,6 +318,7 @@ internal static class InventoryAndBrewPanelTests
     private static void TestInventoryPanelTypeFilterIsPopulatedAndFixed()
     {
         var source = ReadProjectFile("Scripts/UI/InventoryPanel.cs");
+        var stackQuery = ReadProjectFile("Scripts/UI/InventoryPanelStackQuery.cs");
 
         AssertTrue("InventoryPanel keeps a fixed type options list", source.Contains("IngredientTypeFilterOptions"));
         AssertTrue("InventoryPanel includes Herb option", source.Contains("\"Herb\""));
@@ -255,7 +331,7 @@ internal static class InventoryAndBrewPanelTests
         AssertTrue("InventoryPanel fallback path targets the ingredients type filter node",
             source.Contains("Panel/Margin/VBox/IngredientsHeaderRow/TypeFilter"));
         AssertTrue("InventoryPanel applies the selected type filter to ingredient stacks",
-            source.Contains("ItemHasIngredientType(stack.Key, _activeIngredientTypeFilter)"));
+            stackQuery.Contains("ItemHasIngredientType(stack.Key, activeIngredientTypeFilter, itemCatalog)"));
     }
 
     private static void TestBrewPanelIsIngredient()
@@ -300,6 +376,7 @@ internal static class InventoryAndBrewPanelTests
     private static void TestBrewPanelPreviewNameIsWired()
     {
         var source = ReadProjectFile("Scripts/UI/BrewPanel.cs");
+        var textFormatter = ReadProjectFile("Scripts/UI/BrewPanelTextFormatter.cs");
         var scene = ReadProjectFile("Scenes/UI/GameUi.tscn");
 
         AssertTrue("BrewPanel exports a preview name label path",
@@ -325,9 +402,41 @@ internal static class InventoryAndBrewPanelTests
             scene.Contains("[node name=\"Result\" type=\"RichTextLabel\" parent=\"PotionBrewingStationView/BrewPanel/Panel/Instability\"]") &&
             source.Contains("_resultLabel.BbcodeEnabled = true;"));
         AssertTrue("BrewPanel shows transferred potion risks after brewing",
-            source.Contains("has been tainted with -") &&
-            source.Contains("[color=#E7C84E]") &&
-            source.Contains("[color=#E64040]"));
+            source.Contains("BrewPanelTextFormatter.BuildBrewResultText") &&
+            textFormatter.Contains("has been tainted with -") &&
+            textFormatter.Contains("[color=#E7C84E]") &&
+            textFormatter.Contains("[color=#E64040]"));
+    }
+
+    private static void TestBrewPanelPreviewsLivePartialResults()
+    {
+        var source = ReadProjectFile("Scripts/UI/BrewPanel.cs");
+        var textFormatter = ReadProjectFile("Scripts/UI/BrewPanelTextFormatter.cs");
+        var scene = ReadProjectFile("Scenes/UI/GameUi.tscn");
+        var hiddenCurrentBrewWindows =
+            "[node name=\"CurrentBrew\" type=\"Control\" parent=\"PotionBrewingStationView/BrewPanel/Panel\"]\r\nvisible = false";
+        var hiddenCurrentBrewUnix =
+            "[node name=\"CurrentBrew\" type=\"Control\" parent=\"PotionBrewingStationView/BrewPanel/Panel\"]\nvisible = false";
+
+        AssertTrue("BrewPanel keeps only an empty queue in the blank preview state",
+            source.Contains("if (ingredientCount == 0)") &&
+            source.Contains("SetIncompletePreviewState();"));
+        AssertTrue("BrewPanel calculates a live preview before all three ingredients are queued",
+            source.Contains("var previewResult = _brewingService.PreviewPotion(") &&
+            source.Contains("if (ingredientCount < 3)") &&
+            source.Contains("SetPartialPreviewState(previewResult);"));
+        AssertTrue("BrewPanel renders partial preview traits and possible risks",
+            source.Contains("SetPreviewResultState(previewResult, isPartial: true)") &&
+            source.Contains("BrewPanelTextFormatter.BuildStatListText(previewResult.Traits, 3)") &&
+            source.Contains("BrewPanelTextFormatter.BuildRiskChanceListText(previewResult.PossibleRisks, 2)") &&
+            source.Contains("BuildPreviewEffectText(previewResult)"));
+        AssertTrue("BrewPanel scene shows the current brew preview container",
+            !scene.Contains(hiddenCurrentBrewWindows) &&
+            !scene.Contains(hiddenCurrentBrewUnix));
+        AssertTrue("BrewPanel formatter exposes concise live preview effect text",
+            textFormatter.Contains("public static string BuildPreviewEffectText(PotionResult previewResult)") &&
+            textFormatter.Contains("TriggeredIngredientEffects.Take(2)") &&
+            textFormatter.Contains("TriggeredSynergyDetails.Take(1)"));
     }
 
     private static void TestPotionInventoryCap()
@@ -335,6 +444,7 @@ internal static class InventoryAndBrewPanelTests
         var brewService = ReadProjectFile("Scripts/Systems/PotionInventoryBrewService.cs");
         var brewPanel = ReadProjectFile("Scripts/UI/BrewPanel.cs");
         var gameState = ReadProjectFile("Scripts/Autoload/GameState.cs");
+        var inventoryState = ReadProjectFile("Scripts/Systems/InventoryState.cs");
         var inventoryScene = ReadProjectFile("Scenes/UI/InventoryPanel.tscn");
 
         AssertTrue("Potion inventory cap is four unique potions",
@@ -344,9 +454,9 @@ internal static class InventoryAndBrewPanelTests
             gameState.Contains("public const int MaxPotionStackQuantity = 10") &&
             brewService.Contains("public const int MaxPotionStackQuantity = GameState.MaxPotionStackQuantity"));
         AssertTrue("GameState enforces potion stack caps for all item adds",
-            gameState.Contains("ResolveInventoryAddQuantity(itemId, qty)") &&
-            gameState.Contains("CountInventoryPotionStacks() >= MaxUniquePotionInventoryQuantity") &&
-            gameState.Contains("MaxPotionStackQuantity - currentQuantity"));
+            inventoryState.Contains("ResolveInventoryAddQuantity(itemId, quantity, out var changed)") &&
+            inventoryState.Contains("CountPotionStacks() >= _maxUniquePotionInventoryQuantity") &&
+            inventoryState.Contains("_maxPotionStackQuantity - currentQuantity"));
         AssertTrue("Inventory brew service blocks brewing when potion inventory is full",
             brewService.Contains("CountOwnedUniquePotions() < MaxUniquePotionInventoryQuantity") &&
             brewService.Contains("currentQuantity + quantity > MaxPotionStackQuantity") &&
@@ -373,8 +483,8 @@ internal static class InventoryAndBrewPanelTests
         var scaleWeightButton = ReadProjectFile("Scripts/UI/ScaleWeightButton.cs");
         var brewPanel = ReadProjectFile("Scripts/UI/BrewPanel.cs");
 
-        AssertTrue("Game UI references the generated placeholder scales sprite",
-            scene.Contains("path=\"res://Assets/UI/scales_placeholder.png\"") &&
+        AssertTrue("Game UI references the brewing station scales sprite",
+            scene.Contains("path=\"res://Assets/ConceptArt/BrewingStation/scales.png\"") &&
             scene.Contains("[node name=\"IngredientScales\" type=\"Control\" parent=\"PotionBrewingStationView\"]") &&
             scene.Contains("script = ExtResource(\"34_scales_panel\")"));
         AssertTrue("Scales panel exposes only the ingredient drop box",
@@ -462,6 +572,7 @@ internal static class InventoryAndBrewPanelTests
     {
         var brewPanel = ReadProjectFile("Scripts/UI/BrewPanel.cs");
         var gameState = ReadProjectFile("Scripts/Autoload/GameState.cs");
+        var potionBatchStore = ReadProjectFile("Scripts/Systems/PotionBatchStore.cs");
         var saveData = ReadProjectFile("Scripts/Persistence/SaveData.cs");
         var dataDb = ReadProjectFile("Scripts/Autoload/DataDb.cs");
         var recipeDef = ReadProjectFile("Scripts/Models/PotionRecipeDef.cs");
@@ -474,10 +585,10 @@ internal static class InventoryAndBrewPanelTests
             brewPanel.Contains("RecordPotionRecipe(potionItemId, BuildIngredientIdList(_queuedIngredients))") &&
             brewPanel.Contains("RecordPotionBatch(potionItemId, _queuedIngredients)"));
         AssertTrue("GameState stores exact portion batches alongside legacy batches",
-            gameState.Contains("_potionIngredientPortionBatches") &&
+            potionBatchStore.Contains("_potionIngredientPortionBatches") &&
             gameState.Contains("RecordPotionBatch(string potionItemId, IReadOnlyList<IngredientPortionDef> ingredientPortions)") &&
             gameState.Contains("TryPeekPotionIngredientPortionBatch") &&
-            gameState.Contains("RestoreUnmeasuredPortionBatchesFromLegacyBatches"));
+            potionBatchStore.Contains("RestoreUnmeasuredPortionBatchesFromLegacyBatches"));
         AssertTrue("Save data preserves exact portion batches without renaming legacy PotionBatches",
             saveData.Contains("Dictionary<string, List<List<string>>> PotionBatches") &&
             saveData.Contains("Dictionary<string, List<List<IngredientPortionDef>>> PotionIngredientPortionBatches"));
@@ -495,7 +606,9 @@ internal static class InventoryAndBrewPanelTests
     private static void TestConsumableInventoryAndTreatmentTrayWiring()
     {
         var gameState = ReadProjectFile("Scripts/Autoload/GameState.cs");
+        var inventoryState = ReadProjectFile("Scripts/Systems/InventoryState.cs");
         var inventoryPanel = ReadProjectFile("Scripts/UI/InventoryPanel.cs");
+        var stackQuery = ReadProjectFile("Scripts/UI/InventoryPanelStackQuery.cs");
         var inventoryScene = ReadProjectFile("Scenes/UI/InventoryPanel.tscn");
         var hud = ReadProjectFile("Scripts/UI/Hud.cs");
         var hudScene = ReadProjectFile("Scenes/UI/Hud.tscn");
@@ -506,15 +619,16 @@ internal static class InventoryAndBrewPanelTests
         AssertTrue("GameState caps consumables at four unique stacks",
             gameState.Contains("public const int MaxUniqueConsumableInventoryQuantity = 4") &&
             gameState.Contains("public const int MaxConsumableStackQuantity = 10") &&
-            gameState.Contains("CountInventoryConsumableStacks() >= MaxUniqueConsumableInventoryQuantity"));
+            inventoryState.Contains("CountConsumableStacks() >= _maxUniqueConsumableInventoryQuantity"));
         AssertTrue("GameState records pending consumable grants when the section is full",
             gameState.Contains("PendingConsumableItemId") &&
             gameState.Contains("TryAcceptPendingConsumableByDiscarding") &&
             gameState.Contains("DeclinePendingConsumableGrant"));
         AssertTrue("InventoryPanel separates consumables from ingredients",
             inventoryPanel.Contains("ConsumablesContainerPath") &&
-            inventoryPanel.Contains("var consumableStacks = _gameState.Inventory.Where(x => IsConsumable(x.Key)).ToList();") &&
-            inventoryPanel.Contains("!IsPotion(x.Key) && !IsConsumable(x.Key)"));
+            inventoryPanel.Contains("InventoryPanelStackQuery.Build(") &&
+            stackQuery.Contains("var consumableStacks = inventory.Where(stack => itemCatalog.IsConsumable(stack.Key)).ToList();") &&
+            stackQuery.Contains("!itemCatalog.IsPotion(stack.Key) && !itemCatalog.IsConsumable(stack.Key)"));
         AssertTrue("InventoryPanel exposes consumable effect and gate details",
             inventoryPanel.Contains("BuildConsumableEffectText") &&
             inventoryPanel.Contains("BuildConsumableGateText") &&
@@ -699,6 +813,7 @@ internal static class InventoryAndBrewPanelTests
     private static void TestPotionDetailManuallyAddsCleanPotionsToBook()
     {
         var inventoryPanel = ReadProjectFile("Scripts/UI/InventoryPanel.cs");
+        var detailRules = ReadProjectFile("Scripts/UI/InventoryItemDetailRules.cs");
         var inventoryScene = ReadProjectFile("Scenes/UI/InventoryPanel.tscn");
         var gameUiScene = ReadProjectFile("Scenes/UI/GameUi.tscn");
         var gameState = ReadProjectFile("Scripts/Autoload/GameState.cs");
@@ -717,10 +832,12 @@ internal static class InventoryAndBrewPanelTests
         AssertTrue("InventoryPanel manually learns the selected clean potion",
             inventoryPanel.Contains("_gameState.LearnPotion(_currentItemId);"));
         AssertTrue("InventoryPanel hides add-to-book for tainted potions",
-            inventoryPanel.Contains("if (HasActiveRisk(item))") &&
+            detailRules.Contains("if (HasActiveRisk(item))") &&
+            detailRules.Contains("PotionBookAddAvailability.Hidden") &&
             inventoryPanel.Contains("_itemDetailAddToPotionBookButton.Visible = false"));
         AssertTrue("InventoryPanel hides add-to-book for already learned potions",
-            inventoryPanel.Contains("if (_gameState.KnowsPotion(itemId))"));
+            detailRules.Contains("if (knowsPotion)") &&
+            detailRules.Contains("PotionBookAddAvailability.Hidden"));
         AssertTrue("InventoryPanel repeat brew requires the potion to be in the book",
             inventoryPanel.Contains("var isInPotionBook = _gameState.KnowsPotion(_currentItemId);") &&
             inventoryPanel.Contains("_itemDetailBrewButton.Disabled = !isInPotionBook || !hasIngredients;"));

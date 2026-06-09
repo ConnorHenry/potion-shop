@@ -118,6 +118,7 @@ public partial class DataDb : Node
 				Quality = ReadInt(entry, "quality", 50),
 				Traits = ReadStringIntDictionary(entry, "traits"),
 				Risks = ReadStringIntDictionary(entry, "risks"),
+				IngredientEffects = ParseIngredientEffects(ReadArray(entry, "ingredientEffects")),
 				BasePrice = Math.Max(0, basePrice),
 				ConsumableEffect = ParseConsumableEffect(ReadDictionary(entry, "consumableEffect")),
 				ConsumableGate = ParseConsumableGate(ReadDictionary(entry, "consumableGate")),
@@ -126,6 +127,34 @@ public partial class DataDb : Node
 		}
 
 		return items;
+	}
+
+	private static List<IngredientEffectDef> ParseIngredientEffects(Godot.Collections.Array entries)
+	{
+		var effects = new List<IngredientEffectDef>(entries.Count);
+		foreach (var entryValue in entries)
+		{
+			if (!TryReadDictionary(entryValue, out var entry))
+				continue;
+
+			var kind = ReadString(entry, "kind");
+			if (string.IsNullOrWhiteSpace(kind))
+				continue;
+
+			effects.Add(new IngredientEffectDef
+			{
+				Kind = kind,
+				Family = ReadString(entry, "family"),
+				Name = ReadString(entry, "name"),
+				Description = ReadString(entry, "description"),
+				Amount = ReadInt(entry, "amount", 0),
+				SecondaryAmount = ReadInt(entry, "secondaryAmount", 0),
+				TraitId = ReadString(entry, "traitId"),
+				RiskId = ReadString(entry, "riskId")
+			});
+		}
+
+		return effects;
 	}
 
 	private static ConsumableEffectDef? ParseConsumableEffect(Godot.Collections.Dictionary? entry)
@@ -256,6 +285,8 @@ public partial class DataDb : Node
 				Weight = ReadInt(entry, "weight", 1),
 				DesiredTraits = ReadStringIntDictionary(entry, "desiredTraits"),
 				BadTraits = ReadStringIntDictionary(entry, "badTraits"),
+				RequiredMinTraits = ReadStringIntDictionary(entry, "requiredMinTraits"),
+				RequiredMaxTraits = ReadStringIntDictionary(entry, "requiredMaxTraits"),
 				RequiredIngredientAmounts = ParseIngredientPortions(ReadArray(entry, "requiredIngredientAmounts")),
 				OnSuccessEffects = ParseEffects(ReadArray(entry, "onSuccessEffects")),
 				OnFailureEffects = ParseEffects(ReadArray(entry, "onFailureEffects")),

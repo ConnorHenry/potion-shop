@@ -329,6 +329,7 @@ public partial class RuntimeContentDb : Node
 			Quality = item.Quality,
 			Traits = item.Traits is null ? new Dictionary<string, int>() : new Dictionary<string, int>(item.Traits),
 			Risks = item.Risks is null ? new Dictionary<string, int>() : new Dictionary<string, int>(item.Risks),
+			IngredientEffects = CloneIngredientEffects(item.IngredientEffects),
 			BasePrice = item.BasePrice,
 			ConsumableEffect = item.ConsumableEffect is null
 				? null
@@ -353,6 +354,33 @@ public partial class RuntimeContentDb : Node
 					RemovedRisk = item.Treatment.RemovedRisk
 				}
 		};
+	}
+
+	private static List<IngredientEffectDef> CloneIngredientEffects(List<IngredientEffectDef>? effects)
+	{
+		var clones = new List<IngredientEffectDef>();
+		if (effects is null)
+			return clones;
+
+		foreach (var effect in effects)
+		{
+			if (effect is null)
+				continue;
+
+			clones.Add(new IngredientEffectDef
+			{
+				Kind = effect.Kind,
+				Family = effect.Family,
+				Name = effect.Name,
+				Description = effect.Description,
+				Amount = effect.Amount,
+				SecondaryAmount = effect.SecondaryAmount,
+				TraitId = effect.TraitId,
+				RiskId = effect.RiskId
+			});
+		}
+
+		return clones;
 	}
 
 	private static List<string> NormalizeTags(List<string>? tags)

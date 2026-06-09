@@ -378,5 +378,215 @@ Entries = [
       "rest": 2
     },
     "badTraits": {}
+  },
+  {
+    "id": "customer_requests_obsidian_stitch_draught",
+    "title": "Obsidian Stitch Draught",
+    "text": "A surgeon sets a cracked silver needle on the counter. They need a draught with mend above 8, but vigor below 2 so the patient does not tear the stitching open.",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
+    "pool": "late",
+    "difficulty": 4,
+    "requires": {
+      "dayMin": 6
+    },
+    "weight": 8,
+    "desiredTraits": {
+      "mend": 9,
+      "courage": 3
+    },
+    "badTraits": {},
+    "requiredMinTraits": {
+      "mend": 9
+    },
+    "requiredMaxTraits": {
+      "vigor": 1
+    },
+    "potionResponses": [
+      {
+        "id": "threshold_success",
+        "success": true,
+        "text": "The surgeon turns the bottle slowly. 'Strong enough to close the wound, quiet enough to keep them still. This will do.'"
+      },
+      {
+        "id": "threshold_failure",
+        "success": false,
+        "text": "The surgeon frowns at the mixture. 'No. Too weak for stitching, or too lively for a patient who must stay still.'"
+      }
+    ]
+  },
+  {
+    "id": "customer_requests_chapel_ward_ink",
+    "title": "Chapel Ward Ink",
+    "text": "A chapel warden asks for ink to mark the cellar lintel. They need ward at 4 or higher, with dream no higher than 1; anything dreamlike invites the thing to answer.",
+    "characterImagePath": "res://Assets/Characters/chapel_warden.svg",
+    "pool": "late",
+    "difficulty": 4,
+    "requires": {
+      "dayMin": 6
+    },
+    "weight": 8,
+    "desiredTraits": {
+      "ward": 4,
+      "cleanse": 6
+    },
+    "badTraits": {},
+    "requiredMinTraits": {
+      "ward": 4
+    },
+    "requiredMaxTraits": {
+      "dream": 1
+    },
+    "potionResponses": [
+      {
+        "id": "threshold_success",
+        "success": true,
+        "text": "The warden taps the cork twice. 'A plain ward. No dreaming edge. Good.'"
+      },
+      {
+        "id": "threshold_failure",
+        "success": false,
+        "text": "The warden steps back. 'That mark would not hold, or it would dream too loudly in the dark.'"
+      }
+    ]
+  },
+  {
+    "id": "customer_requests_glass_truth_tonic",
+    "title": "Glass Truth Tonic",
+    "text": "A solicitor wants a tonic for a witness. They need honesty at 4 or higher, but charm no higher than 1; persuasion would spoil the testimony.",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
+    "pool": "late",
+    "difficulty": 4,
+    "requires": {
+      "dayMin": 6
+    },
+    "weight": 8,
+    "desiredTraits": {
+      "honesty": 4,
+      "clarity": 3
+    },
+    "badTraits": {},
+    "requiredMinTraits": {
+      "honesty": 4
+    },
+    "requiredMaxTraits": {
+      "charm": 1
+    },
+    "potionResponses": [
+      {
+        "id": "threshold_success",
+        "success": true,
+        "text": "The solicitor nods. 'Clean speech, no silver tongue. Exactly what the court needs.'"
+      },
+      {
+        "id": "threshold_failure",
+        "success": false,
+        "text": "The solicitor closes their case. 'This either lacks truth or carries too much charm. I cannot risk it.'"
+      }
+    ]
+  },
+  {
+    "id": "customer_requests_quick_hand_philter",
+    "title": "Quick Hand Philter",
+    "text": "A stage cutter needs steady speed before the curtain rises. They ask for reflexes at 4 or higher, but rest no higher than 1 so their hands do not slow.",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
+    "pool": "late",
+    "difficulty": 4,
+    "requires": {
+      "dayMin": 6
+    },
+    "weight": 8,
+    "desiredTraits": {
+      "reflexes": 4,
+      "charm": 6
+    },
+    "badTraits": {},
+    "requiredMinTraits": {
+      "reflexes": 4
+    },
+    "requiredMaxTraits": {
+      "rest": 1
+    },
+    "potionResponses": [
+      {
+        "id": "threshold_success",
+        "success": true,
+        "text": "The cutter flexes their fingers. 'Fast, but not sleepy. I can work with this.'"
+      },
+      {
+        "id": "threshold_failure",
+        "success": false,
+        "text": "The cutter shakes their head. 'My hands need speed, not a lullaby.'"
+      }
+    ]
+  },
+  {
+    "id": "customer_requests_mercy_tincture",
+    "title": "Mercy Tincture",
+    "text": "A hospice sister asks for something gentle but useful. They need empathy at 4 or higher, and vigor no higher than 1; comfort must not become agitation.",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
+    "pool": "late",
+    "difficulty": 4,
+    "requires": {
+      "dayMin": 6
+    },
+    "weight": 8,
+    "desiredTraits": {
+      "empathy": 4,
+      "mend": 6
+    },
+    "badTraits": {},
+    "requiredMinTraits": {
+      "empathy": 4
+    },
+    "requiredMaxTraits": {
+      "vigor": 1
+    },
+    "potionResponses": [
+      {
+        "id": "threshold_success",
+        "success": true,
+        "text": "The sister softens. 'Kind, mending, and not forceful. This is mercy, not shock.'"
+      },
+      {
+        "id": "threshold_failure",
+        "success": false,
+        "text": "The sister pushes the bottle back. 'It does not comfort enough, or it pushes too hard.'"
+      }
+    ]
+  },
+  {
+    "id": "customer_requests_muse_cordial",
+    "title": "Muse Cordial",
+    "text": "A blocked illuminator needs the first line of a manuscript to open in their mind. They need creativity at 4 or higher, but clarity no higher than 1 so judgment does not smother the image.",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
+    "pool": "late",
+    "difficulty": 4,
+    "requires": {
+      "dayMin": 6
+    },
+    "weight": 8,
+    "desiredTraits": {
+      "creativity": 4,
+      "calm": 3
+    },
+    "badTraits": {},
+    "requiredMinTraits": {
+      "creativity": 4
+    },
+    "requiredMaxTraits": {
+      "clarity": 1
+    },
+    "potionResponses": [
+      {
+        "id": "threshold_success",
+        "success": true,
+        "text": "The illuminator smiles at a blank page only they can see. 'Loose enough to imagine, calm enough to begin.'"
+      },
+      {
+        "id": "threshold_failure",
+        "success": false,
+        "text": "The illuminator sighs. 'Either the image will not come, or the judgment comes first.'"
+      }
+    ]
   }
 ]

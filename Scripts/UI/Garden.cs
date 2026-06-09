@@ -3,14 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using OccultShop.Autoload;
+using OccultShop.Infrastructure;
 using OccultShop.Models;
 
 namespace OccultShop.UI;
 
 public partial class Garden : Control
 {
-	private const string MainScenePath = "res://Main.tscn";
-
 	[Export] public NodePath PotsContainerPath = default!;
 	[Export] public NodePath SeedsContainerPath = default!;
 	[Export] public NodePath StatusLabelPath = default!;
@@ -231,7 +230,7 @@ public partial class Garden : Control
 	private void OnBackPressed()
 	{
 		TryAutoSave("leaving the garden");
-		Error error = GetTree().ChangeSceneToFile(MainScenePath);
+		Error error = GetTree().ChangeSceneToFile(ScenePaths.Main);
 		if (error != Error.Ok)
 		{
 			GD.PushError($"Garden: Failed to load main scene. Error: {error}");

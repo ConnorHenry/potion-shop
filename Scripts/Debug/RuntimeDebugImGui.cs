@@ -206,6 +206,8 @@ public partial class RuntimeDebugImGui : Node
 
 		ImGui.Separator();
 		ImGui.Text($"Shop Timer: {_shopTimerSecondsInput} seconds");
+		DrawShopTimerPauseControls();
+
 		ImGui.InputInt("Stop Timer Seconds", ref _shopTimerSecondsInput);
 		if (_shopTimerSecondsInput < 0)
 			_shopTimerSecondsInput = 0;
@@ -222,6 +224,36 @@ public partial class RuntimeDebugImGui : Node
 			_shopTimerSecondsInput = 0;
 			TrySetShopTimerSeconds(0);
 		}
+	}
+
+	private void DrawShopTimerPauseControls()
+	{
+		if (_dayController is null)
+		{
+			ImGui.Text("Shop Timer Pause: DayController unavailable");
+			return;
+		}
+
+		if (!_dayController.IsShopOpen)
+		{
+			ImGui.Text("Shop Timer Pause: shop closed");
+			return;
+		}
+
+		if (_dayController.IsShopTimerDebugPaused)
+		{
+			ImGui.Text("Shop Timer Pause: debug paused");
+			if (ImGui.Button("Resume Shop Timer"))
+				TrySetShopTimerDebugPaused(false);
+			return;
+		}
+
+		ImGui.Text(_dayController.IsShopTimerPaused
+			? "Shop Timer Pause: paused by another system"
+			: "Shop Timer Pause: running");
+
+		if (ImGui.Button("Pause Shop Timer"))
+			TrySetShopTimerDebugPaused(true);
 	}
 
 	private void DrawPotionSection()
@@ -796,6 +828,30 @@ public partial class RuntimeDebugImGui : Node
 		_statusMessage = seconds <= 0
 			? "Stop timer set to 0 seconds and the shop will close."
 			: $"Stop timer set to {seconds} seconds.";
+		return true;
+	}
+
+	private bool TrySetShopTimerDebugPaused(bool paused)
+	{
+		if (_dayController is null)
+		{
+			_statusMessage = "DayController is unavailable, so the shop timer pause cannot be changed.";
+			return false;
+		}
+
+		var applied = _dayController.TrySetDebugShopTimerPaused(paused);
+
+		if (!applied)
+		{
+			_statusMessage = "DayController is unavailable or the shop is closed, so the shop timer pause cannot be changed.";
+			return false;
+		}
+
+		_statusMessage = paused
+			? "Shop timer paused from debug panel."
+			: _dayController.IsShopTimerPaused
+				? "Debug timer pause cleared; another timer pause is still active."
+				: "Debug timer pause cleared; the shop timer will run when the current shop state allows it.";
 		return true;
 	}
 

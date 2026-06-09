@@ -18,6 +18,8 @@ internal static class CustomerFlowTests
         runner.Run("Customer events randomize shop-day order", TestCustomerEventControllerRandomizesOrder);
         runner.Run("Forced customer fallback resolves legacy ids deterministically", TestForcedCustomerFallbackResolvesLegacyIdsDeterministically);
         runner.Run("Customer events respect scheduling and story outcomes", TestCustomerEventSchedulingAndStoryOutcomes);
+        runner.Run("Customer trait thresholds are enforced", TestCustomerTraitThresholdsAreEnforced);
+        runner.Run("Active customer catalog includes trait threshold requests", TestActiveCustomerCatalogIncludesTraitThresholdRequests);
         runner.Run("Story customer dialogue trees support selling mode", TestStoryCustomerDialogueTreesSupportSellingMode);
         runner.Run("CustomerPanel shows draggable potion sale slots", TestCustomerPanelShowsDraggablePotionSaleSlots);
         runner.Run("Customer drop box stays disabled until next customer", TestCustomerDropBoxDisablesAfterSale);
@@ -148,13 +150,115 @@ internal static class CustomerFlowTests
         AssertTrue("Authored customer data includes recipe pool", customers.Contains("\"pool\": \"recipe\""));
     }
 
+    private static void TestCustomerTraitThresholdsAreEnforced()
+    {
+        var request = new CustomerRequestDef
+        {
+            DesiredTraits = new Dictionary<string, int>
+            {
+                ["mend"] = 9
+            },
+            RequiredMinTraits = new Dictionary<string, int>
+            {
+                ["mend"] = 9
+            },
+            RequiredMaxTraits = new Dictionary<string, int>
+            {
+                ["vigor"] = 1
+            }
+        };
+
+        var passingResult = new PotionResult
+        {
+            Traits = new Dictionary<string, int>
+            {
+                ["mend"] = 9,
+                ["vigor"] = 1
+            }
+        };
+        AssertTrue("Potion satisfies min and max thresholds",
+            CustomerSaleRules.IsRequestSatisfiedByPotion(request, passingResult, true));
+
+        var weakResult = new PotionResult
+        {
+            Traits = new Dictionary<string, int>
+            {
+                ["mend"] = 8,
+                ["vigor"] = 1
+            }
+        };
+        AssertTrue("Potion below min threshold fails",
+            !CustomerSaleRules.IsRequestSatisfiedByPotion(request, weakResult, true));
+
+        var overactiveResult = new PotionResult
+        {
+            Traits = new Dictionary<string, int>
+            {
+                ["mend"] = 9,
+                ["vigor"] = 2
+            }
+        };
+        AssertTrue("Potion above max threshold fails",
+            !CustomerSaleRules.IsRequestSatisfiedByPotion(request, overactiveResult, true));
+
+        var quietResult = new PotionResult
+        {
+            Traits = new Dictionary<string, int>
+            {
+                ["mend"] = 9
+            }
+        };
+        AssertTrue("Missing max-threshold trait counts as zero",
+            CustomerSaleRules.IsRequestSatisfiedByPotion(request, quietResult, true));
+    }
+
+    private static void TestActiveCustomerCatalogIncludesTraitThresholdRequests()
+    {
+        var customerDef = ReadProjectFile("Scripts/Models/CustomerInteractionDef.cs");
+        var dataDb = ReadProjectFile("Scripts/Autoload/DataDb.cs");
+        var saleRules = ReadProjectFile("Scripts/Systems/CustomerSaleRules.cs");
+        var customerPanel = ReadProjectFile("Scripts/UI/CustomerPanel.cs");
+        var formatter = ReadProjectFile("Scripts/UI/CustomerDialogueTextFormatter.cs");
+        var customers = ReadProjectFile("Data/customers_data.tres");
+
+        AssertTrue("Customer requests store hard trait thresholds",
+            customerDef.Contains("RequiredMinTraits") &&
+            customerDef.Contains("RequiredMaxTraits"));
+        AssertTrue("DataDb parses hard trait thresholds",
+            dataDb.Contains("ReadStringIntDictionary(entry, \"requiredMinTraits\")") &&
+            dataDb.Contains("ReadStringIntDictionary(entry, \"requiredMaxTraits\")"));
+        AssertTrue("Sale rules enforce hard trait thresholds",
+            saleRules.Contains("AreRequiredTraitThresholdsSatisfied") &&
+            saleRules.Contains("AreRequiredMinTraitsSatisfied") &&
+            saleRules.Contains("AreRequiredMaxTraitsSatisfied"));
+        AssertTrue("Customer panel displays hard trait thresholds",
+            customerPanel.Contains("BuildDesiredRequestText") &&
+            customerPanel.Contains("BuildBadRequestText") &&
+            formatter.Contains("FormatMinTraitThresholdsWithMatches") &&
+            formatter.Contains("FormatMaxTraitThresholdsWithViolations"));
+        AssertTrue("Active customer data includes six threshold customers",
+            customers.Contains("\"id\": \"customer_requests_obsidian_stitch_draught\"") &&
+            customers.Contains("\"id\": \"customer_requests_chapel_ward_ink\"") &&
+            customers.Contains("\"id\": \"customer_requests_glass_truth_tonic\"") &&
+            customers.Contains("\"id\": \"customer_requests_quick_hand_philter\"") &&
+            customers.Contains("\"id\": \"customer_requests_mercy_tincture\"") &&
+            customers.Contains("\"id\": \"customer_requests_muse_cordial\""));
+        AssertTrue("Threshold customer data uses min and max trait gates",
+            customers.Contains("\"requiredMinTraits\"") &&
+            customers.Contains("\"requiredMaxTraits\"") &&
+            customers.Contains("\"mend\": 9") &&
+            customers.Contains("\"vigor\": 1"));
+    }
+
     private static void TestStoryCustomerDialogueTreesSupportSellingMode()
     {
         var customerDef = ReadProjectFile("Scripts/Models/CustomerInteractionDef.cs");
         var dataDb = ReadProjectFile("Scripts/Autoload/DataDb.cs");
         var customerPanel = ReadProjectFile("Scripts/UI/CustomerPanel.cs");
+        var customerTextFormatter = ReadProjectFile("Scripts/UI/CustomerDialogueTextFormatter.cs");
         var dayController = ReadProjectFile("Scripts/Controllers/DayController.cs");
         var gameState = ReadProjectFile("Scripts/Autoload/GameState.cs");
+        var storyVisitState = ReadProjectFile("Scripts/Systems/StoryCustomerVisitState.cs");
         var storyVisit = ReadProjectFile("Scripts/Models/StoryCustomerVisitRecord.cs");
         var tieredCustomers = ReadProjectFile("Data/customers_tiered_test_data.tres");
 
@@ -208,16 +312,17 @@ internal static class CustomerFlowTests
             customerPanel.Contains("SeenDialogueOptionModulate"));
         AssertTrue("Story visit records persist selected dialogue option ids",
             storyVisit.Contains("SelectedDialogueOptionIds") &&
-            gameState.Contains("CloneSelectedDialogueOptionIds"));
+            storyVisitState.Contains("CloneSelectedDialogueOptionIds"));
         AssertTrue("CustomerPanel keeps full scrollable conversation history",
             customerPanel.Contains("_conversationHistory") &&
             customerPanel.Contains("AppendCustomerLine") &&
             customerPanel.Contains("ScrollActive = true"));
         AssertTrue("CustomerPanel colors player and customer speaker names",
-            customerPanel.Contains("PlayerSpeakerColorHex") &&
-            customerPanel.Contains("CustomerSpeakerColorHex") &&
-            customerPanel.Contains("FormatSpeakerName") &&
-            customerPanel.Contains("[b][color={colorHex}]{safeSpeaker}[/color][/b]"));
+            customerPanel.Contains("CustomerDialogueTextFormatter.FormatConversationLine") &&
+            customerTextFormatter.Contains("PlayerSpeakerColorHex") &&
+            customerTextFormatter.Contains("CustomerSpeakerColorHex") &&
+            customerTextFormatter.Contains("FormatSpeakerName") &&
+            customerTextFormatter.Contains("[b][color={colorHex}]{safeSpeaker}[/color][/b]"));
         AssertTrue("CustomerPanel reveals story dialogue one queued typed line at a time",
             customerPanel.Contains("DialogueTypewriterCharactersPerSecond") &&
             customerPanel.Contains("_pendingDialogueLines") &&
@@ -321,6 +426,10 @@ internal static class CustomerFlowTests
         AssertTrue("CustomerPanel uses inventory slots so customer potion slots drag item ids",
             customerPanel.Contains("InventoryItemSlot") &&
             inventorySlot.Contains("return Variant.CreateFrom(ItemId);"));
+        AssertTrue("CustomerPanel left-click opens customer potion details through the shared inventory panel",
+            customerPanel.Contains("InventoryPanelPath = new(\"../InventoryPanel\")") &&
+            customerPanel.Contains("slot.SlotActivated += ShowPotionDetail;") &&
+            customerPanel.Contains("_inventoryPanel?.OpenItemDetail(itemId);"));
         AssertTrue("CustomerPanel fills potion slots from current potion inventory",
             customerPanel.Contains("_gameState.Inventory") &&
             customerPanel.Contains("Where(stack => IsPotionItem(stack.Key) && stack.Value > 0)") &&

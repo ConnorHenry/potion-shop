@@ -50,7 +50,7 @@ public partial class InventoryItemSlot : Button
 			CustomMinimumSize = Vector2.Zero
 		};
 		SetDragPreview(preview);
-		ReleaseFocus();
+		ReleaseFocusIfInsideTree();
 		return Variant.CreateFrom(ItemId);
 	}
 
@@ -67,6 +67,7 @@ public partial class InventoryItemSlot : Button
 		if (@event is InputEventMouseButton rightMouseButton && rightMouseButton.ButtonIndex == MouseButton.Right && rightMouseButton.Pressed)
 		{
 			EmitSignal(SignalName.IngredientRequested, ItemId);
+			ClearButtonInteractionState();
 			AcceptEvent();
 			return;
 		}
@@ -75,17 +76,28 @@ public partial class InventoryItemSlot : Button
 		{
 			if (_dragStarted)
 			{
-				_dragStarted = false;
+				ClearButtonInteractionState();
 				AcceptEvent();
 				return;
 			}
 
 			EmitSignal(SignalName.SlotActivated, ItemId);
+			ClearButtonInteractionState();
 			AcceptEvent();
 			return;
 		}
 
 		base._GuiInput(@event);
+	}
+
+	public override void _Input(InputEvent @event)
+	{
+		if (@event is not InputEventMouseButton mouseButton)
+			return;
+		if (!IsOutsideClick(mouseButton))
+			return;
+
+		ClearTransientVisualState();
 	}
 
 	private void OnMouseEntered()
@@ -104,5 +116,39 @@ public partial class InventoryItemSlot : Button
 	{
 		if (_hoverOutline is not null)
 			_hoverOutline.Visible = _isHovered;
+	}
+
+	private bool IsOutsideClick(InputEventMouseButton mouseButton)
+	{
+		if (!mouseButton.Pressed)
+			return false;
+		if (mouseButton.ButtonIndex != MouseButton.Left && mouseButton.ButtonIndex != MouseButton.Right)
+			return false;
+		if (!IsInsideTree() || !IsVisibleInTree())
+			return false;
+
+		return !GetGlobalRect().HasPoint(mouseButton.GlobalPosition);
+	}
+
+	private void ClearTransientVisualState()
+	{
+		ClearButtonInteractionState();
+		_isHovered = false;
+		UpdateHoverOutline();
+	}
+
+	private void ClearButtonInteractionState()
+	{
+		_dragStarted = false;
+		ButtonPressed = false;
+		ReleaseFocusIfInsideTree();
+	}
+
+	private void ReleaseFocusIfInsideTree()
+	{
+		if (!IsInsideTree())
+			return;
+
+		ReleaseFocus();
 	}
 }

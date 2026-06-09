@@ -20,6 +20,8 @@ public sealed class IngredientDef
 	// Example: "addiction": 2, "hallucination": 3
 	public Dictionary<string, int> Risks { get; set; } = new();
 
+	public List<IngredientEffectDef> IngredientEffects { get; set; } = new();
+
 	// Optional flavour/system tags
 	// Example: "herb", "graveyard", "cold"
 	public List<string> Tags { get; set; } = new();

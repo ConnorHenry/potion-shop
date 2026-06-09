@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Godot;
+using OccultShop.Infrastructure;
 
 namespace OccultShop.UI;
 
@@ -34,19 +35,19 @@ public partial class TutorialOverlay : Control
 
 	public override void _Ready()
 	{
-		if (!TryGetRequiredNode(DimPath, nameof(DimPath), out _dim))
+		if (!NodeLookup.TryGetRequiredNode(this, DimPath, nameof(TutorialOverlay), nameof(DimPath), out _dim))
 			return;
-		if (!TryGetRequiredNode(HighlightPath, nameof(HighlightPath), out _highlight))
+		if (!NodeLookup.TryGetRequiredNode(this, HighlightPath, nameof(TutorialOverlay), nameof(HighlightPath), out _highlight))
 			return;
-		if (!TryGetRequiredNode(PanelPath, nameof(PanelPath), out _panel))
+		if (!NodeLookup.TryGetRequiredNode(this, PanelPath, nameof(TutorialOverlay), nameof(PanelPath), out _panel))
 			return;
-		if (!TryGetRequiredNode(TitleLabelPath, nameof(TitleLabelPath), out _title))
+		if (!NodeLookup.TryGetRequiredNode(this, TitleLabelPath, nameof(TutorialOverlay), nameof(TitleLabelPath), out _title))
 			return;
-		if (!TryGetRequiredNode(BodyLabelPath, nameof(BodyLabelPath), out _body))
+		if (!NodeLookup.TryGetRequiredNode(this, BodyLabelPath, nameof(TutorialOverlay), nameof(BodyLabelPath), out _body))
 			return;
-		if (!TryGetRequiredNode(NextButtonPath, nameof(NextButtonPath), out _nextButton))
+		if (!NodeLookup.TryGetRequiredNode(this, NextButtonPath, nameof(TutorialOverlay), nameof(NextButtonPath), out _nextButton))
 			return;
-		if (!TryGetRequiredNode(SkipButtonPath, nameof(SkipButtonPath), out _skipButton))
+		if (!NodeLookup.TryGetRequiredNode(this, SkipButtonPath, nameof(TutorialOverlay), nameof(SkipButtonPath), out _skipButton))
 			return;
 
 		MouseFilter = MouseFilterEnum.Ignore;
@@ -398,24 +399,4 @@ public partial class TutorialOverlay : Control
 		EmitSignal(SignalName.SkipPressed);
 	}
 
-	private bool TryGetRequiredNode<TNode>(NodePath path, string exportName, out TNode node) where TNode : Node
-	{
-		node = default!;
-
-		if (path.IsEmpty)
-		{
-			GD.PushError($"TutorialOverlay: {exportName} is not assigned.");
-			return false;
-		}
-
-		var resolvedNode = GetNodeOrNull<TNode>(path);
-		if (resolvedNode is null)
-		{
-			GD.PushError($"TutorialOverlay: Node not found at '{path}'.");
-			return false;
-		}
-
-		node = resolvedNode;
-		return true;
-	}
 }

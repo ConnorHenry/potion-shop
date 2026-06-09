@@ -1,4 +1,4 @@
-[gd_scene load_steps=40 format=3 uid="uid://4hripc13we86"]
+[gd_scene load_steps=45 format=3 uid="uid://4hripc13we86"]
 
 [ext_resource type="Script" uid="uid://hkjdjmtp1abw" path="res://Scripts/UI/EventModal.cs" id="2_8y3f6"]
 [ext_resource type="PackedScene" uid="uid://b8wojjptpayx3" path="res://Scenes/UI/InventoryPanel.tscn" id="5_invp"]
@@ -38,6 +38,82 @@
 [ext_resource type="Script" uid="uid://b2ax8whg01r5p" path="res://Scripts/UI/PotionInventoryRow.cs" id="43_potion_row"]
 [ext_resource type="Texture2D" uid="uid://byofjhdr7leyd" path="res://Assets/UI/potion_preview_placeholder.png" id="44_potion_preview"]
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_navigation_hotspot_focus"]
+bg_color = Color(0, 0, 0, 0)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.98, 0.86, 0.55, 0.92)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_navigation_hotspot_disabled"]
+content_margin_left = 16.0
+content_margin_top = 10.0
+content_margin_right = 16.0
+content_margin_bottom = 10.0
+bg_color = Color(0.039, 0.043, 0.048, 0.5)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.38, 0.35, 0.3, 0.45)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_navigation_hotspot_hover"]
+content_margin_left = 16.0
+content_margin_top = 10.0
+content_margin_right = 16.0
+content_margin_bottom = 10.0
+bg_color = Color(0.068, 0.076, 0.084, 0.94)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.93, 0.74, 0.42, 0.94)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_navigation_hotspot_pressed"]
+content_margin_left = 16.0
+content_margin_top = 10.0
+content_margin_right = 16.0
+content_margin_bottom = 10.0
+bg_color = Color(0.033, 0.038, 0.043, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.78, 0.58, 0.3, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_navigation_hotspot_normal"]
+content_margin_left = 16.0
+content_margin_top = 10.0
+content_margin_right = 16.0
+content_margin_bottom = 10.0
+bg_color = Color(0.047, 0.052, 0.058, 0.78)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.72, 0.56, 0.34, 0.68)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_slot_panel"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_inventory_detail_root"]
@@ -59,15 +135,16 @@ corner_radius_bottom_left = 16
 [node name="CanvasLayer" type="CanvasLayer"]
 
 [node name="ShopFloor" type="Control" parent="."]
+clip_contents = true
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_top = 50.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("21_shop_floor")
-BookButtonPath = NodePath("../PotionBrewingStationView/Book/BookHotspot")
 
 [node name="Art" type="Control" parent="ShopFloor"]
 layout_mode = 1
@@ -83,10 +160,10 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -71.0
-offset_top = -2.0
-offset_right = 64.0
-offset_bottom = 74.0
+offset_left = -310.0
+offset_top = -47.0
+offset_right = 333.0
+offset_bottom = 115.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
@@ -107,6 +184,7 @@ expand_mode = 1
 stretch_mode = 5
 
 [node name="Customer" type="TextureRect" parent="ShopFloor/Art"]
+visible = false
 layout_mode = 0
 offset_left = 566.0
 offset_top = 86.0
@@ -150,17 +228,34 @@ mouse_default_cursor_shape = 2
 flat = true
 
 [node name="InventoryShelf" type="Button" parent="ShopFloor/Hotspots"]
-modulate = Color(1, 1, 1, 0)
-layout_mode = 0
-offset_left = 1567.0
-offset_top = 81.0
-offset_right = 1985.0
-offset_bottom = 902.0
+z_index = 50
+custom_minimum_size = Vector2(192, 52)
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -212.0
+offset_top = -26.0
+offset_right = -20.0
+offset_bottom = 26.0
 tooltip_text = "Potion brewing station"
 mouse_default_cursor_shape = 2
-flat = true
+theme_override_colors/font_disabled_color = Color(0.62, 0.58, 0.5, 0.72)
+theme_override_colors/font_hover_color = Color(1, 0.95, 0.82, 1)
+theme_override_colors/font_color = Color(0.96, 0.9, 0.78, 1)
+theme_override_colors/font_pressed_color = Color(0.9, 0.78, 0.56, 1)
+theme_override_font_sizes/font_size = 18
+theme_override_styles/focus = SubResource("StyleBoxFlat_navigation_hotspot_focus")
+theme_override_styles/disabled = SubResource("StyleBoxFlat_navigation_hotspot_disabled")
+theme_override_styles/hover = SubResource("StyleBoxFlat_navigation_hotspot_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_navigation_hotspot_pressed")
+theme_override_styles/normal = SubResource("StyleBoxFlat_navigation_hotspot_normal")
+text = "Brewing Station >"
 
 [node name="Customer" type="Button" parent="ShopFloor/Hotspots"]
+visible = false
 modulate = Color(1, 1, 1, 0)
 layout_mode = 0
 offset_left = 753.0
@@ -169,14 +264,17 @@ offset_right = 1063.0
 offset_bottom = 753.0
 tooltip_text = "Customer"
 mouse_default_cursor_shape = 2
+disabled = true
 flat = true
 
 [node name="CustomerCloseupView" type="Control" parent="."]
 visible = false
+clip_contents = true
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_top = 50.0
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -248,7 +346,7 @@ modulate = Color(1, 1, 1, 0)
 layout_mode = 1
 anchors_preset = 9
 anchor_bottom = 1.0
-offset_right = 493.0
+offset_right = 465.0
 grow_vertical = 2
 tooltip_text = "Return to shop floor"
 mouse_default_cursor_shape = 2
@@ -256,10 +354,12 @@ flat = true
 
 [node name="PotionBookCloseupView" type="Control" parent="."]
 visible = false
+clip_contents = true
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_top = 50.0
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -349,37 +449,31 @@ tooltip_text = "Return to shop floor"
 mouse_default_cursor_shape = 2
 flat = true
 
-[node name="BookTabs" type="HBoxContainer" parent="PotionBookCloseupView"]
+[node name="BookSwitch" type="Button" parent="PotionBookCloseupView"]
 z_index = 20
+custom_minimum_size = Vector2(178, 40)
 layout_mode = 1
 anchors_preset = 5
 anchor_left = 0.5
 anchor_right = 0.5
-offset_left = -200.0
-offset_top = 22.0
-offset_right = 200.0
-offset_bottom = 66.0
+offset_left = 639.0
+offset_top = 437.0
+offset_right = 817.0
+offset_bottom = 477.0
 grow_horizontal = 2
-theme_override_constants/separation = 8
-alignment = 1
-
-[node name="IngredientBookTab" type="Button" parent="PotionBookCloseupView/BookTabs"]
-custom_minimum_size = Vector2(178, 40)
-layout_mode = 2
 tooltip_text = "Open ingredient book"
 text = "Ingredients"
 
-[node name="PotionBookTab" type="Button" parent="PotionBookCloseupView/BookTabs"]
-custom_minimum_size = Vector2(178, 40)
-layout_mode = 2
-tooltip_text = "Open potion book"
-text = "Potions"
-
 [node name="PotionBrewingStationView" type="Control" parent="."]
+clip_contents = true
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_left = -55.0
+offset_top = 50.0
+offset_right = 26.0
+offset_bottom = 29.0
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -400,37 +494,68 @@ expand_mode = 1
 stretch_mode = 5
 
 [node name="ReturnHotspotLeft" type="Button" parent="PotionBrewingStationView"]
-modulate = Color(1, 1, 1, 0)
+z_index = 50
+custom_minimum_size = Vector2(132, 52)
 layout_mode = 1
 anchors_preset = -1
-anchor_right = 0.18
-anchor_bottom = 1.0
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_left = 20.0
+offset_top = -26.0
+offset_right = 152.0
+offset_bottom = 26.0
 grow_horizontal = 0
 grow_vertical = 2
 tooltip_text = "Return to shop floor"
 mouse_default_cursor_shape = 2
-flat = true
+theme_override_colors/font_disabled_color = Color(0.62, 0.58, 0.5, 0.72)
+theme_override_colors/font_hover_color = Color(1, 0.95, 0.82, 1)
+theme_override_colors/font_color = Color(0.96, 0.9, 0.78, 1)
+theme_override_colors/font_pressed_color = Color(0.9, 0.78, 0.56, 1)
+theme_override_font_sizes/font_size = 18
+theme_override_styles/focus = SubResource("StyleBoxFlat_navigation_hotspot_focus")
+theme_override_styles/disabled = SubResource("StyleBoxFlat_navigation_hotspot_disabled")
+theme_override_styles/hover = SubResource("StyleBoxFlat_navigation_hotspot_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_navigation_hotspot_pressed")
+theme_override_styles/normal = SubResource("StyleBoxFlat_navigation_hotspot_normal")
+text = "< Shop"
 
 [node name="BedroomHotspotRight" type="Button" parent="PotionBrewingStationView"]
-modulate = Color(1, 1, 1, 0)
+z_index = 50
+custom_minimum_size = Vector2(140, 52)
 layout_mode = 1
 anchors_preset = -1
-anchor_left = 0.82
+anchor_left = 1.0
+anchor_top = 0.5
 anchor_right = 1.0
-anchor_bottom = 1.0
+anchor_bottom = 0.5
+offset_left = -160.0
+offset_top = -26.0
+offset_right = -20.0
+offset_bottom = 26.0
 grow_horizontal = 0
 grow_vertical = 2
 tooltip_text = "Bedroom"
 mouse_default_cursor_shape = 2
-flat = true
+theme_override_colors/font_disabled_color = Color(0.62, 0.58, 0.5, 0.72)
+theme_override_colors/font_hover_color = Color(1, 0.95, 0.82, 1)
+theme_override_colors/font_color = Color(0.96, 0.9, 0.78, 1)
+theme_override_colors/font_pressed_color = Color(0.9, 0.78, 0.56, 1)
+theme_override_font_sizes/font_size = 18
+theme_override_styles/focus = SubResource("StyleBoxFlat_navigation_hotspot_focus")
+theme_override_styles/disabled = SubResource("StyleBoxFlat_navigation_hotspot_disabled")
+theme_override_styles/hover = SubResource("StyleBoxFlat_navigation_hotspot_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_navigation_hotspot_pressed")
+theme_override_styles/normal = SubResource("StyleBoxFlat_navigation_hotspot_normal")
+text = "Bedroom >"
 
 [node name="Book" type="TextureRect" parent="PotionBrewingStationView"]
 z_index = 30
 layout_mode = 0
-offset_left = 837.0
-offset_top = 791.0
-offset_right = 1101.0
-offset_bottom = 999.0
+offset_left = 868.0
+offset_top = 746.0
+offset_right = 1132.0
+offset_bottom = 954.0
 mouse_filter = 2
 texture = ExtResource("10_bd6m8")
 expand_mode = 1
@@ -451,10 +576,10 @@ flat = true
 layout_mode = 1
 anchor_right = 0.43
 anchor_bottom = 0.9
-offset_left = -24.0
-offset_top = -88.0
-offset_right = -137.4
-offset_bottom = -75.0
+offset_left = 54.0
+offset_top = -100.0
+offset_right = -59.4
+offset_bottom = -87.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
@@ -536,10 +661,10 @@ text = ">"
 
 [node name="PotionInventoryRow" type="Control" parent="PotionBrewingStationView"]
 anchors_preset = 0
-offset_left = 656.0
-offset_top = 62.0
-offset_right = 1188.0
-offset_bottom = 230.0
+offset_left = 704.0
+offset_top = 43.0
+offset_right = 1236.0
+offset_bottom = 211.0
 mouse_filter = 2
 theme = ExtResource("16_brew_theme")
 script = ExtResource("43_potion_row")
@@ -555,15 +680,14 @@ theme_override_constants/v_separation = 0
 columns = 4
 
 [node name="BrewPanel" type="Control" parent="PotionBrewingStationView"]
-visible = false
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 878.0
-offset_top = -3.0
-offset_right = 349.0
-offset_bottom = -3.0
+offset_left = 896.0
+offset_top = -68.0
+offset_right = 367.0
+offset_bottom = -68.0
 grow_horizontal = 2
 grow_vertical = 2
 scale = Vector2(0.76, 0.76)
@@ -871,10 +995,10 @@ anchor_left = 0.38
 anchor_top = 0.33
 anchor_right = 0.58
 anchor_bottom = 0.76
-offset_left = -644.38
-offset_top = -161.6
-offset_right = -455.58
-offset_bottom = -61.2
+offset_left = -684.581
+offset_top = 133.804
+offset_right = -610.981
+offset_bottom = 98.2336
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_styles/panel = SubResource("StyleBoxEmpty_slot_panel")
@@ -889,10 +1013,10 @@ stretch_mode = 5
 
 [node name="IngredientScales" type="Control" parent="PotionBrewingStationView"]
 anchors_preset = 0
-offset_left = 1233.0
-offset_top = 628.0
-offset_right = 1703.0
-offset_bottom = 1000.0
+offset_left = 1243.0
+offset_top = 591.0
+offset_right = 1713.0
+offset_bottom = 963.0
 mouse_filter = 2
 theme = ExtResource("16_brew_theme")
 script = ExtResource("34_scales_panel")
@@ -1104,10 +1228,10 @@ text = "Clear"
 custom_minimum_size = Vector2(430, 286)
 layout_mode = 3
 anchors_preset = 0
-offset_left = 306.0
-offset_top = 751.0
-offset_right = 736.0
-offset_bottom = 1037.0
+offset_left = 508.0
+offset_top = 671.0
+offset_right = 938.0
+offset_bottom = 957.0
 theme = ExtResource("16_brew_theme")
 script = ExtResource("20_treatment_tray")
 TrayDropBoxPath = NodePath("TreatmentDropBox")
@@ -1133,10 +1257,10 @@ script = ExtResource("10_odm4o")
 
 [node name="TreatmentHelper" type="Label" parent="PotionBrewingStationView/TreatmentTray"]
 layout_mode = 0
-offset_left = 83.0
-offset_top = 180.0
-offset_right = 353.0
-offset_bottom = 235.0
+offset_left = 81.0
+offset_top = 164.0
+offset_right = 351.0
+offset_bottom = 219.0
 theme_override_colors/font_color = Color(0.88, 0.91, 0.86, 1)
 theme_override_font_sizes/font_size = 18
 text = "Drop a consumable and an item onto the tray."
@@ -1166,10 +1290,12 @@ text = "Clear"
 
 [node name="BedroomView" type="Control" parent="."]
 visible = false
+clip_contents = true
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_top = 50.0
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -1178,6 +1304,9 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_left = -130.0
+offset_right = 136.0
+offset_bottom = 139.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
@@ -1186,40 +1315,71 @@ expand_mode = 1
 stretch_mode = 5
 
 [node name="ReturnHotspotLeft" type="Button" parent="BedroomView"]
-modulate = Color(1, 1, 1, 0)
+z_index = 50
+custom_minimum_size = Vector2(188, 52)
 layout_mode = 1
 anchors_preset = -1
-anchor_right = 0.18
-anchor_bottom = 1.0
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_left = 20.0
+offset_top = -26.0
+offset_right = 208.0
+offset_bottom = 26.0
 grow_horizontal = 0
 grow_vertical = 2
 tooltip_text = "Return to potion brewing station"
 mouse_default_cursor_shape = 2
-flat = true
+theme_override_colors/font_disabled_color = Color(0.62, 0.58, 0.5, 0.72)
+theme_override_colors/font_hover_color = Color(1, 0.95, 0.82, 1)
+theme_override_colors/font_color = Color(0.96, 0.9, 0.78, 1)
+theme_override_colors/font_pressed_color = Color(0.9, 0.78, 0.56, 1)
+theme_override_font_sizes/font_size = 18
+theme_override_styles/focus = SubResource("StyleBoxFlat_navigation_hotspot_focus")
+theme_override_styles/disabled = SubResource("StyleBoxFlat_navigation_hotspot_disabled")
+theme_override_styles/hover = SubResource("StyleBoxFlat_navigation_hotspot_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_navigation_hotspot_pressed")
+theme_override_styles/normal = SubResource("StyleBoxFlat_navigation_hotspot_normal")
+text = "< Brewing Station"
 
 [node name="EndDayHotspot" type="Button" parent="BedroomView"]
-modulate = Color(1, 1, 1, 0)
+z_index = 50
+custom_minimum_size = Vector2(112, 48)
 layout_mode = 1
 anchors_preset = -1
-anchor_left = 0.24
-anchor_top = 0.42
-anchor_right = 0.84
-anchor_bottom = 0.72
+anchor_left = 0.56
+anchor_top = 0.66
+anchor_right = 0.56
+anchor_bottom = 0.66
+offset_left = -56.0
+offset_top = -24.0
+offset_right = 56.0
+offset_bottom = 24.0
 grow_horizontal = 2
 grow_vertical = 2
 tooltip_text = "End day"
 mouse_default_cursor_shape = 2
-flat = true
+theme_override_colors/font_disabled_color = Color(0.62, 0.58, 0.5, 0.72)
+theme_override_colors/font_hover_color = Color(1, 0.95, 0.82, 1)
+theme_override_colors/font_color = Color(0.96, 0.9, 0.78, 1)
+theme_override_colors/font_pressed_color = Color(0.9, 0.78, 0.56, 1)
+theme_override_font_sizes/font_size = 18
+theme_override_styles/focus = SubResource("StyleBoxFlat_navigation_hotspot_focus")
+theme_override_styles/disabled = SubResource("StyleBoxFlat_navigation_hotspot_disabled")
+theme_override_styles/hover = SubResource("StyleBoxFlat_navigation_hotspot_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_navigation_hotspot_pressed")
+theme_override_styles/normal = SubResource("StyleBoxFlat_navigation_hotspot_normal")
+text = "Sleep"
 
 [node name="InventoryPanel" parent="." instance=ExtResource("5_invp")]
 visible = false
 anchor_left = -0.0204062
-anchor_top = 0.008
+anchor_top = 0.0
 anchor_right = 0.211
+anchor_bottom = 1.0
 offset_left = 45.1199
-offset_top = -5.76
+offset_top = 50.0
 offset_right = 198.92
-offset_bottom = -0.000366211
+offset_bottom = 0.0
 ItemDetailTopCloseButtonPath = NodePath("")
 
 [node name="InventoryItemDetail" type="Control" parent="."]
@@ -1229,7 +1389,7 @@ layout_mode = 3
 anchors_preset = 10
 anchor_right = 1.0
 offset_left = 188.0
-offset_top = 56.0
+offset_top = 66.0
 offset_right = -701.0
 offset_bottom = 398.0
 grow_horizontal = 2
@@ -1350,17 +1510,15 @@ theme_override_colors/default_color = Color(0.94, 0.32, 0.28, 1)
 text = "None"
 
 [node name="DetailsSeparator" type="HSeparator" parent="InventoryItemDetail/Panel/Margin/VBox"]
-visible = false
 layout_mode = 2
 
 [node name="DescriptionHeader" type="Label" parent="InventoryItemDetail/Panel/Margin/VBox"]
 visible = false
 layout_mode = 2
 theme_override_colors/font_color = Color(0.68, 0.7, 0.75, 1)
-text = "DESCRIPTION"
+text = "EFFECTS"
 
 [node name="Description" type="RichTextLabel" parent="InventoryItemDetail/Panel/Margin/VBox"]
-visible = false
 custom_minimum_size = Vector2(0, 126)
 layout_mode = 2
 theme_override_colors/default_color = Color(0.78, 0.79, 0.84, 1)
@@ -1433,10 +1591,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = 316.0
-offset_top = -443.0
-offset_right = 941.0
-offset_bottom = 497.0
+offset_left = 313.0
+offset_top = -457.0
+offset_right = 938.0
+offset_bottom = 490.0
 grow_horizontal = 2
 grow_vertical = 2
 theme = ExtResource("16_brew_theme")
@@ -1595,7 +1753,7 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -640.0
-offset_top = -360.0
+offset_top = -310.0
 offset_right = -160.0
 grow_horizontal = 2
 grow_vertical = 2
@@ -1639,14 +1797,14 @@ text = "Continue to Night"
 [node name="PotionBookPanel" parent="." instance=ExtResource("18_potion_book")]
 visible = false
 offset_left = -304.0
-offset_top = -346.0
+offset_top = -310.0
 offset_right = 334.0
 offset_bottom = 292.0
 
 [node name="IngredientBookPanel" parent="." instance=ExtResource("41_ingredient_book")]
 visible = false
 offset_left = -304.0
-offset_top = -346.0
+offset_top = -310.0
 offset_right = 334.0
 offset_bottom = 292.0
 
@@ -1657,7 +1815,7 @@ anchor_left = 0.2
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = -373.0
-offset_top = 60.0
+offset_top = 50.0
 offset_right = -15.0
 offset_bottom = -22.0
 grow_horizontal = 2

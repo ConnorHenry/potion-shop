@@ -64,6 +64,10 @@ public sealed class ItemDefJsonConverter : JsonConverter<ItemDef>
 				case "Risks":
 					item.Risks = JsonSerializer.Deserialize<Dictionary<string, int>>(ref reader, options) ?? new Dictionary<string, int>();
 					break;
+				case "ingredientEffects":
+				case "IngredientEffects":
+					item.IngredientEffects = JsonSerializer.Deserialize<List<IngredientEffectDef>>(ref reader, options) ?? new List<IngredientEffectDef>();
+					break;
 				case "price":
 				case "BasePrice":
 				case "basePrice":
@@ -109,6 +113,11 @@ public sealed class ItemDefJsonConverter : JsonConverter<ItemDef>
 		JsonSerializer.Serialize(writer, value.Traits ?? new Dictionary<string, int>(), options);
 		writer.WritePropertyName("risks");
 		JsonSerializer.Serialize(writer, value.Risks ?? new Dictionary<string, int>(), options);
+		if (value.IngredientEffects is { Count: > 0 })
+		{
+			writer.WritePropertyName("ingredientEffects");
+			JsonSerializer.Serialize(writer, value.IngredientEffects, options);
+		}
 		writer.WriteNumber("price", value.BasePrice);
 		if (value.ConsumableEffect is not null)
 		{

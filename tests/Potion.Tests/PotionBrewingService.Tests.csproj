@@ -9,6 +9,7 @@
   <ItemGroup>
     <Compile Include="..\..\Scripts\Models\EffectDef.cs" Link="Linked\EffectDef.cs" />
     <Compile Include="..\..\Scripts\Models\ConsumableEffectDef.cs" Link="Linked\ConsumableEffectDef.cs" />
+    <Compile Include="..\..\Scripts\Models\IngredientEffectDef.cs" Link="Linked\IngredientEffectDef.cs" />
     <Compile Include="..\..\Scripts\Models\IngredientDef.cs" Link="Linked\IngredientDef.cs" />
     <Compile Include="..\..\Scripts\Models\ItemDef.cs" Link="Linked\ItemDef.cs" />
     <Compile Include="..\..\Scripts\Models\ItemDefJsonConverter.cs" Link="Linked\ItemDefJsonConverter.cs" />
@@ -19,6 +20,7 @@
     <Compile Include="..\..\Scripts\Models\SynergyRule.cs" Link="Linked\SynergyRule.cs" />
     <Compile Include="..\..\Scripts\Models\CustomerInteractionDef.cs" Link="Linked\CustomerInteractionDef.cs" />
     <Compile Include="..\..\Scripts\Systems\PotionBrewingService.cs" Link="Linked\PotionBrewingService.cs" />
+    <Compile Include="..\..\Scripts\Systems\CustomerSaleRules.cs" Link="Linked\CustomerSaleRules.cs" />
     <Compile Include="..\..\Scripts\Systems\PotionRecipeLookup.cs" Link="Linked\PotionRecipeLookup.cs" />
     <Compile Include="..\..\Scripts\Systems\PotionVariantIdBuilder.cs" Link="Linked\PotionVariantIdBuilder.cs" />
   </ItemGroup>

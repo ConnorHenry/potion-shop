@@ -17,9 +17,12 @@ public partial class TutorialController : Node
 	[Export] public NodePath DayControllerPath = default!;
 	[Export] public NodePath CustomerEventControllerPath = default!;
 	[Export] public NodePath GameStatePath = new(AutoloadNodePaths.GameState);
-	[Export] public NodePath HudBrewButtonPath = new("BrewPotion");
-	[Export] public NodePath HudStartDayButtonPath = new("ServeCustomer");
-	[Export] public NodePath HudSettingsButtonPath = new("MainMenu");
+	[Export] public NodePath ShopFloorPath = new("../CanvasLayer/ShopFloor");
+	[Export] public NodePath OpenBrewPanelButtonPath = new("../CanvasLayer/ShopFloor/Hotspots/InventoryShelf");
+	[Export] public NodePath HudStartDayButtonPath = new("Content/Actions/ServeCustomer");
+	[Export] public NodePath HudSettingsButtonPath = new("Content/Actions/MainMenu");
+	[Export] public NodePath HudDayLabelPath = new("Content/Status/Day");
+	[Export] public NodePath HudShopTimerLabelPath = new("Content/Status/ShopTimer");
 	[Export] public NodePath BrewPanelFramePath = new("Panel");
 	[Export] public TutorialContentResource TutorialContent = new();
 
@@ -31,6 +34,7 @@ public partial class TutorialController : Node
 	private readonly TutorialInteractionGate _interactionGate = new();
 
 	private Control? _hud;
+	private Control? _shopFloor;
 	private Label? _hudDayLabel;
 	private Label? _hudShopTimerLabel;
 	private InventoryPanel? _inventoryPanel;
@@ -40,7 +44,7 @@ public partial class TutorialController : Node
 	private DaySummaryPanel? _daySummaryPanel;
 	private DayController? _dayController;
 	private CustomerEventController? _customerEventController;
-	private Button? _brewButton;
+	private Button? _openBrewPanelButton;
 	private Button? _startDayButton;
 	private Button? _settingsButton;
 
@@ -56,6 +60,7 @@ public partial class TutorialController : Node
 			return;
 
 		_hud = GetOptionalControl(HudPath, nameof(HudPath));
+		_shopFloor = GetOptionalControl(ShopFloorPath, nameof(ShopFloorPath));
 		_inventoryPanel = GetOptionalNode<InventoryPanel>(InventoryPanelPath, nameof(InventoryPanelPath));
 		_brewPanel = GetOptionalNode<BrewPanel>(BrewPanelPath, nameof(BrewPanelPath));
 		_brewPanelFrame = GetOptionalBrewPanelControl(BrewPanelFramePath, nameof(BrewPanelFramePath));
@@ -63,11 +68,11 @@ public partial class TutorialController : Node
 		_daySummaryPanel = GetOptionalNode<DaySummaryPanel>(DaySummaryPanelPath, nameof(DaySummaryPanelPath));
 		_dayController = GetOptionalNode<DayController>(DayControllerPath, nameof(DayControllerPath));
 		_customerEventController = GetOptionalNode<CustomerEventController>(CustomerEventControllerPath, nameof(CustomerEventControllerPath));
-		_brewButton = GetOptionalHudButton(HudBrewButtonPath, nameof(HudBrewButtonPath));
+		_openBrewPanelButton = GetOptionalNode<Button>(OpenBrewPanelButtonPath, nameof(OpenBrewPanelButtonPath));
 		_startDayButton = GetOptionalHudButton(HudStartDayButtonPath, nameof(HudStartDayButtonPath));
 		_settingsButton = GetOptionalHudButton(HudSettingsButtonPath, nameof(HudSettingsButtonPath));
-		_hudDayLabel = GetOptionalHudLabel("Day");
-		_hudShopTimerLabel = GetOptionalHudLabel("ShopTimer");
+		_hudDayLabel = GetOptionalHudLabel(HudDayLabelPath, nameof(HudDayLabelPath));
+		_hudShopTimerLabel = GetOptionalHudLabel(HudShopTimerLabelPath, nameof(HudShopTimerLabelPath));
 
 		_tutorialContent = TutorialContent ?? new TutorialContentResource();
 		_stateMachine = new TutorialStateMachine(_tutorialContent);
@@ -77,8 +82,8 @@ public partial class TutorialController : Node
 		_overlay.SkipPressed += OnSkipPressed;
 		if (_inventoryPanel is not null)
 			_inventoryPanel.ItemDetailShown += OnItemDetailShown;
-		if (_brewButton is not null)
-			_brewButton.Pressed += OnBrewButtonPressed;
+		if (_openBrewPanelButton is not null)
+			_openBrewPanelButton.Pressed += OnBrewButtonPressed;
 		if (_brewPanel is not null)
 		{
 			_brewPanel.IngredientQueued += OnIngredientQueued;
@@ -111,8 +116,8 @@ public partial class TutorialController : Node
 		}
 		if (_inventoryPanel is not null)
 			_inventoryPanel.ItemDetailShown -= OnItemDetailShown;
-		if (_brewButton is not null)
-			_brewButton.Pressed -= OnBrewButtonPressed;
+		if (_openBrewPanelButton is not null)
+			_openBrewPanelButton.Pressed -= OnBrewButtonPressed;
 		if (_brewPanel is not null)
 		{
 			_brewPanel.IngredientQueued -= OnIngredientQueued;
@@ -347,7 +352,7 @@ public partial class TutorialController : Node
 				_overlayPresenter.ShowForTarget(stepContent, _hud);
 				break;
 			case TutorialStepId.OpenBrewPanel:
-				_overlayPresenter.ShowForTarget(stepContent, _brewButton);
+				_overlayPresenter.ShowForTarget(stepContent, _openBrewPanelButton);
 				break;
 			case TutorialStepId.QueueGraveMint:
 				ShowIngredientQueueStep(stepContent, _tutorialContent.GraveMintId);
@@ -520,7 +525,7 @@ public partial class TutorialController : Node
 		}
 
 		_interactionGate.Apply(
-			new Node?[] { _hud, _inventoryPanel, _brewPanel, _customerPanel, _daySummaryPanel },
+			new Node?[] { _hud, _shopFloor, _inventoryPanel, _brewPanel, _customerPanel, _daySummaryPanel },
 			allowedButtons);
 	}
 
@@ -528,7 +533,7 @@ public partial class TutorialController : Node
 	{
 		return step switch
 		{
-			TutorialStepId.OpenBrewPanel => new BaseButton?[] { _brewButton, _settingsButton },
+			TutorialStepId.OpenBrewPanel => new BaseButton?[] { _openBrewPanelButton, _settingsButton },
 			TutorialStepId.QueueGraveMint => new BaseButton?[] { GetAllowedButton(FocusTutorialIngredientInventorySlot(_tutorialContent.GraveMintId)) },
 			TutorialStepId.QueueObsidianResin => new BaseButton?[] { GetAllowedButton(FocusTutorialIngredientInventorySlot(_tutorialContent.ObsidianResinId)) },
 			TutorialStepId.QueueIronLullabyRoot => new BaseButton?[] { GetAllowedButton(FocusTutorialIngredientInventorySlot(_tutorialContent.IronLullabyRootId)) },
@@ -617,14 +622,20 @@ public partial class TutorialController : Node
 		return button;
 	}
 
-	private Label? GetOptionalHudLabel(string labelName)
+	private Label? GetOptionalHudLabel(NodePath path, string exportName)
 	{
 		if (_hud is null)
 			return null;
 
-		var label = _hud.GetNodeOrNull<Label>(labelName);
+		if (path.IsEmpty)
+		{
+			GD.PushError($"TutorialController: {exportName} is not assigned.");
+			return null;
+		}
+
+		var label = _hud.GetNodeOrNull<Label>(path);
 		if (label is null)
-			GD.PushError($"TutorialController: HUD label was not found at '{labelName}'.");
+			GD.PushError($"TutorialController: HUD label was not found at '{path}'.");
 
 		return label;
 	}

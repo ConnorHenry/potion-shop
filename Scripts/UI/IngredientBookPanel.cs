@@ -357,9 +357,7 @@ public partial class IngredientBookPanel : Control
 		page.UnknownIcon.Visible = false;
 		page.TraitsLabel.Text = BuildStatsText(item.Traits);
 		page.RisksLabel.Text = BuildStatsText(item.Risks);
-		page.DescriptionLabel.Text = string.IsNullOrWhiteSpace(item.Description)
-			? "No description recorded."
-			: item.Description;
+		page.DescriptionLabel.Text = InventoryItemTextFormatter.BuildDescriptionWithIngredientEffects(item);
 	}
 
 	private static void ShowUnknownIngredientPage(IngredientBookPageView page)

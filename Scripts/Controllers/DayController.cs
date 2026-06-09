@@ -34,9 +34,13 @@ public partial class DayController : Node
 	private bool _awaitingSaleResultClose;
 	private bool _shopClosingPending;
 	private bool _tutorialTimerPaused;
+	private bool _debugTimerPaused;
+	private bool _plotConversationTimerPaused;
 
 	public bool IsShopOpen { get; private set; }
 	public int SecondsRemaining => _secondsRemaining;
+	public bool IsShopTimerPaused => _tutorialTimerPaused || _debugTimerPaused || _plotConversationTimerPaused;
+	public bool IsShopTimerDebugPaused => _debugTimerPaused;
 	public event Action? ShopStateChanged;
 
 	public override void _Ready()
@@ -118,6 +122,8 @@ public partial class DayController : Node
 		_awaitingSaleResultClose = false;
 		_shopClosingPending = false;
 		_tutorialTimerPaused = false;
+		_debugTimerPaused = false;
+		_plotConversationTimerPaused = false;
 		IsShopOpen = true;
 		EmitShopStateChanged();
 		_customerEventController.BeginShopDay();
@@ -128,7 +134,7 @@ public partial class DayController : Node
 			return;
 		}
 
-		if (!_tutorialTimerPaused)
+		if (!IsShopTimerPaused)
 			_shopTimer.Start();
 	}
 
@@ -153,10 +159,36 @@ public partial class DayController : Node
 			return;
 
 		_tutorialTimerPaused = false;
-		if (IsShopOpen && !_awaitingSaleResultClose && _secondsRemaining > 0 && _shopTimer.IsStopped())
+		if (CanRunShopTimer() && _shopTimer.IsStopped())
 			_shopTimer.Start();
 
 		EmitShopStateChanged();
+	}
+
+	public bool TrySetDebugShopTimerPaused(bool paused)
+	{
+		if (!IsShopOpen)
+			return false;
+
+		if (_debugTimerPaused == paused)
+			return true;
+
+		_debugTimerPaused = paused;
+
+		if (paused)
+		{
+			if (!_shopTimer.IsStopped())
+				_shopTimer.Stop();
+
+			EmitShopStateChanged();
+			return true;
+		}
+
+		if (CanRunShopTimer() && _shopTimer.IsStopped())
+			_shopTimer.Start();
+
+		EmitShopStateChanged();
+		return true;
 	}
 
 	public void ForceShopTimerToZeroForTutorial()
@@ -188,7 +220,7 @@ public partial class DayController : Node
 			return true;
 		}
 
-		if (_tutorialTimerPaused)
+		if (IsShopTimerPaused)
 		{
 			EmitShopStateChanged();
 			return true;
@@ -236,7 +268,7 @@ public partial class DayController : Node
 
 	private void OnShopTimerTick()
 	{
-		if (!IsShopOpen)
+		if (!IsShopOpen || IsShopTimerPaused)
 			return;
 
 		_secondsRemaining = Math.Max(0, _secondsRemaining - 1);
@@ -264,6 +296,7 @@ public partial class DayController : Node
 		if (!IsShopOpen)
 			return;
 
+		_plotConversationTimerPaused = false;
 		_shopDayStats.CustomersServed += 1;
 		_shopDayStats.GoldEarned += goldDelta;
 		_shopDayStats.DreadChange += dreadDelta;
@@ -316,7 +349,7 @@ public partial class DayController : Node
 			return;
 		}
 
-		if (_shopTimer.IsStopped() && !_tutorialTimerPaused)
+		if (_shopTimer.IsStopped() && !IsShopTimerPaused)
 			_shopTimer.Start();
 
 		EmitShopStateChanged();
@@ -327,6 +360,7 @@ public partial class DayController : Node
 		if (!IsShopOpen)
 			return;
 
+		_plotConversationTimerPaused = true;
 		if (!_shopTimer.IsStopped())
 			_shopTimer.Stop();
 
@@ -338,6 +372,7 @@ public partial class DayController : Node
 		if (!IsShopOpen)
 			return;
 
+		_plotConversationTimerPaused = false;
 		if (!_shopTimer.IsStopped())
 			_shopTimer.Stop();
 
@@ -360,7 +395,12 @@ public partial class DayController : Node
 			return false;
 		}
 
-		_customerPanel.ShowInteraction(interaction);
+		if (_customerPanel.Visible)
+			_customerPanel.ShowInteraction(interaction);
+		else
+			_customerPanel.PrepareInteraction(interaction);
+
+		EmitShopStateChanged();
 		return true;
 	}
 
@@ -369,6 +409,7 @@ public partial class DayController : Node
 		if (!IsShopOpen)
 			return;
 
+		_plotConversationTimerPaused = false;
 		if (_secondsRemaining <= 0)
 		{
 			CloseShopAndShowSummary();
@@ -389,6 +430,8 @@ public partial class DayController : Node
 		_awaitingSaleResultClose = false;
 		_shopClosingPending = false;
 		_tutorialTimerPaused = false;
+		_debugTimerPaused = false;
+		_plotConversationTimerPaused = false;
 		_customerPanel.HidePanel();
 		_customerPanel.SuppressSaleResultPanel = false;
 		_customerPanel.SetCloseShopMode(false);
@@ -415,6 +458,14 @@ public partial class DayController : Node
 	private void EmitShopStateChanged()
 	{
 		ShopStateChanged?.Invoke();
+	}
+
+	private bool CanRunShopTimer()
+	{
+		return IsShopOpen
+			&& !IsShopTimerPaused
+			&& !_awaitingSaleResultClose
+			&& _secondsRemaining > 0;
 	}
 
 	private sealed class ShopDayStats

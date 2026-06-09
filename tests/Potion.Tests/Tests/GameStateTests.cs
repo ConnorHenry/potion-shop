@@ -39,6 +39,8 @@ internal static class GameStateTests
     private static void TestKnownIngredientBookEntriesPersistAndBackfill()
     {
         var gameStateSource = ReadProjectFile("Scripts/Autoload/GameState.cs");
+        var inventoryState = ReadProjectFile("Scripts/Systems/InventoryState.cs");
+        var potionKnowledgeState = ReadProjectFile("Scripts/Systems/PotionKnowledgeState.cs");
         var saveDataSource = ReadProjectFile("Scripts/Persistence/SaveData.cs");
         var itemDefSource = ReadProjectFile("Scripts/Models/ItemDef.cs");
         var dataDbSource = ReadProjectFile("Scripts/Autoload/DataDb.cs");
@@ -62,30 +64,31 @@ internal static class GameStateTests
             gameStateSource.Contains("item.StartsKnownInIngredientBook"));
         AssertTrue("GameState learns ingredients when items enter inventory",
             gameStateSource.Contains("AddKnownIngredient(itemId, emitChanged: false);") &&
-            gameStateSource.Contains("Inventory[itemId] = Inventory.GetValueOrDefault(itemId) + quantityToAdd;"));
+            inventoryState.Contains("_inventory[itemId] = _inventory.GetValueOrDefault(itemId) + quantityToAdd;"));
         AssertTrue("GameState learns ingredients from planted and harvested garden pots",
-            gameStateSource.Contains("AddKnownIngredient(crop.IngredientId, emitChanged: false);") &&
-            gameStateSource.Contains("AddKnownIngredient(pot.IngredientId, emitChanged: false);"));
+            gameStateSource.Contains("AddKnownIngredient(plantedIngredientId, emitChanged: false);") &&
+            gameStateSource.Contains("AddKnownIngredient(harvest.IngredientId, emitChanged: false);"));
         AssertTrue("GameState learns recipe ingredients from recorded known recipes",
-            gameStateSource.Contains("foreach (var ingredientId in ingredientIds)") &&
-            gameStateSource.Contains("changed |= AddKnownIngredient(ingredientId, emitChanged: false);"));
+            potionKnowledgeState.Contains("foreach (var ingredientId in ingredientIds)") &&
+            potionKnowledgeState.Contains("changed |= AddKnownIngredient(ingredientId);"));
         AssertTrue("GameState backfills old saves from inventory, garden pots, and known recipes",
             gameStateSource.Contains("BackfillKnownIngredientsFromInventory();") &&
             gameStateSource.Contains("BackfillKnownIngredientsFromGardenPots();") &&
-            gameStateSource.Contains("BackfillKnownIngredientsFromKnownRecipes();"));
+            gameStateSource.Contains("_potionKnowledgeState.BackfillKnownIngredientsFromKnownRecipes();"));
     }
 
     private static void TestBookRecordsCanBeForgottenForDebugToggles()
     {
         var gameStateSource = ReadProjectFile("Scripts/Autoload/GameState.cs");
+        var potionKnowledgeState = ReadProjectFile("Scripts/Systems/PotionKnowledgeState.cs");
 
         AssertTrue("GameState can forget potions from the potion book",
             gameStateSource.Contains("public void ForgetPotion(string potionId)") &&
-            gameStateSource.Contains("KnownPotions.RemoveWhere") &&
-            gameStateSource.Contains("KnownPotionOrder.RemoveAll"));
+            potionKnowledgeState.Contains("_knownPotions.RemoveWhere") &&
+            potionKnowledgeState.Contains("_knownPotionOrder.RemoveAll"));
         AssertTrue("GameState can forget ingredients from the ingredient book",
             gameStateSource.Contains("public void ForgetIngredient(string ingredientId)") &&
-            gameStateSource.Contains("KnownIngredients.RemoveWhere") &&
-            gameStateSource.Contains("KnownIngredientOrder.RemoveAll"));
+            potionKnowledgeState.Contains("_knownIngredients.RemoveWhere") &&
+            potionKnowledgeState.Contains("_knownIngredientOrder.RemoveAll"));
     }
 }

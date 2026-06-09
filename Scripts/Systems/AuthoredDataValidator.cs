@@ -9,6 +9,18 @@ namespace OccultShop.Systems;
 public static class AuthoredDataValidator
 {
 	private const int PotionRecipeIngredientCount = 3;
+	private static readonly HashSet<string> KnownIngredientEffectKinds = new(StringComparer.OrdinalIgnoreCase)
+	{
+		IngredientEffectDef.BoostLowestOtherTraitKind,
+		IngredientEffectDef.BoostLowestTraitIfNoRiskCarriesKind,
+		IngredientEffectDef.BoostStrongestTraitAddRiskKind,
+		IngredientEffectDef.CopyStrongestOtherTraitKind,
+		IngredientEffectDef.HalveOtherRisksKind,
+		IngredientEffectDef.ReduceHighestRiskKind,
+		IngredientEffectDef.SuppressSingleCarriedRiskKind,
+		IngredientEffectDef.TemperTraitsKind,
+		IngredientEffectDef.AddTraitIfRiskCarriesKind
+	};
 
 	public static void Validate(
 		IReadOnlyDictionary<string, ItemDef> items,
@@ -33,8 +45,36 @@ public static class AuthoredDataValidator
 			if (item.ConsumableEffect is not null)
 				ValidateConsumableEffect(item.Id, item.ConsumableEffect);
 
+			ValidateIngredientEffects(item.Id, item.IngredientEffects);
+
 			if (item.Treatment is not null)
 				ValidateTreatmentMetadata(items, item.Id, item.Treatment);
+		}
+	}
+
+	private static void ValidateIngredientEffects(string itemId, IReadOnlyList<IngredientEffectDef>? effects)
+	{
+		if (effects is null || effects.Count == 0)
+			return;
+
+		foreach (var effect in effects)
+		{
+			if (effect is null || string.IsNullOrWhiteSpace(effect.Kind))
+			{
+				PushDataWarning($"Item '{itemId}' has an ingredient effect without a kind.");
+				continue;
+			}
+
+			if (!KnownIngredientEffectKinds.Contains(effect.Kind))
+				PushDataWarning($"Item '{itemId}' has unknown ingredient effect kind '{effect.Kind}'.");
+
+			if (string.Equals(effect.Kind, IngredientEffectDef.BoostStrongestTraitAddRiskKind, StringComparison.OrdinalIgnoreCase) &&
+				string.IsNullOrWhiteSpace(effect.RiskId))
+				PushDataWarning($"Item '{itemId}' effect '{effect.Kind}' should define a risk id.");
+
+			if (string.Equals(effect.Kind, IngredientEffectDef.AddTraitIfRiskCarriesKind, StringComparison.OrdinalIgnoreCase) &&
+				string.IsNullOrWhiteSpace(effect.TraitId))
+				PushDataWarning($"Item '{itemId}' effect '{effect.Kind}' should define a trait id.");
 		}
 	}
 
@@ -143,10 +183,13 @@ public static class AuthoredDataValidator
 		IReadOnlyDictionary<string, RuleDef> rules,
 		IReadOnlyList<CustomerInteractionDef> customerInteractions)
 	{
+		var knownTraitIds = BuildKnownTraitIds(items);
 		foreach (var interaction in customerInteractions)
 		{
 			var context = $"Customer interaction '{interaction.Id}'";
 			ValidateRequirements(items, interaction.Requires, $"{context} requirements");
+			ValidateTraitThresholds(interaction.RequiredMinTraits, knownTraitIds, $"{context} required minimum traits");
+			ValidateTraitThresholds(interaction.RequiredMaxTraits, knownTraitIds, $"{context} required maximum traits");
 			ValidateIngredientAmounts(items, interaction.RequiredIngredientAmounts, $"{context} required ingredient amounts");
 			ValidateEffects(items, rules, interaction.OnSuccessEffects, $"{context} success effects");
 			ValidateEffects(items, rules, interaction.OnFailureEffects, $"{context} failure effects");
@@ -154,6 +197,57 @@ public static class AuthoredDataValidator
 			ValidateEffects(items, rules, interaction.OnPotionRefusedEffects, $"{context} potion refused effects");
 			ValidatePotionResponses(items, rules, interaction);
 			ValidateDialogueTree(items, rules, interaction);
+		}
+	}
+
+	private static HashSet<string> BuildKnownTraitIds(IReadOnlyDictionary<string, ItemDef> items)
+	{
+		var knownTraitIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+		foreach (var item in items.Values)
+		{
+			if (item.Traits is not null)
+			{
+				foreach (var traitId in item.Traits.Keys)
+				{
+					if (!string.IsNullOrWhiteSpace(traitId))
+						knownTraitIds.Add(traitId);
+				}
+			}
+
+			if (item.IngredientEffects is null)
+				continue;
+
+			foreach (var effect in item.IngredientEffects)
+			{
+				if (!string.IsNullOrWhiteSpace(effect.TraitId))
+					knownTraitIds.Add(effect.TraitId);
+			}
+		}
+
+		return knownTraitIds;
+	}
+
+	private static void ValidateTraitThresholds(
+		IReadOnlyDictionary<string, int>? thresholds,
+		HashSet<string> knownTraitIds,
+		string context)
+	{
+		if (thresholds is null || thresholds.Count == 0)
+			return;
+
+		foreach (var threshold in thresholds)
+		{
+			if (string.IsNullOrWhiteSpace(threshold.Key))
+			{
+				PushDataWarning($"{context} includes an empty trait id.");
+				continue;
+			}
+
+			if (threshold.Value < 0)
+				PushDataWarning($"{context} for '{threshold.Key}' is negative.");
+
+			if (!knownTraitIds.Contains(threshold.Key))
+				PushDataWarning($"{context} references unknown trait '{threshold.Key}'.");
 		}
 	}
 

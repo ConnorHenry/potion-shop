@@ -56,6 +56,7 @@ public partial class DaySummaryPanel : Control
 			$"Final gold: {finalGold}\n" +
 			$"Final dread: {finalDread}";
 		Visible = true;
+		MoveToFront();
 	}
 
 	public void HidePanel()

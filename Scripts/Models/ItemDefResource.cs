@@ -16,6 +16,7 @@ public partial class ItemDefResource : Resource
 	private Godot.Collections.Array<string> _tags = new();
 	private Godot.Collections.Dictionary<string, int> _traits = new();
 	private Godot.Collections.Dictionary<string, int> _risks = new();
+	private Godot.Collections.Array _ingredientEffects = new();
 	private string _consumableEffectKind = string.Empty;
 	private string _consumableEffectRiskId = string.Empty;
 	private string _consumableEffectDescription = string.Empty;
@@ -102,6 +103,17 @@ public partial class ItemDefResource : Resource
 		set
 		{
 			_risks = value ?? new Godot.Collections.Dictionary<string, int>();
+			EmitChanged();
+		}
+	}
+
+	[Export]
+	public Godot.Collections.Array IngredientEffects
+	{
+		get => _ingredientEffects;
+		set
+		{
+			_ingredientEffects = value ?? new Godot.Collections.Array();
 			EmitChanged();
 		}
 	}
@@ -197,6 +209,7 @@ public partial class ItemDefResource : Resource
 			Quality = Quality,
 			Traits = traits,
 			Risks = risks,
+			IngredientEffects = ParseIngredientEffects(_ingredientEffects),
 			BasePrice = BasePrice
 		};
 
@@ -292,6 +305,7 @@ public partial class ItemDefResource : Resource
 		Tags = tags;
 		Traits = traits;
 		Risks = risks;
+		IngredientEffects = BuildIngredientEffectArray(item.IngredientEffects);
 
 		ConsumableEffectKind = item.ConsumableEffect?.Kind ?? string.Empty;
 		ConsumableEffectRiskId = item.ConsumableEffect?.RiskId ?? string.Empty;
@@ -311,6 +325,90 @@ public partial class ItemDefResource : Resource
 		TreatmentBaseItemId = item.Treatment?.BaseItemId ?? string.Empty;
 		TreatmentConsumableItemId = item.Treatment?.ConsumableItemId ?? string.Empty;
 		TreatmentRemovedRisk = item.Treatment?.RemovedRisk ?? string.Empty;
+	}
+
+	private static List<IngredientEffectDef> ParseIngredientEffects(Godot.Collections.Array entries)
+	{
+		var effects = new List<IngredientEffectDef>(entries.Count);
+		foreach (var entryValue in entries)
+		{
+			if (entryValue.VariantType != Variant.Type.Dictionary)
+				continue;
+
+			var entry = entryValue.As<Godot.Collections.Dictionary>();
+			var kind = ReadEffectString(entry, "kind");
+			if (string.IsNullOrWhiteSpace(kind))
+				continue;
+
+			effects.Add(new IngredientEffectDef
+			{
+				Kind = kind,
+				Family = ReadEffectString(entry, "family"),
+				Name = ReadEffectString(entry, "name"),
+				Description = ReadEffectString(entry, "description"),
+				Amount = ReadEffectInt(entry, "amount"),
+				SecondaryAmount = ReadEffectInt(entry, "secondaryAmount"),
+				TraitId = ReadEffectString(entry, "traitId"),
+				RiskId = ReadEffectString(entry, "riskId")
+			});
+		}
+
+		return effects;
+	}
+
+	private static Godot.Collections.Array BuildIngredientEffectArray(List<IngredientEffectDef>? effects)
+	{
+		var array = new Godot.Collections.Array();
+		if (effects is null)
+			return array;
+
+		foreach (var effect in effects)
+		{
+			if (effect is null || string.IsNullOrWhiteSpace(effect.Kind))
+				continue;
+
+			array.Add(new Godot.Collections.Dictionary
+			{
+				["kind"] = effect.Kind,
+				["family"] = effect.Family,
+				["name"] = effect.Name,
+				["description"] = effect.Description,
+				["amount"] = effect.Amount,
+				["secondaryAmount"] = effect.SecondaryAmount,
+				["traitId"] = effect.TraitId,
+				["riskId"] = effect.RiskId
+			});
+		}
+
+		return array;
+	}
+
+	private static string ReadEffectString(Godot.Collections.Dictionary entry, string key)
+	{
+		if (!entry.ContainsKey(key))
+			return string.Empty;
+
+		var value = entry[key];
+		if (value.VariantType == Variant.Type.Nil)
+			return string.Empty;
+
+		return value.VariantType == Variant.Type.String
+			? value.As<string>()
+			: value.ToString();
+	}
+
+	private static int ReadEffectInt(Godot.Collections.Dictionary entry, string key)
+	{
+		if (!entry.ContainsKey(key))
+			return 0;
+
+		var value = entry[key];
+		if (value.VariantType == Variant.Type.Int)
+			return (int)value.As<long>();
+		if (value.VariantType == Variant.Type.Float)
+			return (int)System.Math.Round(value.As<double>());
+
+		return int.TryParse(ReadEffectString(entry, key), out var parsed) ? parsed : 0;
 	}
 
 	private void SetString(ref string target, string? value)

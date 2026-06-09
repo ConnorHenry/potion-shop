@@ -117,6 +117,45 @@ public static class InventoryItemTextFormatter
 		return string.Join("\n", lines);
 	}
 
+	public static string BuildDescriptionWithIngredientEffects(ItemDef item)
+	{
+		var lines = new List<string>();
+		if (!string.IsNullOrWhiteSpace(item.Description))
+			lines.Add(item.Description);
+
+		var effectText = BuildIngredientEffectsText(item);
+		if (!string.IsNullOrWhiteSpace(effectText))
+			lines.Add(effectText);
+
+		return lines.Count == 0 ? "No description recorded." : string.Join("\n\n", lines);
+	}
+
+	public static string BuildItemDetailDescription(ItemDef item)
+	{
+		return string.IsNullOrWhiteSpace(item.Description)
+			? string.Empty
+			: item.Description;
+	}
+
+	public static string BuildIngredientEffectsText(ItemDef item)
+	{
+		if (item.IngredientEffects is null || item.IngredientEffects.Count == 0)
+			return string.Empty;
+
+		var lines = new List<string>();
+		foreach (var effect in item.IngredientEffects)
+		{
+			if (effect is null)
+				continue;
+
+			var effectText = BuildAuthoredIngredientEffectText(effect);
+			if (!string.IsNullOrWhiteSpace(effectText))
+				lines.Add(effectText);
+		}
+
+		return lines.Count == 0 ? string.Empty : string.Join("\n", lines);
+	}
+
 	public static string TryGetVisibleTypeTag(ItemDef item)
 	{
 		foreach (var rule in ItemTagDisplayRules)
@@ -185,6 +224,16 @@ public static class InventoryItemTextFormatter
 			return string.Empty;
 
 		return char.ToUpperInvariant(normalized[0]) + normalized[1..];
+	}
+
+	private static string BuildAuthoredIngredientEffectText(IngredientEffectDef effect)
+	{
+		if (string.IsNullOrWhiteSpace(effect.Name))
+			return effect.Description;
+		if (string.IsNullOrWhiteSpace(effect.Description))
+			return effect.Name;
+
+		return $"{effect.Name}: {effect.Description}";
 	}
 
 	private static bool HasTag(ItemDef item, string tag)

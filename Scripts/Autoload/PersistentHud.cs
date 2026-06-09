@@ -6,7 +6,7 @@ namespace OccultShop.Autoload;
 public partial class PersistentHud : CanvasLayer
 {
 	private const string DefaultHudScenePath = "res://Scenes/UI/Hud.tscn";
-	private const int PersistentHudLayer = 1024;
+	private const int PersistentHudLayer = 2048;
 
 	[Export] public string HudScenePath { get; set; } = DefaultHudScenePath;
 	[Export] public bool ShowHudWhenNoOverride { get; set; } = true;

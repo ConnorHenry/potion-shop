@@ -16,6 +16,7 @@ internal static class PersistenceTests
     {
         runner.Run("Potion base price survives snapshot round-trips", TestPotionBasePriceSnapshotRoundTrip);
         runner.Run("Consumable and treatment metadata survive persistence", TestConsumableTreatmentMetadataPersists);
+        runner.Run("Ingredient effect metadata survives item conversion", TestIngredientEffectMetadataPersists);
         runner.Run("ItemDef price converter accepts price fields", TestItemDefPriceConverterSupportsPriceFields);
         runner.Run("SaveGameManager stores saves in a dedicated directory", TestSaveGameManagerUsesSaveDirectory);
         runner.Run("Persistence boundary stays separated", TestPersistenceBoundaryIsDocumented);
@@ -24,16 +25,19 @@ internal static class PersistenceTests
     private static void TestPotionBasePriceSnapshotRoundTrip()
     {
         var gameStateSource = ReadProjectFile("Scripts/Autoload/GameState.cs");
+        var potionKnowledgeState = ReadProjectFile("Scripts/Systems/PotionKnowledgeState.cs");
         var saveDataSource = ReadProjectFile("Scripts/Persistence/SaveData.cs");
 
         AssertTrue("GameState tracks potion base prices in a dedicated map",
-            gameStateSource.Contains("_potionBasePrices"));
+            potionKnowledgeState.Contains("_potionBasePrices"));
         AssertTrue("GameState registers potion base prices once per potion",
-            gameStateSource.Contains("if (_potionBasePrices.ContainsKey(potionId))"));
+            potionKnowledgeState.Contains("if (_potionBasePrices.ContainsKey(potionId))"));
         AssertTrue("GameState snapshot exports potion base prices",
-            gameStateSource.Contains("PotionBasePrices = new Dictionary<string, int>(_potionBasePrices, StringComparer.OrdinalIgnoreCase)"));
+            gameStateSource.Contains("PotionBasePrices = _potionKnowledgeState.ClonePotionBasePrices()") &&
+            potionKnowledgeState.Contains("new Dictionary<string, int>(_potionBasePrices, StringComparer.OrdinalIgnoreCase)"));
         AssertTrue("GameState snapshot restores potion base prices",
-            gameStateSource.Contains("if (snapshot.PotionBasePrices is not null)"));
+            gameStateSource.Contains("_potionKnowledgeState.Restore(snapshot)") &&
+            potionKnowledgeState.Contains("RestorePotionBasePrices(snapshot.PotionBasePrices)"));
         AssertTrue("GameState exposes a lookup for potion base prices",
             gameStateSource.Contains("TryGetPotionBasePrice(string potionId, out int basePrice)"));
         AssertTrue("Save data persists potion base prices",
@@ -48,6 +52,7 @@ internal static class PersistenceTests
         var dataDb = ReadProjectFile("Scripts/Autoload/DataDb.cs");
         var saveData = ReadProjectFile("Scripts/Persistence/SaveData.cs");
         var gameState = ReadProjectFile("Scripts/Autoload/GameState.cs");
+        var inventoryState = ReadProjectFile("Scripts/Systems/InventoryState.cs");
 
         AssertTrue("ItemDef stores consumable and treatment metadata",
             itemDef.Contains("ConsumableEffectDef? ConsumableEffect") &&
@@ -72,7 +77,43 @@ internal static class PersistenceTests
             saveData.Contains("PendingConsumableItemId") &&
             saveData.Contains("PendingConsumableQuantity") &&
             gameState.Contains("PendingConsumableItemId = PendingConsumableItemId") &&
-            gameState.Contains("RestorePendingConsumableGrant(snapshot.PendingConsumableItemId, snapshot.PendingConsumableQuantity)"));
+            gameState.Contains("_inventoryState.Restore(snapshot.Inventory, snapshot.PendingConsumableItemId, snapshot.PendingConsumableQuantity)") &&
+            inventoryState.Contains("RestorePendingConsumableGrant(pendingConsumableItemId, pendingConsumableQuantity)"));
+    }
+
+    private static void TestIngredientEffectMetadataPersists()
+    {
+        var itemDef = ReadProjectFile("Scripts/Models/ItemDef.cs");
+        var converter = ReadProjectFile("Scripts/Models/ItemDefJsonConverter.cs");
+        var resource = ReadProjectFile("Scripts/Models/ItemDefResource.cs");
+        var dataDb = ReadProjectFile("Scripts/Autoload/DataDb.cs");
+        var runtimeDb = ReadProjectFile("Scripts/Autoload/RuntimeContentDb.cs");
+
+        AssertTrue("ItemDef stores ingredient effect metadata",
+            itemDef.Contains("List<IngredientEffectDef> IngredientEffects"));
+        AssertTrue("ItemDef JSON converter reads and writes ingredient effects",
+            converter.Contains("case \"ingredientEffects\":") &&
+            converter.Contains("writer.WritePropertyName(\"ingredientEffects\")"));
+        AssertTrue("ItemDefResource mirrors ingredient effect metadata",
+            resource.Contains("IngredientEffects") &&
+            resource.Contains("ParseIngredientEffects") &&
+            resource.Contains("BuildIngredientEffectArray"));
+        AssertTrue("DataDb parses authored ingredient effects",
+            dataDb.Contains("ParseIngredientEffects(ReadArray(entry, \"ingredientEffects\"))"));
+        AssertTrue("RuntimeContentDb clones ingredient effects",
+            runtimeDb.Contains("IngredientEffects = CloneIngredientEffects(item.IngredientEffects)"));
+
+        var json = "{\"id\":\"test_root\",\"name\":\"Test Root\",\"ingredientEffects\":[{\"kind\":\"boost_lowest_other_trait\",\"name\":\"Echo\",\"amount\":2}]}";
+        var item = JsonSerializer.Deserialize<ItemDef>(json)
+            ?? throw new InvalidOperationException("Could not deserialize ItemDef with ingredient effects.");
+        AssertEqual("Effect count", 1, item.IngredientEffects.Count);
+        AssertEqual("Effect kind", IngredientEffectDef.BoostLowestOtherTraitKind, item.IngredientEffects[0].Kind);
+        AssertEqual("Effect amount", 2, item.IngredientEffects[0].Amount);
+
+        var serialized = JsonSerializer.Serialize(item);
+        AssertTrue("Serialized item includes ingredient effects",
+            serialized.Contains("\"ingredientEffects\"") &&
+            serialized.Contains("boost_lowest_other_trait"));
     }
 
     private static void TestItemDefPriceConverterSupportsPriceFields()

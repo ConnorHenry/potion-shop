@@ -22,10 +22,11 @@ internal static class GardenTests
     private static void TestGardenCropDefinitionsCoverAuthoredIngredients()
     {
         var source = ReadProjectFile("Scripts/Autoload/GameState.cs");
+        var gardenState = ReadProjectFile("Scripts/Systems/GardenState.cs");
 
-        AssertTrue("GameState defines three starting garden pots", source.Contains("public const int StartingGardenPotCount = 3;"));
-        AssertTrue("Garden harvest yield starts fixed at two", source.Contains("public const int DefaultGardenHarvestYield = 2;"));
-        AssertTrue("GameState defines garden crop definitions", source.Contains("private static readonly GardenCropDef[] GardenCropDefinitions"));
+        AssertTrue("GameState defines three starting garden pots", source.Contains("public const int StartingGardenPotCount = GardenState.StartingPotCount;") && gardenState.Contains("public const int StartingPotCount = 3;"));
+        AssertTrue("Garden harvest yield starts fixed at two", source.Contains("public const int DefaultGardenHarvestYield = GardenState.DefaultHarvestYield;") && gardenState.Contains("public const int DefaultHarvestYield = 2;"));
+        AssertTrue("GardenState defines garden crop definitions", gardenState.Contains("private static readonly GardenCropDef[] CropDefinitions"));
 
         var expectedCrops = new Dictionary<string, int>
         {
@@ -44,22 +45,23 @@ internal static class GardenTests
         foreach (var crop in expectedCrops)
         {
             AssertTrue($"{crop.Key} crop definition exists",
-                source.Contains($"CreateGardenCrop(\"{crop.Key}\", growthDays: {crop.Value})"));
+                gardenState.Contains($"CreateGardenCrop(\"{crop.Key}\", growthDays: {crop.Value})"));
             AssertTrue($"{crop.Key} authored item exists",
                 ReadProjectFile("Data/items_data.tres").Contains($"\"id\": \"{crop.Key}\""));
         }
 
         AssertTrue("Starter seed inventory includes amber nightshade",
-            source.Contains("(\"seed_amber_nightshade\", 1)"));
+            gardenState.Contains("(\"seed_amber_nightshade\", 1)"));
         AssertTrue("Starter seed inventory includes obsidian resin",
-            source.Contains("(\"seed_obsidian_resin\", 1)"));
+            gardenState.Contains("(\"seed_obsidian_resin\", 1)"));
         AssertTrue("Starter seed inventory includes iron lullaby root",
-            source.Contains("(\"seed_iron_lullaby_root\", 1)"));
+            gardenState.Contains("(\"seed_iron_lullaby_root\", 1)"));
     }
 
     private static void TestGardenStatePersistenceWiring()
     {
         var gameStateSource = ReadProjectFile("Scripts/Autoload/GameState.cs");
+        var gardenState = ReadProjectFile("Scripts/Systems/GardenState.cs");
         var saveDataSource = ReadProjectFile("Scripts/Persistence/SaveData.cs");
         var saveManagerSource = ReadProjectFile("Scripts/Autoload/SaveGameManager.cs");
         var cropDefSource = ReadProjectFile("Scripts/Models/GardenCropDef.cs");
@@ -74,14 +76,14 @@ internal static class GardenTests
 
         AssertTrue("GameState exposes seed inventory", gameStateSource.Contains("public IReadOnlyDictionary<string, int> SeedInventory"));
         AssertTrue("GameState exposes garden pots", gameStateSource.Contains("public IReadOnlyList<GardenPotState> GardenPots"));
-        AssertTrue("GameState seeds starting garden pots", gameStateSource.Contains("EnsureGardenPotCount(StartingGardenPotCount);"));
-        AssertTrue("GameState seeds starter seed inventory", gameStateSource.Contains("SeedStartingSeedInventory();"));
-        AssertTrue("GameState migrates old saves into a garden state", gameStateSource.Contains("if (snapshot.GardenInitialized)") && gameStateSource.Contains("else") && gameStateSource.Contains("SeedStartingSeedInventory();"));
-        AssertTrue("GameState snapshots garden state", gameStateSource.Contains("GardenInitialized = true") && gameStateSource.Contains("GardenPots = CloneGardenPots()"));
-        AssertTrue("GameState advances garden growth on next day", gameStateSource.Contains("public void NextDay()") && gameStateSource.Contains("AdvanceGardenGrowth();"));
+        AssertTrue("GameState seeds starting garden pots", gameStateSource.Contains("_gardenState.InitializeNewGarden();") && gardenState.Contains("EnsurePotCount(StartingPotCount);"));
+        AssertTrue("GameState seeds starter seed inventory", gardenState.Contains("SeedStartingSeedInventory();"));
+        AssertTrue("GameState migrates old saves into a garden state", gameStateSource.Contains("_gardenState.Restore(snapshot.GardenInitialized") && gardenState.Contains("if (gardenInitialized)") && gardenState.Contains("InitializeNewGarden();"));
+        AssertTrue("GameState snapshots garden state", gameStateSource.Contains("GardenInitialized = true") && gameStateSource.Contains("GardenPots = _gardenState.CloneGardenPots()"));
+        AssertTrue("GameState advances garden growth on next day", gameStateSource.Contains("public void NextDay()") && gameStateSource.Contains("_gardenState.AdvanceGrowth();"));
         AssertTrue("GameState can plant seeds", gameStateSource.Contains("public bool TryPlantSeed(int potIndex, string seedId, out string error)"));
         AssertTrue("GameState can harvest garden pots", gameStateSource.Contains("public bool TryHarvestGardenPot(int potIndex, out string error)"));
-        AssertTrue("Harvest adds ingredient and returns seed", gameStateSource.Contains("Inventory[pot.IngredientId]") && gameStateSource.Contains("AddSeedStack(pot.SeedId, 1);"));
+        AssertTrue("Harvest adds ingredient and returns seed", gameStateSource.Contains("_inventoryState.AddRawStack(harvest.IngredientId, harvest.Quantity)") && gardenState.Contains("AddSeedStack(pot.SeedId, 1);"));
         AssertTrue("Garden pot upgrades are supported", gameStateSource.Contains("public void SetUnlockedGardenPotCount(int potCount)"));
 
         AssertTrue("Crop def stores yield range", cropDefSource.Contains("HarvestYieldMin") && cropDefSource.Contains("HarvestYieldMax"));
@@ -95,17 +97,18 @@ internal static class GardenTests
         var hudScene = ReadProjectFile("Scenes/UI/Hud.tscn");
         var gardenSource = ReadProjectFile("Scripts/UI/Garden.cs");
         var gardenScene = ReadProjectFile("Scenes/Main/Garden.tscn");
+        var scenePaths = ReadProjectFile("Scripts/Infrastructure/ScenePaths.cs");
 
-        AssertTrue("Hud points to the garden scene", hudSource.Contains("res://Scenes/Main/Garden.tscn"));
+        AssertTrue("Hud points to the garden scene", hudSource.Contains("ScenePaths.Garden") && scenePaths.Contains("res://Scenes/Main/Garden.tscn"));
         AssertTrue("Hud has a garden button field", hudSource.Contains("private Button _gardenButton"));
-        AssertTrue("Hud resolves the garden button", hudSource.Contains("GetNode<Button>(\"Garden\")"));
+        AssertTrue("Hud resolves the garden button", hudSource.Contains("GetNode<Button>(GardenButtonPath)"));
         AssertTrue("Hud disables garden while shop is open", hudSource.Contains("_gardenButton.Disabled = isShopOpen;"));
         AssertTrue("Hud autosaves before entering garden", hudSource.Contains("TryAutoSave(\"entering the garden\")"));
-        AssertTrue("Hud scene includes Garden button", hudScene.Contains("[node name=\"Garden\" type=\"Button\" parent=\".\"]"));
+        AssertTrue("Hud scene includes Garden button", hudScene.Contains("[node name=\"Garden\" type=\"Button\" parent=\"Content/Actions\"]"));
         AssertTrue("Garden button stays in the HUD menu", hudScene.Contains("text = \"Garden\""));
 
         AssertTrue("Garden script exists", gardenSource.Contains("public partial class Garden : Control"));
-        AssertTrue("Garden script returns to main scene", gardenSource.Contains("res://Main.tscn"));
+        AssertTrue("Garden script returns to main scene", gardenSource.Contains("ScenePaths.Main") && scenePaths.Contains("res://Main.tscn"));
         AssertTrue("Garden autosaves on entry", gardenSource.Contains("TryAutoSave(\"entering the garden\")"));
         AssertTrue("Garden autosaves after planting", gardenSource.Contains("TryAutoSave(\"planting a seed\")"));
         AssertTrue("Garden autosaves after harvesting", gardenSource.Contains("TryAutoSave(\"harvesting a crop\")"));

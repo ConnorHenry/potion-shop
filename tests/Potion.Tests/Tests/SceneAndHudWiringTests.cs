@@ -27,9 +27,11 @@ internal static class SceneAndHudWiringTests
         runner.Run("Scenario debugger can set the shop stop timer", TestScenarioDebuggerStopTimerControls);
         runner.Run("Scenario debugger can toggle book records", TestScenarioDebuggerBookRecordingControls);
         runner.Run("Persistent HUD owns global HUD visibility", TestPersistentHudOwnsGlobalHudVisibility);
+        runner.Run("HUD map navigation is wired", TestHudMapNavigation);
         runner.Run("Hud return-to-menu does not auto-save", TestHudReturnToMainMenuDoesNotAutoSave);
         runner.Run("Hud settings panel closes on outside click", TestHudSettingsPanelClosesOnOutsideClick);
         runner.Run("Hud ambient rain settings are wired", TestHudAmbientRainSettingsAreWired);
+        runner.Run("Hud active request alert is wired", TestHudActiveRequestAlertIsWired);
     }
 
     private static void TestUiClassPresenceAndBaseTypes()
@@ -49,6 +51,7 @@ internal static class SceneAndHudWiringTests
             ["OccultShop.UI.StationShelfInventory"] = "Control",
             ["OccultShop.UI.PotionInventoryRow"] = "Control",
             ["OccultShop.UI.Garden"] = "Control",
+            ["OccultShop.UI.Map"] = "Control",
             ["MainMenu"] = "Control"
         };
 
@@ -64,13 +67,14 @@ internal static class SceneAndHudWiringTests
     {
         var source = ReadProjectFile("Scripts/UI/MainMenu.cs");
         var scene = ReadProjectFile("MainMenu.tscn");
+        var scenePaths = ReadProjectFile("Scripts/Infrastructure/ScenePaths.cs");
 
         AssertTrue("MainMenu has load button path", source.Contains("LoadButtonPath"));
         AssertTrue("MainMenu has new game button path", source.Contains("NewGameButtonPath"));
         AssertTrue("MainMenu continues the latest save", source.Contains("LoadLatestGameIfExists()"));
         AssertTrue("MainMenu falls back to a new game when no save exists", source.Contains("StartNewGame();"));
         AssertTrue("MainMenu hides continue until saves exist", source.Contains("Visible = _saveGameManager.HasSavedGames()"));
-        AssertTrue("MainMenu opens load browser", source.Contains("Scenes/UI/LoadGameMenu.tscn"));
+        AssertTrue("MainMenu opens load browser", source.Contains("ScenePaths.LoadGameMenu") && scenePaths.Contains("res://Scenes/UI/LoadGameMenu.tscn"));
         AssertTrue("MainMenu scene has load button", scene.Contains("LoadButton"));
         AssertTrue("MainMenu scene has new game button", scene.Contains("NewGameButton"));
         AssertTrue("MainMenu scene labels the new game button", scene.Contains("text = \"New Game\""));
@@ -82,11 +86,12 @@ internal static class SceneAndHudWiringTests
     {
         var source = ReadProjectFile("Scripts/UI/LoadGameMenu.cs");
         var scene = ReadProjectFile("Scenes/UI/LoadGameMenu.tscn");
+        var scenePaths = ReadProjectFile("Scripts/Infrastructure/ScenePaths.cs");
 
         AssertTrue("LoadGameMenu reads save summaries", source.Contains("GetSavedGames()"));
         AssertTrue("LoadGameMenu loads selected save", source.Contains("LoadGame(save.FilePath)"));
         AssertTrue("LoadGameMenu deletes selected save", source.Contains("DeleteSaveGame(save.FilePath)"));
-        AssertTrue("LoadGameMenu returns to main menu", source.Contains("ChangeSceneToFile(\"res://MainMenu.tscn\")"));
+        AssertTrue("LoadGameMenu returns to main menu", source.Contains("ScenePaths.MainMenu") && scenePaths.Contains("res://MainMenu.tscn"));
         AssertTrue("LoadGameMenu exposes a delete button", source.Contains("Text = \"Delete\""));
         AssertTrue("LoadGameMenu scene exposes a save list", scene.Contains("SaveList"));
         AssertTrue("LoadGameMenu scene exposes empty state", scene.Contains("No saved games found."));
@@ -135,16 +140,23 @@ internal static class SceneAndHudWiringTests
         var shopFloor = ReadProjectFile("Scripts/UI/ShopFloor.cs");
 
         AssertTrue("GameUi references the potion brewing station art",
-            scene.Contains("path=\"res://art/Potion-Brewing-Station.png\""));
+            scene.Contains("path=\"res://Assets/ConceptArt/BrewingStation/brewing_station_background_clean.png\""));
         AssertTrue("GameUi defines the potion brewing station view",
             scene.Contains("[node name=\"PotionBrewingStationView\" type=\"Control\" parent=\".\"]"));
         AssertTrue("GameUi draws the potion brewing station image",
             scene.Contains("[node name=\"Background\" type=\"TextureRect\" parent=\"PotionBrewingStationView\"]") &&
-            scene.Contains("texture = ExtResource(\"28_brewing_station\")"));
-        AssertTrue("GameUi defines a left return hotspot on the potion brewing station view",
+            scene.Contains("texture = ExtResource(\"10_2eyk8\")"));
+        AssertTrue("GameUi defines a compact visible return tab on the potion brewing station view",
             scene.Contains("[node name=\"ReturnHotspotLeft\" type=\"Button\" parent=\"PotionBrewingStationView\"]") &&
-            scene.Contains("anchor_right = 0.18") &&
-            scene.Contains("tooltip_text = \"Return to shop floor\""));
+            scene.Contains("custom_minimum_size = Vector2(132, 52)") &&
+            scene.Contains("theme_override_styles/normal = SubResource(\"StyleBoxFlat_navigation_hotspot_normal\")") &&
+            scene.Contains("tooltip_text = \"Return to shop floor\"") &&
+            scene.Contains("text = \"< Shop\""));
+        AssertTrue("GameUi defines a compact visible shop-front tab to the potion brewing station",
+            scene.Contains("[node name=\"InventoryShelf\" type=\"Button\" parent=\"ShopFloor/Hotspots\"]") &&
+            scene.Contains("custom_minimum_size = Vector2(192, 52)") &&
+            scene.Contains("tooltip_text = \"Potion brewing station\"") &&
+            scene.Contains("text = \"Brewing Station >\""));
         AssertTrue("ShopFloor maps the right shelf hotspot to the potion brewing station",
             shopFloor.Contains("PotionBrewingStationButtonPath = new(\"Hotspots/InventoryShelf\")"));
         AssertTrue("ShopFloor connects the shelf hotspot to the station handler",
@@ -167,22 +179,27 @@ internal static class SceneAndHudWiringTests
             scene.Contains("[node name=\"BedroomView\" type=\"Control\" parent=\".\"]") &&
             scene.Contains("[node name=\"Background\" type=\"TextureRect\" parent=\"BedroomView\"]") &&
             scene.Contains("texture = ExtResource(\"42_bedroom\")"));
-        AssertTrue("GameUi defines a right bedroom hotspot on the brewing station view",
+        AssertTrue("GameUi defines a compact visible bedroom tab on the brewing station view",
             scene.Contains("[node name=\"BedroomHotspotRight\" type=\"Button\" parent=\"PotionBrewingStationView\"]") &&
-            scene.Contains("anchor_left = 0.82") &&
+            scene.Contains("custom_minimum_size = Vector2(140, 52)") &&
+            scene.Contains("anchor_left = 1.0") &&
             scene.Contains("anchor_right = 1.0") &&
-            scene.Contains("tooltip_text = \"Bedroom\""));
-        AssertTrue("GameUi defines a left return hotspot on the bedroom view",
+            scene.Contains("tooltip_text = \"Bedroom\"") &&
+            scene.Contains("text = \"Bedroom >\""));
+        AssertTrue("GameUi defines a compact visible return tab on the bedroom view",
             scene.Contains("[node name=\"ReturnHotspotLeft\" type=\"Button\" parent=\"BedroomView\"]") &&
-            scene.Contains("anchor_right = 0.18") &&
-            scene.Contains("tooltip_text = \"Return to potion brewing station\""));
-        AssertTrue("GameUi defines an invisible bed hotspot for ending the day",
+            scene.Contains("custom_minimum_size = Vector2(188, 52)") &&
+            scene.Contains("tooltip_text = \"Return to potion brewing station\"") &&
+            scene.Contains("text = \"< Brewing Station\""));
+        AssertTrue("GameUi defines a compact visible bed interaction for ending the day",
             scene.Contains("[node name=\"EndDayHotspot\" type=\"Button\" parent=\"BedroomView\"]") &&
-            scene.Contains("anchor_left = 0.24") &&
-            scene.Contains("anchor_top = 0.42") &&
-            scene.Contains("anchor_right = 0.84") &&
-            scene.Contains("anchor_bottom = 0.72") &&
-            scene.Contains("tooltip_text = \"End day\""));
+            scene.Contains("custom_minimum_size = Vector2(112, 48)") &&
+            scene.Contains("anchor_left = 0.56") &&
+            scene.Contains("anchor_top = 0.66") &&
+            scene.Contains("anchor_right = 0.56") &&
+            scene.Contains("anchor_bottom = 0.66") &&
+            scene.Contains("tooltip_text = \"End day\"") &&
+            scene.Contains("text = \"Sleep\""));
         AssertTrue("ShopFloor exposes bedroom navigation paths",
             shopFloor.Contains("BedroomButtonPath = new(\"../PotionBrewingStationView/BedroomHotspotRight\")") &&
             shopFloor.Contains("BedroomViewPath = new(\"../BedroomView\")") &&
@@ -199,12 +216,15 @@ internal static class SceneAndHudWiringTests
             shopFloor.Contains("private void ReturnFromBedroomToPotionBrewingStation()") &&
             shopFloor.Contains("_bedroomView.Visible = false;") &&
             shopFloor.Contains("_potionBrewingStationView.Visible = true;"));
-        AssertTrue("ShopFloor disables the bed end-day hotspot while the shop is open",
+        AssertTrue("ShopFloor keeps the bed end-day hotspot usable when the day controller is available",
             shopFloor.Contains("ShopStateChanged += UpdateBedroomEndDayHotspotState") &&
-            shopFloor.Contains("_bedroomEndDayButton.Disabled = _dayController is null || _dayController.IsShopOpen"));
+            shopFloor.Contains("_bedroomEndDayButton.Disabled = _dayController is null") &&
+            !shopFloor.Contains("if (_dayController.IsShopOpen)"));
         AssertTrue("ShopFloor routes the bedroom bed hotspot through day end behavior",
             shopFloor.Contains("private void OnBedroomEndDayPressed()") &&
             shopFloor.Contains("_dayController.EndDayAndRunNight();"));
+        AssertTrue("DaySummaryPanel comes to the front when the bed ends an active shop day",
+            ReadProjectFile("Scripts/UI/DaySummaryPanel.cs").Contains("MoveToFront();"));
     }
 
     private static void TestPotionBrewingStationShelfInventory()
@@ -224,14 +244,27 @@ internal static class SceneAndHudWiringTests
             shelf.Contains("ConsumableDefaultVisibleSlots = 4") &&
             shelf.Contains("ConsumableVisibleSlots"));
 		AssertTrue("Station shelf keeps ingredients to a limited visible slot count",
-            scene.Contains("theme_override_constants/h_separation = 33") &&
-            scene.Contains("theme_override_constants/v_separation = 41") &&
+            scene.Contains("theme_override_constants/h_separation = 23") &&
+            scene.Contains("theme_override_constants/v_separation = 11") &&
             shelf.Contains("IngredientDefaultVisibleSlots = 12") &&
             shelf.Contains("IngredientVisibleSlots"));
         AssertTrue("Station shelf right-click queues only ingredients through BrewPanel",
             shelf.Contains("slot.IngredientRequested += QueueIngredientFromShelf;") &&
             shelf.Contains("_itemCatalog.IsIngredient(itemId)") &&
             shelf.Contains("_brewPanel.TryQueueIngredient(itemId);"));
+        AssertTrue("Station shelf left-click opens the shared inventory item detail panel",
+            shelf.Contains("InventoryPanelPath = new(\"../../InventoryPanel\")") &&
+            shelf.Contains("slot.SlotActivated += ShowItemDetail;") &&
+            shelf.Contains("_inventoryPanel?.OpenItemDetail(itemId);"));
+        AssertTrue("Station shelf slots keep button hover and pressed states visually neutral",
+            shelf.Contains("var normalStyle = CreateSlotStyleBox") &&
+            shelf.Contains("slot.AddThemeStyleboxOverride(\"hover\", normalStyle);") &&
+            shelf.Contains("slot.AddThemeStyleboxOverride(\"pressed\", normalStyle);"));
+        AssertTrue("Station shelf slots show a separate hover-only highlight overlay",
+            shelf.Contains("var hoverOutline = new PanelContainer") &&
+            shelf.Contains("hoverOutline.AddThemeStyleboxOverride(\"panel\", CreateHoverOutlineStyleBox());") &&
+            shelf.Contains("slot.SetHoverOutline(hoverOutline);") &&
+            shelf.Contains("slot.AddChild(hoverOutline);"));
         AssertTrue("Station shelf pages overflow instead of showing every item",
             shelf.Contains("ShowNextIngredientPage") &&
             shelf.Contains("ShowNextConsumablePage") &&
@@ -253,7 +286,7 @@ internal static class SceneAndHudWiringTests
 			scene.Contains("[node name=\"PotionSlots\" type=\"GridContainer\" parent=\"PotionBrewingStationView/PotionInventoryRow\"]") &&
 			scene.Contains("columns = 4"));
 		AssertTrue("Potion row resolves the root inventory panel from the brewing station view",
-			scene.Contains("InventoryPanelPath = NodePath(\"../../InventoryPanel\")") &&
+			!scene.Contains("InventoryPanelPath = NodePath(\"\")") &&
 			row.Contains("InventoryPanelPath = new(\"../../InventoryPanel\")"));
 		AssertTrue("Potion row renders only current potion stacks from inventory",
 			row.Contains("foreach (var stack in _gameState.Inventory)") &&
@@ -282,6 +315,7 @@ internal static class SceneAndHudWiringTests
     {
         var shopFloor = ReadProjectFile("Scripts/UI/ShopFloor.cs");
         var hud = ReadProjectFile("Scripts/UI/Hud.cs");
+        var hudScene = ReadProjectFile("Scenes/UI/Hud.tscn");
         var scene = ReadProjectFile("Scenes/UI/GameUi.tscn");
 
         AssertTrue("ShopFloor exposes an explicit station open method",
@@ -293,9 +327,11 @@ internal static class SceneAndHudWiringTests
         AssertTrue("ShopFloor shows the brew panel on the station without hiding queued ingredients on return",
             shopFloor.Contains("_brewPanel.ShowPanel();") &&
             shopFloor.Contains("_brewPanel.Visible = _brewWasVisible;"));
-        AssertTrue("Hud brew button routes through ShopFloor when available",
-            hud.Contains("ShopFloorPath = new(\"CanvasLayer/ShopFloor\")") &&
-            hud.Contains("_shopFloor.OpenPotionBrewingStation();"));
+        AssertTrue("HUD no longer exposes a brew button",
+            !hud.Contains("BrewPanelPath") &&
+            !hud.Contains("ShopFloorPath") &&
+            !hudScene.Contains("[node name=\"BrewPotion\"") &&
+            !hudScene.Contains("text = \"Brew Potion\""));
 		AssertTrue("Cauldron drop target is visible and transparent on the station overlay",
 			scene.Contains("[node name=\"BrewPanel\" type=\"Control\" parent=\"PotionBrewingStationView\"]") &&
 			scene.Contains("BrewBoxPath = NodePath(\"BrewBox\")") &&
@@ -318,10 +354,18 @@ internal static class SceneAndHudWiringTests
             runtimeDebug.Contains("Stop Timer Seconds"));
         AssertTrue("Scenario debugger exposes an end-day shortcut",
             runtimeDebug.Contains("End Day Now"));
+        AssertTrue("Scenario debugger exposes shop timer pause controls",
+            runtimeDebug.Contains("Pause Shop Timer") &&
+            runtimeDebug.Contains("Resume Shop Timer"));
         AssertTrue("Scenario debugger applies the stop timer through DayController",
             runtimeDebug.Contains("TrySetShopTimerSecondsRemaining"));
+        AssertTrue("Scenario debugger applies timer pause through DayController",
+            runtimeDebug.Contains("TrySetDebugShopTimerPaused"));
         AssertTrue("DayController exposes a debug timer setter",
             dayController.Contains("public bool TrySetShopTimerSecondsRemaining(int secondsRemaining)"));
+        AssertTrue("DayController exposes a debug timer pause toggle",
+            dayController.Contains("public bool TrySetDebugShopTimerPaused(bool paused)") &&
+            dayController.Contains("public bool IsShopTimerDebugPaused"));
         AssertTrue("DayController can force the stop timer to zero through the shared setter",
             dayController.Contains("ForceShopTimerToZeroForTutorial()") && dayController.Contains("TrySetShopTimerSecondsRemaining(0)"));
     }
@@ -355,11 +399,14 @@ internal static class SceneAndHudWiringTests
         var shopFloor = ReadProjectFile("Scripts/UI/ShopFloor.cs");
         var main = ReadProjectFile("Main.tscn");
         var gameUi = ReadProjectFile("Scenes/UI/GameUi.tscn");
+        var hudScene = ReadProjectFile("Scenes/UI/Hud.tscn");
+        var gardenScene = ReadProjectFile("Scenes/Main/Garden.tscn");
         var mainMenu = ReadProjectFile("MainMenu.tscn");
         var loadMenu = ReadProjectFile("Scenes/UI/LoadGameMenu.tscn");
 
         AssertTrue("Project autoloads the persistent HUD", project.Contains("PersistentHud=\"*res://Scripts/Autoload/PersistentHud.cs\""));
         AssertTrue("PersistentHud loads the HUD scene once", autoload.Contains("res://Scenes/UI/Hud.tscn") && autoload.Contains("InstantiateOrNull<Hud>()"));
+        AssertTrue("PersistentHud renders above drag previews", autoload.Contains("PersistentHudLayer = 2048") && main.Contains("layer = 1025"));
         AssertTrue("PersistentHud refreshes on root scene additions", autoload.Contains("NodeAdded += OnNodeAdded") && autoload.Contains("node == tree.CurrentScene || node.GetParent() == tree.Root"));
         AssertTrue("Scenes can opt out of the persistent HUD", visibility.Contains("public bool HudVisible") && autoload.Contains("FindVisibilityOverride"));
         AssertTrue("Hud resolves scene-local controls from the active scene", hud.Contains("public void RefreshSceneBindings()") && hud.Contains("GetTree().CurrentScene"));
@@ -368,14 +415,77 @@ internal static class SceneAndHudWiringTests
         AssertTrue("Main menu hides the persistent HUD", mainMenu.Contains("[node name=\"PersistentHudVisibility\" type=\"Node\" parent=\".\"]") && mainMenu.Contains("HudVisible = false"));
         AssertTrue("Load game menu hides the persistent HUD", loadMenu.Contains("[node name=\"PersistentHudVisibility\" type=\"Node\" parent=\".\"]") && loadMenu.Contains("HudVisible = false"));
         AssertTrue("ShopFloor no longer hides HUD for close-up views", !shopFloor.Contains("_hud.Visible = false") && !shopFloor.Contains("HudPath"));
+        AssertTrue("HUD is a full-width black top bar capped at 50px",
+            hudScene.Contains("custom_minimum_size = Vector2(0, 50)") &&
+            hudScene.Contains("offset_bottom = 50.0") &&
+            hudScene.Contains("[node name=\"Background\" type=\"ColorRect\" parent=\".\"]") &&
+            hudScene.Contains("color = Color(0, 0, 0, 1)"));
+        AssertTrue("HUD omits dread from the top bar",
+            !hud.Contains("DreadLabelPath") &&
+            !hudScene.Contains("[node name=\"Dread\"") &&
+            !hudScene.Contains("text = \"Dread:\""));
+        AssertTrue("Gameplay scenes reserve the HUD height",
+            gameUi.Contains("[node name=\"ShopFloor\" type=\"Control\" parent=\".\"]") &&
+            gameUi.Contains("offset_top = 50.0") &&
+            gameUi.Contains("clip_contents = true") &&
+            gardenScene.Contains("offset_top = 50.0") &&
+            gardenScene.Contains("clip_contents = true"));
+    }
+
+    private static void TestHudMapNavigation()
+    {
+        var hud = ReadProjectFile("Scripts/UI/Hud.cs");
+        var hudScene = ReadProjectFile("Scenes/UI/Hud.tscn");
+        var map = ReadProjectFile("Scripts/UI/Map.cs");
+        var mapScene = ReadProjectFile("Scenes/Main/Map.tscn");
+        var scenePaths = ReadProjectFile("Scripts/Infrastructure/ScenePaths.cs");
+        var gardenButtonIndex = hudScene.IndexOf("[node name=\"Garden\" type=\"Button\" parent=\"Content/Actions\"]", StringComparison.Ordinal);
+        var mapButtonIndex = hudScene.IndexOf("[node name=\"Map\" type=\"Button\" parent=\"Content/Actions\"]", StringComparison.Ordinal);
+        var menuButtonIndex = hudScene.IndexOf("[node name=\"MainMenu\" type=\"Button\" parent=\"Content/Actions\"]", StringComparison.Ordinal);
+
+        AssertTrue("ScenePaths exposes the map scene",
+            scenePaths.Contains("public const string Map") &&
+            scenePaths.Contains("res://Scenes/Main/Map.tscn"));
+        AssertTrue("HUD scene places Map between Garden and Menu",
+            gardenButtonIndex >= 0 &&
+            mapButtonIndex > gardenButtonIndex &&
+            menuButtonIndex > mapButtonIndex &&
+            hudScene.Contains("text = \"Map\""));
+        AssertTrue("Hud resolves and connects the map button",
+            hud.Contains("MapButtonPath = new(\"Content/Actions/Map\")") &&
+            hud.Contains("_mapButton = GetNode<Button>(MapButtonPath)") &&
+            hud.Contains("_mapButton.Pressed += OnMapPressed") &&
+            hud.Contains("_mapButton.Pressed -= OnMapPressed"));
+        AssertTrue("Hud opens the map scene and auto-saves first",
+            hud.Contains("private void OnMapPressed()") &&
+            hud.Contains("TryAutoSave(\"entering the map\")") &&
+            hud.Contains("GetTree().ChangeSceneToFile(ScenePaths.Map)"));
+        AssertTrue("Hud keeps the map button usable while the shop is open",
+            hud.Contains("_mapButton.Disabled = GetTree().CurrentScene is Map;") &&
+            !hud.Contains("_mapButton.Disabled = isShopOpen"));
+
+        AssertTrue("Map script returns to main scene",
+            map.Contains("public partial class Map : Control") &&
+            map.Contains("ScenePaths.Main"));
+        AssertTrue("Map script auto-saves on entry and exit",
+            map.Contains("TryAutoSave(\"entering the map\")") &&
+            map.Contains("TryAutoSave(\"leaving the map\")"));
+        AssertTrue("Map scene uses the map script and wires the back button",
+            mapScene.Contains("path=\"res://Scripts/UI/Map.cs\"") &&
+            mapScene.Contains("BackButtonPath = NodePath(\"Root/Margin/Main/Header/Back\")") &&
+            mapScene.Contains("[node name=\"Back\" type=\"Button\" parent=\"Root/Margin/Main/Header\"]"));
+        AssertTrue("Map scene reserves the persistent HUD height",
+            mapScene.Contains("offset_top = 50.0") &&
+            mapScene.Contains("clip_contents = true"));
     }
 
     private static void TestHudReturnToMainMenuDoesNotAutoSave()
     {
         var source = ReadProjectFile("Scripts/UI/Hud.cs");
+        var scenePaths = ReadProjectFile("Scripts/Infrastructure/ScenePaths.cs");
 
         AssertTrue("Hud return-to-menu handler exists", source.Contains("OnReturnToMainMenuPressed"));
-        AssertTrue("Hud return-to-menu still changes scenes", source.Contains("ChangeSceneToFile(\"res://MainMenu.tscn\")"));
+        AssertTrue("Hud return-to-menu still changes scenes", source.Contains("ScenePaths.MainMenu") && scenePaths.Contains("res://MainMenu.tscn"));
         AssertTrue("Hud return-to-menu no longer auto-saves", !source.Contains("Could not save before returning to main menu"));
     }
 
@@ -439,5 +549,48 @@ internal static class SceneAndHudWiringTests
         AssertTrue("Persistent HUD starts and stops ambient playback with HUD visibility",
             persistentHud.Contains("SetAmbientPlaybackAllowed(shouldShowHud)") &&
             persistentHud.Contains("SetAmbientPlaybackAllowed(false)"));
+    }
+
+    private static void TestHudActiveRequestAlertIsWired()
+    {
+        var source = ReadProjectFile("Scripts/UI/Hud.cs");
+        var scene = ReadProjectFile("Scenes/UI/Hud.tscn");
+        var customerPanel = ReadProjectFile("Scripts/UI/CustomerPanel.cs");
+        var formatter = ReadProjectFile("Scripts/UI/CustomerDialogueTextFormatter.cs");
+
+        AssertTrue("Hud scene places the request alert beside the shop timer",
+            scene.Contains("[node name=\"ShopTimer\" type=\"Label\" parent=\"Content/Status\"]") &&
+            scene.Contains("[node name=\"RequestAlert\" type=\"Button\" parent=\"Content/Status\"]") &&
+            scene.Contains("text = \"!\"") &&
+            scene.Contains("theme_override_colors/font_color = Color(1, 0.86, 0.05, 1)"));
+        AssertTrue("Hud scene defines a request popup under the alert",
+            scene.Contains("[node name=\"RequestPanel\" type=\"PanelContainer\" parent=\".\"]") &&
+            scene.Contains("custom_minimum_size = Vector2(340, 0)") &&
+            scene.Contains("[node name=\"Description\" type=\"RichTextLabel\" parent=\"RequestPanel/Margin/VBox\"]") &&
+            scene.Contains("[node name=\"DesiredTraits\" type=\"RichTextLabel\" parent=\"RequestPanel/Margin/VBox/Traits/DesiredColumn\"]") &&
+            scene.Contains("[node name=\"BadTraits\" type=\"RichTextLabel\" parent=\"RequestPanel/Margin/VBox/Traits/BadColumn\"]"));
+        AssertTrue("Hud drives the request alert from active customer request state",
+            source.Contains("ActiveCustomerRequest") &&
+            source.Contains("_requestAlertButton.Visible = true") &&
+            source.Contains("_requestAlertButton.Visible = false") &&
+            source.Contains("SetRequestPanelVisible(false);"));
+        AssertTrue("Hud toggles the request panel from the alert button",
+            source.Contains("OnRequestAlertPressed") &&
+            source.Contains("SetRequestPanelVisible(!_requestPanel.Visible);"));
+        AssertTrue("Hud sizes the request popup to its required content",
+            source.Contains("ResizeAndPositionRequestPanelUnderAlert") &&
+            source.Contains("_requestPanel.GetCombinedMinimumSize().Y") &&
+            source.Contains("_requestPanel.Size = new Vector2(panelWidth, panelHeight);"));
+        AssertTrue("Hud closes the request panel on outside click and scene refresh",
+            source.Contains("IsPointInsideVisibleControl(_requestPanel, mouseButton.GlobalPosition)") &&
+            source.Contains("IsPointInsideVisibleControl(_requestAlertButton, mouseButton.GlobalPosition)") &&
+            source.Contains("SetRequestPanelVisible(false);") &&
+            source.Contains("public void RefreshSceneBindings()"));
+        AssertTrue("Hud and CustomerPanel share request detail formatting",
+            source.Contains("CustomerDialogueTextFormatter.BuildDesiredRequestText") &&
+            source.Contains("CustomerDialogueTextFormatter.BuildBadRequestText") &&
+            customerPanel.Contains("CustomerDialogueTextFormatter.BuildDesiredRequestText") &&
+            formatter.Contains("public static string BuildDesiredRequestText") &&
+            formatter.Contains("public static string BuildBadRequestText"));
     }
 }

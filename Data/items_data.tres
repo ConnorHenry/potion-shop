@@ -13,9 +13,18 @@ Entries = [{
 "quality": 85,
 "startsKnownInIngredientBook": false,
 "risks": {},
+"ingredientEffects": [{
+"kind": "boost_lowest_trait_if_no_risk_carries",
+"family": "Bloom",
+"name": "Lunar Bloom",
+"description": "If no risk carries, raises the lowest trait in the finished brew by +2.",
+"amount": 2
+}],
 "tags": ["ingredient", "catalyst"],
 "traits": {
-"calm": 5
+"calm": 6,
+"creativity": 3,
+"dream": 1
 }
 }, {
 "description": "A hardy mint that grows in graveyards and other places touched by death. It has a refreshing aroma and a bitter, earthy flavor.",
@@ -26,9 +35,18 @@ Entries = [{
 "quality": 70,
 "startsKnownInIngredientBook": true,
 "risks": {},
+"ingredientEffects": [{
+"kind": "reduce_highest_risk",
+"family": "Binder",
+"name": "Cooling Ground",
+"description": "Reduces the highest risk chance in the brew by 20%.",
+"amount": 2
+}],
 "tags": ["ingredient", "catalyst"],
 "traits": {
-"soothe": 4
+"soothe": 6,
+"cleanse": 3,
+"ward": 1
 }
 }, {
 "description": "A viscous, tar-like substance that seeps from the wounds of certain cursed creatures. It is highly toxic and has a corrupting influence on those who handle it.",
@@ -41,9 +59,20 @@ Entries = [{
 "risks": {
 "nausea": 1
 },
+"ingredientEffects": [{
+"kind": "boost_strongest_trait_add_risk",
+"family": "Catalyst",
+"name": "Dark Solvent",
+"description": "Raises the strongest trait by +2, then adds 20% corruption risk.",
+"amount": 2,
+"secondaryAmount": 2,
+"riskId": "corruption"
+}],
 "tags": ["ingredient", "catalyst"],
 "traits": {
-"rest": 5
+"rest": 6,
+"honesty": 3,
+"vigor": 1
 }
 }, {
 "description": "A fine ash made from burned lavender flowers. It has a soothing scent and is often used in calming rituals and sleep aids.",
@@ -54,9 +83,18 @@ Entries = [{
 "quality": 80,
 "startsKnownInIngredientBook": false,
 "risks": {},
+"ingredientEffects": [{
+"kind": "boost_lowest_other_trait",
+"family": "Echo",
+"name": "Soft Bloom",
+"description": "Raises the lowest trait from the other ingredients by +2.",
+"amount": 2
+}],
 "tags": ["ingredient", "catalyst"],
 "traits": {
-"dream": 5
+"dream": 6,
+"soothe": 3,
+"calm": 1
 }
 }, {
 "description": "A glossy, pitch-dark resin that hardens in moonless air. Brewers prize it for binding volatile mixtures into stable tinctures.",
@@ -67,9 +105,17 @@ Entries = [{
 "quality": 88,
 "startsKnownInIngredientBook": true,
 "risks": {},
+"ingredientEffects": [{
+"kind": "halve_other_risks",
+"family": "Binder",
+"name": "Obsidian binding",
+"description": "Halves risk chances from the other ingredients."
+}],
 "tags": ["ingredient", "liquid"],
 "traits": {
-"mend": 5
+"mend": 6,
+"empathy": 3,
+"clarity": 1
 }
 }, {
 "description": "A poisonous nightshade blossom sealed in honey-colored sap. Its warm scent lingers in the mind and draws out vivid nocturnal reveries.",
@@ -82,9 +128,18 @@ Entries = [{
 "risks": {
 "insomnia": 2
 },
+"ingredientEffects": [{
+"kind": "boost_lowest_other_trait",
+"family": "Echo",
+"name": "Fever Dream",
+"description": "Raises the lowest trait from the other ingredients by +3.",
+"amount": 3
+}],
 "tags": ["ingredient", "liquid"],
 "traits": {
-"vigor": 5
+"vigor": 6,
+"charm": 3,
+"reflexes": 1
 }
 }, {
 "description": "A pale flower with needle-fine petals that glint like silver in dusk light. Distillers value it for sharp clarity and wakeful focus.",
@@ -97,9 +152,18 @@ Entries = [{
 "risks": {
 "melancholy": 2
 },
+"ingredientEffects": [{
+"kind": "temper_traits",
+"family": "Temper",
+"name": "Silver Measure",
+"description": "Lowers the highest trait by 2 and raises the lowest trait by +2.",
+"amount": 2
+}],
 "tags": ["ingredient", "liquid"],
 "traits": {
-"clarity": 5
+"clarity": 6,
+"courage": 3,
+"honesty": 1
 }
 }, {
 "description": "A dusk-bloom orchid whose petals shimmer pale blue under moonlight. Its fragrance soothes the mind while coaxing vivid dreams.",
@@ -112,9 +176,18 @@ Entries = [{
 "risks": {
 "corruption": 2
 },
+"ingredientEffects": [{
+"kind": "copy_strongest_other_trait",
+"family": "Echo",
+"name": "Orchid Lure",
+"description": "Copies +2 from the strongest trait on another ingredient.",
+"amount": 2
+}],
 "tags": ["ingredient", "herb"],
 "traits": {
-"charm": 5
+"charm": 6,
+"reflexes": 3,
+"empathy": 1
 }
 }, {
 "description": "A smoke-dark peony harvested from old funeral grounds. When crushed, it releases a soft gray ash that steadies trembling hands.",
@@ -125,9 +198,19 @@ Entries = [{
 "quality": 79,
 "startsKnownInIngredientBook": false,
 "risks": {},
+"ingredientEffects": [{
+"kind": "add_trait_if_risk_carries",
+"family": "Tether",
+"name": "Steady Hand",
+"description": "If any risk carries, adds Courage +2.",
+"amount": 2,
+"traitId": "courage"
+}],
 "tags": ["ingredient", "herb"],
 "traits": {
-"courage": 5
+"courage": 6,
+"ward": 3,
+"mend": 1
 }
 }, {
 "description": "A knotted root with a hard metallic skin and a strangely comforting scent. Brewers grate it into tonics meant to quiet panic and blunt pain.",
@@ -138,9 +221,17 @@ Entries = [{
 "quality": 83,
 "startsKnownInIngredientBook": true,
 "risks": {},
+"ingredientEffects": [{
+"kind": "suppress_single_carried_risk",
+"family": "Binder",
+"name": "Iron Ward",
+"description": "If exactly one risk carries, suppresses it."
+}],
 "tags": ["ingredient", "herb"],
 "traits": {
-"cleanse": 5
+"cleanse": 6,
+"rest": 3,
+"creativity": 1
 }
 }, {
 "consumableEffect": {

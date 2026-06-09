@@ -24,6 +24,11 @@ internal static class PotionBrewingServiceTests
         runner.Run("Failed carried risks do not affect synergies or scoring", TestFailedCarriedRisksDoNotAffectSynergiesOrScoring);
         runner.Run("Synergy-added risks roll before reaching the potion", TestSynergyAddedRisksRollBeforeReachingPotion);
         runner.Run("Applies risk and trait gated synergies", TestRiskAndTraitSynergyRequirement);
+        runner.Run("Ingredient effects boost the lowest other trait", TestIngredientEffectBoostsLowestOtherTrait);
+        runner.Run("Ingredient effects reduce other risk chances before rolls", TestIngredientEffectHalvesOtherRiskChances);
+        runner.Run("Ingredient effects can add volatile risk chances", TestIngredientEffectAddsVolatileRiskChance);
+        runner.Run("Ingredient effects can suppress one carried risk", TestIngredientEffectSuppressesSingleCarriedRisk);
+        runner.Run("Ingredient effects ignore ingredient queue order", TestIngredientEffectsIgnoreIngredientOrder);
         runner.Run("PotionRecipeLookup exact grams override base recipes", TestPotionRecipeLookupExactGrams);
         runner.Run("Triggers healing_corruption from healing trait and corruption risk", TestHealingCorruptionFromTraitAndRisk);
         runner.Run("Scores a clean positive brew", TestPositiveBrew);
@@ -466,6 +471,259 @@ internal static class PotionBrewingServiceTests
         AssertTrue("Triggered includes risk-gated synergy", result.TriggeredSynergies.Contains("cold_slumber"));
         AssertTrue("Missing-risk rule does not trigger", !result.TriggeredSynergies.Contains("missing_risk_gate"));
         AssertTrue("Result trait added", result.Traits.ContainsKey("deep_rest"));
+    }
+
+    private static void TestIngredientEffectBoostsLowestOtherTrait()
+    {
+        var service = new PotionBrewingService();
+        var ingredients = new List<IngredientDef>
+        {
+            new()
+            {
+                Id = "lavender_ash",
+                Name = "Lavender Ash",
+                Quality = 80,
+                Traits = new Dictionary<string, int>
+                {
+                    ["dream"] = 5
+                },
+                IngredientEffects = new List<IngredientEffectDef>
+                {
+                    new()
+                    {
+                        Kind = IngredientEffectDef.BoostLowestOtherTraitKind,
+                        Name = "Soft Bloom",
+                        Amount = 2
+                    }
+                }
+            },
+            new()
+            {
+                Id = "mooncap_mushroom",
+                Name = "Mooncap Mushroom",
+                Quality = 80,
+                Traits = new Dictionary<string, int>
+                {
+                    ["calm"] = 3
+                }
+            },
+            new()
+            {
+                Id = "black_ichor",
+                Name = "Black Ichor",
+                Quality = 80,
+                Traits = new Dictionary<string, int>
+                {
+                    ["rest"] = 5
+                }
+            }
+        };
+
+        var result = service.PreviewPotion(ingredients, null, new List<SynergyRule>());
+
+        AssertEqual("Lowest other trait boosted", 5, result.Traits["calm"]);
+        AssertEqual("Source trait remains", 5, result.Traits["dream"]);
+        AssertEqual("Ingredient effect recorded", 1, result.TriggeredIngredientEffects.Count);
+        AssertEqual("Effect name", "Soft Bloom", result.TriggeredIngredientEffects[0].EffectName);
+    }
+
+    private static void TestIngredientEffectHalvesOtherRiskChances()
+    {
+        var service = new PotionBrewingService();
+        var ingredients = new List<IngredientDef>
+        {
+            new()
+            {
+                Id = "obsidian_resin",
+                Name = "Obsidian Resin",
+                Quality = 80,
+                IngredientEffects = new List<IngredientEffectDef>
+                {
+                    new()
+                    {
+                        Kind = IngredientEffectDef.HalveOtherRisksKind,
+                        Name = "Obsidian Binding"
+                    }
+                }
+            },
+            new()
+            {
+                Id = "black_ichor",
+                Name = "Black Ichor",
+                Quality = 80,
+                Risks = new Dictionary<string, int>
+                {
+                    ["nausea"] = 3
+                }
+            },
+            new()
+            {
+                Id = "amber_nightshade",
+                Name = "Amber Nightshade",
+                Quality = 80,
+                Risks = new Dictionary<string, int>
+                {
+                    ["nausea"] = 1,
+                    ["insomnia"] = 2
+                }
+            }
+        };
+
+        var result = service.PreviewPotion(ingredients, null, new List<SynergyRule>());
+
+        AssertEqual("Nausea chance halved", 2, result.PossibleRisks["nausea"]);
+        AssertEqual("Insomnia chance halved", 1, result.PossibleRisks["insomnia"]);
+        AssertEqual("Risk binder recorded", 1, result.TriggeredIngredientEffects.Count);
+    }
+
+    private static void TestIngredientEffectAddsVolatileRiskChance()
+    {
+        var service = new PotionBrewingService(() => 0.0f);
+        var ingredients = new List<IngredientDef>
+        {
+            new()
+            {
+                Id = "black_ichor",
+                Name = "Black Ichor",
+                Quality = 80,
+                Traits = new Dictionary<string, int>
+                {
+                    ["rest"] = 5
+                },
+                IngredientEffects = new List<IngredientEffectDef>
+                {
+                    new()
+                    {
+                        Kind = IngredientEffectDef.BoostStrongestTraitAddRiskKind,
+                        Name = "Dark Solvent",
+                        Amount = 2,
+                        SecondaryAmount = 2,
+                        RiskId = "corruption"
+                    }
+                }
+            },
+            new()
+            {
+                Id = "mooncap_mushroom",
+                Name = "Mooncap Mushroom",
+                Quality = 80,
+                Traits = new Dictionary<string, int>
+                {
+                    ["calm"] = 1
+                }
+            }
+        };
+
+        var result = service.BrewPotion(ingredients, null, new List<SynergyRule>());
+
+        AssertEqual("Strongest trait boosted", 7, result.Traits["rest"]);
+        AssertEqual("Possible corruption chance", 2, result.PossibleRisks["corruption"]);
+        AssertEqual("Corruption carried", 1, result.Risks["corruption"]);
+    }
+
+    private static void TestIngredientEffectSuppressesSingleCarriedRisk()
+    {
+        var service = new PotionBrewingService(() => 0.0f);
+        var ingredients = new List<IngredientDef>
+        {
+            new()
+            {
+                Id = "black_ichor",
+                Name = "Black Ichor",
+                Quality = 80,
+                Risks = new Dictionary<string, int>
+                {
+                    ["nausea"] = 2
+                }
+            },
+            new()
+            {
+                Id = "iron_lullaby_root",
+                Name = "Iron Lullaby Root",
+                Quality = 80,
+                IngredientEffects = new List<IngredientEffectDef>
+                {
+                    new()
+                    {
+                        Kind = IngredientEffectDef.SuppressSingleCarriedRiskKind,
+                        Name = "Iron Ward"
+                    }
+                }
+            }
+        };
+
+        var result = service.BrewPotion(ingredients, null, new List<SynergyRule>());
+
+        AssertEqual("Possible risk remains visible", 2, result.PossibleRisks["nausea"]);
+        AssertEqual("Carried risk suppressed", 0, result.Risks.Count);
+        AssertEqual("Suppressing effect recorded", "Iron Ward", result.TriggeredIngredientEffects[0].EffectName);
+    }
+
+    private static void TestIngredientEffectsIgnoreIngredientOrder()
+    {
+        var service = new PotionBrewingService();
+        var darkCatalyst = new IngredientDef
+        {
+            Id = "a_dark_catalyst",
+            Name = "Dark Catalyst",
+            Quality = 80,
+            Traits = new Dictionary<string, int>
+            {
+                ["rest"] = 1
+            },
+            IngredientEffects = new List<IngredientEffectDef>
+            {
+                new()
+                {
+                    Kind = IngredientEffectDef.BoostStrongestTraitAddRiskKind,
+                    Name = "Dark Solvent",
+                    Amount = 2
+                }
+            }
+        };
+        var dreamBloom = new IngredientDef
+        {
+            Id = "m_dream_bloom",
+            Name = "Dream Bloom",
+            Quality = 80,
+            Traits = new Dictionary<string, int>
+            {
+                ["dream"] = 5
+            }
+        };
+        var silverTemper = new IngredientDef
+        {
+            Id = "z_silver_temper",
+            Name = "Silver Temper",
+            Quality = 80,
+            Traits = new Dictionary<string, int>
+            {
+                ["clarity"] = 5
+            },
+            IngredientEffects = new List<IngredientEffectDef>
+            {
+                new()
+                {
+                    Kind = IngredientEffectDef.TemperTraitsKind,
+                    Name = "Silver Measure",
+                    Amount = 1
+                }
+            }
+        };
+
+        var firstResult = service.PreviewPotion(
+            new List<IngredientDef> { darkCatalyst, dreamBloom, silverTemper },
+            null,
+            new List<SynergyRule>());
+        var reversedResult = service.PreviewPotion(
+            new List<IngredientDef> { silverTemper, dreamBloom, darkCatalyst },
+            null,
+            new List<SynergyRule>());
+
+        AssertEqual("Clarity does not depend on queue order", firstResult.Traits["clarity"], reversedResult.Traits["clarity"]);
+        AssertEqual("Dream does not depend on queue order", firstResult.Traits["dream"], reversedResult.Traits["dream"]);
+        AssertEqual("Rest does not depend on queue order", firstResult.Traits["rest"], reversedResult.Traits["rest"]);
+        AssertEqual("Effect count does not depend on queue order", firstResult.TriggeredIngredientEffects.Count, reversedResult.TriggeredIngredientEffects.Count);
     }
 
     private static void TestHealingCorruptionFromTraitAndRisk()

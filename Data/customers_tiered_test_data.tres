@@ -334,6 +334,150 @@ Entries = [
     }
   },
   {
+    "id": "tier4_threshold_obsidian_stitch_draught",
+    "title": "Obsidian Stitch Draught",
+    "text": "A surgeon sets a cracked silver needle on the counter. They need a draught with mend above 8, but vigor below 2 so the patient does not tear the stitching open.",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
+    "pool": "tier4_threshold",
+    "difficulty": 4,
+    "requires": {
+      "dayMin": 7,
+      "dayMax": 8
+    },
+    "weight": 8,
+    "desiredTraits": {
+      "mend": 9,
+      "courage": 3
+    },
+    "badTraits": {},
+    "requiredMinTraits": {
+      "mend": 9
+    },
+    "requiredMaxTraits": {
+      "vigor": 1
+    }
+  },
+  {
+    "id": "tier4_threshold_chapel_ward_ink",
+    "title": "Chapel Ward Ink",
+    "text": "A chapel warden asks for ink to mark the cellar lintel. They need ward at 4 or higher, with dream no higher than 1; anything dreamlike invites the thing to answer.",
+    "characterImagePath": "res://Assets/Characters/chapel_warden.svg",
+    "pool": "tier4_threshold",
+    "difficulty": 4,
+    "requires": {
+      "dayMin": 7,
+      "dayMax": 8
+    },
+    "weight": 8,
+    "desiredTraits": {
+      "ward": 4,
+      "cleanse": 6
+    },
+    "badTraits": {},
+    "requiredMinTraits": {
+      "ward": 4
+    },
+    "requiredMaxTraits": {
+      "dream": 1
+    }
+  },
+  {
+    "id": "tier4_threshold_glass_truth_tonic",
+    "title": "Glass Truth Tonic",
+    "text": "A solicitor wants a tonic for a witness. They need honesty at 4 or higher, but charm no higher than 1; persuasion would spoil the testimony.",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
+    "pool": "tier4_threshold",
+    "difficulty": 4,
+    "requires": {
+      "dayMin": 7,
+      "dayMax": 8
+    },
+    "weight": 8,
+    "desiredTraits": {
+      "honesty": 4,
+      "clarity": 3
+    },
+    "badTraits": {},
+    "requiredMinTraits": {
+      "honesty": 4
+    },
+    "requiredMaxTraits": {
+      "charm": 1
+    }
+  },
+  {
+    "id": "tier4_threshold_quick_hand_philter",
+    "title": "Quick Hand Philter",
+    "text": "A stage cutter needs steady speed before the curtain rises. They ask for reflexes at 4 or higher, but rest no higher than 1 so their hands do not slow.",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
+    "pool": "tier4_threshold",
+    "difficulty": 4,
+    "requires": {
+      "dayMin": 7,
+      "dayMax": 8
+    },
+    "weight": 8,
+    "desiredTraits": {
+      "reflexes": 4,
+      "charm": 6
+    },
+    "badTraits": {},
+    "requiredMinTraits": {
+      "reflexes": 4
+    },
+    "requiredMaxTraits": {
+      "rest": 1
+    }
+  },
+  {
+    "id": "tier4_threshold_mercy_tincture",
+    "title": "Mercy Tincture",
+    "text": "A hospice sister asks for something gentle but useful. They need empathy at 4 or higher, and vigor no higher than 1; comfort must not become agitation.",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
+    "pool": "tier4_threshold",
+    "difficulty": 4,
+    "requires": {
+      "dayMin": 7,
+      "dayMax": 8
+    },
+    "weight": 8,
+    "desiredTraits": {
+      "empathy": 4,
+      "mend": 6
+    },
+    "badTraits": {},
+    "requiredMinTraits": {
+      "empathy": 4
+    },
+    "requiredMaxTraits": {
+      "vigor": 1
+    }
+  },
+  {
+    "id": "tier4_threshold_muse_cordial",
+    "title": "Muse Cordial",
+    "text": "A blocked illuminator needs the first line of a manuscript to open in their mind. They need creativity at 4 or higher, but clarity no higher than 1 so judgment does not smother the image.",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
+    "pool": "tier4_threshold",
+    "difficulty": 4,
+    "requires": {
+      "dayMin": 7,
+      "dayMax": 8
+    },
+    "weight": 8,
+    "desiredTraits": {
+      "creativity": 4,
+      "calm": 3
+    },
+    "badTraits": {},
+    "requiredMinTraits": {
+      "creativity": 4
+    },
+    "requiredMaxTraits": {
+      "clarity": 1
+    }
+  },
+  {
     "id": "tier5_curse_cleanser",
     "title": "Curse Cleanser",
     "text": "A frightened customer whispers that bad luck has followed them home. They need an especially strong cleanser, courage to endure it, and no trace of corruption or nausea.",

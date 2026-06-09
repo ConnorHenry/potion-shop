@@ -39,6 +39,7 @@ public partial class CustomerPanel : Control
 	[Export] public NodePath SaleResultBodyPath = default!;
 	[Export] public NodePath SaleResultCloseButtonPath = default!;
 	[Export] public NodePath CloseButtonPath = default!;
+	[Export] public NodePath InventoryPanelPath = new("../InventoryPanel");
 	[Export] public NodePath GameStatePath = new(AutoloadNodePaths.GameState);
 	[Export] public NodePath ItemCatalogPath = new(AutoloadNodePaths.ItemCatalog);
 
@@ -70,6 +71,7 @@ public partial class CustomerPanel : Control
 	private readonly List<PotionSlotView> _potionSlotViews = new();
 	private GameState _gameState = default!;
 	private ItemCatalogService _itemCatalog = default!;
+	private InventoryPanel? _inventoryPanel;
 	private Godot.Timer? _dialogueTypewriterTimer;
 	private Control.GuiInputEventHandler? _dialogueGuiInputHandler;
 	private DialogueLine? _activeDialogueLine;
@@ -79,6 +81,7 @@ public partial class CustomerPanel : Control
 	private bool _awaitingNextCustomer;
 	private bool _requestRevealed;
 	private bool _sellingMode;
+	private bool _interactionPresentationStarted;
 	private string _activeDialogueNodeId = string.Empty;
 	private string _requestReturnDialogueNodeId = string.Empty;
 	private const int SuccessDreadChange = -2;
@@ -86,12 +89,6 @@ public partial class CustomerPanel : Control
 	private const int CustomerPotionSlotCount = 4;
 	private const float CustomerPotionSlotSize = 70.0f;
 	private const float CustomerPotionIconSize = 46.0f;
-	private const string PlayerSpeakerName = "You";
-	private const string CustomerSpeakerName = "Customer";
-	private const string PlayerSpeakerColorHex = "#59D959";
-	private const string CustomerSpeakerColorHex = "#F5D76E";
-	private const string MatchedDesiredColorHex = "#59D959";
-	private const string MatchedRiskColorHex = "#E64040";
 	private static readonly Color SeenDialogueOptionModulate = new(0.58f, 0.58f, 0.58f, 1f);
 	private static readonly Color DefaultButtonModulate = new(1f, 1f, 1f, 1f);
 
@@ -113,6 +110,9 @@ public partial class CustomerPanel : Control
 
 		_gameState = gameState;
 		_itemCatalog = itemCatalog;
+		_inventoryPanel = GetNodeOrNull<InventoryPanel>(InventoryPanelPath);
+		if (_inventoryPanel is null)
+			GD.PushError($"CustomerPanel: InventoryPanel was not found at '{InventoryPanelPath}'.");
 
 		_title = ResolveOptionalNode(TitlePath, "TitlePath", GetNodeOrNull<Label>);
 		_desiredTraits = GetNode<RichTextLabel>(DesiredTraitsPath);
@@ -213,8 +213,40 @@ public partial class CustomerPanel : Control
 
 	public void ShowInteraction(CustomerInteractionDef interaction)
 	{
+		PrepareInteraction(interaction);
+		ShowPreparedInteraction();
+	}
+
+	public void PrepareInteraction(CustomerInteractionDef interaction)
+	{
 		HideSaleResult();
 		_interaction = interaction;
+		_interactionPresentationStarted = false;
+		_awaitingNextCustomer = false;
+		_activeDialogueNodeId = string.Empty;
+		_requestReturnDialogueNodeId = string.Empty;
+		_requestRevealed = false;
+		_sellingMode = false;
+		_gameState.ClearActiveCustomerRequest();
+		Visible = false;
+	}
+
+	public void ShowPreparedInteraction()
+	{
+		var interaction = _interaction;
+		if (interaction is null)
+		{
+			GD.PushError("CustomerPanel: Cannot show a customer request because no customer is active.");
+			return;
+		}
+
+		if (_interactionPresentationStarted)
+		{
+			Visible = true;
+			return;
+		}
+
+		HideSaleResult();
 		_awaitingNextCustomer = false;
 		_activeDialogueNodeId = string.Empty;
 		_requestReturnDialogueNodeId = string.Empty;
@@ -240,6 +272,7 @@ public partial class CustomerPanel : Control
 		{
 			SetSalePendingState();
 		}
+		_interactionPresentationStarted = true;
 		EmitSignal(SignalName.InteractionShown, interaction.Id);
 	}
 
@@ -270,6 +303,7 @@ public partial class CustomerPanel : Control
 		_requestReturnDialogueNodeId = string.Empty;
 		_requestRevealed = false;
 		_sellingMode = false;
+		_interactionPresentationStarted = false;
 		SetSalePendingState();
 		HideSaleResult();
 		Visible = false;
@@ -303,6 +337,7 @@ public partial class CustomerPanel : Control
 		if (SuppressSaleResultPanel)
 		{
 			_interaction = null;
+			_interactionPresentationStarted = false;
 			Visible = false;
 			_gameState.ClearActiveCustomerRequest();
 			HideSaleResult();
@@ -405,6 +440,7 @@ public partial class CustomerPanel : Control
 		_requestReturnDialogueNodeId = string.Empty;
 		_requestRevealed = false;
 		_sellingMode = false;
+		_interactionPresentationStarted = false;
 		EmitSignal(SignalName.SaleResultClosed);
 	}
 
@@ -428,7 +464,7 @@ public partial class CustomerPanel : Control
 
 		var matchedDesiredTraitCount = request is null
 			? 0
-			: CountMatchedDesiredTraits(request, brewResult.Traits);
+			: CustomerSaleRules.CountMatchedDesiredTraits(request, brewResult.Traits);
 		lines.Add($"Customer response: {GetCustomerResponseText(matchedDesiredTraitCount)}");
 
 		return string.Join("\n", lines);
@@ -445,50 +481,6 @@ public partial class CustomerPanel : Control
 		return "The customer is disappointed";
 	}
 
-	private static int CountMatchedDesiredTraits(
-		CustomerRequestDef request,
-		IReadOnlyDictionary<string, int> producedTraits)
-	{
-		var matchedDesiredTraitCount = 0;
-		foreach (var desiredTrait in request.DesiredTraits)
-		{
-			if (string.IsNullOrWhiteSpace(desiredTrait.Key))
-				continue;
-
-			if (!TryGetValueIgnoreCase(producedTraits, desiredTrait.Key, out var producedValue))
-				continue;
-
-			if (producedValue <= 0)
-				continue;
-
-			matchedDesiredTraitCount += 1;
-		}
-
-		return matchedDesiredTraitCount;
-	}
-
-	private static int CountMatchedBadTraits(
-		CustomerRequestDef request,
-		IReadOnlyDictionary<string, int> producedRisks)
-	{
-		var matchedBadTraitCount = 0;
-		foreach (var badTrait in request.BadTraits)
-		{
-			if (string.IsNullOrWhiteSpace(badTrait.Key))
-				continue;
-
-			if (!TryGetValueIgnoreCase(producedRisks, badTrait.Key, out var producedValue))
-				continue;
-
-			if (producedValue <= 0)
-				continue;
-
-			matchedBadTraitCount += 1;
-		}
-
-		return matchedBadTraitCount;
-	}
-
 	private CustomerPotionResponseDef? FindPotionResponse(
 		string itemId,
 		CustomerRequestDef request,
@@ -500,7 +492,7 @@ public partial class CustomerPanel : Control
 
 		foreach (var response in _interaction.PotionResponses)
 		{
-			if (!PotionResponseMatches(response, itemId, request, brewResult, isSuccess))
+			if (!CustomerSaleRules.PotionResponseMatches(response, itemId, request, brewResult, isSuccess))
 				continue;
 
 			return response;
@@ -509,56 +501,18 @@ public partial class CustomerPanel : Control
 		return null;
 	}
 
-	private static bool PotionResponseMatches(
-		CustomerPotionResponseDef response,
-		string itemId,
-		CustomerRequestDef request,
-		PotionResult brewResult,
-		bool isSuccess)
-	{
-		if (response.Success is bool requiredSuccess && requiredSuccess != isSuccess)
-			return false;
-
-		if (!string.IsNullOrWhiteSpace(response.PotionItemId) &&
-			!string.Equals(response.PotionItemId, itemId, StringComparison.OrdinalIgnoreCase))
-		{
-			return false;
-		}
-
-		if (!string.IsNullOrWhiteSpace(response.Grade) &&
-			!string.Equals(response.Grade, brewResult.Grade, StringComparison.OrdinalIgnoreCase))
-		{
-			return false;
-		}
-
-		if (response.MinFinalScore is int minFinalScore && brewResult.FinalScore < minFinalScore)
-			return false;
-
-		if (response.MaxFinalScore is int maxFinalScore && brewResult.FinalScore > maxFinalScore)
-			return false;
-
-		if (response.MinMatchedDesiredTraits is int minMatchedDesiredTraits &&
-			CountMatchedDesiredTraits(request, brewResult.Traits) < minMatchedDesiredTraits)
-		{
-			return false;
-		}
-
-		if (response.MaxMatchedBadTraits is int maxMatchedBadTraits &&
-			CountMatchedBadTraits(request, brewResult.Risks) > maxMatchedBadTraits)
-		{
-			return false;
-		}
-
-		return true;
-	}
-
 	private void SetRequestTraits(CustomerRequestDef request)
 	{
-		_desiredTraits.Text = FormatTraitListWithMatches(request.DesiredTraits, null, MatchedDesiredColorHex);
-		var ingredientAmountText = FormatIngredientAmountRequirements(request.RequiredIngredientAmounts);
-		if (!string.IsNullOrWhiteSpace(ingredientAmountText))
-			_desiredTraits.Text = $"{_desiredTraits.Text}\n{ingredientAmountText}";
-		_badTraits.Text = FormatTraitListWithMatches(request.BadTraits, null, MatchedRiskColorHex);
+		SetRequestTraits(request, null, null);
+	}
+
+	private void SetRequestTraits(
+		CustomerRequestDef request,
+		IReadOnlyDictionary<string, int>? producedTraits,
+		IReadOnlyDictionary<string, int>? producedRisks)
+	{
+		_desiredTraits.Text = CustomerDialogueTextFormatter.BuildDesiredRequestText(request, producedTraits);
+		_badTraits.Text = CustomerDialogueTextFormatter.BuildBadRequestText(request, producedTraits, producedRisks);
 	}
 
 	private bool IsPotionItem(string itemId)
@@ -624,11 +578,7 @@ public partial class CustomerPanel : Control
 		}
 
 		_sellDropBox.SetHoverHighlight(true);
-		_desiredTraits.Text = FormatTraitListWithMatches(request.DesiredTraits, brewResult.Traits, MatchedDesiredColorHex);
-		var ingredientAmountText = FormatIngredientAmountRequirements(request.RequiredIngredientAmounts);
-		if (!string.IsNullOrWhiteSpace(ingredientAmountText))
-			_desiredTraits.Text = $"{_desiredTraits.Text}\n{ingredientAmountText}";
-		_badTraits.Text = FormatTraitListWithMatches(request.BadTraits, brewResult.Risks, MatchedRiskColorHex);
+		SetRequestTraits(request, brewResult.Traits, brewResult.Risks);
 	}
 
 	private void OnSellDropHoverPreviewCleared()
@@ -644,58 +594,12 @@ public partial class CustomerPanel : Control
 		SetRequestTraits(_interaction.BuildRequest());
 	}
 
-	private static string FormatTraitListWithMatches(
-		Dictionary<string, int> requiredValues,
-		IReadOnlyDictionary<string, int>? producedValues,
-		string matchedColorHex)
-	{
-		if (requiredValues is null || requiredValues.Count == 0)
-			return "None";
-
-		return string.Join(
-			"\n",
-			requiredValues
-				.OrderByDescending(x => x.Value)
-				.ThenBy(x => x.Key)
-				.Select(pair => FormatTraitLine(pair.Key, pair.Value, producedValues, matchedColorHex)));
-	}
-
-	private static string FormatTraitLine(
-		string key,
-		int requiredValue,
-		IReadOnlyDictionary<string, int>? producedValues,
-		string matchedColorHex)
-	{
-		var safeKey = EscapeBbCodeText(key);
-		var line = $"{safeKey}: {requiredValue}";
-		if (producedValues is null)
-			return line;
-
-		if (!TryGetValueIgnoreCase(producedValues, key, out var producedValue))
-			return line;
-
-		if (producedValue <= 0)
-			return line;
-
-		return $"[color={matchedColorHex}]{line}[/color]";
-	}
-
-	private static bool HasAllDesiredTraitsPresent(CustomerRequestDef request, IReadOnlyDictionary<string, int> producedTraits)
-	{
-		var totalDesiredTraitCount = request.DesiredTraits.Count(pair => !string.IsNullOrWhiteSpace(pair.Key));
-		var matchedDesiredTraitCount = CountMatchedDesiredTraits(request, producedTraits);
-
-		if (totalDesiredTraitCount == 0)
-			return true;
-
-		var requiredMatchCount = GetRequiredDesiredTraitMatchCount(totalDesiredTraitCount);
-		return matchedDesiredTraitCount >= requiredMatchCount;
-	}
-
 	private bool IsRequestSatisfiedByPotion(string potionItemId, CustomerRequestDef request, PotionResult brewResult)
 	{
-		return HasAllDesiredTraitsPresent(request, brewResult.Traits) &&
-			DoesPotionBatchSatisfyIngredientAmountRequirements(potionItemId, request.RequiredIngredientAmounts);
+		return CustomerSaleRules.IsRequestSatisfiedByPotion(
+			request,
+			brewResult,
+			DoesPotionBatchSatisfyIngredientAmountRequirements(potionItemId, request.RequiredIngredientAmounts));
 	}
 
 	private bool DoesPotionBatchSatisfyIngredientAmountRequirements(
@@ -725,56 +629,6 @@ public partial class CustomerPanel : Control
 		return true;
 	}
 
-	private static string FormatIngredientAmountRequirements(IReadOnlyList<IngredientPortionDef>? requiredIngredientAmounts)
-	{
-		if (requiredIngredientAmounts is null || requiredIngredientAmounts.Count == 0)
-			return string.Empty;
-
-		var lines = requiredIngredientAmounts
-			.Where(x => x is not null && !string.IsNullOrWhiteSpace(x.IngredientId) && x.Grams > 0)
-			.OrderBy(x => x.IngredientId)
-			.Select(x => $"{EscapeBbCodeText(x.IngredientId)}: {x.Grams}g")
-			.ToList();
-
-		return lines.Count == 0 ? string.Empty : string.Join("\n", lines);
-	}
-
-	private static int GetRequiredDesiredTraitMatchCount(int totalDesiredTraitCount)
-	{
-		if (totalDesiredTraitCount <= 0)
-			return 0;
-
-		if (totalDesiredTraitCount >= 3)
-			return totalDesiredTraitCount - 1;
-
-		return totalDesiredTraitCount;
-	}
-
-	private static bool TryGetValueIgnoreCase(
-		IReadOnlyDictionary<string, int> values,
-		string key,
-		out int value)
-	{
-		foreach (var pair in values)
-		{
-			if (!string.Equals(pair.Key, key, System.StringComparison.OrdinalIgnoreCase))
-				continue;
-
-			value = pair.Value;
-			return true;
-		}
-
-		value = 0;
-		return false;
-	}
-
-	private static string EscapeBbCodeText(string text)
-	{
-		return text
-			.Replace("[", "[lb]")
-			.Replace("]", "[rb]");
-	}
-
 	private void ResetConversationHistory()
 	{
 		StopQueuedDialoguePresentation();
@@ -786,19 +640,19 @@ public partial class CustomerPanel : Control
 	{
 		ResetConversationHistory();
 		if (!string.IsNullOrWhiteSpace(text))
-			_conversationHistory.Add(EscapeBbCodeText(text));
+			_conversationHistory.Add(CustomerDialogueTextFormatter.EscapeBbCodeText(text));
 
 		RefreshConversationHistory();
 	}
 
 	private void AppendCustomerLine(string text)
 	{
-		AppendConversationLine(CustomerSpeakerName, text);
+		AppendConversationLine(CustomerDialogueTextFormatter.CustomerSpeakerName, text);
 	}
 
 	private void AppendPlayerLine(string text)
 	{
-		AppendConversationLine(PlayerSpeakerName, text);
+		AppendConversationLine(CustomerDialogueTextFormatter.PlayerSpeakerName, text);
 	}
 
 	private void AppendConversationLine(string speaker, string text)
@@ -806,7 +660,7 @@ public partial class CustomerPanel : Control
 		if (string.IsNullOrWhiteSpace(text))
 			return;
 
-		_conversationHistory.Add(FormatConversationLine(speaker, text));
+		_conversationHistory.Add(CustomerDialogueTextFormatter.FormatConversationLine(speaker, text));
 		RefreshConversationHistory();
 	}
 
@@ -820,20 +674,20 @@ public partial class CustomerPanel : Control
 
 		var visibleLines = new List<string>(_conversationHistory.Count + 1);
 		visibleLines.AddRange(_conversationHistory);
-		visibleLines.Add(FormatConversationLine(
+		visibleLines.Add(CustomerDialogueTextFormatter.FormatConversationLine(
 			_activeDialogueLine.Speaker,
-			GetVisibleDialogueText(_activeDialogueLine.Text, _activeDialogueTextCharacters)));
+			CustomerDialogueTextFormatter.GetVisibleDialogueText(_activeDialogueLine.Text, _activeDialogueTextCharacters)));
 		_dialogue.Text = string.Join("\n\n", visibleLines);
 	}
 
 	private void QueueCustomerLine(string text)
 	{
-		QueueConversationLine(CustomerSpeakerName, text);
+		QueueConversationLine(CustomerDialogueTextFormatter.CustomerSpeakerName, text);
 	}
 
 	private void QueuePlayerLine(string text)
 	{
-		QueueConversationLine(PlayerSpeakerName, text);
+		QueueConversationLine(CustomerDialogueTextFormatter.PlayerSpeakerName, text);
 	}
 
 	private void QueueConversationLine(string speaker, string text)
@@ -923,7 +777,7 @@ public partial class CustomerPanel : Control
 			return;
 
 		_dialogueTypewriterTimer?.Stop();
-		_conversationHistory.Add(FormatConversationLine(_activeDialogueLine.Speaker, _activeDialogueLine.Text));
+		_conversationHistory.Add(CustomerDialogueTextFormatter.FormatConversationLine(_activeDialogueLine.Speaker, _activeDialogueLine.Text));
 		_activeDialogueLine = null;
 		_activeDialogueTextCharacters = 0;
 		RefreshConversationHistory();
@@ -953,39 +807,6 @@ public partial class CustomerPanel : Control
 	{
 		var charactersPerSecond = Math.Max(1, DialogueTypewriterCharactersPerSecond);
 		return 1.0 / charactersPerSecond;
-	}
-
-	private static string GetVisibleDialogueText(string text, int visibleCharacters)
-	{
-		var characterCount = Math.Min(Math.Max(visibleCharacters, 0), text.Length);
-		return characterCount >= text.Length ? text : text[..characterCount];
-	}
-
-	private static string FormatConversationLine(string speaker, string text)
-	{
-		var safeText = EscapeBbCodeText(text);
-		return $"{FormatSpeakerName(speaker)}\n{safeText}";
-	}
-
-	private static string FormatSpeakerName(string speaker)
-	{
-		var safeSpeaker = EscapeBbCodeText(speaker);
-		var colorHex = GetSpeakerColorHex(speaker);
-		if (string.IsNullOrWhiteSpace(colorHex))
-			return $"[b]{safeSpeaker}[/b]";
-
-		return $"[b][color={colorHex}]{safeSpeaker}[/color][/b]";
-	}
-
-	private static string GetSpeakerColorHex(string speaker)
-	{
-		if (string.Equals(speaker, PlayerSpeakerName, StringComparison.OrdinalIgnoreCase))
-			return PlayerSpeakerColorHex;
-
-		if (string.Equals(speaker, CustomerSpeakerName, StringComparison.OrdinalIgnoreCase))
-			return CustomerSpeakerColorHex;
-
-		return string.Empty;
 	}
 
 	private void OnComeBackTomorrowPressed()
@@ -1228,6 +1049,7 @@ public partial class CustomerPanel : Control
 		ApplyOutcomeEffects(_interaction.OnSkipEffects);
 		_gameState.RecordStoryCustomerInteractionOutcome(_interaction, GameState.StoryCustomerOutcomeSkipped);
 		HidePanel();
+		Visible = true;
 		EmitSignal(SignalName.CustomerSkipped);
 	}
 
@@ -1400,7 +1222,7 @@ public partial class CustomerPanel : Control
 		RefreshPotionSlotRow();
 	}
 
-	private static InventoryItemSlot CreatePotionSlot(string name)
+	private InventoryItemSlot CreatePotionSlot(string name)
 	{
 		var slot = new InventoryItemSlot
 		{
@@ -1415,6 +1237,7 @@ public partial class CustomerPanel : Control
 		slot.AddThemeStyleboxOverride("normal", CreatePotionSlotStyleBox());
 		slot.AddThemeStyleboxOverride("hover", CreatePotionSlotHoverStyleBox());
 		slot.AddThemeStyleboxOverride("disabled", CreatePotionSlotStyleBox());
+		slot.SlotActivated += ShowPotionDetail;
 		return slot;
 	}
 
@@ -1525,6 +1348,16 @@ public partial class CustomerPanel : Control
 		slotView.Icon.Visible = true;
 		slotView.Quantity.Text = quantity > 1 ? quantity.ToString() : "";
 		slotView.Quantity.Visible = quantity > 1;
+	}
+
+	private void ShowPotionDetail(string itemId)
+	{
+		if (string.IsNullOrWhiteSpace(itemId))
+			return;
+		if (!IsPotionItem(itemId))
+			return;
+
+		_inventoryPanel?.OpenItemDetail(itemId);
 	}
 
 	private static void ClearPotionSlot(PotionSlotView slotView)

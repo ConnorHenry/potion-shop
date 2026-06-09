@@ -28,29 +28,31 @@ internal static class TutorialTests
     private static void TestTutorialGameStateTransitions()
     {
         var source = ReadProjectFile("Scripts/Autoload/GameState.cs");
+        var tutorialProgressState = ReadProjectFile("Scripts/Systems/TutorialProgressState.cs");
 
-        AssertTrue("GameState exposes explicit tutorial status", source.Contains("public TutorialStatus TutorialProgressStatus { get; private set; }"));
-        AssertTrue("GameState keeps requested compatibility view", source.Contains("public bool TutorialRequested => TutorialProgressStatus == TutorialStatus.InProgress;"));
-        AssertTrue("GameState keeps completed compatibility view", source.Contains("public bool TutorialCompleted => TutorialProgressStatus == TutorialStatus.Completed;"));
-        AssertTrue("GameState keeps skipped compatibility view", source.Contains("public bool TutorialSkipped => TutorialProgressStatus == TutorialStatus.Skipped;"));
-        AssertTrue("GameState exposes tutorial step", source.Contains("public int TutorialStep { get; private set; }"));
+        AssertTrue("GameState exposes explicit tutorial status", source.Contains("public TutorialStatus TutorialProgressStatus => _tutorialProgressState.Status;"));
+        AssertTrue("GameState keeps requested compatibility view", source.Contains("public bool TutorialRequested => _tutorialProgressState.Requested;") && tutorialProgressState.Contains("public bool Requested => Status == TutorialStatus.InProgress;"));
+        AssertTrue("GameState keeps completed compatibility view", source.Contains("public bool TutorialCompleted => _tutorialProgressState.Completed;") && tutorialProgressState.Contains("public bool Completed => Status == TutorialStatus.Completed;"));
+        AssertTrue("GameState keeps skipped compatibility view", source.Contains("public bool TutorialSkipped => _tutorialProgressState.Skipped;") && tutorialProgressState.Contains("public bool Skipped => Status == TutorialStatus.Skipped;"));
+        AssertTrue("GameState exposes tutorial step", source.Contains("public int TutorialStep => _tutorialProgressState.Step;"));
 
         AssertTrue("RequestTutorial exists", source.Contains("public void RequestTutorial()"));
-        AssertTrue("RequestTutorial sets status to in progress", source.Contains("TutorialProgressStatus = TutorialStatus.InProgress;"));
+        AssertTrue("RequestTutorial sets status to in progress", source.Contains("_tutorialProgressState.Request();") && tutorialProgressState.Contains("Status = TutorialStatus.InProgress;"));
 
         AssertTrue("SkipTutorial exists", source.Contains("public void SkipTutorial()"));
-        AssertTrue("SkipTutorial sets status to skipped", source.Contains("TutorialProgressStatus = TutorialStatus.Skipped;"));
+        AssertTrue("SkipTutorial sets status to skipped", source.Contains("_tutorialProgressState.Skip();") && tutorialProgressState.Contains("Status = TutorialStatus.Skipped;"));
 
         AssertTrue("CompleteTutorial exists", source.Contains("public void CompleteTutorial()"));
-        AssertTrue("CompleteTutorial sets status to completed", source.Contains("TutorialProgressStatus = TutorialStatus.Completed;"));
+        AssertTrue("CompleteTutorial sets status to completed", source.Contains("_tutorialProgressState.Complete();") && tutorialProgressState.Contains("Status = TutorialStatus.Completed;"));
 
         AssertTrue("SetTutorialStep exists", source.Contains("public void SetTutorialStep(int step)"));
-        AssertTrue("SetTutorialStep clamps to zero or above", source.Contains("Math.Max(0, step)"));
+        AssertTrue("SetTutorialStep clamps to zero or above", source.Contains("_tutorialProgressState.SetStep(step)") && tutorialProgressState.Contains("Math.Max(0, step)"));
     }
 
     private static void TestTutorialSnapshotRoundTrip()
     {
         var gameStateSource = ReadProjectFile("Scripts/Autoload/GameState.cs");
+        var tutorialProgressState = ReadProjectFile("Scripts/Systems/TutorialProgressState.cs");
         var saveDataSource = ReadProjectFile("Scripts/Persistence/SaveData.cs");
 
         AssertTrue("Save snapshot includes TutorialStatus", saveDataSource.Contains("public TutorialStatus? TutorialStatus { get; set; }"));
@@ -67,9 +69,9 @@ internal static class TutorialTests
         AssertTrue("BuildSnapshot exports TutorialSkipped", gameStateSource.Contains("TutorialSkipped = TutorialSkipped"));
         AssertTrue("BuildSnapshot exports TutorialStep", gameStateSource.Contains("TutorialStep = TutorialStep"));
 
-        AssertTrue("ApplySnapshot resolves tutorial status from explicit or legacy fields", gameStateSource.Contains("TutorialProgressStatus = ResolveTutorialStatus(snapshot);"));
-        AssertTrue("ApplySnapshot restores step with new step index fallback", gameStateSource.Contains("var restoredStep = snapshot.TutorialStepIndex > 0"));
-        AssertTrue("ApplySnapshot clamps tutorial step", gameStateSource.Contains("TutorialStep = Math.Max(0, restoredStep);"));
+        AssertTrue("ApplySnapshot resolves tutorial status from explicit or legacy fields", gameStateSource.Contains("_tutorialProgressState.ApplySnapshot(snapshot);") && tutorialProgressState.Contains("Status = ResolveTutorialStatus(snapshot);"));
+        AssertTrue("ApplySnapshot restores step with new step index fallback", tutorialProgressState.Contains("var restoredStep = snapshot.TutorialStepIndex > 0"));
+        AssertTrue("ApplySnapshot clamps tutorial step", tutorialProgressState.Contains("Step = Math.Max(0, restoredStep);"));
     }
 
     private static void TestMainSceneWiresTutorialController()
@@ -116,8 +118,9 @@ internal static class TutorialTests
         AssertTrue("TutorialController includes the close shop tutorial step", controller.Contains("TutorialStepId.CloseShop"));
         AssertTrue("TutorialController highlights the close shop button", controller.Contains("case TutorialStepId.CloseShop") && controller.Contains("GetNextCustomerButton()"));
         AssertTrue("TutorialController waits for close shop visibility before advancing", controller.Contains("EvaluateCloseShopPrompt("));
-        AssertTrue("TutorialController caches HUD day label for tutorial highlighting", controller.Contains("_hudDayLabel = GetOptionalHudLabel(\"Day\")"));
-        AssertTrue("TutorialController caches HUD shop timer label for tutorial highlighting", controller.Contains("_hudShopTimerLabel = GetOptionalHudLabel(\"ShopTimer\")"));
+        AssertTrue("TutorialController caches HUD day label for tutorial highlighting", controller.Contains("HudDayLabelPath = new(\"Content/Status/Day\")") && controller.Contains("_hudDayLabel = GetOptionalHudLabel(HudDayLabelPath"));
+        AssertTrue("TutorialController caches HUD shop timer label for tutorial highlighting", controller.Contains("HudShopTimerLabelPath = new(\"Content/Status/ShopTimer\")") && controller.Contains("_hudShopTimerLabel = GetOptionalHudLabel(HudShopTimerLabelPath"));
+        AssertTrue("TutorialController opens brewing from the shop floor hotspot", controller.Contains("OpenBrewPanelButtonPath = new(\"../CanvasLayer/ShopFloor/Hotspots/InventoryShelf\")") && controller.Contains("_openBrewPanelButton.Pressed += OnBrewButtonPressed"));
         AssertTrue("TutorialController highlights ingredient queue steps with the brew panel", controller.Contains("ShowIngredientQueueStep(stepContent, _tutorialContent.GraveMintId)") && controller.Contains("ShowForTargets(") && controller.Contains("FocusTutorialBrewPanel()"));
         AssertTrue("TutorialController routes the sale review popup through the customer panel", controller.Contains("ShowForTarget(") && controller.Contains("_customerPanel,") && controller.Contains("BuildSaleResultBody("));
         AssertTrue("TutorialController seeds the next-customer tutorial inventory", controller.Contains("SeedNextCustomerTutorialInventory()"));
@@ -127,7 +130,7 @@ internal static class TutorialTests
         AssertTrue("TutorialController listens for day summary continue", controller.Contains("_daySummaryPanel.ContinuePressed += OnDaySummaryContinuePressed;"));
         AssertTrue("TutorialController highlights the day summary panel", controller.Contains("case TutorialStepId.DaySummary") && controller.Contains("_overlayPresenter.ShowForTarget(stepContent, _daySummaryPanel)"));
         AssertTrue("TutorialController allows the day summary continue button", controller.Contains("TutorialStepId.DaySummary => new BaseButton?[] { _daySummaryPanel?.GetContinueButton() }"));
-        AssertTrue("TutorialController includes day summary panel in button locks", controller.Contains("new Node?[] { _hud, _inventoryPanel, _brewPanel, _customerPanel, _daySummaryPanel }"));
+        AssertTrue("TutorialController includes shop floor and day summary panel in button locks", controller.Contains("new Node?[] { _hud, _shopFloor, _inventoryPanel, _brewPanel, _customerPanel, _daySummaryPanel }"));
         AssertTrue("TutorialOverlayPresenter supports direct highlight rectangles", presenter.Contains("ShowForHighlightRect("));
 
         AssertTrue("TutorialStateMachine is a pure class", stateMachine.Contains("public sealed class TutorialStateMachine"));
@@ -163,7 +166,7 @@ internal static class TutorialTests
         AssertTrue("Next-customer inventory is seeded through a dedicated helper",
             source.Contains("public void SeedNextCustomerTutorialInventory()"));
         AssertTrue("Next-customer inventory clears the inventory before seeding",
-            source.Contains("Inventory.Clear();"));
+            source.Contains("_inventoryState.Clear();"));
         AssertTrue("Next-customer inventory seeds exactly the curated ingredient list",
             source.Contains("foreach (var (itemId, qty) in NextCustomerTutorialInventory)"));
     }

@@ -87,6 +87,8 @@ public partial class InventoryPanel : Control
 	private RichTextLabel _itemDetailTraits = default!;
 	private Label _itemDetailRisksHeader = default!;
 	private RichTextLabel _itemDetailRisks = default!;
+	private Control? _itemDetailDetailsSeparator;
+	private Control? _itemDetailDescriptionHeader;
 	private RichTextLabel _itemDetailDescription = default!;
 	private Label _itemDetailOwned = default!;
 	private VBoxContainer _itemDetailKnownRecipes = default!;
@@ -175,6 +177,9 @@ public partial class InventoryPanel : Control
 		_itemDetailRisksHeader = GetNode<Label>(ItemDetailRisksHeaderPath);
 		_itemDetailRisks = GetNode<RichTextLabel>(ItemDetailRisksPath);
 		_itemDetailDescription = GetNode<RichTextLabel>(ItemDetailDescriptionPath);
+		var itemDetailDescriptionParent = _itemDetailDescription.GetParent();
+		_itemDetailDetailsSeparator = itemDetailDescriptionParent?.GetNodeOrNull<Control>("DetailsSeparator");
+		_itemDetailDescriptionHeader = itemDetailDescriptionParent?.GetNodeOrNull<Control>("DescriptionHeader");
 		_itemDetailOwned = GetNode<Label>(ItemDetailOwnedPath);
 		_itemDetailKnownRecipes = GetNode<VBoxContainer>(ItemDetailKnownRecipesPath);
 		_itemDetailDescription.BbcodeEnabled = true;
@@ -368,126 +373,49 @@ public partial class InventoryPanel : Control
 		if (_gameState.Inventory.Count == 0)
 			_ingredients.AddChild(new Label { Text = "Empty" });
 
-		var potionStacks = _gameState.Inventory.Where(x => IsPotion(x.Key)).ToList();
-		var consumableStacks = _gameState.Inventory.Where(x => IsConsumable(x.Key)).ToList();
-		var ingredientStacks = _gameState.Inventory.Where(x => !IsPotion(x.Key) && !IsConsumable(x.Key)).ToList();
-		var potionTraitNames = ItemFilterUtilities.BuildTopTraitNames(potionStacks.Select(x => x.Key), 3, _itemCatalog);
-		var potionRiskNames = ItemFilterUtilities.BuildRiskNames(potionStacks.Select(x => x.Key), _itemCatalog);
-		var ingredientTraitNames = ItemFilterUtilities.BuildTraitNames(ingredientStacks.Select(x => x.Key), _itemCatalog);
-		var ingredientRiskNames = ItemFilterUtilities.BuildRiskNames(ingredientStacks.Select(x => x.Key), _itemCatalog);
+		var stackQuery = InventoryPanelStackQuery.Build(
+			_gameState.Inventory,
+			_itemCatalog,
+			IngredientTypeFilterOptions,
+			new InventoryPanelStackQueryOptions
+			{
+				ActivePotionTraitFilter = _activePotionTraitFilter,
+				ActivePotionRiskFilter = _activePotionRiskFilter,
+				ActiveIngredientTypeFilter = _activeIngredientTypeFilter,
+				ActiveIngredientTraitFilter = _activeIngredientTraitFilter,
+				ActiveIngredientRiskFilter = _activeIngredientRiskFilter,
+				HasPotionTraitFilter = _potionsTraitFilter is not null,
+				HasPotionRiskFilter = _potionsRiskFilter is not null,
+				HasIngredientTypeFilter = _ingredientsTypeFilter is not null,
+				HasIngredientTraitFilter = _ingredientsTraitFilter is not null,
+				HasIngredientRiskFilter = _ingredientsRiskFilter is not null,
+				IngredientsAscending = _ingredientsAscending
+			});
+		_activePotionTraitFilter = stackQuery.ActivePotionTraitFilter;
+		_activePotionRiskFilter = stackQuery.ActivePotionRiskFilter;
+		_activeIngredientTypeFilter = stackQuery.ActiveIngredientTypeFilter;
+		_activeIngredientTraitFilter = stackQuery.ActiveIngredientTraitFilter;
+		_activeIngredientRiskFilter = stackQuery.ActiveIngredientRiskFilter;
 
-		if (!string.IsNullOrWhiteSpace(_activePotionTraitFilter))
-		{
-			var activeTraitExists = potionTraitNames.Any(trait =>
-				string.Equals(trait, _activePotionTraitFilter, System.StringComparison.OrdinalIgnoreCase));
-			if (!activeTraitExists)
-				_activePotionTraitFilter = null;
-		}
-
-		if (!string.IsNullOrWhiteSpace(_activePotionRiskFilter))
-		{
-			var activeRiskExists = potionRiskNames.Any(risk =>
-				string.Equals(risk, _activePotionRiskFilter, System.StringComparison.OrdinalIgnoreCase));
-			if (!activeRiskExists)
-				_activePotionRiskFilter = null;
-		}
-
-		if (!string.IsNullOrWhiteSpace(_activeIngredientTraitFilter))
-		{
-			var activeTraitExists = ingredientTraitNames.Any(trait =>
-				string.Equals(trait, _activeIngredientTraitFilter, System.StringComparison.OrdinalIgnoreCase));
-			if (!activeTraitExists)
-				_activeIngredientTraitFilter = null;
-		}
-
-		if (!string.IsNullOrWhiteSpace(_activeIngredientTypeFilter))
-		{
-			var activeTypeExists = IngredientTypeFilterOptions.Any(type =>
-				string.Equals(type, _activeIngredientTypeFilter, System.StringComparison.OrdinalIgnoreCase));
-			if (!activeTypeExists)
-				_activeIngredientTypeFilter = null;
-		}
-
-		if (!string.IsNullOrWhiteSpace(_activeIngredientRiskFilter))
-		{
-			var activeRiskExists = ingredientRiskNames.Any(risk =>
-				string.Equals(risk, _activeIngredientRiskFilter, System.StringComparison.OrdinalIgnoreCase));
-			if (!activeRiskExists)
-				_activeIngredientRiskFilter = null;
-		}
-
-		var potionStacksToRender = potionStacks;
-		if (_potionsTraitFilter is null)
-		{
-			_activePotionTraitFilter = null;
-		}
-		if (_potionsRiskFilter is null)
-		{
-			_activePotionRiskFilter = null;
-		}
-
-		if (!string.IsNullOrWhiteSpace(_activePotionTraitFilter))
-		{
-			potionStacksToRender = potionStacks.Where(stack => ItemFilterUtilities.ItemHasTrait(stack.Key, _activePotionTraitFilter, _itemCatalog, topCount: 3)).ToList();
-		}
-		if (!string.IsNullOrWhiteSpace(_activePotionRiskFilter))
-		{
-			potionStacksToRender = potionStacksToRender.Where(stack => ItemFilterUtilities.ItemHasRisk(stack.Key, _activePotionRiskFilter, _itemCatalog)).ToList();
-		}
-
-		foreach (var stack in potionStacksToRender.OrderBy(x => ItemName(x.Key)).ThenBy(x => x.Key))
+		foreach (var stack in stackQuery.PotionStacksToRender)
 			_potions.AddChild(CreateSlot(stack.Key, stack.Value));
 
-		foreach (var stack in consumableStacks.OrderBy(x => ItemName(x.Key)).ThenBy(x => x.Key))
+		foreach (var stack in stackQuery.ConsumableStacksToRender)
 			_consumables.AddChild(CreateSlot(stack.Key, stack.Value));
 
-		var ingredientStacksToRender = ingredientStacks;
-		if (_ingredientsTraitFilter is null)
-		{
-			_activeIngredientTraitFilter = null;
-		}
-		if (_ingredientsTypeFilter is null)
-		{
-			_activeIngredientTypeFilter = null;
-		}
-		if (_ingredientsRiskFilter is null)
-		{
-			_activeIngredientRiskFilter = null;
-		}
+		foreach (var stack in stackQuery.IngredientStacksToRender)
+			_ingredients.AddChild(CreateSlot(stack.Key, stack.Value));
 
-		if (!string.IsNullOrWhiteSpace(_activeIngredientTypeFilter))
-		{
-			ingredientStacksToRender = ingredientStacks
-				.Where(stack => ItemHasIngredientType(stack.Key, _activeIngredientTypeFilter))
-				.ToList();
-		}
-		if (!string.IsNullOrWhiteSpace(_activeIngredientTraitFilter))
-		{
-			ingredientStacksToRender = ingredientStacksToRender.Where(stack => ItemFilterUtilities.ItemHasTrait(stack.Key, _activeIngredientTraitFilter, _itemCatalog)).ToList();
-		}
-		if (!string.IsNullOrWhiteSpace(_activeIngredientRiskFilter))
-		{
-			ingredientStacksToRender = ingredientStacksToRender.Where(stack => ItemFilterUtilities.ItemHasRisk(stack.Key, _activeIngredientRiskFilter, _itemCatalog)).ToList();
-		}
-
-		if (_ingredientsAscending)
-		{
-			foreach (var stack in ingredientStacksToRender.OrderBy(x => ItemName(x.Key)).ThenBy(x => x.Key))
-				_ingredients.AddChild(CreateSlot(stack.Key, stack.Value));
-		}
-		else
-		{
-			foreach (var stack in ingredientStacksToRender.OrderByDescending(x => ItemName(x.Key)).ThenByDescending(x => x.Key))
-				_ingredients.AddChild(CreateSlot(stack.Key, stack.Value));
-		}
-
-		UpdateSectionHeaders(potionStacksToRender.Count, consumableStacks.Count, ingredientStacksToRender.Count);
+		UpdateSectionHeaders(
+			stackQuery.PotionStacksToRender.Count,
+			stackQuery.ConsumableStacksToRender.Count,
+			stackQuery.IngredientStacksToRender.Count);
 		UpdateSectionVisibility();
-		ItemFilterUtilities.RefreshFilterOptions(_potionsTraitFilter, potionTraitNames, "Trait", ref _activePotionTraitFilter);
-		ItemFilterUtilities.RefreshFilterOptions(_potionsRiskFilter, potionRiskNames, "Risk", ref _activePotionRiskFilter);
+		ItemFilterUtilities.RefreshFilterOptions(_potionsTraitFilter, stackQuery.PotionTraitNames, "Trait", ref _activePotionTraitFilter);
+		ItemFilterUtilities.RefreshFilterOptions(_potionsRiskFilter, stackQuery.PotionRiskNames, "Risk", ref _activePotionRiskFilter);
 		RefreshIngredientTypeFilterOptions();
-		ItemFilterUtilities.RefreshFilterOptions(_ingredientsTraitFilter, ingredientTraitNames, "Trait", ref _activeIngredientTraitFilter);
-		ItemFilterUtilities.RefreshFilterOptions(_ingredientsRiskFilter, ingredientRiskNames, "Risk", ref _activeIngredientRiskFilter);
+		ItemFilterUtilities.RefreshFilterOptions(_ingredientsTraitFilter, stackQuery.IngredientTraitNames, "Trait", ref _activeIngredientTraitFilter);
+		ItemFilterUtilities.RefreshFilterOptions(_ingredientsRiskFilter, stackQuery.IngredientRiskNames, "Risk", ref _activeIngredientRiskFilter);
 		RefreshCurrentItemDetail();
 		UpdateClearFilterButtonVisibility();
 		UpdateBrewButtonState();
@@ -770,7 +698,7 @@ public partial class InventoryPanel : Control
 	{
 		var item = _itemCatalog.TryGetItem(itemId, out var def) ? def : null;
 		var itemName = DisplayName(itemId, item?.Name ?? itemId);
-		var shouldShowRiskNameColor = IsPotion(itemId) && HasActiveRisk(item);
+		var shouldShowRiskNameColor = IsPotion(itemId) && InventoryItemDetailRules.HasActiveRisk(item);
 
 		var slot = new InventoryItemSlot
 		{
@@ -991,20 +919,6 @@ public partial class InventoryPanel : Control
 		return itemName;
 	}
 
-	private static bool HasActiveRisk(ItemDef? item)
-	{
-		if (item?.Risks is null || item.Risks.Count == 0)
-			return false;
-
-		foreach (var risk in item.Risks)
-		{
-			if (!string.IsNullOrWhiteSpace(risk.Key) && risk.Value > 0)
-				return true;
-		}
-
-		return false;
-	}
-
 	private void ShowItemDetail(string itemId)
 	{
 		if (_itemDetailPanel.Visible && string.Equals(_currentItemId, itemId, System.StringComparison.OrdinalIgnoreCase))
@@ -1064,6 +978,7 @@ public partial class InventoryPanel : Control
 		_itemDetailTraits.Text = "";
 		_itemDetailRisks.Text = "";
 		_itemDetailDescription.Text = "";
+		SetItemDetailDescriptionVisible(false);
 		_itemDetailPrice.Text = "";
 		_itemDetailOwned.Text = "";
 		ClearKnownRecipeRows();
@@ -1095,7 +1010,7 @@ public partial class InventoryPanel : Control
 			_itemDetailRisksHeader.Text = "CAN USE ON";
 			_itemDetailTraits.Text = BuildConsumableEffectText(item);
 			_itemDetailRisks.Text = BuildConsumableGateText(item);
-			_itemDetailDescription.Text = item.Description;
+			_itemDetailDescription.Text = InventoryItemTextFormatter.BuildItemDetailDescription(item);
 		}
 		else
 		{
@@ -1105,12 +1020,31 @@ public partial class InventoryPanel : Control
 			_itemDetailRisks.Text = IsPotion(_currentItemId)
 				? FormatTopStatNames(item.Risks, 3, "None")
 				: FormatTopStats(item.Risks, 3, "None");
-			_itemDetailDescription.Text = IsPotion(_currentItemId) && item.Treatment is null
-				? _brewService.BuildPotionDescriptionText(_currentItemId, item.Description)
-				: item.Description;
+			if (IsPotion(_currentItemId) && item.Treatment is null)
+				_itemDetailDescription.Text = _brewService.BuildPotionDescriptionText(_currentItemId, item.Description);
+			else if (IsIngredient(item))
+				_itemDetailDescription.Text = InventoryItemTextFormatter.BuildIngredientEffectsText(item);
+			else
+				_itemDetailDescription.Text = InventoryItemTextFormatter.BuildItemDetailDescription(item);
 		}
 
+		UpdateItemDetailDescriptionVisibility();
 		RefreshKnownRecipes(_currentItemId, item);
+	}
+
+	private void UpdateItemDetailDescriptionVisibility()
+	{
+		SetItemDetailDescriptionVisible(!string.IsNullOrWhiteSpace(_itemDetailDescription.Text));
+	}
+
+	private void SetItemDetailDescriptionVisible(bool visible)
+	{
+		if (_itemDetailDetailsSeparator is not null)
+			_itemDetailDetailsSeparator.Visible = visible;
+		if (_itemDetailDescriptionHeader is not null)
+			_itemDetailDescriptionHeader.Visible = visible;
+
+		_itemDetailDescription.Visible = visible;
 	}
 
 	private void TryAddSelectedPotionToBook()
@@ -1123,11 +1057,16 @@ public partial class InventoryPanel : Control
 			return;
 		if (item.Treatment is not null)
 			return;
-		if (HasActiveRisk(item))
+		var hasRecordedRecipe = _gameState.TryGetPotionRecipe(_currentItemId, out var ingredientIds) && ingredientIds.Count > 0;
+		var availability = InventoryItemDetailRules.GetPotionBookAddAvailability(
+			_currentItemId,
+			item,
+			IsPotion(_currentItemId),
+			_gameState.KnowsPotion(_currentItemId),
+			hasRecordedRecipe);
+		if (availability == PotionBookAddAvailability.Hidden)
 			return;
-		if (_gameState.KnowsPotion(_currentItemId))
-			return;
-		if (!_gameState.TryGetPotionRecipe(_currentItemId, out var ingredientIds) || ingredientIds.Count == 0)
+		if (availability == PotionBookAddAvailability.DisabledNoRecordedRecipe)
 		{
 			GD.PushError($"InventoryPanel: Cannot add potion '{_currentItemId}' to the potion book because no recipe is recorded.");
 			return;
@@ -1337,17 +1276,18 @@ public partial class InventoryPanel : Control
 			return;
 		if (!_itemCatalog.TryGetItem(itemId, out var item))
 			return;
-		if (!IsPotion(itemId))
-			return;
-		if (item.Treatment is not null)
-			return;
-		if (HasActiveRisk(item))
-			return;
-		if (_gameState.KnowsPotion(itemId))
+		var hasRecordedRecipe = _gameState.TryGetPotionRecipe(itemId, out var ingredientIds) && ingredientIds.Count > 0;
+		var availability = InventoryItemDetailRules.GetPotionBookAddAvailability(
+			itemId,
+			item,
+			IsPotion(itemId),
+			_gameState.KnowsPotion(itemId),
+			hasRecordedRecipe);
+		if (availability == PotionBookAddAvailability.Hidden)
 			return;
 
 		_itemDetailAddToPotionBookButton.Visible = true;
-		if (!_gameState.TryGetPotionRecipe(itemId, out var ingredientIds) || ingredientIds.Count == 0)
+		if (availability == PotionBookAddAvailability.DisabledNoRecordedRecipe)
 		{
 			_itemDetailAddToPotionBookButton.Disabled = true;
 			_itemDetailAddToPotionBookButton.TooltipText = "No recipe is recorded for this potion.";
@@ -1426,14 +1366,6 @@ public partial class InventoryPanel : Control
 	private static string BuildConsumableGateText(ItemDef item)
 	{
 		return InventoryItemTextFormatter.BuildConsumableGateText(item);
-	}
-
-	private bool ItemHasIngredientType(string itemId, string ingredientType)
-	{
-		if (!_itemCatalog.TryGetItem(itemId, out var item))
-			return false;
-
-		return ItemCatalogService.HasTag(item, ingredientType);
 	}
 
 	private static bool IsIngredient(ItemDef item)

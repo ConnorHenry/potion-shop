@@ -1,5 +1,6 @@
 using Godot;
 using OccultShop.Autoload;
+using OccultShop.Infrastructure;
 using OccultShop.Models;
 
 namespace OccultShop.UI;
@@ -48,10 +49,15 @@ public partial class PotionInventoryRow : Control
 		_gameState = gameState;
 		_itemCatalog = itemCatalog;
 		_inventoryPanel = inventoryPanel;
-		_potionSlots = GetRequiredNode<GridContainer>(PotionSlotsPath, nameof(PotionSlotsPath));
-		if (_potionSlots is null)
+		var potionSlots = NodeLookup.GetRequiredNodeOrNull<GridContainer>(
+			this,
+			PotionSlotsPath,
+			nameof(PotionInventoryRow),
+			nameof(PotionSlotsPath));
+		if (potionSlots is null)
 			return;
 
+		_potionSlots = potionSlots;
 		MouseFilter = MouseFilterEnum.Ignore;
 		_gameState.Changed += Refresh;
 		Refresh();
@@ -235,18 +241,6 @@ public partial class PotionInventoryRow : Control
 		}
 
 		return false;
-	}
-
-	private TNode GetRequiredNode<TNode>(NodePath path, string exportName) where TNode : Node
-	{
-		var node = GetNodeOrNull<TNode>(path);
-		if (node is null)
-		{
-			GD.PushError($"PotionInventoryRow: {exportName} was not found at '{path}'.");
-			return default!;
-		}
-
-		return node;
 	}
 
 	private static void ClearContainer(Node container)

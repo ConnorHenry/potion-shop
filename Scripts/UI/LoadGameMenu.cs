@@ -103,7 +103,7 @@ public partial class LoadGameMenu : Control
 			return;
 		}
 
-		var error = GetTree().ChangeSceneToFile("res://Main.tscn");
+		var error = GetTree().ChangeSceneToFile(ScenePaths.Main);
 		if (error != Error.Ok)
 		{
 			GD.PushError($"LoadGameMenu: Failed to load main scene. Error: {error}");
@@ -123,7 +123,7 @@ public partial class LoadGameMenu : Control
 
 	private void OnBackPressed()
 	{
-		var error = GetTree().ChangeSceneToFile("res://MainMenu.tscn");
+		var error = GetTree().ChangeSceneToFile(ScenePaths.MainMenu);
 		if (error != Error.Ok)
 		{
 			GD.PushError($"LoadGameMenu: Failed to load main menu scene. Error: {error}");

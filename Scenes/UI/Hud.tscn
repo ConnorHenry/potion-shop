@@ -3,87 +3,174 @@
 [ext_resource type="Script" uid="uid://cpdo7gyxh2gvl" path="res://Scripts/UI/Hud.cs" id="1_khu2m"]
 
 [node name="Hud" type="Control"]
+custom_minimum_size = Vector2(0, 50)
 layout_mode = 3
-anchor_left = 0.2
+anchors_preset = 10
 anchor_right = 1.0
-offset_left = 16.0
-offset_top = 16.0
-offset_right = -16.0
-offset_bottom = 133.0
-script = ExtResource("1_khu2m")
-GoldLabelPath = NodePath("Gold")
-DreadLabelPath = NodePath("Dread")
-DayLabelPath = NodePath("Day")
-
-[node name="Gold" type="Label" parent="."]
-layout_mode = 0
-offset_right = 156.0
-offset_bottom = 24.0
-text = "Gold:"
-
-[node name="Dread" type="Label" parent="."]
-layout_mode = 0
-offset_top = 26.0
-offset_right = 156.0
 offset_bottom = 50.0
-text = "Dread:"
+grow_horizontal = 2
+script = ExtResource("1_khu2m")
 
-[node name="Day" type="Label" parent="."]
-layout_mode = 0
-offset_top = 52.0
-offset_right = 156.0
-offset_bottom = 76.0
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 1)
+
+[node name="Content" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = 5.0
+offset_right = -16.0
+offset_bottom = -5.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 24
+alignment = 1
+
+[node name="Status" type="HBoxContainer" parent="Content"]
+custom_minimum_size = Vector2(500, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 24
+
+[node name="Gold" type="Label" parent="Content/Status"]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+text = "Gold:"
+vertical_alignment = 1
+
+[node name="Day" type="Label" parent="Content/Status"]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
 text = "Day:"
+vertical_alignment = 1
 
-[node name="ShopTimer" type="Label" parent="."]
-layout_mode = 0
-offset_left = -1.0
-offset_top = 79.0
-offset_right = 219.0
-offset_bottom = 103.0
+[node name="ShopTimer" type="Label" parent="Content/Status"]
+custom_minimum_size = Vector2(190, 0)
+layout_mode = 2
 text = "Shop Timer:"
+vertical_alignment = 1
 
-[node name="ServeCustomer" type="Button" parent="."]
-layout_mode = 0
-offset_left = 440.0
-offset_right = 570.0
-offset_bottom = 40.0
+[node name="RequestAlert" type="Button" parent="Content/Status"]
+visible = false
+custom_minimum_size = Vector2(34, 34)
+layout_mode = 2
+tooltip_text = "Current potion request"
+theme_override_colors/font_color = Color(1, 0.86, 0.05, 1)
+theme_override_font_sizes/font_size = 24
+text = "!"
+
+[node name="Actions" type="HBoxContainer" parent="Content"]
+layout_mode = 2
+size_flags_horizontal = 0
+theme_override_constants/separation = 10
+alignment = 2
+
+[node name="ServeCustomer" type="Button" parent="Content/Actions"]
+custom_minimum_size = Vector2(120, 34)
+layout_mode = 2
 text = "Start Day"
 
-[node name="BrewPotion" type="Button" parent="."]
-layout_mode = 0
-offset_left = 580.0
-offset_right = 700.0
-offset_bottom = 40.0
-text = "Brew Potion"
-
-[node name="Garden" type="Button" parent="."]
-layout_mode = 0
-offset_left = 710.0
-offset_right = 810.0
-offset_bottom = 40.0
+[node name="Garden" type="Button" parent="Content/Actions"]
+custom_minimum_size = Vector2(96, 34)
+layout_mode = 2
 text = "Garden"
 
-[node name="MainMenu" type="Button" parent="."]
+[node name="Map" type="Button" parent="Content/Actions"]
+custom_minimum_size = Vector2(80, 34)
+layout_mode = 2
+text = "Map"
+
+[node name="MainMenu" type="Button" parent="Content/Actions"]
+custom_minimum_size = Vector2(88, 34)
+layout_mode = 2
+text = "Menu"
+
+[node name="RequestPanel" type="PanelContainer" parent="."]
+visible = false
+custom_minimum_size = Vector2(340, 0)
+layout_mode = 1
+offset_left = 496.0
+offset_top = 54.0
+offset_right = 836.0
+offset_bottom = 230.0
+grow_horizontal = 0
+grow_vertical = 0
+
+[node name="Margin" type="MarginContainer" parent="RequestPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="VBox" type="VBoxContainer" parent="RequestPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="RequestPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.86, 0.05, 1)
+theme_override_font_sizes/font_size = 18
+text = "Current Request"
+
+[node name="Description" type="RichTextLabel" parent="RequestPanel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 64)
+layout_mode = 2
+fit_content = true
+scroll_active = false
+
+[node name="Traits" type="HBoxContainer" parent="RequestPanel/Margin/VBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 14
+
+[node name="DesiredColumn" type="VBoxContainer" parent="RequestPanel/Margin/VBox/Traits"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="DesiredTitle" type="Label" parent="RequestPanel/Margin/VBox/Traits/DesiredColumn"]
+layout_mode = 2
+text = "Desired"
+
+[node name="DesiredTraits" type="RichTextLabel" parent="RequestPanel/Margin/VBox/Traits/DesiredColumn"]
+custom_minimum_size = Vector2(0, 72)
+layout_mode = 2
+fit_content = true
+scroll_active = false
+
+[node name="BadColumn" type="VBoxContainer" parent="RequestPanel/Margin/VBox/Traits"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="BadTitle" type="Label" parent="RequestPanel/Margin/VBox/Traits/BadColumn"]
+layout_mode = 2
+text = "Bad"
+
+[node name="BadTraits" type="RichTextLabel" parent="RequestPanel/Margin/VBox/Traits/BadColumn"]
+custom_minimum_size = Vector2(0, 72)
+layout_mode = 2
+fit_content = true
+scroll_active = false
+
+[node name="SettingsPanel" type="PanelContainer" parent="."]
+visible = false
 layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -109.0
-offset_right = -71.0
-offset_bottom = 40.0
-grow_horizontal = 0
-text = "⚙"
-
-[node name="SettingsPanel" type="PanelContainer" parent="."]
-visible = false
-layout_mode = 0
-anchor_left = 1.0
-anchor_right = 1.0
 offset_left = -250.0
-offset_top = 44.0
+offset_top = 54.0
 offset_right = -16.0
-offset_bottom = 204.0
+offset_bottom = 214.0
 grow_horizontal = 0
 grow_vertical = 0
 
@@ -116,13 +203,14 @@ text = "Debug Panel"
 
 [node name="Settings" type="PanelContainer" parent="."]
 visible = false
-layout_mode = 0
+layout_mode = 1
+anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
 offset_left = -380.0
-offset_top = 44.0
+offset_top = 54.0
 offset_right = -16.0
-offset_bottom = 206.0
+offset_bottom = 216.0
 grow_horizontal = 0
 grow_vertical = 0
 

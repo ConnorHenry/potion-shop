@@ -21,6 +21,8 @@ public sealed class CustomerInteractionDef
     public int Weight { get; set; } = 1;
     public Dictionary<string, int> DesiredTraits { get; set; } = new();
     public Dictionary<string, int> BadTraits { get; set; } = new();
+    public Dictionary<string, int> RequiredMinTraits { get; set; } = new();
+    public Dictionary<string, int> RequiredMaxTraits { get; set; } = new();
     public List<IngredientPortionDef> RequiredIngredientAmounts { get; set; } = new();
     public List<EffectDef> OnSuccessEffects { get; set; } = new();
     public List<EffectDef> OnFailureEffects { get; set; } = new();
@@ -61,6 +63,8 @@ public sealed class CustomerInteractionDef
             Description = Text,
             DesiredTraits = new Dictionary<string, int>(DesiredTraits),
             BadTraits = new Dictionary<string, int>(BadTraits),
+            RequiredMinTraits = new Dictionary<string, int>(RequiredMinTraits),
+            RequiredMaxTraits = new Dictionary<string, int>(RequiredMaxTraits),
             RequiredIngredientAmounts = RequiredIngredientAmounts.Select(x => x.Clone()).ToList()
         };
     }
@@ -113,6 +117,14 @@ public sealed class CustomerRequestDef
     // Traits/risks that are bad for this request
     // Example: "addiction": 5, "rage": 4
     public Dictionary<string, int> BadTraits { get; set; } = new();
+
+    // Hard trait thresholds that must be met by the final potion.
+    // Example: "mend": 9 means Mend must be >= 9.
+    public Dictionary<string, int> RequiredMinTraits { get; set; } = new();
+
+    // Hard trait ceilings that must not be exceeded by the final potion.
+    // Example: "vigor": 1 means Vigor must be <= 1.
+    public Dictionary<string, int> RequiredMaxTraits { get; set; } = new();
 
     public List<IngredientPortionDef> RequiredIngredientAmounts { get; set; } = new();
 }
