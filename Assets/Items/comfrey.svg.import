@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b1puqab2k52k"
-path="res://.godot/imported/amber_nightshade.png-77bfd4a70e927c6b5c7e1763dbf13eb0.ctex"
+uid="uid://djwhbc8pmmx8w"
+path="res://.godot/imported/comfrey.svg-446985b6edc981102e6568791a8354fb.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://Assets/Items/amber_nightshade.png"
-dest_files=["res://.godot/imported/amber_nightshade.png-77bfd4a70e927c6b5c7e1763dbf13eb0.ctex"]
+source_file="res://Assets/Items/comfrey.svg"
+dest_files=["res://.godot/imported/comfrey.svg-446985b6edc981102e6568791a8354fb.ctex"]
 
 [params]
 
@@ -32,3 +32,6 @@ process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
 detect_3d/compress_to=1
+svg/scale=1.0
+editor/scale_with_editor_scale=false
+editor/convert_colors_with_editor_theme=false

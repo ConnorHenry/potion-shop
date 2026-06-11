@@ -329,6 +329,7 @@ public partial class RuntimeContentDb : Node
 			Quality = item.Quality,
 			Traits = item.Traits is null ? new Dictionary<string, int>() : new Dictionary<string, int>(item.Traits),
 			Risks = item.Risks is null ? new Dictionary<string, int>() : new Dictionary<string, int>(item.Risks),
+			Preparations = ClonePreparations(item.Preparations),
 			IngredientEffects = CloneIngredientEffects(item.IngredientEffects),
 			BasePrice = item.BasePrice,
 			ConsumableEffect = item.ConsumableEffect is null
@@ -352,8 +353,39 @@ public partial class RuntimeContentDb : Node
 					BaseItemId = item.Treatment.BaseItemId,
 					ConsumableItemId = item.Treatment.ConsumableItemId,
 					RemovedRisk = item.Treatment.RemovedRisk
+				},
+			PreparedIngredient = item.PreparedIngredient is null
+				? null
+				: new PreparedIngredientDef
+				{
+					BaseIngredientId = item.PreparedIngredient.BaseIngredientId,
+					PreparationId = item.PreparedIngredient.PreparationId
 				}
 		};
+	}
+
+	private static Dictionary<string, IngredientPreparationDef> ClonePreparations(
+		Dictionary<string, IngredientPreparationDef>? preparations)
+	{
+		var clones = new Dictionary<string, IngredientPreparationDef>(StringComparer.OrdinalIgnoreCase);
+		if (preparations is null)
+			return clones;
+
+		foreach (var pair in preparations)
+		{
+			if (string.IsNullOrWhiteSpace(pair.Key) || pair.Value is null)
+				continue;
+
+			clones[pair.Key] = new IngredientPreparationDef
+			{
+				Id = pair.Value.Id,
+				Name = pair.Value.Name,
+				Traits = pair.Value.Traits is null ? new Dictionary<string, int>() : new Dictionary<string, int>(pair.Value.Traits),
+				Risks = pair.Value.Risks is null ? new Dictionary<string, int>() : new Dictionary<string, int>(pair.Value.Risks)
+			};
+		}
+
+		return clones;
 	}
 
 	private static List<IngredientEffectDef> CloneIngredientEffects(List<IngredientEffectDef>? effects)

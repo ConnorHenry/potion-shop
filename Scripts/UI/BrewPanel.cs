@@ -39,14 +39,7 @@ public partial class BrewPanel : Control
 	[Export] public NodePath IngredientSlotOneLabelPath = default!;
 	[Export] public NodePath IngredientSlotTwoLabelPath = default!;
 	[Export] public NodePath IngredientSlotThreeLabelPath = default!;
-	[Export] public NodePath PotionNamePreviewLabelPath = default!;
-	[Export] public NodePath ResultLabelPath = default!;
-	[Export] public NodePath PricePreviewLabelPath = default!;
-	[Export] public NodePath TraitPreviewLabelPath = default!;
-	[Export] public NodePath RiskPreviewLabelPath = default!;
-	[Export] public NodePath RiskStatusIconLabelPath = default!;
-	[Export] public NodePath RiskStatusLabelPath = default!;
-	[Export] public NodePath IngredientCountLabelPath = default!;
+	[Export] public NodePath RequestChecklistLabelPath = default!;
 	[Export] public NodePath BrewButtonPath = default!;
 	[Export] public NodePath ClearButtonPath = default!;
 	[Export] public NodePath RuntimeContentDbPath = new(AutoloadNodePaths.RuntimeContentDb);
@@ -66,14 +59,7 @@ public partial class BrewPanel : Control
 	private Label _ingredientSlotOneLabel = default!;
 	private Label _ingredientSlotTwoLabel = default!;
 	private Label _ingredientSlotThreeLabel = default!;
-	private Label _potionNamePreviewLabel = default!;
-	private RichTextLabel _resultLabel = default!;
-	private Label _pricePreviewLabel = default!;
-	private Label _traitPreviewLabel = default!;
-	private Label _riskPreviewLabel = default!;
-	private Label _riskStatusIconLabel = default!;
-	private Label _riskStatusLabel = default!;
-	private Label _ingredientCountLabel = default!;
+	private RichTextLabel _requestChecklistLabel = default!;
 	private Button _brewButton = default!;
 	private Button _clearButton = default!;
 	private RuntimeContentDb _runtimeContentDb = default!;
@@ -143,17 +129,10 @@ public partial class BrewPanel : Control
 		_ingredientSlotOneLabel = GetNode<Label>(IngredientSlotOneLabelPath);
 		_ingredientSlotTwoLabel = GetNode<Label>(IngredientSlotTwoLabelPath);
 		_ingredientSlotThreeLabel = GetNode<Label>(IngredientSlotThreeLabelPath);
-		_potionNamePreviewLabel = GetNode<Label>(PotionNamePreviewLabelPath);
-		_resultLabel = GetNode<RichTextLabel>(ResultLabelPath);
-		_pricePreviewLabel = GetNode<Label>(PricePreviewLabelPath);
-		_traitPreviewLabel = GetNode<Label>(TraitPreviewLabelPath);
-		_riskPreviewLabel = GetNode<Label>(RiskPreviewLabelPath);
-		_riskStatusIconLabel = GetNode<Label>(RiskStatusIconLabelPath);
-		_riskStatusLabel = GetNode<Label>(RiskStatusLabelPath);
-		_ingredientCountLabel = GetNode<Label>(IngredientCountLabelPath);
+		_requestChecklistLabel = GetNode<RichTextLabel>(RequestChecklistLabelPath);
 		_brewButton = GetNode<Button>(BrewButtonPath);
 		_clearButton = GetNode<Button>(ClearButtonPath);
-		_resultLabel.BbcodeEnabled = true;
+		_requestChecklistLabel.BbcodeEnabled = true;
 
 		SetInteractiveCursor(_ingredientSlotOneContainer);
 		SetInteractiveCursor(_ingredientSlotTwoContainer);
@@ -219,11 +198,9 @@ public partial class BrewPanel : Control
 
 	public void HidePanel()
 	{
-		ReturnQueuedIngredients();
 		ResetSlotDragState();
 		ClearDropAnimations();
 		Visible = false;
-		_resultLabel.Text = "";
 		RefreshIngredientIcons();
 	}
 
@@ -303,18 +280,27 @@ public partial class BrewPanel : Control
 	{
 		if (grams <= 0)
 		{
-			_resultLabel.Text = "Measured ingredients need at least 1g.";
+			ShowBrewFeedback("Measured ingredients need at least 1g.");
 			return false;
 		}
 
 		return TryQueueIngredientPortion(itemId, grams);
 	}
 
+	public bool TryQueueReservedIngredient(string itemId)
+	{
+		if (!TryQueueIngredientPortion(itemId, 0, consumeInventory: false))
+			return false;
+
+		PlayQueuedIngredientDrop(itemId, GetRightClickDropStartPosition());
+		return true;
+	}
+
 	public bool TryQueueReservedMeasuredIngredient(string itemId, int grams)
 	{
 		if (grams <= 0)
 		{
-			_resultLabel.Text = "Measured ingredients need at least 1g.";
+			ShowBrewFeedback("Measured ingredients need at least 1g.");
 			return false;
 		}
 
@@ -400,67 +386,89 @@ public partial class BrewPanel : Control
 	{
 		if (!_itemCatalog.TryGetItem(itemId, out var item))
 		{
-			_resultLabel.Text = "That item is not recognized.";
+			ShowBrewFeedback("That item is not recognized.");
 			return false;
 		}
 
 		if (!IsIngredient(item))
 		{
-			_resultLabel.Text = IsPotion(itemId)
+			ShowBrewFeedback(IsPotion(itemId)
 				? "Brewing only accepts ingredients, not potions."
-				: "Brewing only accepts ingredients.";
+				: "Brewing only accepts ingredients.");
 			return false;
 		}
 
-		if (_queuedIngredients.Any(x => string.Equals(x.IngredientId, itemId, System.StringComparison.OrdinalIgnoreCase)))
+		if (!TryBuildQueuedIngredientPortion(itemId, item, grams, out var queuedIngredient, out var queueError))
 		{
-			_resultLabel.Text = "Each ingredient can only be used once per potion.";
+			ShowBrewFeedback(queueError);
+			return false;
+		}
+
+		if (_queuedIngredients.Any(x => string.Equals(x.IngredientId, queuedIngredient.IngredientId, System.StringComparison.OrdinalIgnoreCase)))
+		{
+			ShowBrewFeedback("Each ingredient can only be used once per potion.");
 			return false;
 		}
 
 		var queuedWithCandidate = CloneQueuedIngredients(_queuedIngredients);
-		queuedWithCandidate.Add(new IngredientPortionDef
-		{
-			IngredientId = itemId,
-			Grams = Math.Max(0, grams)
-		});
+		queuedWithCandidate.Add(queuedIngredient.Clone());
 
 		var followsPredefinedRecipe = _predefinedPotionRecipes.MatchesAnyRecipePrefix(queuedWithCandidate);
 		if (!followsPredefinedRecipe)
 		{
 			if (!TryGetIngredientType(item, out _))
 			{
-				_resultLabel.Text = "Ingredient type is missing.";
+				ShowBrewFeedback("Ingredient type is missing.");
 				return false;
 			}
 		}
 
 		if (_queuedIngredients.Count >= 3)
 		{
-			_resultLabel.Text = "Brewing requires exactly 3 ingredients.";
+			ShowBrewFeedback("Brewing requires exactly 3 ingredients.");
 			return false;
 		}
 
 		if (consumeInventory && !_gameState.HasItem(itemId, 1))
 		{
-			_resultLabel.Text = "Not enough stock for that ingredient.";
+			ShowBrewFeedback("Not enough stock for that ingredient.");
 			return false;
 		}
 
 		if (consumeInventory && !_gameState.ConsumeItem(itemId, 1))
 		{
-			_resultLabel.Text = "Could not take that ingredient.";
+			ShowBrewFeedback("Could not take that ingredient.");
 			return false;
 		}
 
-		_queuedIngredients.Add(new IngredientPortionDef
-		{
-			IngredientId = itemId,
-			Grams = Math.Max(0, grams)
-		});
-		_resultLabel.Text = "";
+		_queuedIngredients.Add(queuedIngredient);
 		RefreshIngredientIcons();
 		EmitSignal(SignalName.IngredientQueued, itemId, _queuedIngredients.Count);
+		return true;
+	}
+
+	private bool TryBuildQueuedIngredientPortion(
+		string itemId,
+		ItemDef item,
+		int grams,
+		out IngredientPortionDef ingredientPortion,
+		out string error)
+	{
+		ingredientPortion = default!;
+		error = string.Empty;
+		if (!IngredientPreparationCatalog.TryGetPreparedIngredientInfo(item, out var baseIngredientId, out var preparationId))
+		{
+			error = "Prepare ingredients before brewing. Use Raw for recipes that call for raw ingredients.";
+			return false;
+		}
+
+		ingredientPortion = new IngredientPortionDef
+		{
+			IngredientId = baseIngredientId,
+			ItemId = itemId,
+			PreparationId = preparationId,
+			Grams = Math.Max(0, grams)
+		};
 		return true;
 	}
 
@@ -468,9 +476,7 @@ public partial class BrewPanel : Control
 	{
 		ResetSlotDragState();
 		ClearDropAnimations();
-		ReturnQueuedIngredients();
 		_queuedIngredients.Clear();
-		_resultLabel.Text = "";
 		RefreshIngredientIcons();
 	}
 
@@ -478,7 +484,7 @@ public partial class BrewPanel : Control
 	{
 		if (_queuedIngredients.Count != 3)
 		{
-			_resultLabel.Text = "Brewing requires exactly 3 ingredients.";
+			ShowBrewFeedback("Brewing requires exactly 3 ingredients.");
 			return;
 		}
 
@@ -487,21 +493,20 @@ public partial class BrewPanel : Control
 
 		if (!TryBuildIngredientDefs(_queuedIngredients, out var ingredientDefs, out var ingredientError))
 		{
-			_resultLabel.Text = ingredientError;
+			ShowBrewFeedback(ingredientError);
 			return;
 		}
 
 		var brewResult = _brewingService.BrewPotion(
 			ingredientDefs,
-			null,
-			_dataDb.Synergies.ToList());
+			null);
 
 		var totalIngredientPrice = CalculateIngredientTotalPrice(_queuedIngredients);
 		var potionBasePrice = Math.Max(0, totalIngredientPrice - brewResult.RiskIngredientPricePenalty);
 		var brewCost = BrewPricing.CalculateBrewCost(totalIngredientPrice, brewResult);
 		if (_gameState.Gold < brewCost)
 		{
-			_resultLabel.Text = $"Need {brewCost} gold to brew this potion.";
+			ShowBrewFeedback($"Need {brewCost} gold to brew this potion.");
 			return;
 		}
 
@@ -534,7 +539,7 @@ public partial class BrewPanel : Control
 		{
 			if (!_itemCatalog.TryGetItem(potionItemId, out var basePotionItem))
 			{
-				_resultLabel.Text = "Known potion recipe is missing from the item catalog.";
+				ShowBrewFeedback("Known potion recipe is missing from the item catalog.");
 				GD.PushError($"BrewPanel: Known potion item '{potionItemId}' is missing from the item catalog.");
 				return;
 			}
@@ -566,7 +571,7 @@ public partial class BrewPanel : Control
 
 		if (!_inventoryBrewService.CanAddPotion(potionItemId, BrewedPotionOutputQuantity))
 		{
-			_resultLabel.Text = PotionInventoryBrewService.PotionInventoryFullMessage;
+			ShowBrewFeedback(PotionInventoryBrewService.PotionInventoryFullMessage);
 			return;
 		}
 
@@ -582,15 +587,9 @@ public partial class BrewPanel : Control
 		_queuedIngredients.Clear();
 		ResetSlotDragState();
 		RefreshIngredientIcons();
-		_resultLabel.Text = BrewPanelTextFormatter.BuildBrewResultText(
+		ShowBrewFeedback(BrewPanelTextFormatter.BuildBrewResultToastText(
 			PotionDisplayName(potionItemId, DefaultItemName(potionItemId)),
-			brewResult);
-	}
-
-	private void ReturnQueuedIngredients()
-	{
-		foreach (var ingredient in _queuedIngredients)
-			_gameState.AddItem(ingredient.IngredientId, 1);
+			brewResult));
 	}
 
 	private void HandleIngredientSlotGuiInput(int slotIndex, InputEvent @event)
@@ -630,10 +629,7 @@ public partial class BrewPanel : Control
 		if (slotIndex < 0 || slotIndex >= _queuedIngredients.Count)
 			return;
 
-		var removedIngredientId = _queuedIngredients[slotIndex].IngredientId;
 		_queuedIngredients.RemoveAt(slotIndex);
-		_gameState.AddItem(removedIngredientId, 1);
-		_resultLabel.Text = "";
 		RefreshIngredientIcons();
 	}
 
@@ -671,7 +667,7 @@ public partial class BrewPanel : Control
 			}
 
 			var ingredient = _queuedIngredients[i];
-			var ingredientId = ingredient.IngredientId;
+			var ingredientId = ingredient.InventoryItemId;
 			if (!_itemCatalog.TryGetItem(ingredientId, out var item))
 			{
 				slots[i].Texture = null;
@@ -689,96 +685,32 @@ public partial class BrewPanel : Control
 	private void RefreshBrewPreview()
 	{
 		var ingredientCount = _queuedIngredients.Count;
-		var totalIngredientPrice = CalculateIngredientTotalPrice(_queuedIngredients);
-		_ingredientCountLabel.Text = BrewPanelTextFormatter.BuildIngredientInstructionText(ingredientCount);
-		_ingredientCountLabel.AddThemeColorOverride("font_color", new Color(0.055f, 0.039f, 0.025f, 1f));
-		_pricePreviewLabel.Text = $"\u00A3{totalIngredientPrice}";
 
 		if (ingredientCount == 0)
 		{
-			SetIncompletePreviewState();
+			RefreshRequestChecklist(null);
 			return;
 		}
 
 		if (!TryBuildIngredientDefs(_queuedIngredients, out var ingredientDefs, out _))
 		{
-			SetIncompletePreviewState();
+			RefreshRequestChecklist(null);
 			return;
 		}
 
 		var previewResult = _brewingService.PreviewPotion(
 			ingredientDefs,
-			null,
-			_dataDb.Synergies.ToList());
-
-		if (ingredientCount < 3)
-		{
-			SetPartialPreviewState(previewResult);
-			return;
-		}
-
-		var combinationKey = PotionRecipeLookup.BuildCombinationKey(_queuedIngredients);
-		_potionNamePreviewLabel.Text = _predefinedPotionRecipes.TryGetRecipe(_queuedIngredients, out var predefinedPreviewRecipe)
-			? predefinedPreviewRecipe.Name
-			: GetPreviewPotionName(combinationKey);
-		_potionNamePreviewLabel.AddThemeColorOverride("font_color", new Color(0.055f, 0.039f, 0.025f, 1f));
-
-		SetPreviewResultState(previewResult, isPartial: false);
+			null);
+		RefreshRequestChecklist(previewResult);
 	}
 
-	private void SetPartialPreviewState(PotionResult previewResult)
+	private void RefreshRequestChecklist(PotionResult? previewResult)
 	{
-		ClearPreviewPotionName();
-		_potionNamePreviewLabel.Text = "Unfinished Brew";
-		_potionNamePreviewLabel.AddThemeColorOverride("font_color", new Color(0.055f, 0.039f, 0.025f, 1f));
-		SetPreviewResultState(previewResult, isPartial: true);
-	}
-
-	private void SetPreviewResultState(PotionResult previewResult, bool isPartial)
-	{
-		_traitPreviewLabel.Text = BrewPanelTextFormatter.BuildStatListText(previewResult.Traits, 3);
-		_riskPreviewLabel.Text = previewResult.PossibleRisks.Count == 0
-			? "None detected"
-			: BrewPanelTextFormatter.BuildRiskChanceListText(previewResult.PossibleRisks, 2);
-		SetRiskStatusPreview(previewResult.PossibleRisks.Count == 0, isPartial);
-		_resultLabel.Text = BrewPanelTextFormatter.BuildPreviewEffectText(previewResult);
-	}
-
-	private void SetIncompletePreviewState()
-	{
-		ClearPreviewPotionName();
-		_potionNamePreviewLabel.Text = "Unfinished Brew";
-		_potionNamePreviewLabel.AddThemeColorOverride("font_color", new Color(0.055f, 0.039f, 0.025f, 1f));
-		_traitPreviewLabel.Text = "-\n-\n-";
-		_riskPreviewLabel.Text = "-";
-		_riskStatusIconLabel.Text = "v";
-		_riskStatusLabel.Text = "Waiting for 3 ingredients";
-		_resultLabel.Text = "";
-		_riskStatusIconLabel.AddThemeColorOverride("font_color", new Color(0.65f, 0.68f, 0.72f, 1f));
-		_riskStatusLabel.AddThemeColorOverride("font_color", new Color(0.65f, 0.68f, 0.72f, 1f));
-	}
-
-	private void SetRiskStatusPreview(bool hasNoRisks, bool isPartial)
-	{
-		if (hasNoRisks)
-		{
-			_riskStatusIconLabel.Text = "v";
-			_riskStatusLabel.Text = isPartial ? "No detected risks yet" : "No detected risks";
-			_riskStatusIconLabel.AddThemeColorOverride("font_color", new Color(0.43f, 0.83f, 0.48f, 1f));
-			_riskStatusLabel.AddThemeColorOverride("font_color", new Color(0.43f, 0.83f, 0.48f, 1f));
-			return;
-		}
-
-		_riskStatusIconLabel.Text = "!";
-		_riskStatusLabel.Text = isPartial ? "Possible risks detected" : "Risks detected";
-		_riskStatusIconLabel.AddThemeColorOverride("font_color", new Color(0.94f, 0.38f, 0.33f, 1f));
-		_riskStatusLabel.AddThemeColorOverride("font_color", new Color(0.94f, 0.38f, 0.33f, 1f));
-	}
-
-	private void ClearPreviewPotionName()
-	{
-		_previewPotionCombinationKey = string.Empty;
-		_previewPotionName = string.Empty;
+		_requestChecklistLabel.Text = CustomerDialogueTextFormatter.BuildBrewingRequestChecklistText(
+			_gameState.ActiveCustomerRequest,
+			previewResult?.Traits,
+			previewResult?.PossibleRisks,
+			_queuedIngredients);
 	}
 
 	private string GetPreviewPotionName(string combinationKey)
@@ -847,6 +779,11 @@ public partial class BrewPanel : Control
 		control.MouseDefaultCursorShape = CursorShape.PointingHand;
 	}
 
+	private void ShowBrewFeedback(string message)
+	{
+		CursorToast.Show(this, message);
+	}
+
 	private string ItemName(string itemId)
 	{
 		return PotionDisplayName(itemId, DefaultItemName(itemId));
@@ -854,7 +791,7 @@ public partial class BrewPanel : Control
 
 	private string FormatIngredientPortionLabel(IngredientPortionDef ingredient)
 	{
-		var itemName = ItemName(ingredient.IngredientId);
+		var itemName = ItemName(ingredient.InventoryItemId);
 		return ingredient.Grams > 0
 			? $"{itemName} ({ingredient.Grams}g)"
 			: itemName;
@@ -891,7 +828,7 @@ public partial class BrewPanel : Control
 	{
 		foreach (var queuedIngredient in _queuedIngredients)
 		{
-			var queuedItemId = queuedIngredient.IngredientId;
+			var queuedItemId = queuedIngredient.InventoryItemId;
 			if (!_itemCatalog.TryGetItem(queuedItemId, out var queuedItem))
 				continue;
 
@@ -916,7 +853,7 @@ public partial class BrewPanel : Control
 
 		foreach (var queuedIngredient in _queuedIngredients)
 		{
-			var queuedItemId = queuedIngredient.IngredientId;
+			var queuedItemId = queuedIngredient.InventoryItemId;
 			if (!_itemCatalog.TryGetItem(queuedItemId, out var queuedItem))
 			{
 				error = $"Unknown ingredient: {queuedItemId}";
@@ -1007,7 +944,7 @@ public partial class BrewPanel : Control
 
 		foreach (var ingredientPortion in ingredients)
 		{
-			var itemId = ingredientPortion.IngredientId;
+			var itemId = ingredientPortion.InventoryItemId;
 			if (!_itemCatalog.TryGetItem(itemId, out var item))
 				continue;
 
@@ -1056,7 +993,7 @@ public partial class BrewPanel : Control
 
 		foreach (var ingredientPortion in ingredientPortions)
 		{
-			var itemId = ingredientPortion.IngredientId;
+			var itemId = ingredientPortion.InventoryItemId;
 			if (!_itemCatalog.TryGetItem(itemId, out var item))
 			{
 				error = $"Unknown ingredient: {itemId}";
@@ -1085,7 +1022,7 @@ public partial class BrewPanel : Control
 	{
 		var ingredientIds = new List<string>(ingredients.Count);
 		foreach (var ingredient in ingredients)
-			ingredientIds.Add(ingredient.IngredientId);
+			ingredientIds.Add(ingredient.InventoryItemId);
 
 		return ingredientIds;
 	}

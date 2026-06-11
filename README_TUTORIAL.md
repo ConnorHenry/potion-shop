@@ -62,10 +62,10 @@ Edit `Scripts/Tutorial/TutorialContentResource.cs`.
 
 - Step copy: `BuildDefaultSteps()`.
 - Runtime IDs used by flow logic:
-  - `GraveMintId`
-  - `ObsidianResinId`
-  - `IronLullabyRootId`
-  - `BlackIchorId`
+  - `MintId`
+  - `GorseId`
+  - `ThymeId`
+  - `ElderId`
   - `TutorialPotionId`
   - `TutorialCustomerId`
   - `AmbiguousTutorialCustomerId`

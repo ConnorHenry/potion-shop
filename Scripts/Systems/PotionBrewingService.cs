@@ -6,10 +6,9 @@ namespace OccultShop.Systems;
 
 public sealed class PotionBrewingService
 {
-    private const float QualityWeight = 0.25f;
-    private const float FitWeight = 0.30f;
-    private const float SynergyWeight = 0.25f;
-    private const float StabilityWeight = 0.20f;
+    private const float QualityWeight = 0.30f;
+    private const float FitWeight = 0.45f;
+    private const float StabilityWeight = 0.25f;
     private const int MaxRiskChanceValue = 10;
     private const int RiskPresenceValue = 1;
 
@@ -27,18 +26,16 @@ public sealed class PotionBrewingService
 
     public PotionResult BrewPotion(
         List<IngredientDef> ingredients,
-        CustomerRequestDef? request,
-        List<SynergyRule> synergyRules)
+        CustomerRequestDef? request)
     {
-        return BrewPotionInternal(ingredients, request, synergyRules, rollRisks: true);
+        return BrewPotionInternal(ingredients, request, rollRisks: true);
     }
 
     public PotionResult PreviewPotion(
         List<IngredientDef> ingredients,
-        CustomerRequestDef? request,
-        List<SynergyRule> synergyRules)
+        CustomerRequestDef? request)
     {
-        return BrewPotionInternal(ingredients, request, synergyRules, rollRisks: false);
+        return BrewPotionInternal(ingredients, request, rollRisks: false);
     }
 
     public PotionResult EvaluatePotionItem(ItemDef potionItem, CustomerRequestDef? request)
@@ -49,7 +46,6 @@ public sealed class PotionBrewingService
             result.Notes.Add("No valid potion item was provided.");
             result.IngredientQualityScore = 0;
             result.EffectFitScore = 0;
-            result.SynergyScore = 0;
             result.StabilityScore = 0;
             result.PenaltyScore = 100;
             result.FinalScore = 0.0f;
@@ -61,22 +57,20 @@ public sealed class PotionBrewingService
         result.Risks = NormalizeCarriedRisks(potionItem.Risks);
         result.PossibleRisks = new Dictionary<string, int>(result.Risks, StringComparer.OrdinalIgnoreCase);
         result.IngredientQualityScore = Clamp01Score(potionItem.Quality);
-        result.SynergyScore = 0;
         result.EffectFitScore = CalculateEffectFit(request, result.Traits, result.Risks, result);
-        result.StabilityScore = CalculateStability(result.Traits, result.Risks, 0);
-        result.PenaltyScore = CalculatePenalties(result.Risks, 0, result.StabilityScore);
+        result.StabilityScore = CalculateStability(result.Traits, result.Risks);
+        result.PenaltyScore = CalculatePenalties(result.Risks, result.StabilityScore);
 
         var finalScore =
             (QualityWeight * result.IngredientQualityScore) +
             (FitWeight * result.EffectFitScore) +
-            (SynergyWeight * result.SynergyScore) +
             (StabilityWeight * result.StabilityScore) -
             result.PenaltyScore;
 
         result.FinalScore = MathF.Round(finalScore, 2);
         result.Grade = GradeFromScore(result.FinalScore);
         result.Notes.Add(
-            $"Q={result.IngredientQualityScore}, F={result.EffectFitScore}, Y={result.SynergyScore}, T={result.StabilityScore}, P={result.PenaltyScore}, S={result.FinalScore}");
+            $"Q={result.IngredientQualityScore}, F={result.EffectFitScore}, T={result.StabilityScore}, P={result.PenaltyScore}, S={result.FinalScore}");
 
         return result;
     }
@@ -84,7 +78,6 @@ public sealed class PotionBrewingService
     private PotionResult BrewPotionInternal(
         List<IngredientDef> ingredients,
         CustomerRequestDef? request,
-        List<SynergyRule> synergyRules,
         bool rollRisks)
     {
         var result = new PotionResult();
@@ -95,7 +88,6 @@ public sealed class PotionBrewingService
         {
             result.IngredientQualityScore = 0;
             result.EffectFitScore = 0;
-            result.SynergyScore = 0;
             result.StabilityScore = 0;
             result.PenaltyScore = 100;
             result.FinalScore = 0.0f;
@@ -121,36 +113,32 @@ public sealed class PotionBrewingService
         // 5) Calculate ingredient quality (Q)
         result.IngredientQualityScore = CalculateIngredientQuality(validIngredients);
 
-        // 6) Apply synergies (Y)
-        var synergyEval = ApplySynergies(combinedTraits, carriedRisks, possibleRisks, synergyRules, result, rollRisks);
-        result.SynergyScore = synergyEval.Score;
         result.Risks = carriedRisks;
         result.PossibleRisks = possibleRisks;
 
-        // 7) Calculate effect fit (F)
+        // 6) Calculate effect fit (F)
         result.EffectFitScore = CalculateEffectFit(request, combinedTraits, carriedRisks, result);
 
-        // 8) Calculate stability (T)
-        result.StabilityScore = CalculateStability(combinedTraits, carriedRisks, synergyEval.NegativeMagnitude);
+        // 7) Calculate stability (T)
+        result.StabilityScore = CalculateStability(combinedTraits, carriedRisks);
 
-        // 9) Calculate penalties (P)
-        result.PenaltyScore = CalculatePenalties(carriedRisks, synergyEval.NegativeMagnitude, result.StabilityScore);
+        // 8) Calculate penalties (P)
+        result.PenaltyScore = CalculatePenalties(carriedRisks, result.StabilityScore);
 
-        // 10) Calculate final score (S)
+        // 9) Calculate final score (S)
         var finalScore =
             (QualityWeight * result.IngredientQualityScore) +
             (FitWeight * result.EffectFitScore) +
-            (SynergyWeight * result.SynergyScore) +
             (StabilityWeight * result.StabilityScore) -
             result.PenaltyScore;
 
         result.FinalScore = MathF.Round(finalScore, 2);
 
-        // 11) Convert final score to grade
+        // 10) Convert final score to grade
         result.Grade = GradeFromScore(result.FinalScore);
 
         result.Notes.Add(
-            $"Q={result.IngredientQualityScore}, F={result.EffectFitScore}, Y={result.SynergyScore}, T={result.StabilityScore}, P={result.PenaltyScore}, S={result.FinalScore}");
+            $"Q={result.IngredientQualityScore}, F={result.EffectFitScore}, T={result.StabilityScore}, P={result.PenaltyScore}, S={result.FinalScore}");
 
         return result;
     }
@@ -658,122 +646,6 @@ public sealed class PotionBrewingService
         return (int)MathF.Round(total / ingredients.Count);
     }
 
-    private (int Score, int NegativeMagnitude) ApplySynergies(
-        Dictionary<string, int> traits,
-        Dictionary<string, int> risks,
-        Dictionary<string, int> possibleRisks,
-        List<SynergyRule> synergyRules,
-        PotionResult result,
-        bool rollRisks)
-    {
-        if (synergyRules is null || synergyRules.Count == 0)
-            return (0, 0);
-
-        var synergyScore = 0;
-        var negativeMagnitude = 0;
-
-        foreach (var rule in synergyRules)
-        {
-            if (rule is null)
-                continue;
-
-            if (rule.RequiredTraits.Count == 0 && rule.RequiredRisks.Count == 0)
-                continue;
-
-            if (!HasAllRequiredValues(traits, rule.RequiredTraits))
-                continue;
-
-            if (!HasAllRequiredValues(risks, rule.RequiredRisks))
-                continue;
-
-            result.TriggeredSynergies.Add(rule.Id);
-            result.TriggeredSynergyDetails.Add(new TriggeredSynergyDef
-            {
-                Id = rule.Id,
-                RequiredTraits = new List<string>(rule.RequiredTraits),
-                RequiredRisks = new List<string>(rule.RequiredRisks),
-                ContributingTraits = BuildContributingTraits(traits, rule.RequiredTraits),
-                ContributingRisks = BuildContributingTraits(risks, rule.RequiredRisks),
-                Modifier = rule.Modifier,
-                Description = rule.Description
-            });
-
-            if (!string.IsNullOrWhiteSpace(rule.Description))
-                result.Notes.Add(rule.Description);
-
-            synergyScore += rule.Modifier;
-            if (rule.Modifier < 0)
-                negativeMagnitude += Math.Abs(rule.Modifier);
-
-            if (!string.IsNullOrWhiteSpace(rule.ResultTrait))
-            {
-                var strength = CalculateSynergyTraitStrength(traits, rule.RequiredTraits);
-                AddValue(traits, rule.ResultTrait, strength);
-            }
-
-            if (!string.IsNullOrWhiteSpace(rule.AddedRisk) && rule.AddedRiskStrength > 0)
-            {
-                AddRiskChance(possibleRisks, rule.AddedRisk, rule.AddedRiskStrength);
-                if (rollRisks && DoesRiskCarry(rule.AddedRiskStrength))
-                    risks[rule.AddedRisk] = RiskPresenceValue;
-            }
-        }
-
-        return (ClampRange(synergyScore, -100, 100), negativeMagnitude);
-    }
-
-    private static Dictionary<string, int> BuildContributingTraits(
-        Dictionary<string, int> traits,
-        List<string> requiredTraits)
-    {
-        var contributing = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var trait in requiredTraits)
-        {
-            if (string.IsNullOrWhiteSpace(trait))
-                continue;
-
-            if (!traits.TryGetValue(trait, out var value))
-                continue;
-
-            contributing[trait] = value;
-        }
-
-        return contributing;
-    }
-
-    private static bool HasAllRequiredValues(Dictionary<string, int> values, List<string> requiredKeys)
-    {
-        foreach (var key in requiredKeys)
-        {
-            if (string.IsNullOrWhiteSpace(key))
-                return false;
-
-            if (!values.TryGetValue(key, out var strength) || strength <= 0)
-                return false;
-        }
-
-        return true;
-    }
-
-    private static int CalculateSynergyTraitStrength(Dictionary<string, int> traits, List<string> requiredTraits)
-    {
-        if (requiredTraits.Count == 0)
-            return 1;
-
-        var sum = 0;
-        foreach (var trait in requiredTraits)
-        {
-            if (!traits.TryGetValue(trait, out var value))
-                value = 1;
-
-            sum += Math.Max(1, value);
-        }
-
-        var average = sum / (float)requiredTraits.Count;
-        return Math.Max(1, (int)MathF.Round(average * 0.5f));
-    }
-
     private static int CalculateEffectFit(
         CustomerRequestDef? request,
         Dictionary<string, int> traits,
@@ -794,13 +666,13 @@ public sealed class PotionBrewingService
 
             foreach (var desired in request.DesiredTraits)
             {
-                if (desired.Value <= 0)
+                var desiredWeightForTrait = GetTraitRangeWeight(desired.Value);
+                if (desiredWeightForTrait <= 0)
                     continue;
 
-                desiredWeight += desired.Value;
+                desiredWeight += desiredWeightForTrait;
                 traits.TryGetValue(desired.Key, out var producedStrength);
-                var ratio = ClampUnit(producedStrength / (float)desired.Value);
-                desiredMatch += ratio * desired.Value;
+                desiredMatch += CalculateDesiredRangeFit(producedStrength, desired.Value) * desiredWeightForTrait;
             }
 
             desiredScore = desiredWeight <= 0.0f ? 100.0f : (desiredMatch / desiredWeight) * 100.0f;
@@ -814,17 +686,17 @@ public sealed class PotionBrewingService
 
             foreach (var bad in request.BadTraits)
             {
-                if (bad.Value <= 0)
+                var badWeightForTrait = GetTraitRangeWeight(bad.Value);
+                if (badWeightForTrait <= 0)
                     continue;
 
-                badWeight += bad.Value;
+                badWeight += badWeightForTrait;
 
                 traits.TryGetValue(bad.Key, out var badTraitStrength);
                 risks.TryGetValue(bad.Key, out var badRiskStrength);
 
                 var producedBadStrength = Math.Max(0, badTraitStrength) + Math.Max(0, badRiskStrength);
-                var ratio = ClampUnit(producedBadStrength / (float)bad.Value);
-                badMatch += ratio * bad.Value;
+                badMatch += CalculateBadRangeViolation(producedBadStrength, bad.Value) * badWeightForTrait;
             }
 
             badScore = badWeight <= 0.0f ? 0.0f : (badMatch / badWeight) * 100.0f;
@@ -834,30 +706,71 @@ public sealed class PotionBrewingService
         return Clamp01Score((int)MathF.Round(fitScore));
     }
 
+    private static float CalculateDesiredRangeFit(int producedStrength, CustomerTraitRangeDef? range)
+    {
+        if (range is null)
+            return 1.0f;
+
+        var produced = Math.Max(0, producedStrength);
+        if (range.Min is int min && produced < min)
+            return min <= 0 ? 1.0f : ClampUnit(produced / (float)min);
+
+        if (range.Max is int max && produced > max)
+            return max <= 0 ? 0.0f : ClampUnit(max / (float)produced);
+
+        return 1.0f;
+    }
+
+    private static float CalculateBadRangeViolation(int producedStrength, CustomerTraitRangeDef? range)
+    {
+        if (range is null)
+            return 0.0f;
+
+        var produced = Math.Max(0, producedStrength);
+        if (range.Min is int min && produced < min)
+            return min <= 0 ? 0.0f : ClampUnit((min - produced) / (float)min);
+
+        if (range.Max is int max && produced > max)
+            return max <= 0 ? 1.0f : ClampUnit((produced - max) / (float)max);
+
+        return 0.0f;
+    }
+
+    private static int GetTraitRangeWeight(CustomerTraitRangeDef? range)
+    {
+        if (range is null)
+            return 0;
+
+        if (range.Min is int min && min > 0)
+            return min;
+
+        if (range.Max is int max)
+            return Math.Max(1, max);
+
+        return 0;
+    }
+
     private static int CalculateStability(
         Dictionary<string, int> traits,
-        Dictionary<string, int> risks,
-        int negativeSynergyMagnitude)
+        Dictionary<string, int> risks)
     {
         var riskLoad = SumPositiveValues(risks);
         var diversityBonus = Math.Min(10, traits.Count * 2);
 
-        var stability = 100.0f - (riskLoad * 4.0f) - (negativeSynergyMagnitude * 0.5f) + diversityBonus;
+        var stability = 100.0f - (riskLoad * 4.0f) + diversityBonus;
         return Clamp01Score((int)MathF.Round(stability));
     }
 
     private static int CalculatePenalties(
         Dictionary<string, int> risks,
-        int negativeSynergyMagnitude,
         int stabilityScore)
     {
         var riskLoad = SumPositiveValues(risks);
 
         var riskPenalty = riskLoad * 0.6f;
-        var synergyPenalty = negativeSynergyMagnitude * 0.3f;
         var instabilityPenalty = Math.Max(0.0f, 50.0f - stabilityScore) * 0.2f;
 
-        var totalPenalty = riskPenalty + synergyPenalty + instabilityPenalty;
+        var totalPenalty = riskPenalty + instabilityPenalty;
         return Clamp01Score((int)MathF.Round(totalPenalty));
     }
 

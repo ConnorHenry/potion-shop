@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cvq143q5g1kk8"
-path="res://.godot/imported/lavender_ash.png-8b5ca173c3259bab8bcaf0975cb283bb.ctex"
+uid="uid://b1puqab2k52k"
+path="res://.godot/imported/yarrow.png-95270b52dc1457d5c6a666657e8c3f22.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://Assets/Items/lavender_ash.png"
-dest_files=["res://.godot/imported/lavender_ash.png-8b5ca173c3259bab8bcaf0975cb283bb.ctex"]
+source_file="res://Assets/Items/yarrow.png"
+dest_files=["res://.godot/imported/yarrow.png-95270b52dc1457d5c6a666657e8c3f22.ctex"]
 
 [params]
 

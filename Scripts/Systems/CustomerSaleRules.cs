@@ -12,6 +12,7 @@ public static class CustomerSaleRules
 		bool ingredientAmountRequirementsMet)
 	{
 		return HasAllDesiredTraitsPresent(request, brewResult.Traits) &&
+			AreBadTraitRangesSatisfied(request, brewResult.Traits, brewResult.Risks) &&
 			AreRequiredTraitThresholdsSatisfied(request, brewResult.Traits) &&
 			ingredientAmountRequirementsMet;
 	}
@@ -38,10 +39,9 @@ public static class CustomerSaleRules
 			if (string.IsNullOrWhiteSpace(desiredTrait.Key))
 				continue;
 
-			if (!TryGetValueIgnoreCase(producedTraits, desiredTrait.Key, out var producedValue))
-				continue;
+			TryGetValueIgnoreCase(producedTraits, desiredTrait.Key, out var producedValue);
 
-			if (producedValue <= 0)
+			if (!IsValueWithinRange(producedValue, desiredTrait.Value))
 				continue;
 
 			matchedDesiredTraitCount += 1;
@@ -60,16 +60,57 @@ public static class CustomerSaleRules
 			if (string.IsNullOrWhiteSpace(badTrait.Key))
 				continue;
 
-			if (!TryGetValueIgnoreCase(producedRisks, badTrait.Key, out var producedValue))
-				continue;
+			TryGetValueIgnoreCase(producedRisks, badTrait.Key, out var producedValue);
 
-			if (producedValue <= 0)
+			if (IsValueWithinRange(producedValue, badTrait.Value))
 				continue;
 
 			matchedBadTraitCount += 1;
 		}
 
 		return matchedBadTraitCount;
+	}
+
+	public static int CountMatchedBadTraits(
+		CustomerRequestDef request,
+		IReadOnlyDictionary<string, int> producedTraits,
+		IReadOnlyDictionary<string, int> producedRisks)
+	{
+		var matchedBadTraitCount = 0;
+		foreach (var badTrait in request.BadTraits)
+		{
+			if (string.IsNullOrWhiteSpace(badTrait.Key))
+				continue;
+
+			var producedValue = GetCombinedProducedValue(badTrait.Key, producedTraits, producedRisks);
+			if (IsValueWithinRange(producedValue, badTrait.Value))
+				continue;
+
+			matchedBadTraitCount += 1;
+		}
+
+		return matchedBadTraitCount;
+	}
+
+	public static bool AreBadTraitRangesSatisfied(
+		CustomerRequestDef request,
+		IReadOnlyDictionary<string, int> producedTraits,
+		IReadOnlyDictionary<string, int> producedRisks)
+	{
+		if (request.BadTraits is null || request.BadTraits.Count == 0)
+			return true;
+
+		foreach (var badTrait in request.BadTraits)
+		{
+			if (string.IsNullOrWhiteSpace(badTrait.Key))
+				continue;
+
+			var producedValue = GetCombinedProducedValue(badTrait.Key, producedTraits, producedRisks);
+			if (!IsValueWithinRange(producedValue, badTrait.Value))
+				return false;
+		}
+
+		return true;
 	}
 
 	public static bool AreRequiredTraitThresholdsSatisfied(
@@ -155,7 +196,7 @@ public static class CustomerSaleRules
 		}
 
 		if (response.MaxMatchedBadTraits is int maxMatchedBadTraits &&
-			CountMatchedBadTraits(request, brewResult.Risks) > maxMatchedBadTraits)
+			CountMatchedBadTraits(request, brewResult.Traits, brewResult.Risks) > maxMatchedBadTraits)
 		{
 			return false;
 		}
@@ -190,5 +231,29 @@ public static class CustomerSaleRules
 
 		value = 0;
 		return false;
+	}
+
+	private static int GetCombinedProducedValue(
+		string key,
+		IReadOnlyDictionary<string, int> producedTraits,
+		IReadOnlyDictionary<string, int> producedRisks)
+	{
+		TryGetValueIgnoreCase(producedTraits, key, out var producedTraitValue);
+		TryGetValueIgnoreCase(producedRisks, key, out var producedRiskValue);
+		return System.Math.Max(0, producedTraitValue) + System.Math.Max(0, producedRiskValue);
+	}
+
+	private static bool IsValueWithinRange(int producedValue, CustomerTraitRangeDef? range)
+	{
+		if (range is null)
+			return true;
+
+		if (range.Min is int min && producedValue < min)
+			return false;
+
+		if (range.Max is int max && producedValue > max)
+			return false;
+
+		return true;
 	}
 }

@@ -64,6 +64,11 @@ public sealed class ItemDefJsonConverter : JsonConverter<ItemDef>
 				case "Risks":
 					item.Risks = JsonSerializer.Deserialize<Dictionary<string, int>>(ref reader, options) ?? new Dictionary<string, int>();
 					break;
+				case "preparations":
+				case "Preparations":
+					item.Preparations = NormalizePreparations(
+						JsonSerializer.Deserialize<Dictionary<string, IngredientPreparationDef>>(ref reader, options));
+					break;
 				case "ingredientEffects":
 				case "IngredientEffects":
 					item.IngredientEffects = JsonSerializer.Deserialize<List<IngredientEffectDef>>(ref reader, options) ?? new List<IngredientEffectDef>();
@@ -84,6 +89,10 @@ public sealed class ItemDefJsonConverter : JsonConverter<ItemDef>
 				case "treatment":
 				case "Treatment":
 					item.Treatment = JsonSerializer.Deserialize<ItemTreatmentDef>(ref reader, options);
+					break;
+				case "preparedIngredient":
+				case "PreparedIngredient":
+					item.PreparedIngredient = JsonSerializer.Deserialize<PreparedIngredientDef>(ref reader, options);
 					break;
 				default:
 					reader.Skip();
@@ -113,6 +122,11 @@ public sealed class ItemDefJsonConverter : JsonConverter<ItemDef>
 		JsonSerializer.Serialize(writer, value.Traits ?? new Dictionary<string, int>(), options);
 		writer.WritePropertyName("risks");
 		JsonSerializer.Serialize(writer, value.Risks ?? new Dictionary<string, int>(), options);
+		if (value.Preparations is { Count: > 0 })
+		{
+			writer.WritePropertyName("preparations");
+			JsonSerializer.Serialize(writer, NormalizePreparations(value.Preparations), options);
+		}
 		if (value.IngredientEffects is { Count: > 0 })
 		{
 			writer.WritePropertyName("ingredientEffects");
@@ -134,7 +148,40 @@ public sealed class ItemDefJsonConverter : JsonConverter<ItemDef>
 			writer.WritePropertyName("treatment");
 			JsonSerializer.Serialize(writer, value.Treatment, options);
 		}
+		if (value.PreparedIngredient is not null)
+		{
+			writer.WritePropertyName("preparedIngredient");
+			JsonSerializer.Serialize(writer, value.PreparedIngredient, options);
+		}
 		writer.WriteEndObject();
+	}
+
+	private static Dictionary<string, IngredientPreparationDef> NormalizePreparations(
+		Dictionary<string, IngredientPreparationDef>? preparations)
+	{
+		var normalized = new Dictionary<string, IngredientPreparationDef>(StringComparer.OrdinalIgnoreCase);
+		if (preparations is null)
+			return normalized;
+
+		foreach (var pair in preparations)
+		{
+			if (string.IsNullOrWhiteSpace(pair.Key) || pair.Value is null)
+				continue;
+
+			var preparationId = string.IsNullOrWhiteSpace(pair.Value.Id) ? pair.Key.Trim() : pair.Value.Id.Trim();
+			if (string.IsNullOrWhiteSpace(preparationId))
+				continue;
+
+			normalized[preparationId] = new IngredientPreparationDef
+			{
+				Id = preparationId,
+				Name = string.IsNullOrWhiteSpace(pair.Value.Name) ? preparationId : pair.Value.Name,
+				Traits = pair.Value.Traits is null ? new Dictionary<string, int>() : new Dictionary<string, int>(pair.Value.Traits),
+				Risks = pair.Value.Risks is null ? new Dictionary<string, int>() : new Dictionary<string, int>(pair.Value.Risks)
+			};
+		}
+
+		return normalized;
 	}
 
 	private static bool ReadBooleanValue(ref Utf8JsonReader reader)

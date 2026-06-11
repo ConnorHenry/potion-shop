@@ -52,22 +52,22 @@ public partial class GameState : Node
 	public IReadOnlyList<GardenCropDef> GardenCrops => _gardenState.GardenCrops;
 	private static readonly (string ItemId, int Quantity)[] StartingInventory =
 	{
-		("grave_mint", 1),
-		("obsidian_resin", 1),
-		("iron_lullaby_root", 1)
+		("mint", 1),
+		("gorse", 1),
+		("thyme", 1)
 	};
 	private static readonly (string ItemId, int Quantity)[] NextCustomerTutorialInventory =
 	{
-		("grave_mint", 1),
-		("obsidian_resin", 1),
-		("iron_lullaby_root", 1),
-		("black_ichor", 1),
-		("lavender_ash", 1),
-		("mooncap_mushroom", 1),
-		("amber_nightshade", 1),
-		("silver_thorn_bloom", 1),
-		("moonwhisper_orchid", 1),
-		("raven_ash_peony", 1)
+		("mint", 1),
+		("gorse", 1),
+		("thyme", 1),
+		("elder", 1),
+		("rosemary", 1),
+		("heather", 1),
+		("yarrow", 1),
+		("willow", 1),
+		("juniper", 1),
+		("comfrey", 1)
 	};
 	private readonly PotionKnowledgeState _potionKnowledgeState;
 	private readonly InventoryState _inventoryState;
@@ -667,6 +667,12 @@ public partial class GameState : Node
 			return false;
 		if (_itemCatalog is null || !_itemCatalog.TryGetItem(itemId, out var item))
 			return false;
+		if (IngredientPreparationCatalog.TryGetPreparedIngredientInfo(item, out var preparedBaseIngredientId, out _))
+		{
+			knownIngredientId = preparedBaseIngredientId;
+			return true;
+		}
+
 		if (IsIngredient(item) && item.Treatment is null)
 		{
 			knownIngredientId = item.Id;
@@ -678,6 +684,12 @@ public partial class GameState : Node
 			return false;
 		if (!_itemCatalog.TryGetItem(baseItemId, out var baseItem))
 			return false;
+		if (IngredientPreparationCatalog.TryGetPreparedIngredientInfo(baseItem, out var treatedPreparedBaseIngredientId, out _))
+		{
+			knownIngredientId = treatedPreparedBaseIngredientId;
+			return true;
+		}
+
 		if (!IsIngredient(baseItem) || baseItem.Treatment is not null)
 			return false;
 
@@ -737,8 +749,8 @@ public partial class GameState : Node
 		{
 			Id = request.Id,
 			Description = request.Description,
-			DesiredTraits = request.DesiredTraits is null ? new Dictionary<string, int>() : new Dictionary<string, int>(request.DesiredTraits),
-			BadTraits = request.BadTraits is null ? new Dictionary<string, int>() : new Dictionary<string, int>(request.BadTraits),
+			DesiredTraits = CustomerTraitRangeDef.CloneDictionary(request.DesiredTraits),
+			BadTraits = CustomerTraitRangeDef.CloneDictionary(request.BadTraits),
 			RequiredMinTraits = request.RequiredMinTraits is null ? new Dictionary<string, int>() : new Dictionary<string, int>(request.RequiredMinTraits),
 			RequiredMaxTraits = request.RequiredMaxTraits is null ? new Dictionary<string, int>() : new Dictionary<string, int>(request.RequiredMaxTraits),
 			RequiredIngredientAmounts = request.RequiredIngredientAmounts is null

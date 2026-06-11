@@ -1,40 +1,60 @@
-# Tiered Customer Test Catalog
+# Day 1 Customer Test Catalog
 
 This catalog is mirrored by `Data/customers_tiered_test_data.tres`.
 
-The current customer import schema supports `desiredTraits`, `badTraits`, day requirements, pool, weight, and difficulty. It does not yet support hard minimum trait thresholds, so Tier 3+ uses higher desired trait weights to simulate stricter requests for testing.
+All entries in this catalog are available from day 1. The requests are built around the two-trait ingredient preparation model:
 
-| Tier | Days | Design Goal | Customer IDs |
-| --- | --- | --- | --- |
-| 1 | 1-2 | Simple trait matching with no risk restrictions. | `tier1_sleep_draught`, `tier1_pain_relief_tonic`, `tier1_focus_elixir`, `tier1_steady_hands_tincture` |
-| 2 | 3-4 | Introduce one rejected risk per customer. | `tier2_clean_sleep_draught`, `tier2_dawn_energy_tonic`, `tier2_clear_voice_balm`, `tier2_uncorrupted_charm_philter` |
-| 3 | 5-6 | Simulate minimum trait expectations with stronger primary desired traits, plus risk restrictions. | `tier3_nightmare_ward`, `tier3_antidote_potion`, `tier3_confidence_draught`, `tier3_recovery_brew` |
-| 4 | 7-8 | Named recipe-style requests with stronger trait expectations and multiple constraints. | `tier4_moonlit_rest_draught`, `tier4_gravekeepers_balm`, `tier4_silver_focus_tonic`, `tier4_orchid_charm_philter` |
-| 5 | 9+ | Expert requests with high primary trait expectations and multiple risk restrictions. | `tier5_curse_cleanser`, `tier5_ravenheart_elixir`, `tier5_obsidian_mending_draught`, `tier5_nightshade_reverie` |
+- each request uses trait ranges from the current ingredient matrix
+- each request uses risk ceilings from current prep risks
+- requests avoid hard `requiredIngredientAmounts`
+- requests are intentionally solvable through multiple ingredient and preparation combinations
 
-## Day Outline
+## Request Shape
 
-| Day | Eligible Customers | Difficulty Feel |
-| --- | --- | --- |
-| 1 | Sleep Draught, Pain Relief Tonic, Focus Elixir | Match one obvious need. |
-| 2 | Sleep Draught, Pain Relief Tonic, Focus Elixir, Steady Hands Tincture | Same rules, more coverage. |
-| 3 | Clean Sleep Draught, Dawn Energy Tonic, Clear Voice Balm | First risk exclusions. |
-| 4 | Clean Sleep Draught, Dawn Energy Tonic, Clear Voice Balm, Uncorrupted Charm Philter | Risk exclusions become normal. |
-| 5 | Nightmare Ward, Antidote Potion, Confidence Draught | Strong primary trait expectations start. |
-| 6 | Nightmare Ward, Antidote Potion, Confidence Draught, Recovery Brew | Strong primary traits plus multiple bad traits. |
-| 7 | Moonlit Rest Draught, Gravekeeper's Balm, Silver Focus Tonic | Named recipe-style requests begin. |
-| 8 | Moonlit Rest Draught, Gravekeeper's Balm, Silver Focus Tonic, Orchid Charm Philter | Recipe requests with more constraints. |
-| 9 | Curse Cleanser, Ravenheart Elixir, Obsidian Mending Draught | Expert constraints. |
-| 10+ | Curse Cleanser, Ravenheart Elixir, Obsidian Mending Draught, Nightshade Reverie | Full late-game pressure. |
-
-## Future Schema Candidate
-
-To make Tier 3+ enforce exact thresholds instead of simulating them through weights, add a field like this to customer data:
+Customer request traits use range objects:
 
 ```json
-"requiredTraits": {
-  "clarity": 5
+"desiredTraits": {
+  "calm": { "min": 3 },
+  "clarity": { "min": 3 },
+  "cleanse": { "min": 2 }
+},
+"badTraits": {
+  "drowsiness": { "max": 0 },
+  "corruption": { "max": 0 }
 }
 ```
 
-That would also require adding `RequiredTraits` to `CustomerInteractionDef`, parsing it in `DataDb`, carrying it into `CustomerRequestDef`, and checking it during potion sale evaluation.
+For requests with three desired traits, the customer sale rules require at least two desired traits to match. This leaves room for multiple successful recipes while still making the customer's intent readable.
+
+## Available Customers
+
+| Customer ID | Desired Traits | Risk Limits | Notes |
+| --- | --- | --- | --- |
+| `plot_bridget_visit_1` | Calm, clarity, cleanse | No drowsiness or corruption | Plot customer with dialogue tree. |
+| `plot_line_demo_visit_1` | Soothe, clarity, courage | No drowsiness, melancholy up to 1 | Plot customer with dialogue tree. |
+| `customer_requests_counterfeit_calm` | Calm, clarity, cleanse | No drowsiness or corruption | Multiple calm/clarity sources can solve it. |
+| `customer_requests_clean_blade_rinse` | Cleanse, soothe, clarity | No drowsiness or corruption | Cleanse can come from Mint or Thyme preps. |
+| `customer_requests_soft_dream_tonic` | Dream, calm, soothe | No drowsiness, melancholy up to 1 | Dream can be reached through Heather or Rosemary preps. |
+| `customer_requests_grave_stitch_poultice` | Mend, soothe, cleanse | Melancholy up to 1, no corruption | Mending can come from Gorse or Comfrey preps. |
+| `customer_requests_stage_door_spark` | Charm, vigor, calm | No corruption, insomnia up to 1 | Charm can come from Yarrow or Juniper preps. |
+| `customer_requests_bitter_wake_cure` | Vigor, cleanse, clarity | Insomnia up to 1, no drowsiness | Vigor can come from Elder or Yarrow preps. |
+| `customer_requests_quiet_courage_draught` | Courage, clarity, calm | Melancholy up to 1, no corruption | Courage can come from Willow or Comfrey preps. |
+| `customer_requests_restless_fever_draught` | Rest, cleanse, soothe | No corruption, drowsiness up to 1 | Rest can come from Elder or Thyme preps. |
+| `customer_requests_silver_invitation` | Charm, clarity, courage | No corruption, melancholy up to 1 | Charm plus either clarity or courage has multiple routes. |
+| `customer_requests_lantern_wash` | Soothe, cleanse, courage | No drowsiness, melancholy up to 1 | Soothe/cleanse can be built from Mint, Gorse, or Thyme preps. |
+
+## Ingredient Trait Sources
+
+| Trait | Ingredient Sources |
+| --- | --- |
+| Calm | Heather, Rosemary |
+| Dream | Heather, Rosemary |
+| Soothe | Mint, Gorse |
+| Cleanse | Mint, Thyme |
+| Rest | Elder, Thyme |
+| Vigor | Elder, Yarrow |
+| Mend | Gorse, Comfrey |
+| Charm | Yarrow, Juniper |
+| Clarity | Willow, Juniper |
+| Courage | Willow, Comfrey |

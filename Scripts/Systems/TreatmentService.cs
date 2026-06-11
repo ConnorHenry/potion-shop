@@ -278,7 +278,8 @@ public sealed class TreatmentService
 				BaseItemId = targetItemId,
 				ConsumableItemId = consumableItemId,
 				RemovedRisk = removedRisk
-			}
+			},
+			PreparedIngredient = ClonePreparedIngredient(target.PreparedIngredient)
 		};
 
 		return new TreatmentCandidate(treatedItem.Id, treatedItem, removedRisk);
@@ -461,6 +462,17 @@ public sealed class TreatmentService
 		}
 
 		return clones;
+	}
+
+	private static PreparedIngredientDef? ClonePreparedIngredient(PreparedIngredientDef? preparedIngredient)
+	{
+		return preparedIngredient is null
+			? null
+			: new PreparedIngredientDef
+			{
+				BaseIngredientId = preparedIngredient.BaseIngredientId,
+				PreparationId = preparedIngredient.PreparationId
+			};
 	}
 
 	private readonly record struct TreatmentCandidate(string OutputItemId, ItemDef? RuntimeItem, string RemovedRisk);

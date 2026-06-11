@@ -195,6 +195,8 @@ public sealed class PotionBatchStore
 			clones.Add(new IngredientPortionDef
 			{
 				IngredientId = ingredientPortion.IngredientId,
+				ItemId = ingredientPortion.ItemId,
+				PreparationId = ingredientPortion.PreparationId,
 				Grams = Math.Max(0, ingredientPortion.Grams)
 			});
 		}
@@ -213,6 +215,7 @@ public sealed class PotionBatchStore
 			portions.Add(new IngredientPortionDef
 			{
 				IngredientId = ingredientId,
+				ItemId = ingredientId,
 				Grams = 0
 			});
 		}

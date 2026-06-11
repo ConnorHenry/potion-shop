@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ddtic8tjxhvuw"
-path="res://.godot/imported/black_ichor.png-283344c46943cf0794df602b7b87ce64.ctex"
+uid="uid://cr6jfkuajv0ns"
+path="res://.godot/imported/juniper.svg-b5738fd28980ba7bf72f35e0ff8e1ed0.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://Assets/Items/black_ichor.png"
-dest_files=["res://.godot/imported/black_ichor.png-283344c46943cf0794df602b7b87ce64.ctex"]
+source_file="res://Assets/Items/juniper.svg"
+dest_files=["res://.godot/imported/juniper.svg-b5738fd28980ba7bf72f35e0ff8e1ed0.ctex"]
 
 [params]
 
@@ -32,3 +32,6 @@ process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
 detect_3d/compress_to=1
+svg/scale=1.0
+editor/scale_with_editor_scale=false
+editor/convert_colors_with_editor_theme=false

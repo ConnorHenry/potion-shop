@@ -1,7 +1,6 @@
-[gd_scene load_steps=45 format=3 uid="uid://4hripc13we86"]
+[gd_scene load_steps=53 format=3 uid="uid://4hripc13we86"]
 
 [ext_resource type="Script" uid="uid://hkjdjmtp1abw" path="res://Scripts/UI/EventModal.cs" id="2_8y3f6"]
-[ext_resource type="PackedScene" uid="uid://b8wojjptpayx3" path="res://Scenes/UI/InventoryPanel.tscn" id="5_invp"]
 [ext_resource type="Script" uid="uid://d0i82ek5gng47" path="res://Scripts/UI/CustomerPanel.cs" id="6_h1r0d"]
 [ext_resource type="Script" uid="uid://co7ips8h5sgbl" path="res://Scripts/UI/CustomerSellDropBox.cs" id="8_74p2s"]
 [ext_resource type="Script" uid="uid://bygqfctik8rwk" path="res://Scripts/UI/BrewPanel.cs" id="9_em5ve"]
@@ -9,7 +8,6 @@
 [ext_resource type="Texture2D" uid="uid://bnos8rgof8sqx" path="res://Assets/ConceptArt/BrewingStation/book.png" id="10_bd6m8"]
 [ext_resource type="Script" uid="uid://bqfhng15wnpg8" path="res://Scripts/UI/BrewDropBox.cs" id="10_odm4o"]
 [ext_resource type="Script" uid="uid://cdkl4a6bue2us" path="res://Scripts/UI/DraggablePanel.cs" id="12_6x1m8"]
-[ext_resource type="Texture2D" uid="uid://dw2q8lwc58yyq" path="res://Assets/UI/cauldron.svg" id="13_x17d0"]
 [ext_resource type="Script" uid="uid://bdb6mw7rn78kn" path="res://Scripts/UI/DaySummaryPanel.cs" id="14_daysum"]
 [ext_resource type="Theme" uid="uid://bcxrpcn1ol80g" path="res://Assets/UI/BrewPanelTheme.tres" id="16_brew_theme"]
 [ext_resource type="Texture2D" uid="uid://cssbliartt4gb" path="res://Assets/ConceptArt/BrewingStation/scales.png" id="18_bd6m8"]
@@ -25,7 +23,6 @@
 [ext_resource type="Texture2D" uid="uid://dn78p6bkqhtfv" path="res://art/Counter_Closeup_1920x1080.png" id="29_book_counter"]
 [ext_resource type="Texture2D" uid="uid://din8yn3lbdgck" path="res://art/Blank-Potion-Book.png" id="30_blank_book"]
 [ext_resource type="Script" uid="uid://ct6us1a3xks8f" path="res://Scripts/UI/StationShelfInventory.cs" id="31_station_shelf"]
-[ext_resource type="Texture2D" uid="uid://c62gglb2tevj7" path="res://art/Potion-Preview-Board.png" id="32_preview_board"]
 [ext_resource type="Script" uid="uid://bgej0jb8xpfnp" path="res://Scripts/UI/IngredientScalesPanel.cs" id="34_scales_panel"]
 [ext_resource type="Script" uid="uid://c6rxh04ym01kc" path="res://Scripts/UI/ScalesDropBox.cs" id="35_scales_dropbox"]
 [ext_resource type="Script" uid="uid://fl6i4817i0i4" path="res://Scripts/UI/ScaleWeightButton.cs" id="36_scale_weight"]
@@ -36,7 +33,8 @@
 [ext_resource type="PackedScene" uid="uid://dvn3xmx0rq7fp" path="res://Scenes/UI/IngredientBookPanel.tscn" id="41_ingredient_book"]
 [ext_resource type="Texture2D" uid="uid://dqrte4y4whylx" path="res://Assets/ConceptArt/Bedroom/rural_irish_bedroom_concept.png" id="42_bedroom"]
 [ext_resource type="Script" uid="uid://b2ax8whg01r5p" path="res://Scripts/UI/PotionInventoryRow.cs" id="43_potion_row"]
-[ext_resource type="Texture2D" uid="uid://byofjhdr7leyd" path="res://Assets/UI/potion_preview_placeholder.png" id="44_potion_preview"]
+[ext_resource type="Script" uid="uid://dgsmk1i6kauvr" path="res://Scripts/UI/StationItemDetailPanel.cs" id="44_station_item_detail"]
+[ext_resource type="Script" uid="uid://cqd87y40qhdap" path="res://Scripts/UI/IngredientPreparationTray.cs" id="45_prep_tray"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_navigation_hotspot_focus"]
 bg_color = Color(0, 0, 0, 0)
@@ -114,23 +112,176 @@ corner_radius_top_right = 8
 corner_radius_bottom_right = 8
 corner_radius_bottom_left = 8
 
-[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_slot_panel"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_brew_info_panel"]
+content_margin_left = 34.0
+content_margin_top = 34.0
+content_margin_right = 34.0
+content_margin_bottom = 34.0
+bg_color = Color(0.13, 0.075, 0.034, 0.98)
+border_width_left = 10
+border_width_top = 10
+border_width_right = 10
+border_width_bottom = 10
+border_color = Color(0.032, 0.022, 0.015, 1)
+corner_radius_top_left = 24
+corner_radius_top_right = 24
+corner_radius_bottom_right = 24
+corner_radius_bottom_left = 24
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_inventory_detail_root"]
-content_margin_left = 14.0
-content_margin_top = 14.0
-content_margin_right = 14.0
-content_margin_bottom = 14.0
-bg_color = Color(0.039, 0.046, 0.054, 1)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(0.18, 0.2, 0.22, 1)
-corner_radius_top_left = 16
-corner_radius_top_right = 16
-corner_radius_bottom_right = 16
-corner_radius_bottom_left = 16
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_brew_paper_panel"]
+content_margin_left = 26.0
+content_margin_top = 26.0
+content_margin_right = 26.0
+content_margin_bottom = 26.0
+bg_color = Color(0.73, 0.56, 0.34, 0.97)
+border_width_left = 5
+border_width_top = 5
+border_width_right = 5
+border_width_bottom = 5
+border_color = Color(0.24, 0.15, 0.071, 0.95)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_brew_clip"]
+bg_color = Color(0.48, 0.32, 0.11, 1)
+border_width_left = 5
+border_width_top = 5
+border_width_right = 5
+border_width_bottom = 5
+border_color = Color(0.12, 0.075, 0.025, 1)
+corner_radius_top_left = 18
+corner_radius_top_right = 18
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_brew_pin"]
+bg_color = Color(0.66, 0.45, 0.16, 1)
+border_width_left = 4
+border_width_top = 4
+border_width_right = 4
+border_width_bottom = 4
+border_color = Color(0.16, 0.095, 0.032, 1)
+corner_radius_top_left = 20
+corner_radius_top_right = 20
+corner_radius_bottom_right = 20
+corner_radius_bottom_left = 20
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_brew_slot_marker"]
+content_margin_left = 8.0
+content_margin_top = 8.0
+content_margin_right = 8.0
+content_margin_bottom = 8.0
+bg_color = Color(0.31, 0.2, 0.09, 1)
+border_width_left = 4
+border_width_top = 4
+border_width_right = 4
+border_width_bottom = 4
+border_color = Color(0.67, 0.47, 0.19, 1)
+corner_radius_top_left = 42
+corner_radius_top_right = 42
+corner_radius_bottom_right = 42
+corner_radius_bottom_left = 42
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_brew_slot_panel"]
+content_margin_left = 22.0
+content_margin_top = 12.0
+content_margin_right = 22.0
+content_margin_bottom = 12.0
+bg_color = Color(0.68, 0.5, 0.29, 0.98)
+border_width_left = 4
+border_width_top = 4
+border_width_right = 4
+border_width_bottom = 4
+border_color = Color(0.18, 0.105, 0.045, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_brew_checklist_panel"]
+content_margin_left = 22.0
+content_margin_top = 22.0
+content_margin_right = 22.0
+content_margin_bottom = 22.0
+bg_color = Color(0.7, 0.53, 0.31, 0.82)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.25, 0.16, 0.073, 0.88)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_brew_button_disabled"]
+content_margin_left = 24.0
+content_margin_top = 16.0
+content_margin_right = 24.0
+content_margin_bottom = 16.0
+bg_color = Color(0.36, 0.29, 0.2, 0.86)
+border_width_left = 5
+border_width_top = 5
+border_width_right = 5
+border_width_bottom = 5
+border_color = Color(0.18, 0.14, 0.095, 0.9)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_brew_button_hover"]
+content_margin_left = 24.0
+content_margin_top = 16.0
+content_margin_right = 24.0
+content_margin_bottom = 16.0
+bg_color = Color(0.75, 0.54, 0.28, 1)
+border_width_left = 5
+border_width_top = 5
+border_width_right = 5
+border_width_bottom = 5
+border_color = Color(0.3, 0.18, 0.055, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_brew_button_pressed"]
+content_margin_left = 24.0
+content_margin_top = 16.0
+content_margin_right = 24.0
+content_margin_bottom = 16.0
+bg_color = Color(0.48, 0.31, 0.13, 1)
+border_width_left = 5
+border_width_top = 5
+border_width_right = 5
+border_width_bottom = 5
+border_color = Color(0.11, 0.065, 0.024, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_brew_button_normal"]
+content_margin_left = 24.0
+content_margin_top = 16.0
+content_margin_right = 24.0
+content_margin_bottom = 16.0
+bg_color = Color(0.66, 0.46, 0.22, 1)
+border_width_left = 5
+border_width_top = 5
+border_width_right = 5
+border_width_bottom = 5
+border_color = Color(0.18, 0.105, 0.035, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bd6m8"]
+bg_color = Color(0.270367, 0.668771, 0.68901, 1)
 
 [node name="CanvasLayer" type="CanvasLayer"]
 
@@ -596,12 +747,12 @@ BrewPanelPath = NodePath("../BrewPanel")
 [node name="IngredientSlots" type="GridContainer" parent="PotionBrewingStationView/StationShelfInventory"]
 layout_mode = 0
 offset_left = 59.0
-offset_top = 95.0
+offset_top = 112.0
 offset_right = 582.17
-offset_bottom = 483.0
+offset_bottom = 600.0
 mouse_filter = 2
 theme_override_constants/h_separation = 23
-theme_override_constants/v_separation = 11
+theme_override_constants/v_separation = 24
 columns = 4
 
 [node name="IngredientPrevious" type="Button" parent="PotionBrewingStationView/StationShelfInventory"]
@@ -609,9 +760,9 @@ visible = false
 custom_minimum_size = Vector2(38, 38)
 layout_mode = 0
 offset_left = 34.0
-offset_top = 452.0
+offset_top = 608.0
 offset_right = 72.0
-offset_bottom = 490.0
+offset_bottom = 646.0
 mouse_default_cursor_shape = 2
 text = "<"
 
@@ -620,21 +771,39 @@ visible = false
 custom_minimum_size = Vector2(38, 38)
 layout_mode = 0
 offset_left = 622.0
-offset_top = 452.0
+offset_top = 608.0
 offset_right = 660.0
-offset_bottom = 490.0
+offset_bottom = 646.0
 mouse_default_cursor_shape = 2
 text = ">"
+
+[node name="IngredientTraitFilterRow" type="HBoxContainer" parent="PotionBrewingStationView/StationShelfInventory"]
+layout_mode = 0
+offset_left = 605.0
+offset_top = 320.0
+offset_right = 754.0
+offset_bottom = 356.0
+theme_override_constants/separation = 8
+alignment = 2
+
+[node name="TraitFilter" type="OptionButton" parent="PotionBrewingStationView/StationShelfInventory/IngredientTraitFilterRow"]
+layout_mode = 2
+
+[node name="Clear" type="Button" parent="PotionBrewingStationView/StationShelfInventory/IngredientTraitFilterRow"]
+visible = false
+custom_minimum_size = Vector2(64, 0)
+layout_mode = 2
+text = "Clear"
 
 [node name="ConsumableSlots" type="GridContainer" parent="PotionBrewingStationView/StationShelfInventory"]
 layout_mode = 0
 offset_left = 57.0
-offset_top = 677.0
+offset_top = 640.0
 offset_right = 683.0
-offset_bottom = 783.0
+offset_bottom = 800.0
 mouse_filter = 2
-theme_override_constants/h_separation = 70
-theme_override_constants/v_separation = 18
+theme_override_constants/h_separation = 23
+theme_override_constants/v_separation = 4
 columns = 4
 
 [node name="ConsumablePrevious" type="Button" parent="PotionBrewingStationView/StationShelfInventory"]
@@ -642,9 +811,9 @@ visible = false
 custom_minimum_size = Vector2(38, 38)
 layout_mode = 0
 offset_left = 34.0
-offset_top = 590.0
+offset_top = 701.0
 offset_right = 72.0
-offset_bottom = 628.0
+offset_bottom = 739.0
 mouse_default_cursor_shape = 2
 text = "<"
 
@@ -653,9 +822,9 @@ visible = false
 custom_minimum_size = Vector2(38, 38)
 layout_mode = 0
 offset_left = 622.0
-offset_top = 590.0
+offset_top = 701.0
 offset_right = 660.0
-offset_bottom = 628.0
+offset_bottom = 739.0
 mouse_default_cursor_shape = 2
 text = ">"
 
@@ -679,15 +848,147 @@ theme_override_constants/h_separation = 28
 theme_override_constants/v_separation = 0
 columns = 4
 
+[node name="StationItemDetailPanel" type="Control" parent="PotionBrewingStationView"]
+visible = false
+z_index = 1800
+custom_minimum_size = Vector2(350, 432)
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -382.0
+offset_top = 228.0
+offset_right = -32.0
+offset_bottom = 660.0
+grow_horizontal = 0
+mouse_filter = 1
+theme = ExtResource("16_brew_theme")
+script = ExtResource("44_station_item_detail")
+
+[node name="Panel" type="PanelContainer" parent="PotionBrewingStationView/StationItemDetailPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_type_variation = &"BrewRoot"
+
+[node name="Margin" type="MarginContainer" parent="PotionBrewingStationView/StationItemDetailPanel/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 14
+
+[node name="VBox" type="VBoxContainer" parent="PotionBrewingStationView/StationItemDetailPanel/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Header" type="HBoxContainer" parent="PotionBrewingStationView/StationItemDetailPanel/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Icon" type="TextureRect" parent="PotionBrewingStationView/StationItemDetailPanel/Panel/Margin/VBox/Header"]
+custom_minimum_size = Vector2(72, 72)
+layout_mode = 2
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="NameBlock" type="VBoxContainer" parent="PotionBrewingStationView/StationItemDetailPanel/Panel/Margin/VBox/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="Name" type="Label" parent="PotionBrewingStationView/StationItemDetailPanel/Panel/Margin/VBox/Header/NameBlock"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 21
+text = "Item"
+autowrap_mode = 3
+
+[node name="Type" type="Label" parent="PotionBrewingStationView/StationItemDetailPanel/Panel/Margin/VBox/Header/NameBlock"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.83, 0.76, 0.62, 1)
+theme_override_font_sizes/font_size = 14
+text = "Type"
+
+[node name="Meta" type="HBoxContainer" parent="PotionBrewingStationView/StationItemDetailPanel/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Owned" type="Label" parent="PotionBrewingStationView/StationItemDetailPanel/Panel/Margin/VBox/Meta"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 15
+text = "Owned: 0"
+
+[node name="Price" type="Label" parent="PotionBrewingStationView/StationItemDetailPanel/Panel/Margin/VBox/Meta"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 15
+text = "Value: 0 gold"
+horizontal_alignment = 2
+
+[node name="Stats" type="GridContainer" parent="PotionBrewingStationView/StationItemDetailPanel/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/h_separation = 14
+columns = 2
+
+[node name="TraitsColumn" type="VBoxContainer" parent="PotionBrewingStationView/StationItemDetailPanel/Panel/Margin/VBox/Stats"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Header" type="Label" parent="PotionBrewingStationView/StationItemDetailPanel/Panel/Margin/VBox/Stats/TraitsColumn"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.88, 0.8, 0.62, 1)
+theme_override_font_sizes/font_size = 13
+text = "TRAITS"
+
+[node name="Values" type="RichTextLabel" parent="PotionBrewingStationView/StationItemDetailPanel/Panel/Margin/VBox/Stats/TraitsColumn"]
+custom_minimum_size = Vector2(0, 72)
+layout_mode = 2
+fit_content = true
+
+[node name="RisksColumn" type="VBoxContainer" parent="PotionBrewingStationView/StationItemDetailPanel/Panel/Margin/VBox/Stats"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Header" type="Label" parent="PotionBrewingStationView/StationItemDetailPanel/Panel/Margin/VBox/Stats/RisksColumn"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.88, 0.8, 0.62, 1)
+theme_override_font_sizes/font_size = 13
+text = "RISKS"
+
+[node name="Values" type="RichTextLabel" parent="PotionBrewingStationView/StationItemDetailPanel/Panel/Margin/VBox/Stats/RisksColumn"]
+custom_minimum_size = Vector2(0, 72)
+layout_mode = 2
+fit_content = true
+
+[node name="Description" type="RichTextLabel" parent="PotionBrewingStationView/StationItemDetailPanel/Panel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 118)
+layout_mode = 2
+size_flags_vertical = 3
+fit_content = true
+
+[node name="Actions" type="HBoxContainer" parent="PotionBrewingStationView/StationItemDetailPanel/Panel/Margin/VBox"]
+layout_mode = 2
+alignment = 2
+
+[node name="Close" type="Button" parent="PotionBrewingStationView/StationItemDetailPanel/Panel/Margin/VBox/Actions"]
+custom_minimum_size = Vector2(86, 34)
+layout_mode = 2
+text = "Close"
+
 [node name="BrewPanel" type="Control" parent="PotionBrewingStationView"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 896.0
-offset_top = -68.0
-offset_right = 367.0
-offset_bottom = -68.0
+offset_left = 885.0
+offset_top = 100.0
+offset_right = 356.0
+offset_bottom = 100.0
 grow_horizontal = 2
 grow_vertical = 2
 scale = Vector2(0.76, 0.76)
@@ -704,14 +1005,7 @@ IngredientSlotThreeContainerPath = NodePath("Panel/FormulaSlots/Slot3")
 IngredientSlotOneLabelPath = NodePath("Panel/FormulaSlots/Slot1/Content/Name")
 IngredientSlotTwoLabelPath = NodePath("Panel/FormulaSlots/Slot2/Content/Name")
 IngredientSlotThreeLabelPath = NodePath("Panel/FormulaSlots/Slot3/Content/Name")
-PotionNamePreviewLabelPath = NodePath("Panel/CurrentBrew/Name")
-ResultLabelPath = NodePath("Panel/Instability/Result")
-PricePreviewLabelPath = NodePath("Panel/EstimatedValue/Price")
-TraitPreviewLabelPath = NodePath("Panel/KnownProperties/Traits")
-RiskPreviewLabelPath = NodePath("Panel/KnownDangers/Risks")
-RiskStatusIconLabelPath = NodePath("Panel/Instability/StatusRow/Icon")
-RiskStatusLabelPath = NodePath("Panel/Instability/StatusRow/Text")
-IngredientCountLabelPath = NodePath("Panel/CurrentBrew/Instruction")
+RequestChecklistLabelPath = NodePath("Panel/RequestChecklist/Lines")
 BrewButtonPath = NodePath("Panel/Brew")
 ClearButtonPath = NodePath("Panel/Clear")
 
@@ -721,88 +1015,149 @@ layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -820.0
-offset_top = 20.0
-offset_right = 265.0
-offset_bottom = 1470.0
+offset_left = -750.421
+offset_top = -40.7895
+offset_right = 334.579
+offset_bottom = 1409.21
 grow_horizontal = 0
-scale = Vector2(0.7, 0.7)
+scale = Vector2(0.51, 0.51)
 mouse_filter = 2
 
-[node name="Board" type="TextureRect" parent="PotionBrewingStationView/BrewPanel/Panel"]
+[node name="Board" type="PanelContainer" parent="PotionBrewingStationView/BrewPanel/Panel"]
 layout_mode = 0
 offset_right = 1085.0
 offset_bottom = 1450.0
 mouse_filter = 2
-texture = ExtResource("32_preview_board")
-expand_mode = 1
-stretch_mode = 5
+theme_override_styles/panel = SubResource("StyleBoxFlat_brew_info_panel")
 
-[node name="CurrentBrew" type="Control" parent="PotionBrewingStationView/BrewPanel/Panel"]
-anchors_preset = 0
-offset_left = 215.0
-offset_top = 255.0
-offset_right = 705.0
-offset_bottom = 508.0
-mouse_filter = 2
-
-[node name="Name" type="Label" parent="PotionBrewingStationView/BrewPanel/Panel/CurrentBrew"]
+[node name="Paper" type="PanelContainer" parent="PotionBrewingStationView/BrewPanel/Panel"]
 layout_mode = 0
-offset_right = 490.0
-offset_bottom = 60.0
-theme_override_colors/font_color = Color(0.055, 0.039, 0.025, 1)
-theme_override_font_sizes/font_size = 34
-text = "Unfinished Brew"
+offset_left = 56.0
+offset_top = 92.0
+offset_right = 1029.0
+offset_bottom = 1406.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_brew_paper_panel")
+
+[node name="Clip" type="PanelContainer" parent="PotionBrewingStationView/BrewPanel/Panel"]
+layout_mode = 0
+offset_left = 385.0
+offset_top = -8.0
+offset_right = 700.0
+offset_bottom = 116.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_brew_clip")
+
+[node name="ClipLoop" type="PanelContainer" parent="PotionBrewingStationView/BrewPanel/Panel"]
+custom_minimum_size = Vector2(72, 72)
+layout_mode = 0
+offset_left = 506.5
+offset_top = 10.0
+offset_right = 578.5
+offset_bottom = 82.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_brew_pin")
+
+[node name="PinTopLeft" type="PanelContainer" parent="PotionBrewingStationView/BrewPanel/Panel"]
+layout_mode = 0
+offset_left = 87.0
+offset_top = 118.0
+offset_right = 127.0
+offset_bottom = 158.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_brew_pin")
+
+[node name="PinTopRight" type="PanelContainer" parent="PotionBrewingStationView/BrewPanel/Panel"]
+layout_mode = 0
+offset_left = 958.0
+offset_top = 118.0
+offset_right = 998.0
+offset_bottom = 158.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_brew_pin")
+
+[node name="PinBottomLeft" type="PanelContainer" parent="PotionBrewingStationView/BrewPanel/Panel"]
+layout_mode = 0
+offset_left = 87.0
+offset_top = 1340.0
+offset_right = 127.0
+offset_bottom = 1380.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_brew_pin")
+
+[node name="PinBottomRight" type="PanelContainer" parent="PotionBrewingStationView/BrewPanel/Panel"]
+layout_mode = 0
+offset_left = 958.0
+offset_top = 1340.0
+offset_right = 998.0
+offset_bottom = 1380.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_brew_pin")
+
+[node name="Title" type="Label" parent="PotionBrewingStationView/BrewPanel/Panel"]
+layout_mode = 0
+offset_left = 120.0
+offset_top = 145.0
+offset_right = 965.0
+offset_bottom = 225.0
+theme_override_colors/font_color = Color(0.075, 0.043, 0.018, 1)
+theme_override_font_sizes/font_size = 72
+text = "CURRENT BREW"
 horizontal_alignment = 1
 vertical_alignment = 1
-autowrap_mode = 3
-clip_text = true
 
-[node name="PotionPreview" type="TextureRect" parent="PotionBrewingStationView/BrewPanel/Panel/CurrentBrew"]
+[node name="Subtitle" type="Label" parent="PotionBrewingStationView/BrewPanel/Panel"]
 layout_mode = 0
-offset_left = 151.0
-offset_top = 62.0
-offset_right = 339.0
-offset_bottom = 200.0
-mouse_filter = 2
-texture = ExtResource("44_potion_preview")
-expand_mode = 1
-stretch_mode = 5
-
-[node name="Instruction" type="Label" parent="PotionBrewingStationView/BrewPanel/Panel/CurrentBrew"]
-layout_mode = 0
-offset_top = 205.0
-offset_right = 490.0
-offset_bottom = 253.0
-theme_override_colors/font_color = Color(0.055, 0.039, 0.025, 1)
-theme_override_font_sizes/font_size = 23
-text = "Add 3 ingredients to the cauldron."
+offset_left = 120.0
+offset_top = 226.0
+offset_right = 965.0
+offset_bottom = 278.0
+theme_override_colors/font_color = Color(0.13, 0.075, 0.034, 1)
+theme_override_font_sizes/font_size = 44
+text = "Requested Fit"
 horizontal_alignment = 1
 vertical_alignment = 1
-autowrap_mode = 3
-clip_text = true
 
 [node name="FormulaSlots" type="Control" parent="PotionBrewingStationView/BrewPanel/Panel"]
 anchors_preset = 0
-offset_left = 142.0
-offset_top = 525.0
-offset_right = 588.0
-offset_bottom = 850.0
+offset_left = 90.0
+offset_top = 320.0
+offset_right = 995.0
+offset_bottom = 666.0
 mouse_filter = 2
 
-[node name="Slot1" type="PanelContainer" parent="PotionBrewingStationView/BrewPanel/Panel/FormulaSlots"]
-custom_minimum_size = Vector2(446, 84)
+[node name="Marker1" type="PanelContainer" parent="PotionBrewingStationView/BrewPanel/Panel/FormulaSlots"]
+custom_minimum_size = Vector2(80, 80)
 layout_mode = 0
-offset_right = 446.0
-offset_bottom = 84.0
-theme_override_styles/panel = SubResource("StyleBoxEmpty_slot_panel")
+offset_left = 14.0
+offset_top = 12.0
+offset_right = 94.0
+offset_bottom = 92.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_brew_slot_marker")
+
+[node name="Number" type="Label" parent="PotionBrewingStationView/BrewPanel/Panel/FormulaSlots/Marker1"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.82, 0.68, 0.43, 1)
+theme_override_font_sizes/font_size = 46
+text = "1"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Slot1" type="PanelContainer" parent="PotionBrewingStationView/BrewPanel/Panel/FormulaSlots"]
+custom_minimum_size = Vector2(755, 104)
+layout_mode = 0
+offset_left = 150.0
+offset_right = 905.0
+offset_bottom = 104.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_brew_slot_panel")
 
 [node name="Content" type="HBoxContainer" parent="PotionBrewingStationView/BrewPanel/Panel/FormulaSlots/Slot1"]
 layout_mode = 2
-theme_override_constants/separation = 16
+theme_override_constants/separation = 20
 
 [node name="Icon" type="TextureRect" parent="PotionBrewingStationView/BrewPanel/Panel/FormulaSlots/Slot1/Content"]
-custom_minimum_size = Vector2(72, 72)
+custom_minimum_size = Vector2(84, 84)
 layout_mode = 2
 expand_mode = 1
 stretch_mode = 5
@@ -810,25 +1165,44 @@ stretch_mode = 5
 [node name="Name" type="Label" parent="PotionBrewingStationView/BrewPanel/Panel/FormulaSlots/Slot1/Content"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.055, 0.039, 0.025, 1)
-theme_override_font_sizes/font_size = 24
+theme_override_colors/font_color = Color(0.075, 0.043, 0.018, 1)
+theme_override_font_sizes/font_size = 40
 vertical_alignment = 1
 autowrap_mode = 3
 
-[node name="Slot2" type="PanelContainer" parent="PotionBrewingStationView/BrewPanel/Panel/FormulaSlots"]
-custom_minimum_size = Vector2(446, 84)
+[node name="Marker2" type="PanelContainer" parent="PotionBrewingStationView/BrewPanel/Panel/FormulaSlots"]
+custom_minimum_size = Vector2(80, 80)
 layout_mode = 0
-offset_top = 126.0
-offset_right = 446.0
-offset_bottom = 210.0
-theme_override_styles/panel = SubResource("StyleBoxEmpty_slot_panel")
+offset_left = 14.0
+offset_top = 134.0
+offset_right = 94.0
+offset_bottom = 214.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_brew_slot_marker")
+
+[node name="Number" type="Label" parent="PotionBrewingStationView/BrewPanel/Panel/FormulaSlots/Marker2"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.82, 0.68, 0.43, 1)
+theme_override_font_sizes/font_size = 46
+text = "2"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Slot2" type="PanelContainer" parent="PotionBrewingStationView/BrewPanel/Panel/FormulaSlots"]
+custom_minimum_size = Vector2(755, 104)
+layout_mode = 0
+offset_left = 150.0
+offset_top = 122.0
+offset_right = 905.0
+offset_bottom = 226.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_brew_slot_panel")
 
 [node name="Content" type="HBoxContainer" parent="PotionBrewingStationView/BrewPanel/Panel/FormulaSlots/Slot2"]
 layout_mode = 2
-theme_override_constants/separation = 16
+theme_override_constants/separation = 20
 
 [node name="Icon" type="TextureRect" parent="PotionBrewingStationView/BrewPanel/Panel/FormulaSlots/Slot2/Content"]
-custom_minimum_size = Vector2(72, 72)
+custom_minimum_size = Vector2(84, 84)
 layout_mode = 2
 expand_mode = 1
 stretch_mode = 5
@@ -836,25 +1210,44 @@ stretch_mode = 5
 [node name="Name" type="Label" parent="PotionBrewingStationView/BrewPanel/Panel/FormulaSlots/Slot2/Content"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.055, 0.039, 0.025, 1)
-theme_override_font_sizes/font_size = 24
+theme_override_colors/font_color = Color(0.075, 0.043, 0.018, 1)
+theme_override_font_sizes/font_size = 40
 vertical_alignment = 1
 autowrap_mode = 3
 
-[node name="Slot3" type="PanelContainer" parent="PotionBrewingStationView/BrewPanel/Panel/FormulaSlots"]
-custom_minimum_size = Vector2(446, 84)
+[node name="Marker3" type="PanelContainer" parent="PotionBrewingStationView/BrewPanel/Panel/FormulaSlots"]
+custom_minimum_size = Vector2(80, 80)
 layout_mode = 0
-offset_top = 252.0
-offset_right = 446.0
+offset_left = 14.0
+offset_top = 256.0
+offset_right = 94.0
 offset_bottom = 336.0
-theme_override_styles/panel = SubResource("StyleBoxEmpty_slot_panel")
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_brew_slot_marker")
+
+[node name="Number" type="Label" parent="PotionBrewingStationView/BrewPanel/Panel/FormulaSlots/Marker3"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.82, 0.68, 0.43, 1)
+theme_override_font_sizes/font_size = 46
+text = "3"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Slot3" type="PanelContainer" parent="PotionBrewingStationView/BrewPanel/Panel/FormulaSlots"]
+custom_minimum_size = Vector2(755, 104)
+layout_mode = 0
+offset_left = 150.0
+offset_top = 244.0
+offset_right = 905.0
+offset_bottom = 348.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_brew_slot_panel")
 
 [node name="Content" type="HBoxContainer" parent="PotionBrewingStationView/BrewPanel/Panel/FormulaSlots/Slot3"]
 layout_mode = 2
-theme_override_constants/separation = 16
+theme_override_constants/separation = 20
 
 [node name="Icon" type="TextureRect" parent="PotionBrewingStationView/BrewPanel/Panel/FormulaSlots/Slot3/Content"]
-custom_minimum_size = Vector2(72, 72)
+custom_minimum_size = Vector2(84, 84)
 layout_mode = 2
 expand_mode = 1
 stretch_mode = 5
@@ -862,161 +1255,113 @@ stretch_mode = 5
 [node name="Name" type="Label" parent="PotionBrewingStationView/BrewPanel/Panel/FormulaSlots/Slot3/Content"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.055, 0.039, 0.025, 1)
-theme_override_font_sizes/font_size = 24
+theme_override_colors/font_color = Color(0.075, 0.043, 0.018, 1)
+theme_override_font_sizes/font_size = 40
 vertical_alignment = 1
 autowrap_mode = 3
 
-[node name="KnownProperties" type="Control" parent="PotionBrewingStationView/BrewPanel/Panel"]
+[node name="RequestChecklist" type="Control" parent="PotionBrewingStationView/BrewPanel/Panel"]
 anchors_preset = 0
-offset_left = 640.0
-offset_top = 565.0
-offset_right = 995.0
-offset_bottom = 710.0
+offset_left = 95.0
+offset_top = 710.0
+offset_right = 990.0
+offset_bottom = 1225.0
 mouse_filter = 2
 
-[node name="Traits" type="Label" parent="PotionBrewingStationView/BrewPanel/Panel/KnownProperties"]
+[node name="Frame" type="PanelContainer" parent="PotionBrewingStationView/BrewPanel/Panel/RequestChecklist"]
 layout_mode = 0
-offset_right = 355.0
-offset_bottom = 145.0
-theme_override_colors/font_color = Color(0.055, 0.22, 0.055, 1)
-theme_override_font_sizes/font_size = 26
-text = "-
--
--"
-autowrap_mode = 3
-
-[node name="KnownDangers" type="Control" parent="PotionBrewingStationView/BrewPanel/Panel"]
-anchors_preset = 0
-offset_left = 640.0
-offset_top = 790.0
-offset_right = 995.0
-offset_bottom = 900.0
+offset_right = 895.0
+offset_bottom = 515.0
 mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_brew_checklist_panel")
 
-[node name="Risks" type="Label" parent="PotionBrewingStationView/BrewPanel/Panel/KnownDangers"]
+[node name="Title" type="Label" parent="PotionBrewingStationView/BrewPanel/Panel/RequestChecklist"]
 layout_mode = 0
-offset_right = 355.0
-offset_bottom = 110.0
-theme_override_colors/font_color = Color(0.35, 0.045, 0.035, 1)
-theme_override_font_sizes/font_size = 26
-text = "-"
-autowrap_mode = 3
-
-[node name="Instability" type="Control" parent="PotionBrewingStationView/BrewPanel/Panel"]
-anchors_preset = 0
-offset_left = 245.0
-offset_top = 995.0
-offset_right = 815.0
-offset_bottom = 1120.0
-mouse_filter = 2
-
-[node name="StatusRow" type="HBoxContainer" parent="PotionBrewingStationView/BrewPanel/Panel/Instability"]
-layout_mode = 0
-offset_right = 570.0
-offset_bottom = 42.0
-mouse_filter = 2
-theme_override_constants/separation = 8
-
-[node name="Icon" type="Label" parent="PotionBrewingStationView/BrewPanel/Panel/Instability/StatusRow"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.34, 0.32, 0.28, 1)
-theme_override_font_sizes/font_size = 29
-text = "v"
-vertical_alignment = 1
-
-[node name="Text" type="Label" parent="PotionBrewingStationView/BrewPanel/Panel/Instability/StatusRow"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.34, 0.32, 0.28, 1)
-theme_override_font_sizes/font_size = 28
-text = "Waiting for 3 ingredients"
-vertical_alignment = 1
-
-[node name="Result" type="RichTextLabel" parent="PotionBrewingStationView/BrewPanel/Panel/Instability"]
-custom_minimum_size = Vector2(570, 78)
-layout_mode = 0
-offset_top = 44.0
-offset_right = 570.0
-offset_bottom = 122.0
-mouse_filter = 2
-theme_override_colors/default_color = Color(0.055, 0.039, 0.025, 1)
-theme_override_font_sizes/normal_font_size = 21
-fit_content = true
-
-[node name="EstimatedValue" type="Control" parent="PotionBrewingStationView/BrewPanel/Panel"]
-anchors_preset = 0
-offset_left = 205.0
-offset_top = 1250.0
-offset_right = 450.0
-offset_bottom = 1325.0
-mouse_filter = 2
-
-[node name="Price" type="Label" parent="PotionBrewingStationView/BrewPanel/Panel/EstimatedValue"]
-layout_mode = 0
-offset_right = 245.0
-offset_bottom = 75.0
-theme_override_colors/font_color = Color(0.055, 0.039, 0.025, 1)
-theme_override_font_sizes/font_size = 34
-text = "0"
+offset_left = 38.0
+offset_top = 24.0
+offset_right = 857.0
+offset_bottom = 90.0
+theme_override_colors/font_color = Color(0.075, 0.043, 0.018, 1)
+theme_override_font_sizes/font_size = 54
+text = "Requested Fit"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="Brew" type="Button" parent="PotionBrewingStationView/BrewPanel/Panel"]
-modulate = Color(1, 1, 1, 0)
+[node name="Lines" type="RichTextLabel" parent="PotionBrewingStationView/BrewPanel/Panel/RequestChecklist"]
+custom_minimum_size = Vector2(815, 375)
 layout_mode = 0
-offset_left = 562.0
-offset_top = 1195.0
-offset_right = 1000.0
-offset_bottom = 1330.0
+offset_left = 42.0
+offset_top = 104.0
+offset_right = 857.0
+offset_bottom = 482.0
+mouse_filter = 2
+theme_override_colors/default_color = Color(0.075, 0.043, 0.018, 1)
+theme_override_font_sizes/normal_font_size = 46
+bbcode_enabled = true
+text = "No active request."
+
+[node name="Brew" type="Button" parent="PotionBrewingStationView/BrewPanel/Panel"]
+layout_mode = 0
+offset_left = 115.0
+offset_top = 1270.0
+offset_right = 500.0
+offset_bottom = 1380.0
 tooltip_text = "Brew potion"
 mouse_default_cursor_shape = 2
-text = "Brew Potion"
-flat = true
+theme_override_colors/font_disabled_color = Color(0.32, 0.25, 0.18, 1)
+theme_override_colors/font_hover_color = Color(0.055, 0.031, 0.013, 1)
+theme_override_colors/font_color = Color(0.075, 0.043, 0.018, 1)
+theme_override_colors/font_pressed_color = Color(0.055, 0.031, 0.013, 1)
+theme_override_font_sizes/font_size = 58
+theme_override_styles/disabled = SubResource("StyleBoxFlat_brew_button_disabled")
+theme_override_styles/hover = SubResource("StyleBoxFlat_brew_button_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_brew_button_pressed")
+theme_override_styles/normal = SubResource("StyleBoxFlat_brew_button_normal")
+text = "Brew"
 
 [node name="Clear" type="Button" parent="PotionBrewingStationView/BrewPanel/Panel"]
-modulate = Color(1, 1, 1, 0)
 layout_mode = 0
-offset_left = 600.0
-offset_top = 1362.0
-offset_right = 915.0
-offset_bottom = 1430.0
+offset_left = 585.0
+offset_top = 1270.0
+offset_right = 970.0
+offset_bottom = 1380.0
 tooltip_text = "Clear ingredients"
 mouse_default_cursor_shape = 2
-text = "Clear Ingredients"
-flat = true
+theme_override_colors/font_disabled_color = Color(0.32, 0.25, 0.18, 1)
+theme_override_colors/font_hover_color = Color(0.055, 0.031, 0.013, 1)
+theme_override_colors/font_color = Color(0.075, 0.043, 0.018, 1)
+theme_override_colors/font_pressed_color = Color(0.055, 0.031, 0.013, 1)
+theme_override_font_sizes/font_size = 58
+theme_override_styles/disabled = SubResource("StyleBoxFlat_brew_button_disabled")
+theme_override_styles/hover = SubResource("StyleBoxFlat_brew_button_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_brew_button_pressed")
+theme_override_styles/normal = SubResource("StyleBoxFlat_brew_button_normal")
+text = "Clear"
 
 [node name="BrewBox" type="PanelContainer" parent="PotionBrewingStationView/BrewPanel"]
 self_modulate = Color(1, 1, 1, 0)
 custom_minimum_size = Vector2(240, 240)
 layout_mode = 1
 anchors_preset = -1
-anchor_left = 0.38
-anchor_top = 0.33
+anchor_left = 0.47
+anchor_top = 0.287
 anchor_right = 0.58
 anchor_bottom = 0.76
-offset_left = -684.581
-offset_top = 133.804
-offset_right = -610.981
-offset_bottom = 98.2336
+offset_left = -705.514
+offset_top = 102.019
+offset_right = -473.944
+offset_bottom = 11.3916
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_styles/panel = SubResource("StyleBoxEmpty_slot_panel")
+theme_override_styles/panel = SubResource("StyleBoxFlat_bd6m8")
 script = ExtResource("10_odm4o")
-
-[node name="Icon" type="TextureRect" parent="PotionBrewingStationView/BrewPanel/BrewBox"]
-visible = false
-layout_mode = 2
-texture = ExtResource("13_x17d0")
-expand_mode = 1
-stretch_mode = 5
 
 [node name="IngredientScales" type="Control" parent="PotionBrewingStationView"]
 anchors_preset = 0
-offset_left = 1243.0
-offset_top = 591.0
-offset_right = 1713.0
-offset_bottom = 963.0
+offset_left = 1092.0
+offset_top = 581.0
+offset_right = 1562.0
+offset_bottom = 953.0
 mouse_filter = 2
 theme = ExtResource("16_brew_theme")
 script = ExtResource("34_scales_panel")
@@ -1224,6 +1569,90 @@ custom_minimum_size = Vector2(92, 38)
 layout_mode = 2
 text = "Clear"
 
+[node name="IngredientPreparationTray" type="Control" parent="PotionBrewingStationView"]
+custom_minimum_size = Vector2(430, 330)
+layout_mode = 3
+anchors_preset = 0
+offset_left = 124.0
+offset_top = 678.0
+offset_right = 554.0
+offset_bottom = 1008.0
+theme = ExtResource("16_brew_theme")
+script = ExtResource("45_prep_tray")
+IngredientDropBoxPath = NodePath("PreparationDropBox")
+IngredientIconPath = NodePath("PreparationDropBox/Content/Icon")
+IngredientNamePath = NodePath("PreparationDropBox/Content/Name")
+StatusLabelPath = NodePath("Status")
+PreparationButtonsContainerPath = NodePath("PreparationMethods")
+ClearButtonPath = NodePath("Clear")
+
+[node name="Tool" type="Sprite2D" parent="PotionBrewingStationView/IngredientPreparationTray"]
+position = Vector2(208, 82)
+scale = Vector2(0.144936, 0.144936)
+texture = ExtResource("26_l20nr")
+
+[node name="PreparationDropBox" type="PanelContainer" parent="PotionBrewingStationView/IngredientPreparationTray"]
+self_modulate = Color(1, 1, 1, 0.02)
+custom_minimum_size = Vector2(176, 126)
+layout_mode = 0
+offset_left = 122.0
+offset_right = 298.0
+offset_bottom = 126.0
+tooltip_text = "Drop raw ingredient"
+mouse_default_cursor_shape = 2
+script = ExtResource("10_odm4o")
+
+[node name="Content" type="VBoxContainer" parent="PotionBrewingStationView/IngredientPreparationTray/PreparationDropBox"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 4
+
+[node name="Icon" type="TextureRect" parent="PotionBrewingStationView/IngredientPreparationTray/PreparationDropBox/Content"]
+custom_minimum_size = Vector2(0, 72)
+layout_mode = 2
+size_flags_vertical = 3
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Name" type="Label" parent="PotionBrewingStationView/IngredientPreparationTray/PreparationDropBox/Content"]
+visible = false
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+text = "Drop raw ingredient"
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="Status" type="Label" parent="PotionBrewingStationView/IngredientPreparationTray"]
+visible = false
+layout_mode = 0
+offset_left = 76.0
+offset_top = 132.0
+offset_right = 354.0
+offset_bottom = 186.0
+theme_override_colors/font_color = Color(0.88, 0.91, 0.86, 1)
+theme_override_font_sizes/font_size = 18
+text = "Select a preparation."
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="PreparationMethods" type="HBoxContainer" parent="PotionBrewingStationView/IngredientPreparationTray"]
+layout_mode = 0
+offset_left = 12.0
+offset_top = 156.0
+offset_right = 426.0
+offset_bottom = 234.0
+theme_override_constants/separation = 8
+
+[node name="Clear" type="Button" parent="PotionBrewingStationView/IngredientPreparationTray"]
+custom_minimum_size = Vector2(92, 38)
+layout_mode = 0
+offset_left = 297.0
+offset_top = 72.0
+offset_right = 389.0
+offset_bottom = 113.0
+text = "Clear"
+
 [node name="TreatmentTray" type="Control" parent="PotionBrewingStationView"]
 custom_minimum_size = Vector2(430, 286)
 layout_mode = 3
@@ -1369,219 +1798,6 @@ theme_override_styles/hover = SubResource("StyleBoxFlat_navigation_hotspot_hover
 theme_override_styles/pressed = SubResource("StyleBoxFlat_navigation_hotspot_pressed")
 theme_override_styles/normal = SubResource("StyleBoxFlat_navigation_hotspot_normal")
 text = "Sleep"
-
-[node name="InventoryPanel" parent="." instance=ExtResource("5_invp")]
-visible = false
-anchor_left = -0.0204062
-anchor_top = 0.0
-anchor_right = 0.211
-anchor_bottom = 1.0
-offset_left = 45.1199
-offset_top = 50.0
-offset_right = 198.92
-offset_bottom = 0.0
-ItemDetailTopCloseButtonPath = NodePath("")
-
-[node name="InventoryItemDetail" type="Control" parent="."]
-visible = false
-z_index = 2000
-layout_mode = 3
-anchors_preset = 10
-anchor_right = 1.0
-offset_left = 188.0
-offset_top = 66.0
-offset_right = -701.0
-offset_bottom = 398.0
-grow_horizontal = 2
-grow_vertical = 2
-theme = ExtResource("16_brew_theme")
-
-[node name="Panel" type="PanelContainer" parent="InventoryItemDetail"]
-custom_minimum_size = Vector2(280, 280)
-layout_mode = 0
-offset_left = -1.0
-offset_top = -1.0
-offset_right = 392.0
-offset_bottom = 342.0
-theme_type_variation = &"BrewRoot"
-theme_override_styles/panel = SubResource("StyleBoxFlat_inventory_detail_root")
-script = ExtResource("12_6x1m8")
-DragHandlePath = NodePath("")
-
-[node name="Margin" type="MarginContainer" parent="InventoryItemDetail/Panel"]
-layout_mode = 2
-theme_override_constants/margin_left = 14
-theme_override_constants/margin_top = 12
-theme_override_constants/margin_right = 14
-theme_override_constants/margin_bottom = 12
-
-[node name="VBox" type="VBoxContainer" parent="InventoryItemDetail/Panel/Margin"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 9
-
-[node name="TopRow" type="HBoxContainer" parent="InventoryItemDetail/Panel/Margin/VBox"]
-custom_minimum_size = Vector2(0, 112)
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 12
-
-[node name="IconFrame" type="PanelContainer" parent="InventoryItemDetail/Panel/Margin/VBox/TopRow"]
-custom_minimum_size = Vector2(96, 96)
-layout_mode = 2
-theme_type_variation = &"BrewIconFrame"
-
-[node name="Icon" type="TextureRect" parent="InventoryItemDetail/Panel/Margin/VBox/TopRow/IconFrame"]
-layout_mode = 2
-expand_mode = 1
-stretch_mode = 5
-
-[node name="Identity" type="VBoxContainer" parent="InventoryItemDetail/Panel/Margin/VBox/TopRow"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 6
-
-[node name="Name" type="Label" parent="InventoryItemDetail/Panel/Margin/VBox/TopRow/Identity"]
-custom_minimum_size = Vector2(0, 64)
-layout_mode = 2
-theme_override_font_sizes/font_size = 24
-text = "Item Name"
-autowrap_mode = 3
-
-[node name="TypeTag" type="Label" parent="InventoryItemDetail/Panel/Margin/VBox/TopRow/Identity"]
-visible = false
-layout_mode = 2
-theme_override_colors/font_color = Color(0.68, 0.7, 0.75, 1)
-theme_override_font_sizes/font_size = 14
-text = "Herb"
-
-[node name="Owned" type="Label" parent="InventoryItemDetail/Panel/Margin/VBox/TopRow/Identity"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.7, 0.72, 0.78, 1)
-text = "Owned: 0"
-
-[node name="Separator" type="HSeparator" parent="InventoryItemDetail/Panel/Margin/VBox/TopRow/Identity"]
-layout_mode = 2
-
-[node name="Price" type="Label" parent="InventoryItemDetail/Panel/Margin/VBox/TopRow/Identity"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.94, 0.79, 0.31, 1)
-text = "Sell Price: 0"
-
-[node name="StatsRow" type="HBoxContainer" parent="InventoryItemDetail/Panel/Margin/VBox"]
-custom_minimum_size = Vector2(0, 102)
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 8
-
-[node name="TraitsColumn" type="VBoxContainer" parent="InventoryItemDetail/Panel/Margin/VBox/StatsRow"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 4
-
-[node name="Header" type="Label" parent="InventoryItemDetail/Panel/Margin/VBox/StatsRow/TraitsColumn"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.43, 0.83, 0.48, 1)
-text = "TRAITS"
-
-[node name="Traits" type="RichTextLabel" parent="InventoryItemDetail/Panel/Margin/VBox/StatsRow/TraitsColumn"]
-custom_minimum_size = Vector2(0, 72)
-layout_mode = 2
-theme_override_colors/default_color = Color(0.43, 0.83, 0.48, 1)
-text = "None"
-
-[node name="Divider" type="VSeparator" parent="InventoryItemDetail/Panel/Margin/VBox/StatsRow"]
-layout_mode = 2
-
-[node name="RisksColumn" type="VBoxContainer" parent="InventoryItemDetail/Panel/Margin/VBox/StatsRow"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 4
-
-[node name="Header" type="Label" parent="InventoryItemDetail/Panel/Margin/VBox/StatsRow/RisksColumn"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.94, 0.32, 0.28, 1)
-text = "RISKS"
-
-[node name="Risks" type="RichTextLabel" parent="InventoryItemDetail/Panel/Margin/VBox/StatsRow/RisksColumn"]
-custom_minimum_size = Vector2(0, 72)
-layout_mode = 2
-theme_override_colors/default_color = Color(0.94, 0.32, 0.28, 1)
-text = "None"
-
-[node name="DetailsSeparator" type="HSeparator" parent="InventoryItemDetail/Panel/Margin/VBox"]
-layout_mode = 2
-
-[node name="DescriptionHeader" type="Label" parent="InventoryItemDetail/Panel/Margin/VBox"]
-visible = false
-layout_mode = 2
-theme_override_colors/font_color = Color(0.68, 0.7, 0.75, 1)
-text = "EFFECTS"
-
-[node name="Description" type="RichTextLabel" parent="InventoryItemDetail/Panel/Margin/VBox"]
-custom_minimum_size = Vector2(0, 126)
-layout_mode = 2
-theme_override_colors/default_color = Color(0.78, 0.79, 0.84, 1)
-text = "Description"
-
-[node name="RecipesHeader" type="Label" parent="InventoryItemDetail/Panel/Margin/VBox"]
-visible = false
-layout_mode = 2
-theme_override_colors/font_color = Color(0.68, 0.7, 0.75, 1)
-text = "KNOWN RECIPES"
-
-[node name="RecipesFrame" type="PanelContainer" parent="InventoryItemDetail/Panel/Margin/VBox"]
-visible = false
-custom_minimum_size = Vector2(0, 132)
-layout_mode = 2
-
-[node name="RecipesMargin" type="MarginContainer" parent="InventoryItemDetail/Panel/Margin/VBox/RecipesFrame"]
-layout_mode = 2
-theme_override_constants/margin_left = 8
-theme_override_constants/margin_top = 8
-theme_override_constants/margin_right = 8
-theme_override_constants/margin_bottom = 8
-
-[node name="RecipesScroll" type="ScrollContainer" parent="InventoryItemDetail/Panel/Margin/VBox/RecipesFrame/RecipesMargin"]
-layout_mode = 2
-size_flags_horizontal = 3
-size_flags_vertical = 3
-
-[node name="Recipes" type="VBoxContainer" parent="InventoryItemDetail/Panel/Margin/VBox/RecipesFrame/RecipesMargin/RecipesScroll"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 5
-
-[node name="ActionSeparator" type="HSeparator" parent="InventoryItemDetail/Panel/Margin/VBox"]
-layout_mode = 2
-
-[node name="Actions" type="HBoxContainer" parent="InventoryItemDetail/Panel/Margin/VBox"]
-custom_minimum_size = Vector2(0, 44)
-layout_mode = 2
-theme_override_constants/separation = 8
-
-[node name="Close" type="Button" parent="InventoryItemDetail/Panel/Margin/VBox/Actions"]
-custom_minimum_size = Vector2(82, 40)
-layout_mode = 2
-text = "Close"
-
-[node name="Brew" type="Button" parent="InventoryItemDetail/Panel/Margin/VBox/Actions"]
-custom_minimum_size = Vector2(0, 40)
-layout_mode = 2
-size_flags_horizontal = 3
-theme_type_variation = &"BrewActionButton"
-text = "Brew"
-
-[node name="AddToBook" type="Button" parent="InventoryItemDetail/Panel/Margin/VBox/Actions"]
-visible = false
-custom_minimum_size = Vector2(112, 40)
-layout_mode = 2
-text = "Add to Book"
-
-[node name="Discard" type="Button" parent="InventoryItemDetail/Panel/Margin/VBox/Actions"]
-custom_minimum_size = Vector2(92, 40)
-layout_mode = 2
-text = "Discard"
 
 [node name="CustomerPanel" type="Control" parent="."]
 visible = false

@@ -10,7 +10,6 @@ public partial class TutorialController : Node
 {
 	[Export] public NodePath TutorialOverlayPath = default!;
 	[Export] public NodePath HudPath = default!;
-	[Export] public NodePath InventoryPanelPath = default!;
 	[Export] public NodePath BrewPanelPath = default!;
 	[Export] public NodePath CustomerPanelPath = default!;
 	[Export] public NodePath DaySummaryPanelPath = default!;
@@ -22,7 +21,6 @@ public partial class TutorialController : Node
 	[Export] public NodePath HudStartDayButtonPath = new("Content/Actions/ServeCustomer");
 	[Export] public NodePath HudSettingsButtonPath = new("Content/Actions/MainMenu");
 	[Export] public NodePath HudDayLabelPath = new("Content/Status/Day");
-	[Export] public NodePath HudShopTimerLabelPath = new("Content/Status/ShopTimer");
 	[Export] public NodePath BrewPanelFramePath = new("Panel");
 	[Export] public TutorialContentResource TutorialContent = new();
 
@@ -36,8 +34,6 @@ public partial class TutorialController : Node
 	private Control? _hud;
 	private Control? _shopFloor;
 	private Label? _hudDayLabel;
-	private Label? _hudShopTimerLabel;
-	private InventoryPanel? _inventoryPanel;
 	private BrewPanel? _brewPanel;
 	private Control? _brewPanelFrame;
 	private CustomerPanel? _customerPanel;
@@ -50,7 +46,6 @@ public partial class TutorialController : Node
 
 	private bool _isRunning;
 	private bool _lastTutorialSaleSucceeded;
-	private bool _sleepCustomerPotionSold;
 
 	public override void _Ready()
 	{
@@ -61,7 +56,6 @@ public partial class TutorialController : Node
 
 		_hud = GetOptionalControl(HudPath, nameof(HudPath));
 		_shopFloor = GetOptionalControl(ShopFloorPath, nameof(ShopFloorPath));
-		_inventoryPanel = GetOptionalNode<InventoryPanel>(InventoryPanelPath, nameof(InventoryPanelPath));
 		_brewPanel = GetOptionalNode<BrewPanel>(BrewPanelPath, nameof(BrewPanelPath));
 		_brewPanelFrame = GetOptionalBrewPanelControl(BrewPanelFramePath, nameof(BrewPanelFramePath));
 		_customerPanel = GetOptionalNode<CustomerPanel>(CustomerPanelPath, nameof(CustomerPanelPath));
@@ -72,7 +66,6 @@ public partial class TutorialController : Node
 		_startDayButton = GetOptionalHudButton(HudStartDayButtonPath, nameof(HudStartDayButtonPath));
 		_settingsButton = GetOptionalHudButton(HudSettingsButtonPath, nameof(HudSettingsButtonPath));
 		_hudDayLabel = GetOptionalHudLabel(HudDayLabelPath, nameof(HudDayLabelPath));
-		_hudShopTimerLabel = GetOptionalHudLabel(HudShopTimerLabelPath, nameof(HudShopTimerLabelPath));
 
 		_tutorialContent = TutorialContent ?? new TutorialContentResource();
 		_stateMachine = new TutorialStateMachine(_tutorialContent);
@@ -80,8 +73,6 @@ public partial class TutorialController : Node
 
 		_overlay.NextPressed += OnNextPressed;
 		_overlay.SkipPressed += OnSkipPressed;
-		if (_inventoryPanel is not null)
-			_inventoryPanel.ItemDetailShown += OnItemDetailShown;
 		if (_openBrewPanelButton is not null)
 			_openBrewPanelButton.Pressed += OnBrewButtonPressed;
 		if (_brewPanel is not null)
@@ -107,15 +98,12 @@ public partial class TutorialController : Node
 	public override void _ExitTree()
 	{
 		_interactionGate.Restore();
-		ResumeShopTimerAfterTutorial();
 
 		if (_overlay is not null)
 		{
 			_overlay.NextPressed -= OnNextPressed;
 			_overlay.SkipPressed -= OnSkipPressed;
 		}
-		if (_inventoryPanel is not null)
-			_inventoryPanel.ItemDetailShown -= OnItemDetailShown;
 		if (_openBrewPanelButton is not null)
 			_openBrewPanelButton.Pressed -= OnBrewButtonPressed;
 		if (_brewPanel is not null)
@@ -142,8 +130,6 @@ public partial class TutorialController : Node
 
 		_isRunning = true;
 		ResetLastTutorialSaleFeedback();
-		ResetCloseShopTutorialState();
-		UpdateShopTimerPause();
 		ShowStep(CurrentStep());
 	}
 
@@ -164,9 +150,7 @@ public partial class TutorialController : Node
 		_isRunning = false;
 		_overlayPresenter.Hide();
 		_interactionGate.Restore();
-		ResumeShopTimerAfterTutorial();
 		ResetLastTutorialSaleFeedback();
-		ResetCloseShopTutorialState();
 		_gameState.SkipTutorial();
 	}
 
@@ -186,14 +170,6 @@ public partial class TutorialController : Node
 		ApplyTransition(_stateMachine.EvaluateIngredientQueued(CurrentStep(), itemId, queuedCount));
 	}
 
-	private void OnItemDetailShown(string itemId)
-	{
-		if (!_isRunning)
-			return;
-
-		ApplyTransition(_stateMachine.EvaluateItemDetailShown(CurrentStep(), itemId));
-	}
-
 	private void OnPotionBrewed(string potionItemId)
 	{
 		if (!_isRunning)
@@ -209,10 +185,6 @@ public partial class TutorialController : Node
 
 		var currentStep = CurrentStep();
 		ApplyTransition(_stateMachine.EvaluateShopStateChanged(currentStep, _dayController is not null && _dayController.IsShopOpen));
-		ApplyTransition(_stateMachine.EvaluateCloseShopPrompt(
-			currentStep,
-			_sleepCustomerPotionSold,
-			_customerPanel is not null && _customerPanel.IsCloseShopMode));
 	}
 
 	private void OnPotionSold(string itemId, bool success)
@@ -224,15 +196,6 @@ public partial class TutorialController : Node
 		var transition = _stateMachine.EvaluatePotionSold(currentStep, itemId);
 		if (transition.HasNextStep && transition.NextStep == TutorialStepId.SaleResult)
 			_lastTutorialSaleSucceeded = success;
-
-		if (currentStep == TutorialStepId.AddTwoMoreSleepIngredients)
-		{
-			_sleepCustomerPotionSold = true;
-			ApplyTransition(_stateMachine.EvaluateCloseShopPrompt(
-				currentStep,
-				_sleepCustomerPotionSold,
-				_customerPanel is not null && _customerPanel.IsCloseShopMode));
-		}
 
 		ApplyTransition(transition);
 	}
@@ -294,7 +257,7 @@ public partial class TutorialController : Node
 	private void AdvanceTo(TutorialStepId step)
 	{
 		if (step == TutorialStepId.AddTwoMoreSleepIngredients)
-			_dayController?.ForceShopTimerToZeroForTutorial();
+			_dayController?.ForceCloseShopAfterCurrentCustomerForTutorial();
 
 		_gameState.SetTutorialStep((int)step);
 		ShowStep(step);
@@ -306,9 +269,7 @@ public partial class TutorialController : Node
 		_isRunning = false;
 		_overlayPresenter.Hide();
 		_interactionGate.Restore();
-		ResumeShopTimerAfterTutorial();
 		ResetLastTutorialSaleFeedback();
-		ResetCloseShopTutorialState();
 		_gameState.CompleteTutorial();
 	}
 
@@ -333,7 +294,6 @@ public partial class TutorialController : Node
 		}
 
 		var stepContent = _tutorialContent.GetStepContent(step);
-		UpdateShopTimerPause();
 		UpdateTutorialButtonLock(stepContent, GetAllowedButtonsForStep(step));
 		_overlayPresenter.SetSkipButtonVisible(true);
 
@@ -354,14 +314,14 @@ public partial class TutorialController : Node
 			case TutorialStepId.OpenBrewPanel:
 				_overlayPresenter.ShowForTarget(stepContent, _openBrewPanelButton);
 				break;
-			case TutorialStepId.QueueGraveMint:
-				ShowIngredientQueueStep(stepContent, _tutorialContent.GraveMintId);
+			case TutorialStepId.QueueMint:
+				ShowIngredientQueueStep(stepContent, _tutorialContent.MintId);
 				break;
-			case TutorialStepId.QueueObsidianResin:
-				ShowIngredientQueueStep(stepContent, _tutorialContent.ObsidianResinId);
+			case TutorialStepId.QueueGorse:
+				ShowIngredientQueueStep(stepContent, _tutorialContent.GorseId);
 				break;
-			case TutorialStepId.QueueIronLullabyRoot:
-				ShowIngredientQueueStep(stepContent, _tutorialContent.IronLullabyRootId);
+			case TutorialStepId.QueueThyme:
+				ShowIngredientQueueStep(stepContent, _tutorialContent.ThymeId);
 				break;
 			case TutorialStepId.BrewPotion:
 				_overlayPresenter.ShowForTarget(stepContent, _brewPanelFrame ?? _brewPanel);
@@ -386,15 +346,6 @@ public partial class TutorialController : Node
 			case TutorialStepId.AmbiguousCustomer:
 				_overlayPresenter.ShowForTarget(stepContent, _customerPanel);
 				break;
-			case TutorialStepId.InspectBlackIchor:
-				_overlayPresenter.ShowForTarget(stepContent, FocusBlackIchorInventorySlot());
-				break;
-			case TutorialStepId.BlackIchorRestTrait:
-				_overlayPresenter.ShowForTarget(stepContent, _inventoryPanel?.GetItemDetailFrame());
-				break;
-			case TutorialStepId.AddBlackIchorToBrew:
-				_overlayPresenter.ShowForTarget(stepContent, _inventoryPanel?.GetItemDetailBrewButton());
-				break;
 			case TutorialStepId.AddTwoMoreSleepIngredients:
 				_overlayPresenter.ShowMessage(stepContent);
 				break;
@@ -418,7 +369,6 @@ public partial class TutorialController : Node
 			_overlayPresenter.ShowForTargets(
 				stepContent,
 				null,
-				FocusTutorialIngredientInventorySlot(itemId),
 				FocusTutorialBrewPanel());
 		}).CallDeferred();
 	}
@@ -430,12 +380,10 @@ public partial class TutorialController : Node
 
 	private Control? FocusTutorialPotionInventorySlot()
 	{
-		if (_inventoryPanel is null)
+		if (_customerPanel is null)
 			return null;
 
-		ShowInventoryPanelForTutorial();
-		_inventoryPanel.ClearPotionFiltersForTutorial();
-		return _inventoryPanel.GetVisibleItemSlot(_tutorialContent.TutorialPotionId);
+		return _customerPanel.GetVisiblePotionSlot(_tutorialContent.TutorialPotionId);
 	}
 
 	private bool TryGetStatusHighlightRect(out Rect2 highlightRect)
@@ -446,7 +394,7 @@ public partial class TutorialController : Node
 			return false;
 
 		var hasHighlightRect = false;
-		foreach (var control in new Control?[] { _hud, _hudDayLabel, _hudShopTimerLabel })
+		foreach (var control in new Control?[] { _hud, _hudDayLabel })
 		{
 			if (control is null)
 				continue;
@@ -469,51 +417,9 @@ public partial class TutorialController : Node
 		return hasHighlightRect;
 	}
 
-	private Control? FocusBlackIchorInventorySlot()
-	{
-		if (_inventoryPanel is null)
-			return null;
-
-		ShowInventoryPanelForTutorial();
-		_inventoryPanel.ClearIngredientFiltersForTutorial();
-		return _inventoryPanel.GetVisibleItemSlot(_tutorialContent.BlackIchorId);
-	}
-
-	private Control? FocusTutorialIngredientInventorySlot(string itemId)
-	{
-		if (_inventoryPanel is null)
-			return null;
-
-		ShowInventoryPanelForTutorial();
-		_inventoryPanel.ClearIngredientFiltersForTutorial();
-		return _inventoryPanel.GetVisibleItemSlot(itemId);
-	}
-
-	private void ShowInventoryPanelForTutorial()
-	{
-		if (_inventoryPanel is null || _inventoryPanel.Visible)
-			return;
-
-		_inventoryPanel.Visible = true;
-		_inventoryPanel.MoveToFront();
-	}
-
 	private Control? FocusTutorialBrewPanel()
 	{
 		return _brewPanelFrame ?? _brewPanel;
-	}
-
-	private void UpdateShopTimerPause()
-	{
-		if (_dayController is null || !_isRunning)
-			return;
-
-		_dayController.PauseShopTimerForTutorial();
-	}
-
-	private void ResumeShopTimerAfterTutorial()
-	{
-		_dayController?.ResumeShopTimerAfterTutorial();
 	}
 
 	private void UpdateTutorialButtonLock(TutorialStepContentResource stepContent, params BaseButton?[] allowedButtons)
@@ -525,7 +431,7 @@ public partial class TutorialController : Node
 		}
 
 		_interactionGate.Apply(
-			new Node?[] { _hud, _shopFloor, _inventoryPanel, _brewPanel, _customerPanel, _daySummaryPanel },
+			new Node?[] { _hud, _shopFloor, _brewPanel, _customerPanel, _daySummaryPanel },
 			allowedButtons);
 	}
 
@@ -534,15 +440,13 @@ public partial class TutorialController : Node
 		return step switch
 		{
 			TutorialStepId.OpenBrewPanel => new BaseButton?[] { _openBrewPanelButton, _settingsButton },
-			TutorialStepId.QueueGraveMint => new BaseButton?[] { GetAllowedButton(FocusTutorialIngredientInventorySlot(_tutorialContent.GraveMintId)) },
-			TutorialStepId.QueueObsidianResin => new BaseButton?[] { GetAllowedButton(FocusTutorialIngredientInventorySlot(_tutorialContent.ObsidianResinId)) },
-			TutorialStepId.QueueIronLullabyRoot => new BaseButton?[] { GetAllowedButton(FocusTutorialIngredientInventorySlot(_tutorialContent.IronLullabyRootId)) },
+			TutorialStepId.QueueMint => new BaseButton?[] { },
+			TutorialStepId.QueueGorse => new BaseButton?[] { },
+			TutorialStepId.QueueThyme => new BaseButton?[] { },
 			TutorialStepId.BrewPotion => new BaseButton?[] { _brewPanel?.GetBrewButton() },
 			TutorialStepId.StartDay => new BaseButton?[] { _startDayButton },
 			TutorialStepId.SellPotion => new BaseButton?[] { GetAllowedButton(FocusTutorialPotionInventorySlot()) },
 			TutorialStepId.NextCustomer => new BaseButton?[] { _customerPanel?.GetNextCustomerButton() },
-			TutorialStepId.InspectBlackIchor => new BaseButton?[] { GetAllowedButton(FocusBlackIchorInventorySlot()) },
-			TutorialStepId.AddBlackIchorToBrew => new BaseButton?[] { _inventoryPanel?.GetItemDetailBrewButton() },
 			TutorialStepId.CloseShop => new BaseButton?[] { _customerPanel?.GetNextCustomerButton() },
 			TutorialStepId.DaySummary => new BaseButton?[] { _daySummaryPanel?.GetContinueButton() },
 			_ => new BaseButton?[] { }
@@ -557,11 +461,6 @@ public partial class TutorialController : Node
 	private void ResetLastTutorialSaleFeedback()
 	{
 		_lastTutorialSaleSucceeded = false;
-	}
-
-	private void ResetCloseShopTutorialState()
-	{
-		_sleepCustomerPotionSold = false;
 	}
 
 	private bool TryGetRequiredNode<TNode>(NodePath path, string exportName, out TNode node) where TNode : Node

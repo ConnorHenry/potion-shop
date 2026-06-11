@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://byqfy7ip857g0"
-path="res://.godot/imported/obsidian_resin.png-ca174d2eb18a8fc593bc4fa181c5ce93.ctex"
+uid="uid://cvq143q5g1kk8"
+path="res://.godot/imported/rosemary.png-06cf57dc4e072a6277cddfe94e2b2279.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://Assets/Items/obsidian_resin.png"
-dest_files=["res://.godot/imported/obsidian_resin.png-ca174d2eb18a8fc593bc4fa181c5ce93.ctex"]
+source_file="res://Assets/Items/rosemary.png"
+dest_files=["res://.godot/imported/rosemary.png-06cf57dc4e072a6277cddfe94e2b2279.ctex"]
 
 [params]
 

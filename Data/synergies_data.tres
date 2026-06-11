@@ -1,7 +1,0 @@
-[gd_resource type="Resource" script_class="AuthoredSynergiesResource" load_steps=2 format=3]
-
-[ext_resource type="Script" path="res://Scripts/Models/AuthoredSynergiesResource.cs" id="1"]
-
-[resource]
-script = ExtResource("1")
-Entries = [{"id":"sleep_calm","requiredTraits":["sleep","calm"],"modifier":10,"resultTrait":"peaceful_sedation","description":"Sleep and calm combine into a smooth sedative effect."},{"id":"healing_corruption","requiredTraits":["healing"],"requiredRisks":["corruption"],"modifier":-20,"resultTrait":"unstable_regeneration","addedRisk":"mutation","addedRiskStrength":4,"description":"Healing mixed with corruption creates mutation risk."}]

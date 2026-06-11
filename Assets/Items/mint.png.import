@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cuclx6oej6f0f"
-path="res://.godot/imported/silver_thorn_bloom.png-39017000dad8d8ce816a0a530b3e2cde.ctex"
+uid="uid://dnek0tbjs8c3q"
+path="res://.godot/imported/mint.png-7a7b055e8e195b087d0b5990a679b5dd.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://Assets/Items/silver_thorn_bloom.png"
-dest_files=["res://.godot/imported/silver_thorn_bloom.png-39017000dad8d8ce816a0a530b3e2cde.ctex"]
+source_file="res://Assets/Items/mint.png"
+dest_files=["res://.godot/imported/mint.png-7a7b055e8e195b087d0b5990a679b5dd.ctex"]
 
 [params]
 

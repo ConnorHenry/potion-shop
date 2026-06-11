@@ -4,10 +4,9 @@ namespace OccultShop.Tutorial;
 
 public sealed class TutorialStateMachine
 {
-	private readonly string _graveMintId;
-	private readonly string _obsidianResinId;
-	private readonly string _ironLullabyRootId;
-	private readonly string _blackIchorId;
+	private readonly string _mintId;
+	private readonly string _gorseId;
+	private readonly string _thymeId;
 	private readonly string _tutorialPotionId;
 	private readonly string _tutorialCustomerId;
 	private readonly string _ambiguousCustomerId;
@@ -16,10 +15,9 @@ public sealed class TutorialStateMachine
 	{
 		ArgumentNullException.ThrowIfNull(content);
 
-		_graveMintId = content.GraveMintId;
-		_obsidianResinId = content.ObsidianResinId;
-		_ironLullabyRootId = content.IronLullabyRootId;
-		_blackIchorId = content.BlackIchorId;
+		_mintId = content.MintId;
+		_gorseId = content.GorseId;
+		_thymeId = content.ThymeId;
 		_tutorialPotionId = content.TutorialPotionId;
 		_tutorialCustomerId = content.TutorialCustomerId;
 		_ambiguousCustomerId = content.AmbiguousTutorialCustomerId;
@@ -29,6 +27,9 @@ public sealed class TutorialStateMachine
 	{
 		if (rawStep <= (int)TutorialStepId.Welcome)
 			return TutorialStepId.Welcome;
+
+		if (rawStep >= (int)TutorialStepId.InspectElder && rawStep <= (int)TutorialStepId.AddElderToBrew)
+			return TutorialStepId.AddTwoMoreSleepIngredients;
 
 		if (rawStep >= (int)TutorialStepId.DaySummary)
 			return TutorialStepId.DaySummary;
@@ -43,33 +44,21 @@ public sealed class TutorialStateMachine
 			TutorialStepId.Welcome => TutorialTransition.To(TutorialStepId.Status),
 			TutorialStepId.Status => TutorialTransition.To(TutorialStepId.OpenBrewPanel),
 			TutorialStepId.SaleResult => TutorialTransition.To(TutorialStepId.NextCustomer),
-			TutorialStepId.AmbiguousCustomer => TutorialTransition.To(TutorialStepId.InspectBlackIchor),
-			TutorialStepId.BlackIchorRestTrait => TutorialTransition.To(TutorialStepId.AddBlackIchorToBrew),
+			TutorialStepId.AmbiguousCustomer => TutorialTransition.To(TutorialStepId.AddTwoMoreSleepIngredients),
 			_ => TutorialTransition.None
 		};
 	}
 
 	public TutorialTransition EvaluateIngredientQueued(TutorialStepId step, string itemId, int queuedCount)
 	{
-		if (step == TutorialStepId.QueueGraveMint && IsItem(itemId, _graveMintId))
-			return TutorialTransition.To(TutorialStepId.QueueObsidianResin);
+		if (step == TutorialStepId.QueueMint && IsItem(itemId, _mintId))
+			return TutorialTransition.To(TutorialStepId.QueueGorse);
 
-		if (step == TutorialStepId.QueueObsidianResin && IsItem(itemId, _obsidianResinId))
-			return TutorialTransition.To(TutorialStepId.QueueIronLullabyRoot);
+		if (step == TutorialStepId.QueueGorse && IsItem(itemId, _gorseId))
+			return TutorialTransition.To(TutorialStepId.QueueThyme);
 
-		if (step == TutorialStepId.QueueIronLullabyRoot && IsItem(itemId, _ironLullabyRootId))
+		if (step == TutorialStepId.QueueThyme && IsItem(itemId, _thymeId))
 			return TutorialTransition.To(TutorialStepId.BrewPotion);
-
-		if (step == TutorialStepId.AddBlackIchorToBrew && IsItem(itemId, _blackIchorId))
-			return TutorialTransition.To(TutorialStepId.AddTwoMoreSleepIngredients);
-
-		return TutorialTransition.None;
-	}
-
-	public TutorialTransition EvaluateItemDetailShown(TutorialStepId step, string itemId)
-	{
-		if (step == TutorialStepId.InspectBlackIchor && IsItem(itemId, _blackIchorId))
-			return TutorialTransition.To(TutorialStepId.BlackIchorRestTrait);
 
 		return TutorialTransition.None;
 	}
@@ -84,7 +73,7 @@ public sealed class TutorialStateMachine
 
 	public TutorialTransition EvaluateShopStateChanged(TutorialStepId step, bool isShopOpen)
 	{
-		if (step == TutorialStepId.CloseShop && !isShopOpen)
+		if ((step == TutorialStepId.AddTwoMoreSleepIngredients || step == TutorialStepId.CloseShop) && !isShopOpen)
 			return TutorialTransition.To(TutorialStepId.DaySummary);
 
 		return TutorialTransition.None;
@@ -94,14 +83,6 @@ public sealed class TutorialStateMachine
 	{
 		if (step == TutorialStepId.DaySummary)
 			return TutorialTransition.Complete();
-
-		return TutorialTransition.None;
-	}
-
-	public TutorialTransition EvaluateCloseShopPrompt(TutorialStepId step, bool hasSoldPotion, bool isCloseShopMode)
-	{
-		if (step == TutorialStepId.AddTwoMoreSleepIngredients && hasSoldPotion && isCloseShopMode)
-			return TutorialTransition.To(TutorialStepId.CloseShop);
 
 		return TutorialTransition.None;
 	}
@@ -128,7 +109,7 @@ public sealed class TutorialStateMachine
 	public TutorialTransition EvaluateOpenBrewPanelState(TutorialStepId step, bool isBrewPanelVisible)
 	{
 		if (step == TutorialStepId.OpenBrewPanel && isBrewPanelVisible)
-			return TutorialTransition.To(TutorialStepId.QueueGraveMint);
+			return TutorialTransition.To(TutorialStepId.QueueMint);
 
 		return TutorialTransition.None;
 	}

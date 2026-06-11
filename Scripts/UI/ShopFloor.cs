@@ -11,7 +11,6 @@ public partial class ShopFloor : Control
 	[Export] public NodePath CustomerArtPath = new("Art/Customer");
 	[Export] public NodePath BrewButtonPath = new("Hotspots/Counter");
 	[Export] public NodePath BookButtonPath = new("../PotionBrewingStationView/Book/BookHotspot");
-	[Export] public NodePath InventoryPanelPath = new("../InventoryPanel");
 	[Export] public NodePath CustomerPanelPath = new("../CustomerPanel");
 	[Export] public NodePath BrewPanelPath = new("../PotionBrewingStationView/BrewPanel");
 	[Export] public NodePath PotionBookPanelPath = new("../PotionBookPanel");
@@ -34,8 +33,6 @@ public partial class ShopFloor : Control
 	[Export] public NodePath BedroomEndDayButtonPath = new("../BedroomView/EndDayHotspot");
 	[Export] public NodePath EventModalPath = new("../EventModal");
 	[Export] public NodePath DayControllerPath = new("/root/Main/DayController");
-	[Export] public bool HideInventoryOnReady = true;
-	[Export] public bool KeepInventoryVisibleInCustomerCloseup = true;
 
 	private Button? _potionBrewingStationButton;
 	private Button? _customerButton;
@@ -59,14 +56,12 @@ public partial class ShopFloor : Control
 	private Control? _potionBrewingStationView;
 	private Control? _bedroomView;
 	private Control? _eventModal;
-	private InventoryPanel? _inventoryPanel;
 	private CustomerPanel? _customerPanel;
 	private BrewPanel? _brewPanel;
 	private PotionBookPanel? _potionBookPanel;
 	private IngredientBookPanel? _ingredientBookPanel;
 	private TreatmentTray? _treatmentTray;
 	private DayController? _dayController;
-	private bool _inventoryWasVisible;
 	private bool _brewWasVisible;
 	private bool _potionBookWasVisible;
 	private bool _ingredientBookWasVisible;
@@ -100,7 +95,6 @@ public partial class ShopFloor : Control
 		_potionBrewingStationView = GetOptionalNode<Control>(PotionBrewingStationViewPath, nameof(PotionBrewingStationViewPath));
 		_bedroomView = GetOptionalNode<Control>(BedroomViewPath, nameof(BedroomViewPath));
 		_eventModal = GetOptionalNode<Control>(EventModalPath, nameof(EventModalPath));
-		_inventoryPanel = GetOptionalNode<InventoryPanel>(InventoryPanelPath, nameof(InventoryPanelPath));
 		_customerPanel = GetOptionalNode<CustomerPanel>(CustomerPanelPath, nameof(CustomerPanelPath));
 		_brewPanel = GetOptionalNode<BrewPanel>(BrewPanelPath, nameof(BrewPanelPath));
 		_potionBookPanel = GetOptionalNode<PotionBookPanel>(PotionBookPanelPath, nameof(PotionBookPanelPath));
@@ -158,9 +152,6 @@ public partial class ShopFloor : Control
 
 	private void ApplyInitialPanelState()
 	{
-		if (HideInventoryOnReady && _inventoryPanel is not null)
-			_inventoryPanel.Visible = false;
-
 		if (_customerCloseupView is not null)
 			_customerCloseupView.Visible = false;
 		if (_potionBookCloseupView is not null)
@@ -223,14 +214,9 @@ public partial class ShopFloor : Control
 			_ingredientBookPanel.Visible = false;
 		if (_treatmentTray is not null)
 			_treatmentTray.ClearStagedItems();
-		if (!KeepInventoryVisibleInCustomerCloseup && _inventoryPanel is not null)
-			_inventoryPanel.Visible = false;
 
 		_customerCloseupView.Visible = true;
 		_customerCloseupView.MoveToFront();
-
-		if (_inventoryPanel is not null && _inventoryPanel.Visible)
-			_inventoryPanel.MoveToFront();
 
 		if (_customerPanel is not null)
 		{
@@ -371,8 +357,6 @@ public partial class ShopFloor : Control
 		_returnToPotionBrewingStationAfterBook = _potionBrewingStationView is not null && _potionBrewingStationView.Visible;
 		StoreShopFloorPanelState();
 		Visible = false;
-		if (_inventoryPanel is not null)
-			_inventoryPanel.Visible = false;
 		if (_customerPanel is not null)
 			_customerPanel.Visible = false;
 		if (_returnToPotionBrewingStationAfterBook)
@@ -544,8 +528,6 @@ public partial class ShopFloor : Control
 
 		StoreShopFloorPanelState();
 		Visible = false;
-		if (_inventoryPanel is not null)
-			_inventoryPanel.Visible = false;
 		if (_customerPanel is not null)
 			_customerPanel.Visible = false;
 		if (_brewPanel is not null)
@@ -582,7 +564,6 @@ public partial class ShopFloor : Control
 
 	private void StoreShopFloorPanelState()
 	{
-		_inventoryWasVisible = _inventoryPanel is not null && _inventoryPanel.Visible;
 		_brewWasVisible = _brewPanel is not null && _brewPanel.Visible;
 		_potionBookWasVisible = _potionBookPanel is not null && _potionBookPanel.Visible;
 		_ingredientBookWasVisible = _ingredientBookPanel is not null && _ingredientBookPanel.Visible;
@@ -590,8 +571,6 @@ public partial class ShopFloor : Control
 
 	private void RestoreShopFloorPanelState()
 	{
-		if (_inventoryPanel is not null)
-			_inventoryPanel.Visible = _inventoryWasVisible;
 		if (_brewPanel is not null)
 			_brewPanel.Visible = _brewWasVisible;
 		if (_potionBookPanel is not null)

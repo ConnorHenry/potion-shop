@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dwut7wxo0pe8o"
-path="res://.godot/imported/mooncap_mushroom.png-273db51deaad7a6f9c44dd02aef4dd16.ctex"
+uid="uid://ccth0n1kw5w7k"
+path="res://.godot/imported/willow.svg-7cf88cd500818d41b5f81167d709b07e.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://Assets/Items/mooncap_mushroom.png"
-dest_files=["res://.godot/imported/mooncap_mushroom.png-273db51deaad7a6f9c44dd02aef4dd16.ctex"]
+source_file="res://Assets/Items/willow.svg"
+dest_files=["res://.godot/imported/willow.svg-7cf88cd500818d41b5f81167d709b07e.ctex"]
 
 [params]
 
@@ -32,3 +32,6 @@ process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
 detect_3d/compress_to=1
+svg/scale=1.0
+editor/scale_with_editor_scale=false
+editor/convert_colors_with_editor_theme=false

@@ -1,6 +1,30 @@
-[gd_scene load_steps=2 format=3 uid="uid://dgbpq4o1x8fyq"]
+[gd_scene load_steps=4 format=3 uid="uid://dgbpq4o1x8fyq"]
 
 [ext_resource type="Script" uid="uid://cvfh5n8twm6rs" path="res://Scripts/UI/Map.cs" id="1_map"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_map_panel"]
+bg_color = Color(0.33, 0.23, 0.13, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.11, 0.07, 0.03, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_modal_panel"]
+bg_color = Color(0.18, 0.12, 0.07, 0.98)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.74, 0.58, 0.34, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
 
 [node name="Map" type="Control"]
 layout_mode = 3
@@ -11,6 +35,14 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_map")
 BackButtonPath = NodePath("Root/Margin/Main/Header/Back")
+HoveredCoordinateLabelPath = NodePath("Root/Margin/Main/Header/HoveredCoordinate")
+MapTextureRectPath = NodePath("Root/Margin/Main/MapArea/MapMargin/MapCenter/MapCanvas/MapTexture")
+MapGridPath = NodePath("Root/Margin/Main/MapArea/MapMargin/MapCenter/MapCanvas/MapGrid")
+ModalLayerPath = NodePath("ModalLayer")
+ModalTitlePath = NodePath("ModalLayer/Dialog/Margin/VBox/Title")
+ModalMessagePath = NodePath("ModalLayer/Dialog/Margin/VBox/Message")
+ModalTravelButtonPath = NodePath("ModalLayer/Dialog/Margin/VBox/Actions/Travel")
+ModalCloseButtonPath = NodePath("ModalLayer/Dialog/Margin/VBox/Actions/Close")
 
 [node name="Root" type="Control" parent="."]
 clip_contents = true
@@ -22,6 +54,16 @@ offset_top = 50.0
 grow_horizontal = 2
 grow_vertical = 2
 
+[node name="Background" type="ColorRect" parent="Root"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.06, 0.045, 0.031, 1)
+
 [node name="Margin" type="MarginContainer" parent="Root"]
 layout_mode = 1
 anchors_preset = 15
@@ -30,13 +72,13 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/margin_left = 24
-theme_override_constants/margin_top = 24
+theme_override_constants/margin_top = 18
 theme_override_constants/margin_right = 24
-theme_override_constants/margin_bottom = 24
+theme_override_constants/margin_bottom = 18
 
 [node name="Main" type="VBoxContainer" parent="Root/Margin"]
 layout_mode = 2
-theme_override_constants/separation = 16
+theme_override_constants/separation = 12
 
 [node name="Header" type="HBoxContainer" parent="Root/Margin/Main"]
 layout_mode = 2
@@ -45,13 +87,153 @@ theme_override_constants/separation = 12
 [node name="Title" type="Label" parent="Root/Margin/Main/Header"]
 layout_mode = 2
 size_flags_horizontal = 3
-text = "Map"
+theme_override_colors/font_color = Color(0.88, 0.76, 0.55, 1)
+theme_override_font_sizes/font_size = 22
+text = "Map of Kerry"
+
+[node name="HoveredCoordinate" type="Label" parent="Root/Margin/Main/Header"]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.94, 0.78, 0.47, 1)
+theme_override_font_sizes/font_size = 20
+text = "Cell: --"
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="Back" type="Button" parent="Root/Margin/Main/Header"]
 layout_mode = 2
 text = "Back"
 
-[node name="MapArea" type="ColorRect" parent="Root/Margin/Main"]
+[node name="MapArea" type="PanelContainer" parent="Root/Margin/Main"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_map_panel")
+
+[node name="MapMargin" type="MarginContainer" parent="Root/Margin/Main/MapArea"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="MapCenter" type="CenterContainer" parent="Root/Margin/Main/MapArea/MapMargin"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="MapCanvas" type="Control" parent="Root/Margin/Main/MapArea/MapMargin/MapCenter"]
+clip_contents = true
+custom_minimum_size = Vector2(560, 560)
+layout_mode = 2
+
+[node name="MapTexture" type="TextureRect" parent="Root/Margin/Main/MapArea/MapMargin/MapCenter/MapCanvas"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="SepiaTint" type="ColorRect" parent="Root/Margin/Main/MapArea/MapMargin/MapCenter/MapCanvas"]
+z_index = 1
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.43, 0.25, 0.08, 0.18)
+
+[node name="MapGrid" type="GridContainer" parent="Root/Margin/Main/MapArea/MapMargin/MapCenter/MapCanvas"]
+z_index = 2
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/h_separation = 0
+theme_override_constants/v_separation = 0
+columns = 16
+
+[node name="ModalLayer" type="Control" parent="."]
+visible = false
+z_index = 100
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Backdrop" type="ColorRect" parent="ModalLayer"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.48)
+
+[node name="Dialog" type="PanelContainer" parent="ModalLayer"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -190.0
+offset_top = -96.0
+offset_right = 190.0
+offset_bottom = 96.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_modal_panel")
+
+[node name="Margin" type="MarginContainer" parent="ModalLayer/Dialog"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 14
+
+[node name="VBox" type="VBoxContainer" parent="ModalLayer/Dialog/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="ModalLayer/Dialog/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.94, 0.78, 0.47, 1)
+theme_override_font_sizes/font_size = 21
+text = "Coordinate"
+horizontal_alignment = 1
+
+[node name="Message" type="Label" parent="ModalLayer/Dialog/Margin/VBox"]
+custom_minimum_size = Vector2(0, 76)
 layout_mode = 2
 size_flags_vertical = 3
-color = Color(0.05, 0.07, 0.05, 1)
+theme_override_colors/font_color = Color(0.93, 0.87, 0.74, 1)
+text = "Nothing of interest here"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="Actions" type="HBoxContainer" parent="ModalLayer/Dialog/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+alignment = 1
+
+[node name="Travel" type="Button" parent="ModalLayer/Dialog/Margin/VBox/Actions"]
+custom_minimum_size = Vector2(96, 34)
+layout_mode = 2
+text = "Travel"
+
+[node name="Close" type="Button" parent="ModalLayer/Dialog/Margin/VBox/Actions"]
+custom_minimum_size = Vector2(96, 34)
+layout_mode = 2
+text = "Close"

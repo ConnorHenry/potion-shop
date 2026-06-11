@@ -15,9 +15,11 @@ public sealed class ItemDef
     public int Quality { get; set; } = 50;
     public Dictionary<string, int> Traits { get; set; } = new();
     public Dictionary<string, int> Risks { get; set; } = new();
+    public Dictionary<string, IngredientPreparationDef> Preparations { get; set; } = new();
     public List<IngredientEffectDef> IngredientEffects { get; set; } = new();
     public int BasePrice { get; set; }
     public ConsumableEffectDef? ConsumableEffect { get; set; }
     public ConsumableGateDef? ConsumableGate { get; set; }
     public ItemTreatmentDef? Treatment { get; set; }
+    public PreparedIngredientDef? PreparedIngredient { get; set; }
 }

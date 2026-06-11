@@ -17,7 +17,9 @@ internal static class PersistenceTests
         runner.Run("Potion base price survives snapshot round-trips", TestPotionBasePriceSnapshotRoundTrip);
         runner.Run("Consumable and treatment metadata survive persistence", TestConsumableTreatmentMetadataPersists);
         runner.Run("Ingredient effect metadata survives item conversion", TestIngredientEffectMetadataPersists);
+        runner.Run("Prepared ingredient metadata survives item conversion", TestPreparedIngredientMetadataPersists);
         runner.Run("ItemDef price converter accepts price fields", TestItemDefPriceConverterSupportsPriceFields);
+        runner.Run("Customer request trait ranges support legacy JSON", TestCustomerRequestTraitRangeJsonCompatibility);
         runner.Run("SaveGameManager stores saves in a dedicated directory", TestSaveGameManagerUsesSaveDirectory);
         runner.Run("Persistence boundary stays separated", TestPersistenceBoundaryIsDocumented);
     }
@@ -116,6 +118,46 @@ internal static class PersistenceTests
             serialized.Contains("boost_lowest_other_trait"));
     }
 
+    private static void TestPreparedIngredientMetadataPersists()
+    {
+        var itemDef = ReadProjectFile("Scripts/Models/ItemDef.cs");
+        var converter = ReadProjectFile("Scripts/Models/ItemDefJsonConverter.cs");
+        var resource = ReadProjectFile("Scripts/Models/ItemDefResource.cs");
+        var dataDb = ReadProjectFile("Scripts/Autoload/DataDb.cs");
+        var runtimeDb = ReadProjectFile("Scripts/Autoload/RuntimeContentDb.cs");
+
+        AssertTrue("ItemDef stores preparation and prepared ingredient metadata",
+            itemDef.Contains("Dictionary<string, IngredientPreparationDef> Preparations") &&
+            itemDef.Contains("PreparedIngredientDef? PreparedIngredient"));
+        AssertTrue("ItemDef JSON converter reads and writes preparation metadata",
+            converter.Contains("case \"preparations\":") &&
+            converter.Contains("case \"preparedIngredient\":") &&
+            converter.Contains("writer.WritePropertyName(\"preparations\")") &&
+            converter.Contains("writer.WritePropertyName(\"preparedIngredient\")"));
+        AssertTrue("ItemDefResource mirrors prepared ingredient metadata",
+            resource.Contains("PreparedIngredientBaseItemId") &&
+            resource.Contains("PreparedIngredientPreparationId") &&
+            resource.Contains("item.PreparedIngredient = new PreparedIngredientDef"));
+        AssertTrue("DataDb parses authored preparation metadata",
+            dataDb.Contains("ParsePreparations(ReadDictionary(entry, \"preparations\"))") &&
+            dataDb.Contains("ParsePreparedIngredient(ReadDictionary(entry, \"preparedIngredient\"))"));
+        AssertTrue("RuntimeContentDb clones preparation metadata",
+            runtimeDb.Contains("Preparations = ClonePreparations(item.Preparations)") &&
+            runtimeDb.Contains("PreparedIngredient = item.PreparedIngredient is null"));
+
+        var json = "{\"id\":\"mint__prep_crushed\",\"name\":\"Mint (Crushed)\",\"preparedIngredient\":{\"baseIngredientId\":\"mint\",\"preparationId\":\"crushed\"}}";
+        var item = JsonSerializer.Deserialize<ItemDef>(json)
+            ?? throw new InvalidOperationException("Could not deserialize prepared ingredient ItemDef.");
+        AssertEqual("Prepared metadata base", "mint", item.PreparedIngredient?.BaseIngredientId ?? "");
+        AssertEqual("Prepared metadata method", "crushed", item.PreparedIngredient?.PreparationId ?? "");
+
+        var serialized = JsonSerializer.Serialize(item);
+        AssertTrue("Serialized item includes prepared ingredient metadata",
+            serialized.Contains("\"preparedIngredient\"") &&
+            serialized.Contains("\"baseIngredientId\":\"mint\"") &&
+            serialized.Contains("\"preparationId\":\"crushed\""));
+    }
+
     private static void TestItemDefPriceConverterSupportsPriceFields()
     {
         var itemDefType = GetTypeFromUiAssembly("OccultShop.Models.ItemDef");
@@ -133,6 +175,38 @@ internal static class PersistenceTests
         var legacyItem = JsonSerializer.Deserialize(legacyJson, itemDefType)
             ?? throw new InvalidOperationException("Could not deserialize legacy ItemDef JSON.");
         AssertEqual("Legacy BasePrice still loads", 19, GetProperty<int>(legacyItem, "BasePrice"));
+    }
+
+    private static void TestCustomerRequestTraitRangeJsonCompatibility()
+    {
+        var options = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        };
+
+        var legacyJson = "{\"id\":\"nerves\",\"desiredTraits\":{\"calming\":2},\"badTraits\":{\"confusion\":0}}";
+        var legacyRequest = JsonSerializer.Deserialize<CustomerRequestDef>(legacyJson, options)
+            ?? throw new InvalidOperationException("Could not deserialize legacy CustomerRequestDef JSON.");
+
+        AssertEqual("Legacy desired integer becomes min", 2, legacyRequest.DesiredTraits["calming"].Min ?? -1);
+        AssertTrue("Legacy desired integer has no max", legacyRequest.DesiredTraits["calming"].Max is null);
+        AssertTrue("Legacy bad integer has no min", legacyRequest.BadTraits["confusion"].Min is null);
+        AssertEqual("Legacy bad integer becomes max", 0, legacyRequest.BadTraits["confusion"].Max ?? -1);
+
+        var rangedJson = "{\"id\":\"nerves\",\"desiredTraits\":{\"calming\":{\"min\":2,\"max\":4},\"clarity\":{\"min\":1}},\"badTraits\":{\"drowsiness\":{\"max\":1}}}";
+        var rangedRequest = JsonSerializer.Deserialize<CustomerRequestDef>(rangedJson, options)
+            ?? throw new InvalidOperationException("Could not deserialize ranged CustomerRequestDef JSON.");
+
+        AssertEqual("Ranged desired min loads", 2, rangedRequest.DesiredTraits["calming"].Min ?? -1);
+        AssertEqual("Ranged desired max loads", 4, rangedRequest.DesiredTraits["calming"].Max ?? -1);
+        AssertEqual("Ranged bad max loads", 1, rangedRequest.BadTraits["drowsiness"].Max ?? -1);
+
+        var serialized = JsonSerializer.Serialize(rangedRequest, options);
+        AssertTrue("Serialized request writes min and max range fields",
+            serialized.Contains("\"min\":2") &&
+            serialized.Contains("\"max\":4") &&
+            !serialized.Contains("HasMin") &&
+            !serialized.Contains("HasMax"));
     }
 
     private static void TestSaveGameManagerUsesSaveDirectory()

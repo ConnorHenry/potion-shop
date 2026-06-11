@@ -6,52 +6,152 @@
 script = ExtResource("1")
 Entries = [{
 "id": "moonlit_rest_draught",
-"ingredientIds": ["mooncap_mushroom", "black_ichor", "lavender_ash"],
+"ingredientIds": ["heather", "elder", "rosemary"],
+"ingredientAmounts": [{
+"ingredientId": "heather",
+"preparation": "boiled"
+}, {
+"ingredientId": "elder",
+"preparation": "steeped"
+}, {
+"ingredientId": "rosemary",
+"preparation": "crushed"
+}],
 "name": "Moonlit Rest Draught",
-"traits": ["calm", "rest", "dream"]
+"traits": ["dream", "rest", "calm"]
 }, {
 "id": "gravekeepers_balm",
-"ingredientIds": ["grave_mint", "obsidian_resin", "iron_lullaby_root"],
+"ingredientIds": ["mint", "gorse", "thyme"],
+"ingredientAmounts": [{
+"ingredientId": "mint",
+"preparation": "raw"
+}, {
+"ingredientId": "gorse",
+"preparation": "raw"
+}, {
+"ingredientId": "thyme",
+"preparation": "raw"
+}],
 "name": "Gravekeeper's Balm",
 "traits": ["soothe", "mend", "cleanse"]
 }, {
 "id": "silver_focus_tonic",
-"ingredientIds": ["silver_thorn_bloom", "raven_ash_peony", "amber_nightshade"],
+"ingredientIds": ["willow", "comfrey", "yarrow"],
+"ingredientAmounts": [{
+"ingredientId": "willow",
+"preparation": "raw"
+}, {
+"ingredientId": "comfrey",
+"preparation": "raw"
+}, {
+"ingredientId": "yarrow",
+"preparation": "raw"
+}],
 "name": "Silver Focus Tonic",
 "traits": ["clarity", "courage", "vigor"]
 }, {
 "id": "orchid_charm_philter",
-"ingredientIds": ["moonwhisper_orchid", "mooncap_mushroom", "lavender_ash"],
+"ingredientIds": ["juniper", "heather", "rosemary"],
+"ingredientAmounts": [{
+"ingredientId": "juniper",
+"preparation": "raw"
+}, {
+"ingredientId": "heather",
+"preparation": "crushed"
+}, {
+"ingredientId": "rosemary",
+"preparation": "boiled"
+}],
 "name": "Orchid Charm Philter",
-"traits": ["charm", "calm", "dream"]
+"traits": ["charm", "dream", "calm"]
 }, {
 "id": "ravenheart_elixir",
-"ingredientIds": ["raven_ash_peony", "amber_nightshade", "black_ichor"],
+"ingredientIds": ["comfrey", "yarrow", "elder"],
+"ingredientAmounts": [{
+"ingredientId": "comfrey",
+"preparation": "steeped"
+}, {
+"ingredientId": "yarrow",
+"preparation": "steeped"
+}, {
+"ingredientId": "elder",
+"preparation": "raw"
+}],
 "name": "Ravenheart Elixir",
 "traits": ["courage", "vigor", "rest"]
 }, {
 "id": "obsidian_mending_draught",
-"ingredientIds": ["obsidian_resin", "grave_mint", "silver_thorn_bloom"],
+"ingredientIds": ["gorse", "mint", "willow"],
+"ingredientAmounts": [{
+"ingredientId": "gorse",
+"preparation": "raw"
+}, {
+"ingredientId": "mint",
+"preparation": "steeped"
+}, {
+"ingredientId": "willow",
+"preparation": "boiled"
+}],
 "name": "Obsidian Mending Draught",
-"traits": ["mend", "soothe", "clarity"]
+"traits": ["mend", "soothe", "courage"]
 }, {
 "id": "nightshade_reverie",
-"ingredientIds": ["amber_nightshade", "lavender_ash", "moonwhisper_orchid"],
+"ingredientIds": ["yarrow", "rosemary", "juniper"],
+"ingredientAmounts": [{
+"ingredientId": "yarrow",
+"preparation": "boiled"
+}, {
+"ingredientId": "rosemary",
+"preparation": "steeped"
+}, {
+"ingredientId": "juniper",
+"preparation": "crushed"
+}],
 "name": "Nightshade Reverie",
-"traits": ["vigor", "dream", "charm"]
+"traits": ["charm", "dream", "clarity"]
 }, {
 "id": "iron_sleep_balm",
-"ingredientIds": ["iron_lullaby_root", "black_ichor", "mooncap_mushroom"],
+"ingredientIds": ["thyme", "elder", "heather"],
+"ingredientAmounts": [{
+"ingredientId": "thyme",
+"preparation": "steeped"
+}, {
+"ingredientId": "elder",
+"preparation": "steeped"
+}, {
+"ingredientId": "heather",
+"preparation": "raw"
+}],
 "name": "Iron Sleep Balm",
 "traits": ["cleanse", "rest", "calm"]
 }, {
 "id": "funeral_bloom_tonic",
-"ingredientIds": ["grave_mint", "raven_ash_peony", "lavender_ash"],
+"ingredientIds": ["mint", "comfrey", "rosemary"],
+"ingredientAmounts": [{
+"ingredientId": "mint",
+"preparation": "boiled"
+}, {
+"ingredientId": "comfrey",
+"preparation": "crushed"
+}, {
+"ingredientId": "rosemary",
+"preparation": "raw"
+}],
 "name": "Funeral Bloom Tonic",
-"traits": ["soothe", "courage", "dream"]
+"traits": ["cleanse", "mend", "dream"]
 }, {
 "id": "clear_moon_elixir",
-"ingredientIds": ["silver_thorn_bloom", "mooncap_mushroom", "obsidian_resin"],
+"ingredientIds": ["willow", "heather", "gorse"],
+"ingredientAmounts": [{
+"ingredientId": "willow",
+"preparation": "steeped"
+}, {
+"ingredientId": "heather",
+"preparation": "raw"
+}, {
+"ingredientId": "gorse",
+"preparation": "steeped"
+}],
 "name": "Clear Moon Elixir",
 "traits": ["clarity", "calm", "mend"]
 }]

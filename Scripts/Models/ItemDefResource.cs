@@ -24,6 +24,8 @@ public partial class ItemDefResource : Resource
 	private string _treatmentBaseItemId = string.Empty;
 	private string _treatmentConsumableItemId = string.Empty;
 	private string _treatmentRemovedRisk = string.Empty;
+	private string _preparedIngredientBaseItemId = string.Empty;
+	private string _preparedIngredientPreparationId = string.Empty;
 
 	[Export]
 	public string Id
@@ -171,6 +173,20 @@ public partial class ItemDefResource : Resource
 		set => SetString(ref _treatmentRemovedRisk, value);
 	}
 
+	[Export]
+	public string PreparedIngredientBaseItemId
+	{
+		get => _preparedIngredientBaseItemId;
+		set => SetString(ref _preparedIngredientBaseItemId, value);
+	}
+
+	[Export]
+	public string PreparedIngredientPreparationId
+	{
+		get => _preparedIngredientPreparationId;
+		set => SetString(ref _preparedIngredientPreparationId, value);
+	}
+
 	public ItemDef ToItemDef()
 	{
 		var tags = new List<string>(_tags.Count);
@@ -245,6 +261,15 @@ public partial class ItemDefResource : Resource
 				BaseItemId = TreatmentBaseItemId,
 				ConsumableItemId = TreatmentConsumableItemId,
 				RemovedRisk = TreatmentRemovedRisk
+			};
+		}
+
+		if (!string.IsNullOrWhiteSpace(PreparedIngredientBaseItemId) || !string.IsNullOrWhiteSpace(PreparedIngredientPreparationId))
+		{
+			item.PreparedIngredient = new PreparedIngredientDef
+			{
+				BaseIngredientId = PreparedIngredientBaseItemId,
+				PreparationId = PreparedIngredientPreparationId
 			};
 		}
 
@@ -325,6 +350,8 @@ public partial class ItemDefResource : Resource
 		TreatmentBaseItemId = item.Treatment?.BaseItemId ?? string.Empty;
 		TreatmentConsumableItemId = item.Treatment?.ConsumableItemId ?? string.Empty;
 		TreatmentRemovedRisk = item.Treatment?.RemovedRisk ?? string.Empty;
+		PreparedIngredientBaseItemId = item.PreparedIngredient?.BaseIngredientId ?? string.Empty;
+		PreparedIngredientPreparationId = item.PreparedIngredient?.PreparationId ?? string.Empty;
 	}
 
 	private static List<IngredientEffectDef> ParseIngredientEffects(Godot.Collections.Array entries)

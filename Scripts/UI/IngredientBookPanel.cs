@@ -355,8 +355,8 @@ public partial class IngredientBookPanel : Control
 		page.Icon.Visible = page.Icon.Texture is not null;
 		page.Icon.TooltipText = item.Name;
 		page.UnknownIcon.Visible = false;
-		page.TraitsLabel.Text = BuildStatsText(item.Traits);
-		page.RisksLabel.Text = BuildStatsText(item.Risks);
+		page.TraitsLabel.Text = BuildPreparationStatsText(item.Preparations, showTraits: true);
+		page.RisksLabel.Text = BuildPreparationStatsText(item.Preparations, showTraits: false);
 		page.DescriptionLabel.Text = InventoryItemTextFormatter.BuildDescriptionWithIngredientEffects(item);
 	}
 
@@ -510,6 +510,32 @@ public partial class IngredientBookPanel : Control
 		}
 
 		return lines.Count == 0 ? "None" : string.Join("\n", lines);
+	}
+
+	private static string BuildPreparationStatsText(
+		Dictionary<string, IngredientPreparationDef>? preparations,
+		bool showTraits)
+	{
+		if (preparations is null || preparations.Count == 0)
+			return "No preparations recorded.";
+
+		var lines = new List<string>();
+		foreach (var option in OccultShop.Systems.IngredientPreparationCatalog.AllOptions)
+		{
+			if (!preparations.TryGetValue(option.Id, out var preparation) || preparation is null)
+				continue;
+
+			var values = showTraits ? preparation.Traits : preparation.Risks;
+			lines.Add($"{option.DisplayName}: {BuildInlineStatsText(values)}");
+		}
+
+		return lines.Count == 0 ? "No preparations recorded." : string.Join("\n", lines);
+	}
+
+	private static string BuildInlineStatsText(Dictionary<string, int>? values)
+	{
+		var statsText = BuildStatsText(values);
+		return statsText == "None" ? statsText : statsText.Replace("\n", ", ");
 	}
 
 	private static string ToDisplayText(string rawValue)

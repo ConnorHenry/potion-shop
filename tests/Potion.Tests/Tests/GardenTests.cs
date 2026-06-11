@@ -30,16 +30,16 @@ internal static class GardenTests
 
         var expectedCrops = new Dictionary<string, int>
         {
-            ["amber_nightshade"] = 1,
-            ["obsidian_resin"] = 2,
-            ["iron_lullaby_root"] = 3,
-            ["mooncap_mushroom"] = 1,
-            ["grave_mint"] = 2,
-            ["black_ichor"] = 1,
-            ["lavender_ash"] = 3,
-            ["silver_thorn_bloom"] = 2,
-            ["moonwhisper_orchid"] = 3,
-            ["raven_ash_peony"] = 1
+            ["yarrow"] = 1,
+            ["gorse"] = 2,
+            ["thyme"] = 3,
+            ["heather"] = 1,
+            ["mint"] = 2,
+            ["elder"] = 1,
+            ["rosemary"] = 3,
+            ["willow"] = 2,
+            ["juniper"] = 3,
+            ["comfrey"] = 1
         };
 
         foreach (var crop in expectedCrops)
@@ -50,12 +50,12 @@ internal static class GardenTests
                 ReadProjectFile("Data/items_data.tres").Contains($"\"id\": \"{crop.Key}\""));
         }
 
-        AssertTrue("Starter seed inventory includes amber nightshade",
-            gardenState.Contains("(\"seed_amber_nightshade\", 1)"));
-        AssertTrue("Starter seed inventory includes obsidian resin",
-            gardenState.Contains("(\"seed_obsidian_resin\", 1)"));
-        AssertTrue("Starter seed inventory includes iron lullaby root",
-            gardenState.Contains("(\"seed_iron_lullaby_root\", 1)"));
+        AssertTrue("Starter seed inventory includes yarrow",
+            gardenState.Contains("(\"seed_yarrow\", 1)"));
+        AssertTrue("Starter seed inventory includes gorse",
+            gardenState.Contains("(\"seed_gorse\", 1)"));
+        AssertTrue("Starter seed inventory includes thyme",
+            gardenState.Contains("(\"seed_thyme\", 1)"));
     }
 
     private static void TestGardenStatePersistenceWiring()

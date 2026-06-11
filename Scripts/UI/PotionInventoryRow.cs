@@ -9,17 +9,15 @@ public partial class PotionInventoryRow : Control
 {
 	private const float SlotWidth = 112.0f;
 	private const float SlotHeight = 168.0f;
-	private const float IconSize = 62.0f;
-	private const int SlotNameFontSize = 14;
 	private const int VisiblePotionSlots = GameState.MaxUniquePotionInventoryQuantity;
 
 	[Export] public NodePath PotionSlotsPath = default!;
-	[Export] public NodePath InventoryPanelPath = new("../../InventoryPanel");
+	[Export] public NodePath ItemDetailPanelPath = new("../StationItemDetailPanel");
 	[Export] public NodePath GameStatePath = new(AutoloadNodePaths.GameState);
 	[Export] public NodePath ItemCatalogPath = new(AutoloadNodePaths.ItemCatalog);
 
 	private GridContainer _potionSlots = default!;
-	private InventoryPanel _inventoryPanel = default!;
+	private StationItemDetailPanel? _itemDetailPanel;
 	private GameState _gameState = default!;
 	private ItemCatalogService _itemCatalog = default!;
 
@@ -39,16 +37,11 @@ public partial class PotionInventoryRow : Control
 			return;
 		}
 
-		var inventoryPanel = GetNodeOrNull<InventoryPanel>(InventoryPanelPath);
-		if (inventoryPanel is null)
-		{
-			GD.PushError($"PotionInventoryRow: InventoryPanel was not found at '{InventoryPanelPath}'.");
-			return;
-		}
-
 		_gameState = gameState;
 		_itemCatalog = itemCatalog;
-		_inventoryPanel = inventoryPanel;
+		_itemDetailPanel = GetNodeOrNull<StationItemDetailPanel>(ItemDetailPanelPath);
+		if (_itemDetailPanel is null)
+			GD.PushError($"PotionInventoryRow: StationItemDetailPanel was not found at '{ItemDetailPanelPath}'.");
 		var potionSlots = NodeLookup.GetRequiredNodeOrNull<GridContainer>(
 			this,
 			PotionSlotsPath,
@@ -124,7 +117,7 @@ public partial class PotionInventoryRow : Control
 		slot.AddThemeStyleboxOverride("hover", CreateSlotStyleBox(new Color(0.11f, 0.125f, 0.142f, 0.96f), new Color(0.34f, 0.37f, 0.41f, 0.98f)));
 		slot.AddThemeStyleboxOverride("pressed", CreateSlotStyleBox(new Color(0.06f, 0.069f, 0.079f, 0.98f), new Color(0.19f, 0.21f, 0.23f, 0.98f)));
 		slot.AddThemeStyleboxOverride("disabled", CreateSlotStyleBox(new Color(0.07f, 0.078f, 0.088f, 0.75f), new Color(0.18f, 0.2f, 0.22f, 0.78f)));
-		slot.SlotActivated += ShowPotionDetail;
+		slot.SlotActivated += ShowItemDetail;
 
 		var hoverOutline = new PanelContainer
 		{
@@ -142,80 +135,38 @@ public partial class PotionInventoryRow : Control
 			MouseFilter = MouseFilterEnum.Ignore
 		};
 
-		var icon = new TextureRect
-		{
-			Position = new Vector2((SlotWidth - IconSize) * 0.5f, 28.0f),
-			CustomMinimumSize = new Vector2(IconSize, IconSize),
-			Size = new Vector2(IconSize, IconSize),
-			Texture = UiIconLoader.LoadIcon(stack.IconPath),
-			ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
-			StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
-			MouseFilter = MouseFilterEnum.Ignore
-		};
-
-		var quantity = new Label
-		{
-			Text = stack.Quantity.ToString(),
-			Position = new Vector2(8.0f, 6.0f),
-			MouseFilter = MouseFilterEnum.Ignore
-		};
-
-		content.AddChild(icon);
-		content.AddChild(quantity);
-		content.AddChild(CreateNameBlock(stack.Name, stack.HasActiveRisk));
+		content.AddChild(JarredInventorySlotView.CreatePotionContent(
+			new Vector2(SlotWidth, SlotHeight),
+			stack.Name,
+			stack.ItemId,
+			stack.Quantity,
+			new JarredInventorySlotLayout
+			{
+				ArtSize = new Vector2(SlotWidth, SlotHeight),
+				NameColor = stack.HasActiveRisk
+					? new Color(0.58f, 0.05f, 0.04f, 1.0f)
+					: new Color(0.13f, 0.075f, 0.032f, 1.0f),
+				NameFontSize = 9,
+				QuantityFontSize = 11
+			}));
 
 		slot.AddChild(content);
 		slot.AddChild(hoverOutline);
 		return slot;
 	}
 
-	private static Control CreateNameBlock(string itemName, bool hasActiveRisk)
-	{
-		var nameBlock = new Control
-		{
-			Position = new Vector2(6.0f, 92.0f),
-			CustomMinimumSize = new Vector2(SlotWidth - 12.0f, 34.0f),
-			Size = new Vector2(SlotWidth - 12.0f, 34.0f),
-			MouseFilter = MouseFilterEnum.Ignore
-		};
-
-		InventoryItemTextFormatter.SplitInventoryName(itemName, out var firstLine, out var secondLine);
-		nameBlock.AddChild(CreateNameLine(firstLine, 0.0f, hasActiveRisk));
-		if (!string.IsNullOrWhiteSpace(secondLine))
-			nameBlock.AddChild(CreateNameLine(secondLine, 15.0f, hasActiveRisk));
-
-		return nameBlock;
-	}
-
-	private static Label CreateNameLine(string text, float topOffset, bool hasActiveRisk)
-	{
-		var label = new Label
-		{
-			Text = text,
-			Position = new Vector2(0.0f, topOffset),
-			CustomMinimumSize = new Vector2(SlotWidth - 12.0f, 0.0f),
-			Size = new Vector2(SlotWidth - 12.0f, 18.0f),
-			MouseFilter = MouseFilterEnum.Ignore,
-			HorizontalAlignment = HorizontalAlignment.Center,
-			VerticalAlignment = VerticalAlignment.Center,
-			AutowrapMode = TextServer.AutowrapMode.Off,
-			ClipText = false
-		};
-		label.AddThemeFontSizeOverride("font_size", SlotNameFontSize);
-		if (hasActiveRisk)
-			label.AddThemeColorOverride("font_color", new Color(0.9f, 0.25f, 0.25f, 1.0f));
-
-		return label;
-	}
-
-	private void ShowPotionDetail(string itemId)
+	private void ShowItemDetail(string itemId)
 	{
 		if (string.IsNullOrWhiteSpace(itemId))
 			return;
-		if (!_itemCatalog.IsPotion(itemId))
-			return;
 
-		_inventoryPanel.OpenItemDetail(itemId);
+		if (_itemDetailPanel is null)
+		{
+			GD.PushError("PotionInventoryRow: Cannot show item detail because StationItemDetailPanel is missing.");
+			return;
+		}
+
+		_itemDetailPanel.ShowItem(itemId);
 	}
 
 	private string DisplayName(string itemId, string fallbackName)

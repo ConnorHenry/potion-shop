@@ -19,14 +19,12 @@ public partial class DataDb : Node
 	public IReadOnlyDictionary<string, RuleDef> Rules => _rules;
 	public IReadOnlyList<EventCardDef> Events => _events;
 	public IReadOnlyList<CustomerInteractionDef> CustomerInteractions => _customerInteractions;
-	public IReadOnlyList<SynergyRule> Synergies => _synergies;
 	public IReadOnlyList<PotionRecipeDef> PotionRecipes => _potionRecipes;
 
 	private Dictionary<string, ItemDef> _items = new();
 	private Dictionary<string, RuleDef> _rules = new();
 	private List<EventCardDef> _events = new();
 	private List<CustomerInteractionDef> _customerInteractions = new();
-	private List<SynergyRule> _synergies = new();
 	private List<PotionRecipeDef> _potionRecipes = new();
 
 	public override void _Ready()
@@ -47,7 +45,6 @@ public partial class DataDb : Node
 			_rules = new Dictionary<string, RuleDef>();
 			_events = new List<EventCardDef>();
 			_customerInteractions = new List<CustomerInteractionDef>();
-			_synergies = new List<SynergyRule>();
 			_potionRecipes = new List<PotionRecipeDef>();
 			return;
 		}
@@ -56,7 +53,6 @@ public partial class DataDb : Node
 		var rulesResource = LoadSection<AuthoredRulesResource>(authoredData.RulesPath, "rules");
 		var eventsResource = LoadSection<AuthoredEventsResource>(authoredData.EventsPath, "events");
 		var customerInteractionsResource = LoadSection<AuthoredCustomerInteractionsResource>(authoredData.CustomerInteractionsPath, "customer interactions");
-		var synergiesResource = LoadSection<AuthoredSynergiesResource>(authoredData.SynergiesPath, "synergies");
 		var potionRecipesResource = LoadSection<AuthoredPotionRecipesResource>(authoredData.PotionRecipesPath, "potion recipes");
 
 		_items = ParseItems(itemsResource?.Entries ?? new Godot.Collections.Array())
@@ -65,7 +61,6 @@ public partial class DataDb : Node
 			.ToDictionary(x => x.Id, x => x, StringComparer.OrdinalIgnoreCase);
 		_events = ParseEvents(eventsResource?.Entries ?? new Godot.Collections.Array());
 		_customerInteractions = ParseCustomerInteractions(customerInteractionsResource?.Entries ?? new Godot.Collections.Array());
-		_synergies = ParseSynergies(synergiesResource?.Entries ?? new Godot.Collections.Array());
 		_potionRecipes = ParsePotionRecipes(potionRecipesResource?.Entries ?? new Godot.Collections.Array());
 
 		AuthoredDataValidator.Validate(_items, _rules, _events, _customerInteractions, _potionRecipes);
@@ -118,15 +113,43 @@ public partial class DataDb : Node
 				Quality = ReadInt(entry, "quality", 50),
 				Traits = ReadStringIntDictionary(entry, "traits"),
 				Risks = ReadStringIntDictionary(entry, "risks"),
+				Preparations = ParsePreparations(ReadDictionary(entry, "preparations")),
 				IngredientEffects = ParseIngredientEffects(ReadArray(entry, "ingredientEffects")),
 				BasePrice = Math.Max(0, basePrice),
 				ConsumableEffect = ParseConsumableEffect(ReadDictionary(entry, "consumableEffect")),
 				ConsumableGate = ParseConsumableGate(ReadDictionary(entry, "consumableGate")),
-				Treatment = ParseTreatment(ReadDictionary(entry, "treatment"))
+				Treatment = ParseTreatment(ReadDictionary(entry, "treatment")),
+				PreparedIngredient = ParsePreparedIngredient(ReadDictionary(entry, "preparedIngredient"))
 			});
 		}
 
 		return items;
+	}
+
+	private static Dictionary<string, IngredientPreparationDef> ParsePreparations(Godot.Collections.Dictionary? entries)
+	{
+		var preparations = new Dictionary<string, IngredientPreparationDef>(StringComparer.OrdinalIgnoreCase);
+		if (entries is null || entries.Count == 0)
+			return preparations;
+
+		foreach (var pair in entries)
+		{
+			var preparationId = ReadVariantString(pair.Key).Trim();
+			if (string.IsNullOrWhiteSpace(preparationId))
+				continue;
+			if (!TryReadDictionary(pair.Value, out var entry))
+				continue;
+
+			preparations[preparationId] = new IngredientPreparationDef
+			{
+				Id = preparationId,
+				Name = ReadString(entry, "name", preparationId),
+				Traits = ReadStringIntDictionary(entry, "traits"),
+				Risks = ReadStringIntDictionary(entry, "risks")
+			};
+		}
+
+		return preparations;
 	}
 
 	private static List<IngredientEffectDef> ParseIngredientEffects(Godot.Collections.Array entries)
@@ -207,6 +230,23 @@ public partial class DataDb : Node
 		};
 	}
 
+	private static PreparedIngredientDef? ParsePreparedIngredient(Godot.Collections.Dictionary? entry)
+	{
+		if (entry is null || entry.Count == 0)
+			return null;
+
+		var baseIngredientId = ReadString(entry, "baseIngredientId", ReadString(entry, "baseItemId"));
+		var preparationId = ReadString(entry, "preparationId", ReadString(entry, "preparation"));
+		if (string.IsNullOrWhiteSpace(baseIngredientId) && string.IsNullOrWhiteSpace(preparationId))
+			return null;
+
+		return new PreparedIngredientDef
+		{
+			BaseIngredientId = baseIngredientId,
+			PreparationId = preparationId
+		};
+	}
+
 	private static List<RuleDef> ParseRules(Godot.Collections.Array entries)
 	{
 		var rules = new List<RuleDef>(entries.Count);
@@ -274,6 +314,7 @@ public partial class DataDb : Node
 				Id = id,
 				Title = ReadString(entry, "title"),
 				Text = ReadString(entry, "text"),
+				Lines = ParseCustomerDialogueLines(ReadArray(entry, "lines")),
 				CharacterImagePath = ReadNullableString(entry, "characterImagePath"),
 				Pool = ReadString(entry, "pool"),
 				Difficulty = Math.Max(1, ReadInt(entry, "difficulty", 1)),
@@ -283,8 +324,8 @@ public partial class DataDb : Node
 				DialogueNodes = ParseCustomerDialogueNodes(ReadArray(entry, "dialogueNodes")),
 				Requires = ParseRequirements(ReadDictionary(entry, "requires")),
 				Weight = ReadInt(entry, "weight", 1),
-				DesiredTraits = ReadStringIntDictionary(entry, "desiredTraits"),
-				BadTraits = ReadStringIntDictionary(entry, "badTraits"),
+				DesiredTraits = ReadTraitRangeDictionary(entry, "desiredTraits", legacyIntIsMinimum: true),
+				BadTraits = ReadTraitRangeDictionary(entry, "badTraits", legacyIntIsMinimum: false),
 				RequiredMinTraits = ReadStringIntDictionary(entry, "requiredMinTraits"),
 				RequiredMaxTraits = ReadStringIntDictionary(entry, "requiredMaxTraits"),
 				RequiredIngredientAmounts = ParseIngredientPortions(ReadArray(entry, "requiredIngredientAmounts")),
@@ -292,6 +333,7 @@ public partial class DataDb : Node
 				OnFailureEffects = ParseEffects(ReadArray(entry, "onFailureEffects")),
 				OnSkipEffects = ParseEffects(ReadArray(entry, "onSkipEffects")),
 				PotionRefusedText = ReadString(entry, "potionRefusedText"),
+				PotionRefusedLines = ParseCustomerDialogueLines(ReadArray(entry, "potionRefusedLines")),
 				OnPotionRefusedEffects = ParseEffects(ReadArray(entry, "onPotionRefusedEffects")),
 				PotionResponses = ParseCustomerPotionResponses(ReadArray(entry, "potionResponses"))
 			});
@@ -316,6 +358,7 @@ public partial class DataDb : Node
 			{
 				Id = id,
 				Text = ReadString(entry, "text"),
+				Lines = ParseCustomerDialogueLines(ReadArray(entry, "lines")),
 				Options = ParseCustomerDialogueOptions(ReadArray(entry, "options"))
 			});
 		}
@@ -340,6 +383,7 @@ public partial class DataDb : Node
 				Id = ReadString(entry, "id", label),
 				Label = label,
 				ResponseText = ReadString(entry, "responseText"),
+				ResponseLines = ParseCustomerDialogueLines(ReadAuthoredLineArray(entry, "responseLines", "lines")),
 				NextNodeId = ReadString(entry, "nextNodeId"),
 				ReturnNodeId = ReadString(entry, "returnNodeId"),
 				RevealsRequest = ReadBool(entry, "revealsRequest"),
@@ -362,7 +406,8 @@ public partial class DataDb : Node
 				continue;
 
 			var text = ReadString(entry, "text");
-			if (string.IsNullOrWhiteSpace(text))
+			var lines = ParseCustomerDialogueLines(ReadArray(entry, "lines"));
+			if (string.IsNullOrWhiteSpace(text) && lines.Count == 0)
 				continue;
 
 			responses.Add(new CustomerPotionResponseDef
@@ -376,6 +421,7 @@ public partial class DataDb : Node
 				MinMatchedDesiredTraits = ReadNullableInt(entry, "minMatchedDesiredTraits"),
 				MaxMatchedBadTraits = ReadNullableInt(entry, "maxMatchedBadTraits"),
 				Text = text,
+				Lines = lines,
 				Effects = ParseEffects(ReadArray(entry, "effects"))
 			});
 		}
@@ -383,32 +429,35 @@ public partial class DataDb : Node
 		return responses;
 	}
 
-	private static List<SynergyRule> ParseSynergies(Godot.Collections.Array entries)
+	private static List<CustomerDialogueLineDef> ParseCustomerDialogueLines(Godot.Collections.Array entries)
 	{
-		var synergies = new List<SynergyRule>(entries.Count);
+		var lines = new List<CustomerDialogueLineDef>(entries.Count);
 		foreach (var entryValue in entries)
 		{
+			if (entryValue.VariantType == Variant.Type.String)
+			{
+				var narrationText = ReadVariantString(entryValue);
+				if (!string.IsNullOrWhiteSpace(narrationText))
+					lines.Add(new CustomerDialogueLineDef { Text = narrationText });
+
+				continue;
+			}
+
 			if (!TryReadDictionary(entryValue, out var entry))
 				continue;
 
-			var id = ReadString(entry, "id");
-			if (string.IsNullOrWhiteSpace(id))
+			var text = ReadString(entry, "text");
+			if (string.IsNullOrWhiteSpace(text))
 				continue;
 
-			synergies.Add(new SynergyRule
+			lines.Add(new CustomerDialogueLineDef
 			{
-				Id = id,
-				RequiredTraits = ReadStringList(entry, "requiredTraits"),
-				RequiredRisks = ReadStringList(entry, "requiredRisks"),
-				Modifier = ReadInt(entry, "modifier", 0),
-				ResultTrait = ReadString(entry, "resultTrait"),
-				Description = ReadString(entry, "description"),
-				AddedRisk = ReadNullableString(entry, "addedRisk"),
-				AddedRiskStrength = ReadInt(entry, "addedRiskStrength", 0)
+				Speaker = ReadString(entry, "speaker"),
+				Text = text
 			});
 		}
 
-		return synergies;
+		return lines;
 	}
 
 	private static List<PotionRecipeDef> ParsePotionRecipes(Godot.Collections.Array entries)
@@ -465,12 +514,15 @@ public partial class DataDb : Node
 				continue;
 
 			var grams = ReadInt(entry, "grams", 0);
-			if (grams <= 0)
+			var preparationId = ReadString(entry, "preparationId", ReadString(entry, "preparation"));
+			if (grams <= 0 && string.IsNullOrWhiteSpace(preparationId))
 				continue;
 
 			portions.Add(new IngredientPortionDef
 			{
 				IngredientId = ingredientId.Trim(),
+				ItemId = ReadString(entry, "itemId"),
+				PreparationId = preparationId.Trim(),
 				Grams = grams
 			});
 		}
@@ -579,6 +631,15 @@ public partial class DataDb : Node
 		return TryReadArray(source[key], out var array) ? array : new Godot.Collections.Array();
 	}
 
+	private static Godot.Collections.Array ReadAuthoredLineArray(
+		Godot.Collections.Dictionary source,
+		string key,
+		string fallbackKey)
+	{
+		var lines = ReadArray(source, key);
+		return lines.Count > 0 ? lines : ReadArray(source, fallbackKey);
+	}
+
 	private static List<string> ReadStringList(Godot.Collections.Dictionary source, string key)
 	{
 		var list = new List<string>();
@@ -622,6 +683,56 @@ public partial class DataDb : Node
 		}
 
 		return result;
+	}
+
+	private static Dictionary<string, CustomerTraitRangeDef> ReadTraitRangeDictionary(
+		Godot.Collections.Dictionary source,
+		string key,
+		bool legacyIntIsMinimum)
+	{
+		var result = new Dictionary<string, CustomerTraitRangeDef>(StringComparer.OrdinalIgnoreCase);
+		if (!source.ContainsKey(key))
+			return result;
+
+		if (!TryReadDictionary(source[key], out var dictionary))
+			return result;
+
+		foreach (var pair in dictionary)
+		{
+			var name = ReadVariantString(pair.Key);
+			if (string.IsNullOrWhiteSpace(name))
+				continue;
+
+			if (TryReadTraitRange(pair.Value, legacyIntIsMinimum, out var range))
+				result[name] = range;
+		}
+
+		return result;
+	}
+
+	private static bool TryReadTraitRange(
+		Variant value,
+		bool legacyIntIsMinimum,
+		out CustomerTraitRangeDef range)
+	{
+		range = new CustomerTraitRangeDef();
+		if (TryConvertToInt(value, out var legacyAmount))
+		{
+			if (legacyIntIsMinimum)
+				range.Min = legacyAmount;
+			else
+				range.Max = legacyAmount;
+
+			return true;
+		}
+
+		if (!TryReadDictionary(value, out var dictionary))
+			return false;
+
+		range.Min = ReadNullableInt(dictionary, "min");
+		range.Max = ReadNullableInt(dictionary, "max");
+
+		return range.HasMin || range.HasMax;
 	}
 
 	private static string ReadString(Godot.Collections.Dictionary source, string key, string fallback = "")

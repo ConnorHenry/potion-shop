@@ -17,17 +17,18 @@ internal static class SceneAndHudWiringTests
         runner.Run("UI classes exist and keep expected base types", TestUiClassPresenceAndBaseTypes);
         runner.Run("Main menu exposes start and load flows", TestMainMenuLoadFlow);
         runner.Run("Load menu scene is wired for saved game browsing", TestLoadGameMenuScene);
-        runner.Run("Game UI keeps the potion trait filter wired", TestGameUiKeepsPotionTraitFilterWired);
+        runner.Run("Game UI omits the removed inventory panel", TestGameUiOmitsInventoryPanel);
         runner.Run("Customer closeup uses split art and customer data image paths", TestCustomerCloseupUsesSplitArt);
         runner.Run("Shop floor shelf opens potion brewing station view", TestShopFloorShelfOpensPotionBrewingStation);
         runner.Run("Potion brewing station links to bedroom view", TestPotionBrewingStationLinksBedroom);
         runner.Run("Potion brewing station owns diegetic shelf inventory", TestPotionBrewingStationShelfInventory);
         runner.Run("Potion brewing station owns separate potion inventory row", TestPotionBrewingStationPotionInventoryRow);
         runner.Run("Brew entry points open the potion brewing station", TestBrewEntryPointsOpenPotionBrewingStation);
-        runner.Run("Scenario debugger can set the shop stop timer", TestScenarioDebuggerStopTimerControls);
+        runner.Run("Scenario debugger can close the active shop day", TestScenarioDebuggerShopDayControls);
         runner.Run("Scenario debugger can toggle book records", TestScenarioDebuggerBookRecordingControls);
         runner.Run("Persistent HUD owns global HUD visibility", TestPersistentHudOwnsGlobalHudVisibility);
         runner.Run("HUD map navigation is wired", TestHudMapNavigation);
+        runner.Run("Map scene builds coordinate grid and modal outcomes", TestMapSceneCoordinateGridAndModalOutcomes);
         runner.Run("Hud return-to-menu does not auto-save", TestHudReturnToMainMenuDoesNotAutoSave);
         runner.Run("Hud settings panel closes on outside click", TestHudSettingsPanelClosesOnOutsideClick);
         runner.Run("Hud ambient rain settings are wired", TestHudAmbientRainSettingsAreWired);
@@ -47,8 +48,8 @@ internal static class SceneAndHudWiringTests
             ["OccultShop.UI.Hud"] = "Control",
             ["OccultShop.UI.LoadGameMenu"] = "Control",
             ["OccultShop.UI.InventoryItemSlot"] = "Button",
-            ["OccultShop.UI.InventoryPanel"] = "Control",
             ["OccultShop.UI.StationShelfInventory"] = "Control",
+            ["OccultShop.UI.StationItemDetailPanel"] = "Control",
             ["OccultShop.UI.PotionInventoryRow"] = "Control",
             ["OccultShop.UI.Garden"] = "Control",
             ["OccultShop.UI.Map"] = "Control",
@@ -98,14 +99,13 @@ internal static class SceneAndHudWiringTests
         AssertTrue("LoadGameMenu scene exposes back button", scene.Contains("BackButton"));
     }
 
-    private static void TestGameUiKeepsPotionTraitFilterWired()
+    private static void TestGameUiOmitsInventoryPanel()
     {
         var scene = ReadProjectFile("Scenes/UI/GameUi.tscn");
+        var main = ReadProjectFile("Main.tscn");
 
-        AssertTrue("GameUi keeps potion trait filter path wired", !scene.Contains("PotionsTraitFilterPath = null"));
-        AssertTrue("GameUi keeps potion clear filter path wired", !scene.Contains("PotionsClearFilterButtonPath = null"));
-        AssertTrue("InventoryPanel scene defines potion trait filter", ReadProjectFile("Scenes/UI/InventoryPanel.tscn").Contains("PotionsTraitFilterPath = NodePath(\"Panel/Margin/VBox/PotionsHeaderRow/TraitFilter\")"));
-        AssertTrue("InventoryPanel scene defines potion clear filter", ReadProjectFile("Scenes/UI/InventoryPanel.tscn").Contains("PotionsClearFilterButtonPath = NodePath(\"Panel/Margin/VBox/PotionsHeaderRow/Clear\")"));
+        AssertTrue("GameUi no longer instances InventoryPanel", !scene.Contains("InventoryPanel"));
+        AssertTrue("Main no longer exports InventoryPanel paths", !main.Contains("InventoryPanelPath"));
     }
 
     private static void TestCustomerCloseupUsesSplitArt()
@@ -231,6 +231,12 @@ internal static class SceneAndHudWiringTests
     {
         var scene = ReadProjectFile("Scenes/UI/GameUi.tscn");
         var shelf = ReadProjectFile("Scripts/UI/StationShelfInventory.cs");
+        var jarredSlot = ReadProjectFile("Scripts/UI/JarredInventorySlotView.cs");
+        var itemDetailPanel = ReadProjectFile("Scripts/UI/StationItemDetailPanel.cs");
+        var outsideClickBoundsCheckIndex = itemDetailPanel.IndexOf("if (!GetGlobalRect().HasPoint(mouseButton.GlobalPosition))", StringComparison.Ordinal);
+        var outsideClickBranch = outsideClickBoundsCheckIndex >= 0
+            ? itemDetailPanel.Substring(outsideClickBoundsCheckIndex, Math.Min(180, itemDetailPanel.Length - outsideClickBoundsCheckIndex))
+            : string.Empty;
 
         AssertTrue("GameUi defines the station shelf inventory under the brewing station view",
             scene.Contains("[node name=\"StationShelfInventory\" type=\"Control\" parent=\"PotionBrewingStationView\"]") &&
@@ -240,22 +246,73 @@ internal static class SceneAndHudWiringTests
             scene.Contains("ConsumableSlotsPath = NodePath(\"ConsumableSlots\")") &&
             scene.Contains("[node name=\"ConsumableSlots\" type=\"GridContainer\" parent=\"PotionBrewingStationView/StationShelfInventory\"]"));
         AssertTrue("Station shelf keeps consumables on a limited bottom shelf",
-            scene.Contains("offset_top = 677.0") &&
+            scene.Contains("offset_top = 640.0") &&
             shelf.Contains("ConsumableDefaultVisibleSlots = 4") &&
             shelf.Contains("ConsumableVisibleSlots"));
-		AssertTrue("Station shelf keeps ingredients to a limited visible slot count",
+        AssertTrue("Station shelf keeps ingredients to a limited visible slot count",
             scene.Contains("theme_override_constants/h_separation = 23") &&
-            scene.Contains("theme_override_constants/v_separation = 11") &&
+            scene.Contains("theme_override_constants/v_separation = 4") &&
             shelf.Contains("IngredientDefaultVisibleSlots = 12") &&
             shelf.Contains("IngredientVisibleSlots"));
-        AssertTrue("Station shelf right-click queues only ingredients through BrewPanel",
+        AssertTrue("Station shelf slots use the generated jar and plaque treatment",
+            shelf.Contains("JarredInventorySlotView.CreateContent") &&
+            jarredSlot.Contains("res://Assets/UI/ingredient_jar_overlay.png") &&
+            jarredSlot.Contains("Name = \"Quantity\""));
+        AssertTrue("Station shelf preserves prepared ingredient methods on plaque labels",
+            shelf.Contains("BuildShelfDisplayName") &&
+            shelf.Contains("IngredientPreparationCatalog.GetDisplayName(preparationId)") &&
+            shelf.Contains("PreserveParentheticalSuffix = connectIngredientRequest") &&
+            shelf.Contains("SingleLineCharacterLimit = connectIngredientRequest ? 18 : 12") &&
+            jarredSlot.Contains("PreserveParentheticalSuffix") &&
+            jarredSlot.Contains("ResolveNameFontSize"));
+        AssertTrue("Station shelf exposes a trait filter below the ingredient slots",
+            shelf.Contains("IngredientTraitFilterPath = new(\"IngredientTraitFilterRow/TraitFilter\")") &&
+            shelf.Contains("IngredientClearFilterButtonPath = new(\"IngredientTraitFilterRow/Clear\")") &&
+            scene.Contains("[node name=\"IngredientTraitFilterRow\" type=\"HBoxContainer\" parent=\"PotionBrewingStationView/StationShelfInventory\"]") &&
+            scene.Contains("[node name=\"TraitFilter\" type=\"OptionButton\" parent=\"PotionBrewingStationView/StationShelfInventory/IngredientTraitFilterRow\"]") &&
+            scene.Contains("[node name=\"Clear\" type=\"Button\" parent=\"PotionBrewingStationView/StationShelfInventory/IngredientTraitFilterRow\"]"));
+        AssertTrue("Station shelf trait filter is populated from known ingredient book entries",
+            shelf.Contains("foreach (var knownIngredientId in _gameState.KnownIngredients)") &&
+            shelf.Contains("AddIngredientBookTraitNames(item, traitNames)") &&
+            shelf.Contains("preparation.Traits") &&
+            shelf.Contains("ItemFilterUtilities.RefreshFilterOptions(_ingredientTraitFilter, traitNames, \"Trait\", ref _activeIngredientTraitFilter)"));
+        AssertTrue("Station shelf trait filter matches shelf items against direct traits and known book preparation traits",
+            shelf.Contains("ItemFilterUtilities.ItemHasTrait(itemId, _activeIngredientTraitFilter, _itemCatalog)") &&
+            shelf.Contains("TryGetKnownIngredientBookItem(itemId, out var bookItem)") &&
+            shelf.Contains("ItemHasIngredientBookTrait(bookItem, _activeIngredientTraitFilter)") &&
+            shelf.Contains("_gameState.KnowsIngredient(ingredientBookItemId)"));
+        AssertTrue("Station shelf clear button is visible only while a trait filter is active",
+            shelf.Contains("_ingredientClearFilterButton.Visible = hasActiveFilter") &&
+            shelf.Contains("_ingredientClearFilterButton.Disabled = !hasActiveFilter") &&
+            shelf.Contains("_ingredientClearFilterButton.MouseFilter = hasActiveFilter ? MouseFilterEnum.Stop : MouseFilterEnum.Ignore"));
+        AssertTrue("Station shelf right-click sends raw ingredients to prep tray and prepared ingredients to BrewPanel",
             shelf.Contains("slot.IngredientRequested += QueueIngredientFromShelf;") &&
-            shelf.Contains("_itemCatalog.IsIngredient(itemId)") &&
+            shelf.Contains("IngredientPreparationTrayPath = new(\"../IngredientPreparationTray\")") &&
+            shelf.Contains("_ingredientPreparationTray.TrySelectIngredientFromInventory(itemId)") &&
+            shelf.Contains("_itemCatalog.IsPreparedIngredient(itemId)") &&
             shelf.Contains("_brewPanel.TryQueueIngredient(itemId);"));
-        AssertTrue("Station shelf left-click opens the shared inventory item detail panel",
-            shelf.Contains("InventoryPanelPath = new(\"../../InventoryPanel\")") &&
-            shelf.Contains("slot.SlotActivated += ShowItemDetail;") &&
-            shelf.Contains("_inventoryPanel?.OpenItemDetail(itemId);"));
+        AssertTrue("Station shelf left-clicks open the station item detail panel",
+            scene.Contains("[node name=\"StationItemDetailPanel\" type=\"Control\" parent=\"PotionBrewingStationView\"]") &&
+            scene.Contains("script = ExtResource(\"44_station_item_detail\")") &&
+            shelf.Contains("ItemDetailPanelPath = new(\"../StationItemDetailPanel\")") &&
+            shelf.Contains("_itemDetailPanel.ShowItem(itemId)") &&
+            shelf.Contains("slot.SlotActivated += ShowItemDetail;"));
+        AssertTrue("Station item detail panel can be dragged without stealing close button clicks",
+            itemDetailPanel.Contains("SetProcessInput(true);") &&
+            itemDetailPanel.Contains("GlobalPosition = mouseMotion.GlobalPosition - _dragOffset;") &&
+            itemDetailPanel.Contains("IsPressOnInteractiveChildControl()") &&
+            itemDetailPanel.Contains("hoveredControl is BaseButton"));
+        AssertTrue("Station item detail panel closes on outside click",
+            outsideClickBranch.Contains("HidePanel();") &&
+            outsideClickBranch.Contains("AcceptEvent();"));
+        AssertTrue("Station item detail panel falls back to preparation stat names for unprepared ingredients",
+            itemDetailPanel.Contains("FormatPreparationTraitNames(item.Preparations, 3)") &&
+            itemDetailPanel.Contains("FormatPreparationRiskNames(item.Preparations, 3)") &&
+            itemDetailPanel.Contains("HasPositiveStats(item.Traits)") &&
+            itemDetailPanel.Contains("HasPositiveStats(item.Risks)"));
+        AssertTrue("Station shelf does not resolve the removed inventory panel",
+            !shelf.Contains("InventoryPanelPath") &&
+            !shelf.Contains("OpenItemDetail"));
         AssertTrue("Station shelf slots keep button hover and pressed states visually neutral",
             shelf.Contains("var normalStyle = CreateSlotStyleBox") &&
             shelf.Contains("slot.AddThemeStyleboxOverride(\"hover\", normalStyle);") &&
@@ -275,7 +332,7 @@ internal static class SceneAndHudWiringTests
     {
         var scene = ReadProjectFile("Scenes/UI/GameUi.tscn");
         var row = ReadProjectFile("Scripts/UI/PotionInventoryRow.cs");
-        var inventoryPanel = ReadProjectFile("Scripts/UI/InventoryPanel.cs");
+        var jarredSlot = ReadProjectFile("Scripts/UI/JarredInventorySlotView.cs");
 
         AssertTrue("GameUi defines a separate potion inventory row under the brewing station view",
             scene.Contains("[node name=\"PotionInventoryRow\" type=\"Control\" parent=\"PotionBrewingStationView\"]") &&
@@ -285,30 +342,33 @@ internal static class SceneAndHudWiringTests
 			scene.Contains("PotionSlotsPath = NodePath(\"PotionSlots\")") &&
 			scene.Contains("[node name=\"PotionSlots\" type=\"GridContainer\" parent=\"PotionBrewingStationView/PotionInventoryRow\"]") &&
 			scene.Contains("columns = 4"));
-		AssertTrue("Potion row resolves the root inventory panel from the brewing station view",
-			!scene.Contains("InventoryPanelPath = NodePath(\"\")") &&
-			row.Contains("InventoryPanelPath = new(\"../../InventoryPanel\")"));
+		AssertTrue("Potion row does not resolve the removed inventory panel",
+			!scene.Contains("InventoryPanelPath") &&
+			!row.Contains("InventoryPanelPath"));
 		AssertTrue("Potion row renders only current potion stacks from inventory",
 			row.Contains("foreach (var stack in _gameState.Inventory)") &&
 			row.Contains("if (!IsPotion(item))") &&
             row.Contains("if (stacks.Count >= VisiblePotionSlots)") &&
             row.Contains("GameState.MaxUniquePotionInventoryQuantity") &&
             !row.Contains("OrderBy("));
-        AssertTrue("Potion row left-click opens the inventory item detail panel",
-            row.Contains("slot.SlotActivated += ShowPotionDetail;") &&
-            row.Contains("_inventoryPanel.OpenItemDetail(itemId);") &&
-            inventoryPanel.Contains("public void OpenItemDetail(string itemId)") &&
-            inventoryPanel.Contains("ShowItemDetail(itemId);"));
-        AssertTrue("Potion row keeps potion slot previews concise",
-            row.Contains("UiIconLoader.LoadIcon(stack.IconPath)") &&
-            row.Contains("stack.Quantity.ToString()") &&
+        AssertTrue("Potion row left-clicks open the station item detail panel",
+            scene.Contains("[node name=\"StationItemDetailPanel\" type=\"Control\" parent=\"PotionBrewingStationView\"]") &&
+            row.Contains("ItemDetailPanelPath = new(\"../StationItemDetailPanel\")") &&
+            row.Contains("_itemDetailPanel.ShowItem(itemId)") &&
+            row.Contains("slot.SlotActivated += ShowItemDetail;") &&
+            !row.Contains("OpenItemDetail"));
+        AssertTrue("Potion row keeps potion slot previews bottled and concise",
+            row.Contains("JarredInventorySlotView.CreatePotionContent") &&
+            row.Contains("stack.Quantity") &&
+            jarredSlot.Contains("res://Assets/UI/potion_bottle_overlay.png") &&
+            jarredSlot.Contains("PotionLiquidView") &&
             row.Contains("DisplayName(stack.Key, item.Name)") &&
             !row.Contains("GetItemPrice(stack.Key, item)") &&
             !row.Contains("TryGetPotionBasePrice(itemId, out var potionBasePrice)") &&
             !row.Contains("InventoryItemTextFormatter.BuildSlotTraitText(item)") &&
             !row.Contains("CreateSlotTraitTag") &&
             row.Contains("HasActiveRisk(item)") &&
-            row.Contains("new Color(0.9f, 0.25f, 0.25f, 1.0f)"));
+            row.Contains("new Color(0.58f, 0.05f, 0.04f, 1.0f)"));
     }
 
     private static void TestBrewEntryPointsOpenPotionBrewingStation()
@@ -337,37 +397,37 @@ internal static class SceneAndHudWiringTests
 			scene.Contains("BrewBoxPath = NodePath(\"BrewBox\")") &&
 			scene.Contains("[node name=\"BrewBox\" type=\"PanelContainer\" parent=\"PotionBrewingStationView/BrewPanel\"]") &&
 			!scene.Contains("[node name=\"BrewBox\" type=\"PanelContainer\" parent=\"PotionBrewingStationView/BrewPanel\"]\nvisible = false") &&
-			scene.Contains("anchor_left = 0.38") &&
+			scene.Contains("anchor_left = ") &&
 			scene.Contains("anchor_right = 0.58") &&
 			scene.Contains("self_modulate = Color(1, 1, 1, 0)") &&
 			scene.Contains("script = ExtResource(\"10_odm4o\")"));
     }
 
-    private static void TestScenarioDebuggerStopTimerControls()
+    private static void TestScenarioDebuggerShopDayControls()
     {
         var runtimeDebug = ReadProjectFile("Scripts/Debug/RuntimeDebugImGui.cs");
         var dayController = ReadProjectFile("Scripts/Controllers/DayController.cs");
 
         AssertTrue("Scenario debugger wires the day controller",
             runtimeDebug.Contains("DayControllerPath = new(\"../DayController\")"));
-        AssertTrue("Scenario debugger exposes a stop timer input",
-            runtimeDebug.Contains("Stop Timer Seconds"));
-        AssertTrue("Scenario debugger exposes an end-day shortcut",
-            runtimeDebug.Contains("End Day Now"));
-        AssertTrue("Scenario debugger exposes shop timer pause controls",
-            runtimeDebug.Contains("Pause Shop Timer") &&
-            runtimeDebug.Contains("Resume Shop Timer"));
-        AssertTrue("Scenario debugger applies the stop timer through DayController",
-            runtimeDebug.Contains("TrySetShopTimerSecondsRemaining"));
-        AssertTrue("Scenario debugger applies timer pause through DayController",
-            runtimeDebug.Contains("TrySetDebugShopTimerPaused"));
-        AssertTrue("DayController exposes a debug timer setter",
-            dayController.Contains("public bool TrySetShopTimerSecondsRemaining(int secondsRemaining)"));
-        AssertTrue("DayController exposes a debug timer pause toggle",
-            dayController.Contains("public bool TrySetDebugShopTimerPaused(bool paused)") &&
-            dayController.Contains("public bool IsShopTimerDebugPaused"));
-        AssertTrue("DayController can force the stop timer to zero through the shared setter",
-            dayController.Contains("ForceShopTimerToZeroForTutorial()") && dayController.Contains("TrySetShopTimerSecondsRemaining(0)"));
+        AssertTrue("Scenario debugger exposes a close-shop shortcut",
+            runtimeDebug.Contains("Close Shop Now"));
+        AssertTrue("Scenario debugger shows the customer arrival cap",
+            runtimeDebug.Contains("CustomersArrivedToday") &&
+            runtimeDebug.Contains("MaxCustomersPerDay"));
+        AssertTrue("Scenario debugger closes the active shop through DayController",
+            runtimeDebug.Contains("TryCloseShopDay()") &&
+            runtimeDebug.Contains("TryCloseShopDayFromDebug"));
+        AssertTrue("Scenario debugger no longer exposes timer controls",
+            !runtimeDebug.Contains("Stop Timer Seconds") &&
+            !runtimeDebug.Contains("Pause Shop Timer") &&
+            !runtimeDebug.Contains("Resume Shop Timer"));
+        AssertTrue("DayController exposes a debug close-shop helper",
+            dayController.Contains("public bool TryCloseShopDayFromDebug()"));
+        AssertTrue("DayController no longer exposes timer setters",
+            !dayController.Contains("TrySetShopTimerSecondsRemaining") &&
+            !dayController.Contains("TrySetDebugShopTimerPaused") &&
+            !dayController.Contains("IsShopTimerDebugPaused"));
     }
 
     private static void TestScenarioDebuggerBookRecordingControls()
@@ -479,6 +539,56 @@ internal static class SceneAndHudWiringTests
             mapScene.Contains("clip_contents = true"));
     }
 
+    private static void TestMapSceneCoordinateGridAndModalOutcomes()
+    {
+        var map = ReadProjectFile("Scripts/UI/Map.cs");
+        var mapScene = ReadProjectFile("Scenes/Main/Map.tscn");
+        var mapAssetPath = Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory,
+            "..",
+            "..",
+            "..",
+            "..",
+            "..",
+            "Assets",
+            "Maps",
+            "kerry_samuel_lewis_1844_lowres.jpg"));
+
+        AssertTrue("Map uses a 15 by 15 coordinate grid from A to O",
+            map.Contains("ColumnCount = 15") &&
+            map.Contains("RowCount = 15") &&
+            map.Contains("FirstRowLetter = 'A'"));
+        AssertTrue("Map uses the Kerry map background asset",
+            map.Contains("res://Assets/Maps/kerry_samuel_lewis_1844_lowres.jpg") &&
+            File.Exists(mapAssetPath));
+        AssertTrue("Map scene wires the texture, coordinate grid, and modal nodes",
+            mapScene.Contains("HoveredCoordinateLabelPath = NodePath(\"Root/Margin/Main/Header/HoveredCoordinate\")") &&
+            mapScene.Contains("[node name=\"HoveredCoordinate\" type=\"Label\" parent=\"Root/Margin/Main/Header\"]") &&
+            mapScene.Contains("MapTextureRectPath = NodePath(\"Root/Margin/Main/MapArea/MapMargin/MapCenter/MapCanvas/MapTexture\")") &&
+            mapScene.Contains("MapGridPath = NodePath(\"Root/Margin/Main/MapArea/MapMargin/MapCenter/MapCanvas/MapGrid\")") &&
+            mapScene.Contains("[node name=\"MapGrid\" type=\"GridContainer\"") &&
+            mapScene.Contains("columns = 16") &&
+            mapScene.Contains("ModalLayerPath = NodePath(\"ModalLayer\")") &&
+            mapScene.Contains("[node name=\"Travel\" type=\"Button\" parent=\"ModalLayer/Dialog/Margin/VBox/Actions\"]"));
+        AssertTrue("Map keeps F12 as the first point of interest with an assignable destination",
+            map.Contains("DefaultPointOfInterestCoordinate = \"F12\"") &&
+            map.Contains("F12ScenePath") &&
+            map.Contains("ChangeSceneToFile(_pendingTravelScenePath)"));
+        AssertTrue("Map empty coordinates show the requested modal message without travel",
+            map.Contains("Nothing of interest here") &&
+            map.Contains("_modalTravelButton.Visible = false"));
+        AssertTrue("Map draws visible dotted grid lines over hoverable cells",
+            map.Contains("MapGridLineOverlay") &&
+            map.Contains("DrawDottedLine") &&
+            map.Contains("DrawCircle") &&
+            map.Contains("MouseFilterEnum.Ignore"));
+        AssertTrue("Map updates the top coordinate readout and highlights hovered cells",
+            map.Contains("MouseEntered += () => SetHoveredCoordinate(coordinate)") &&
+            map.Contains("MouseExited += () => ClearHoveredCoordinate(coordinate)") &&
+            map.Contains("Cell: {coordinate.Value}") &&
+            map.Contains("new Color(0.98f, 0.82f, 0.34f, 0.34f)"));
+    }
+
     private static void TestHudReturnToMainMenuDoesNotAutoSave()
     {
         var source = ReadProjectFile("Scripts/UI/Hud.cs");
@@ -558,8 +668,9 @@ internal static class SceneAndHudWiringTests
         var customerPanel = ReadProjectFile("Scripts/UI/CustomerPanel.cs");
         var formatter = ReadProjectFile("Scripts/UI/CustomerDialogueTextFormatter.cs");
 
-        AssertTrue("Hud scene places the request alert beside the shop timer",
-            scene.Contains("[node name=\"ShopTimer\" type=\"Label\" parent=\"Content/Status\"]") &&
+        AssertTrue("Hud scene places the request alert in the status row without a shop timer",
+            !scene.Contains("[node name=\"ShopTimer\"") &&
+            !source.Contains("ShopTimerLabelPath") &&
             scene.Contains("[node name=\"RequestAlert\" type=\"Button\" parent=\"Content/Status\"]") &&
             scene.Contains("text = \"!\"") &&
             scene.Contains("theme_override_colors/font_color = Color(1, 0.86, 0.05, 1)"));

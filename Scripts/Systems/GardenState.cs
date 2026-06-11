@@ -26,16 +26,16 @@ public sealed class GardenState
 
 	private static readonly GardenCropDef[] CropDefinitions =
 	{
-		CreateGardenCrop("amber_nightshade", growthDays: 1),
-		CreateGardenCrop("obsidian_resin", growthDays: 2),
-		CreateGardenCrop("iron_lullaby_root", growthDays: 3),
-		CreateGardenCrop("mooncap_mushroom", growthDays: 1),
-		CreateGardenCrop("grave_mint", growthDays: 2),
-		CreateGardenCrop("black_ichor", growthDays: 1),
-		CreateGardenCrop("lavender_ash", growthDays: 3),
-		CreateGardenCrop("silver_thorn_bloom", growthDays: 2),
-		CreateGardenCrop("moonwhisper_orchid", growthDays: 3),
-		CreateGardenCrop("raven_ash_peony", growthDays: 1)
+		CreateGardenCrop("yarrow", growthDays: 1),
+		CreateGardenCrop("gorse", growthDays: 2),
+		CreateGardenCrop("thyme", growthDays: 3),
+		CreateGardenCrop("heather", growthDays: 1),
+		CreateGardenCrop("mint", growthDays: 2),
+		CreateGardenCrop("elder", growthDays: 1),
+		CreateGardenCrop("rosemary", growthDays: 3),
+		CreateGardenCrop("willow", growthDays: 2),
+		CreateGardenCrop("juniper", growthDays: 3),
+		CreateGardenCrop("comfrey", growthDays: 1)
 	};
 	private static readonly Dictionary<string, GardenCropDef> CropsByIngredientId = CropDefinitions
 		.ToDictionary(x => x.IngredientId, x => x, StringComparer.OrdinalIgnoreCase);
@@ -43,9 +43,9 @@ public sealed class GardenState
 		.ToDictionary(x => x.SeedId, x => x, StringComparer.OrdinalIgnoreCase);
 	private static readonly (string SeedId, int Quantity)[] StartingSeedInventory =
 	{
-		("seed_amber_nightshade", 1),
-		("seed_obsidian_resin", 1),
-		("seed_iron_lullaby_root", 1)
+		("seed_yarrow", 1),
+		("seed_gorse", 1),
+		("seed_thyme", 1)
 	};
 
 	private readonly Func<string, bool> _itemExists;

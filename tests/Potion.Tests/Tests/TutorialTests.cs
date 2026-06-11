@@ -117,28 +117,28 @@ internal static class TutorialTests
         AssertTrue("TutorialController resolves step-specific button locks", controller.Contains("UpdateTutorialButtonLock("));
         AssertTrue("TutorialController includes the close shop tutorial step", controller.Contains("TutorialStepId.CloseShop"));
         AssertTrue("TutorialController highlights the close shop button", controller.Contains("case TutorialStepId.CloseShop") && controller.Contains("GetNextCustomerButton()"));
-        AssertTrue("TutorialController waits for close shop visibility before advancing", controller.Contains("EvaluateCloseShopPrompt("));
+        AssertTrue("TutorialController forces the final tutorial customer to end the shop day", controller.Contains("ForceCloseShopAfterCurrentCustomerForTutorial()"));
         AssertTrue("TutorialController caches HUD day label for tutorial highlighting", controller.Contains("HudDayLabelPath = new(\"Content/Status/Day\")") && controller.Contains("_hudDayLabel = GetOptionalHudLabel(HudDayLabelPath"));
-        AssertTrue("TutorialController caches HUD shop timer label for tutorial highlighting", controller.Contains("HudShopTimerLabelPath = new(\"Content/Status/ShopTimer\")") && controller.Contains("_hudShopTimerLabel = GetOptionalHudLabel(HudShopTimerLabelPath"));
+        AssertTrue("TutorialController does not cache a HUD shop timer label", !controller.Contains("HudShopTimerLabelPath") && !controller.Contains("_hudShopTimerLabel"));
         AssertTrue("TutorialController opens brewing from the shop floor hotspot", controller.Contains("OpenBrewPanelButtonPath = new(\"../CanvasLayer/ShopFloor/Hotspots/InventoryShelf\")") && controller.Contains("_openBrewPanelButton.Pressed += OnBrewButtonPressed"));
-        AssertTrue("TutorialController highlights ingredient queue steps with the brew panel", controller.Contains("ShowIngredientQueueStep(stepContent, _tutorialContent.GraveMintId)") && controller.Contains("ShowForTargets(") && controller.Contains("FocusTutorialBrewPanel()"));
+        AssertTrue("TutorialController highlights ingredient queue steps with the brew panel", controller.Contains("ShowIngredientQueueStep(stepContent, _tutorialContent.MintId)") && controller.Contains("ShowForTargets(") && controller.Contains("FocusTutorialBrewPanel()"));
         AssertTrue("TutorialController routes the sale review popup through the customer panel", controller.Contains("ShowForTarget(") && controller.Contains("_customerPanel,") && controller.Contains("BuildSaleResultBody("));
         AssertTrue("TutorialController seeds the next-customer tutorial inventory", controller.Contains("SeedNextCustomerTutorialInventory()"));
         AssertTrue("TutorialController highlights status step with a combined HUD rect", controller.Contains("ShowForHighlightRect(stepContent, statusHighlightRect)"));
         AssertTrue("TutorialController builds a combined status highlight rectangle", controller.Contains("TryGetStatusHighlightRect(out var statusHighlightRect)"));
-        AssertTrue("TutorialController forces the shop timer to zero before the final tutorial ingredient step", controller.Contains("AddTwoMoreSleepIngredients") && controller.Contains("ForceShopTimerToZeroForTutorial()"));
+        AssertTrue("TutorialController marks the final tutorial customer before the final ingredient step", controller.Contains("AddTwoMoreSleepIngredients") && controller.Contains("ForceCloseShopAfterCurrentCustomerForTutorial()"));
         AssertTrue("TutorialController listens for day summary continue", controller.Contains("_daySummaryPanel.ContinuePressed += OnDaySummaryContinuePressed;"));
         AssertTrue("TutorialController highlights the day summary panel", controller.Contains("case TutorialStepId.DaySummary") && controller.Contains("_overlayPresenter.ShowForTarget(stepContent, _daySummaryPanel)"));
         AssertTrue("TutorialController allows the day summary continue button", controller.Contains("TutorialStepId.DaySummary => new BaseButton?[] { _daySummaryPanel?.GetContinueButton() }"));
-        AssertTrue("TutorialController includes shop floor and day summary panel in button locks", controller.Contains("new Node?[] { _hud, _shopFloor, _inventoryPanel, _brewPanel, _customerPanel, _daySummaryPanel }"));
+        AssertTrue("TutorialController includes shop floor and day summary panel in button locks", controller.Contains("new Node?[] { _hud, _shopFloor, _brewPanel, _customerPanel, _daySummaryPanel }"));
         AssertTrue("TutorialOverlayPresenter supports direct highlight rectangles", presenter.Contains("ShowForHighlightRect("));
 
         AssertTrue("TutorialStateMachine is a pure class", stateMachine.Contains("public sealed class TutorialStateMachine"));
         AssertTrue("TutorialStateMachine clamps tutorial step", stateMachine.Contains("public TutorialStepId ClampStep(int rawStep)"));
-        AssertTrue("TutorialStateMachine includes close shop prompt transition", stateMachine.Contains("EvaluateCloseShopPrompt("));
-        AssertTrue("TutorialStateMachine advances from close shop to day summary", stateMachine.Contains("step == TutorialStepId.CloseShop && !isShopOpen") && stateMachine.Contains("TutorialTransition.To(TutorialStepId.DaySummary)"));
+        AssertTrue("TutorialStateMachine removed the timer-driven close shop prompt", !stateMachine.Contains("EvaluateCloseShopPrompt("));
+        AssertTrue("TutorialStateMachine advances from the final customer to day summary when the shop closes", stateMachine.Contains("step == TutorialStepId.AddTwoMoreSleepIngredients || step == TutorialStepId.CloseShop") && stateMachine.Contains("TutorialTransition.To(TutorialStepId.DaySummary)"));
         AssertTrue("TutorialStateMachine completes after continuing from the day summary", stateMachine.Contains("EvaluateDaySummaryContinued(") && stateMachine.Contains("step == TutorialStepId.DaySummary"));
-        AssertTrue("DayController exposes a tutorial-only timer reset helper", ReadProjectFile("Scripts/Controllers/DayController.cs").Contains("public void ForceShopTimerToZeroForTutorial()"));
+        AssertTrue("DayController exposes a tutorial-only close-after-current-customer helper", ReadProjectFile("Scripts/Controllers/DayController.cs").Contains("public void ForceCloseShopAfterCurrentCustomerForTutorial()"));
         AssertTrue("TutorialContentResource exists", tutorialContent.Contains("public partial class TutorialContentResource : Resource"));
         AssertTrue("TutorialContentResource includes the close shop step copy", tutorialContent.Contains("StepId = (int)TutorialStepId.CloseShop"));
         AssertTrue("TutorialContentResource tells the player to close the shop at night", tutorialContent.Contains("It is night time. Close the shop to end the day."));
@@ -158,11 +158,11 @@ internal static class TutorialTests
         AssertTrue("GameState defines a curated next-customer tutorial inventory",
             source.Contains("private static readonly (string ItemId, int Quantity)[] NextCustomerTutorialInventory"));
         AssertTrue("Next-customer inventory includes the rest trait ingredient",
-            source.Contains("(\"black_ichor\", 1)"));
+            source.Contains("(\"elder\", 1)"));
         AssertTrue("Next-customer inventory includes the calm trait ingredient",
-            source.Contains("(\"mooncap_mushroom\", 1)"));
+            source.Contains("(\"heather\", 1)"));
         AssertTrue("Next-customer inventory includes the dreams trait ingredient",
-            source.Contains("(\"lavender_ash\", 1)"));
+            source.Contains("(\"rosemary\", 1)"));
         AssertTrue("Next-customer inventory is seeded through a dedicated helper",
             source.Contains("public void SeedNextCustomerTutorialInventory()"));
         AssertTrue("Next-customer inventory clears the inventory before seeding",

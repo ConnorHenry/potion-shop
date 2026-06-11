@@ -25,12 +25,12 @@ internal static class GameStateTests
 
         AssertTrue("GameState defines a curated starter inventory",
             source.Contains("private static readonly (string ItemId, int Quantity)[] StartingInventory"));
-        AssertTrue("GameState starts with Grave Mint",
-            source.Contains("(\"grave_mint\", 1)"));
-        AssertTrue("GameState starts with Obsidian Resin",
-            source.Contains("(\"obsidian_resin\", 1)"));
-        AssertTrue("GameState starts with Iron Lullaby Root",
-            source.Contains("(\"iron_lullaby_root\", 1)"));
+        AssertTrue("GameState starts with Mint",
+            source.Contains("(\"mint\", 1)"));
+        AssertTrue("GameState starts with Gorse",
+            source.Contains("(\"gorse\", 1)"));
+        AssertTrue("GameState starts with Thyme",
+            source.Contains("(\"thyme\", 1)"));
         AssertTrue("GameState seeds only the curated list instead of every ingredient",
             source.Contains("foreach (var (itemId, qty) in StartingInventory)") &&
             !source.Contains("AddStartingStack(item.Id, 10);"));

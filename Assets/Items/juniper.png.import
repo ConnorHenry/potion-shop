@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://3dcay4cg7w6w"
-path="res://.godot/imported/raven_ash_peony.png-dc17d28d077ebb4a7032ddcf780c9a76.ctex"
+uid="uid://tpck0kxiibdh"
+path="res://.godot/imported/juniper.png-b8fc9d2202498acd7b60d07fa7aa4cfd.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://Assets/Items/raven_ash_peony.png"
-dest_files=["res://.godot/imported/raven_ash_peony.png-dc17d28d077ebb4a7032ddcf780c9a76.ctex"]
+source_file="res://Assets/Items/juniper.png"
+dest_files=["res://.godot/imported/juniper.png-b8fc9d2202498acd7b60d07fa7aa4cfd.ctex"]
 
 [params]
 

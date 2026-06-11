@@ -5,14 +5,42 @@
 [resource]
 script = ExtResource("1")
 Entries = [{
-"description": "A rare mushroom that only grows in the light of a full moon. Said to have mild sedative properties and a faintly luminescent quality.",
-"iconPath": "res://Assets/Items/mooncap_mushroom.png",
-"id": "mooncap_mushroom",
-"name": "Mooncap Mushroom",
+"description": "A moorland heather tied to Ireland's bogs and fairy lore. Its purple blooms are associated with resilience, protection, calming remedies, good-luck wreaths, rich honey, and a spicy earth-citrus scent.",
+"iconPath": "res://Assets/Items/heather.png",
+"id": "heather",
+"name": "Heather",
 "price": 14,
 "quality": 85,
 "startsKnownInIngredientBook": false,
 "risks": {},
+"preparations": {
+"raw": {
+"traits": {
+"calm": 3
+},
+"risks": {}
+},
+"steeped": {
+"traits": {
+"calm": 6
+},
+"risks": {
+"drowsiness": 2
+}
+},
+"crushed": {
+"traits": {
+"dream": 3
+},
+"risks": {}
+},
+"boiled": {
+"traits": {
+"dream": 5
+},
+"risks": {}
+}
+},
 "ingredientEffects": [{
 "kind": "boost_lowest_trait_if_no_risk_carries",
 "family": "Bloom",
@@ -21,20 +49,44 @@ Entries = [{
 "amount": 2
 }],
 "tags": ["ingredient", "catalyst"],
-"traits": {
-"calm": 6,
-"creativity": 3,
-"dream": 1
-}
+"traits": {}
 }, {
-"description": "A hardy mint that grows in graveyards and other places touched by death. It has a refreshing aroma and a bitter, earthy flavor.",
-"iconPath": "res://Assets/Items/grave_mint.png",
-"id": "grave_mint",
-"name": "Grave Mint",
+"description": "A crisp Irish household mint valued for its cooling scent, culinary brightness, and traditional use in soothing digestion, headaches, and fevers. It carries associations with hospitality, clarity, renewal, and clean vitality.",
+"iconPath": "res://Assets/Items/mint.png",
+"id": "mint",
+"name": "Mint",
 "price": 7,
 "quality": 70,
 "startsKnownInIngredientBook": true,
 "risks": {},
+"preparations": {
+"raw": {
+"traits": {
+"soothe": 4
+},
+"risks": {}
+},
+"steeped": {
+"traits": {
+"soothe": 5
+},
+"risks": {}
+},
+"crushed": {
+"traits": {
+"cleanse": 3
+},
+"risks": {}
+},
+"boiled": {
+"traits": {
+"cleanse": 6
+},
+"risks": {
+"melancholy": 1
+}
+}
+},
 "ingredientEffects": [{
 "kind": "reduce_highest_risk",
 "family": "Binder",
@@ -43,21 +95,43 @@ Entries = [{
 "amount": 2
 }],
 "tags": ["ingredient", "catalyst"],
-"traits": {
-"soothe": 6,
-"cleanse": 3,
-"ward": 1
-}
+"traits": {}
 }, {
-"description": "A viscous, tar-like substance that seeps from the wounds of certain cursed creatures. It is highly toxic and has a corrupting influence on those who handle it.",
-"iconPath": "res://Assets/Items/black_ichor.png",
-"id": "black_ichor",
-"name": "Black Ichor",
+"description": "A sacred elder branch from a tree bound to Irish fairy lore and protective taboos. Its flowers and berries are traditionally used for cordials, wines, colds, fevers, and respiratory remedies, with a sweet floral musk.",
+"iconPath": "res://Assets/Items/elder.png",
+"id": "elder",
+"name": "Elder",
 "price": 19,
 "quality": 95,
 "startsKnownInIngredientBook": false,
+"risks": {},
+"preparations": {
+"raw": {
+"traits": {
+"rest": 3
+},
+"risks": {}
+},
+"steeped": {
+"traits": {
+"rest": 5
+},
+"risks": {}
+},
+"crushed": {
+"traits": {
+"vigor": 2
+},
+"risks": {}
+},
+"boiled": {
+"traits": {
+"vigor": 6
+},
 "risks": {
-"nausea": 1
+"corruption": 3
+}
+}
 },
 "ingredientEffects": [{
 "kind": "boost_strongest_trait_add_risk",
@@ -69,20 +143,44 @@ Entries = [{
 "riskId": "corruption"
 }],
 "tags": ["ingredient", "catalyst"],
-"traits": {
-"rest": 6,
-"honesty": 3,
-"vigor": 1
-}
+"traits": {}
 }, {
-"description": "A fine ash made from burned lavender flowers. It has a soothing scent and is often used in calming rituals and sleep aids.",
-"iconPath": "res://Assets/Items/lavender_ash.png",
-"id": "lavender_ash",
-"name": "Lavender Ash",
+"description": "A fragrant rosemary sprig long adopted into Irish homes and kitchens. It is associated with memory, circulation, digestion, remembrance, cleansing rites, fidelity, and a sharp pine-like scent touched with citrus.",
+"iconPath": "res://Assets/Items/rosemary.png",
+"id": "rosemary",
+"name": "Rosemary",
 "price": 10,
 "quality": 80,
 "startsKnownInIngredientBook": false,
 "risks": {},
+"preparations": {
+"raw": {
+"traits": {
+"dream": 4
+},
+"risks": {}
+},
+"steeped": {
+"traits": {
+"dream": 6
+},
+"risks": {
+"drowsiness": 1
+}
+},
+"crushed": {
+"traits": {
+"calm": 3
+},
+"risks": {}
+},
+"boiled": {
+"traits": {
+"calm": 5
+},
+"risks": {}
+}
+},
 "ingredientEffects": [{
 "kind": "boost_lowest_other_trait",
 "family": "Echo",
@@ -91,42 +189,88 @@ Entries = [{
 "amount": 2
 }],
 "tags": ["ingredient", "catalyst"],
-"traits": {
-"dream": 6,
-"soothe": 3,
-"calm": 1
-}
+"traits": {}
 }, {
-"description": "A glossy, pitch-dark resin that hardens in moonless air. Brewers prize it for binding volatile mixtures into stable tinctures.",
-"iconPath": "res://Assets/Items/obsidian_resin.png",
-"id": "obsidian_resin",
-"name": "Obsidian Resin",
+"description": "A bright gorse cutting whose yellow flowers can bloom through winter. Irish folklore ties it to fertility, boundaries, protection, and the endurance of light; its spiny branches served as fuel, hedging, dye, and flavoring.",
+"iconPath": "res://Assets/Items/gorse.png",
+"id": "gorse",
+"name": "Gorse",
 "price": 16,
 "quality": 88,
 "startsKnownInIngredientBook": true,
 "risks": {},
+"preparations": {
+"raw": {
+"traits": {
+"mend": 4
+},
+"risks": {}
+},
+"steeped": {
+"traits": {
+"mend": 5
+},
+"risks": {}
+},
+"crushed": {
+"traits": {
+"soothe": 2
+},
+"risks": {}
+},
+"boiled": {
+"traits": {
+"soothe": 6
+},
+"risks": {
+"melancholy": 2
+}
+}
+},
 "ingredientEffects": [{
 "kind": "halve_other_risks",
 "family": "Binder",
-"name": "Obsidian binding",
+"name": "Gorse Binding",
 "description": "Halves risk chances from the other ingredients."
 }],
 "tags": ["ingredient", "liquid"],
-"traits": {
-"mend": 6,
-"empathy": 3,
-"clarity": 1
-}
+"traits": {}
 }, {
-"description": "A poisonous nightshade blossom sealed in honey-colored sap. Its warm scent lingers in the mind and draws out vivid nocturnal reveries.",
-"iconPath": "res://Assets/Items/amber_nightshade.png",
-"id": "amber_nightshade",
-"name": "Amber Nightshade",
+"description": "A bitter yarrow flower known in Celtic tradition for healing and protection. Irish herbalism used it in teas and poultices for wounds, fevers, colds, and digestion, while charms linked it to courage, luck, and warding harm.",
+"iconPath": "res://Assets/Items/yarrow.png",
+"id": "yarrow",
+"name": "Yarrow",
 "price": 12,
 "quality": 84,
 "startsKnownInIngredientBook": false,
+"risks": {},
+"preparations": {
+"raw": {
+"traits": {
+"vigor": 3
+},
+"risks": {}
+},
+"steeped": {
+"traits": {
+"vigor": 6
+},
 "risks": {
 "insomnia": 2
+}
+},
+"crushed": {
+"traits": {
+"charm": 4
+},
+"risks": {}
+},
+"boiled": {
+"traits": {
+"charm": 5
+},
+"risks": {}
+}
 },
 "ingredientEffects": [{
 "kind": "boost_lowest_other_trait",
@@ -136,68 +280,136 @@ Entries = [{
 "amount": 3
 }],
 "tags": ["ingredient", "liquid"],
-"traits": {
-"vigor": 6,
-"charm": 3,
-"reflexes": 1
-}
+"traits": {}
 }, {
-"description": "A pale flower with needle-fine petals that glint like silver in dusk light. Distillers value it for sharp clarity and wakeful focus.",
-"iconPath": "res://Assets/Items/silver_thorn_bloom.png",
-"id": "silver_thorn_bloom",
-"name": "Silver Thorn Bloom",
+"description": "A water-loving willow cutting with flexible stems, bitter bark, and deep roots that seek hidden moisture. Willow bark is known for salicin, while its branches are tied to weaving, cooling sickrooms, and warding spirits.",
+"iconPath": "res://Assets/Items/willow.png",
+"id": "willow",
+"name": "Willow",
 "price": 9,
 "quality": 82,
 "startsKnownInIngredientBook": false,
+"risks": {},
+"preparations": {
+"raw": {
+"traits": {
+"clarity": 4
+},
+"risks": {}
+},
+"steeped": {
+"traits": {
+"clarity": 6
+},
 "risks": {
-"melancholy": 2
+"melancholy": 1
+}
+},
+"crushed": {
+"traits": {
+"courage": 3
+},
+"risks": {}
+},
+"boiled": {
+"traits": {
+"courage": 5
+},
+"risks": {}
+}
 },
 "ingredientEffects": [{
 "kind": "temper_traits",
 "family": "Temper",
-"name": "Silver Measure",
+"name": "Willow Measure",
 "description": "Lowers the highest trait by 2 and raises the lowest trait by +2.",
 "amount": 2
 }],
 "tags": ["ingredient", "liquid"],
-"traits": {
-"clarity": 6,
-"courage": 3,
-"honesty": 1
-}
+"traits": {}
 }, {
-"description": "A dusk-bloom orchid whose petals shimmer pale blue under moonlight. Its fragrance soothes the mind while coaxing vivid dreams.",
-"iconPath": "res://Assets/Items/moonwhisper_orchid.png",
-"id": "moonwhisper_orchid",
-"name": "Moonwhisper Orchid",
+"description": "A sharp, resinous juniper branch used in Irish purification rites, especially during sickness. Its aromatic smoke cleanses the air, drives away harmful spirits, and marks protection, renewal, and good health.",
+"iconPath": "res://Assets/Items/juniper.png",
+"id": "juniper",
+"name": "Juniper",
 "price": 18,
 "quality": 86,
 "startsKnownInIngredientBook": false,
+"risks": {},
+"preparations": {
+"raw": {
+"traits": {
+"charm": 4
+},
+"risks": {}
+},
+"steeped": {
+"traits": {
+"charm": 5
+},
+"risks": {}
+},
+"crushed": {
+"traits": {
+"clarity": 3
+},
+"risks": {}
+},
+"boiled": {
+"traits": {
+"clarity": 6
+},
 "risks": {
 "corruption": 2
+}
+}
 },
 "ingredientEffects": [{
 "kind": "copy_strongest_other_trait",
 "family": "Echo",
-"name": "Orchid Lure",
+"name": "Juniper Lure",
 "description": "Copies +2 from the strongest trait on another ingredient.",
 "amount": 2
 }],
 "tags": ["ingredient", "herb"],
-"traits": {
-"charm": 6,
-"reflexes": 3,
-"empathy": 1
-}
+"traits": {}
 }, {
-"description": "A smoke-dark peony harvested from old funeral grounds. When crushed, it releases a soft gray ash that steadies trembling hands.",
-"iconPath": "res://Assets/Items/raven_ash_peony.png",
-"id": "raven_ash_peony",
-"name": "Raven Ash Peony",
+"description": "A rugged comfrey leaf from a herb long valued in Irish folk medicine for external healing. Known as a bone-knitting plant, it appears in poultices, salves, and compresses for bruises, wounds, fractures, and protection on hard journeys.",
+"iconPath": "res://Assets/Items/comfrey.png",
+"id": "comfrey",
+"name": "Comfrey",
 "price": 6,
 "quality": 79,
 "startsKnownInIngredientBook": false,
 "risks": {},
+"preparations": {
+"raw": {
+"traits": {
+"courage": 3
+},
+"risks": {}
+},
+"steeped": {
+"traits": {
+"courage": 5
+},
+"risks": {}
+},
+"crushed": {
+"traits": {
+"mend": 4
+},
+"risks": {}
+},
+"boiled": {
+"traits": {
+"mend": 6
+},
+"risks": {
+"melancholy": 1
+}
+}
+},
 "ingredientEffects": [{
 "kind": "add_trait_if_risk_carries",
 "family": "Tether",
@@ -207,32 +419,52 @@ Entries = [{
 "traitId": "courage"
 }],
 "tags": ["ingredient", "herb"],
-"traits": {
-"courage": 6,
-"ward": 3,
-"mend": 1
-}
+"traits": {}
 }, {
-"description": "A knotted root with a hard metallic skin and a strangely comforting scent. Brewers grate it into tonics meant to quiet panic and blunt pain.",
-"iconPath": "res://Assets/Items/iron_lullaby_root.png",
-"id": "iron_lullaby_root",
-"name": "Iron Lullaby Root",
+"description": "A wild thyme sprig from Irish herbal tradition, burned in homes for purification and protection. Its strong herbaceous scent carries courage, strength, healing, and old uses for respiratory troubles, digestion, and tonic brews.",
+"iconPath": "res://Assets/Items/thyme.png",
+"id": "thyme",
+"name": "Thyme",
 "price": 11,
 "quality": 83,
 "startsKnownInIngredientBook": true,
 "risks": {},
+"preparations": {
+"raw": {
+"traits": {
+"cleanse": 4
+},
+"risks": {}
+},
+"steeped": {
+"traits": {
+"cleanse": 6
+},
+"risks": {
+"drowsiness": 1
+}
+},
+"crushed": {
+"traits": {
+"rest": 3
+},
+"risks": {}
+},
+"boiled": {
+"traits": {
+"rest": 5
+},
+"risks": {}
+}
+},
 "ingredientEffects": [{
 "kind": "suppress_single_carried_risk",
 "family": "Binder",
-"name": "Iron Ward",
+"name": "Thyme Ward",
 "description": "If exactly one risk carries, suppresses it."
 }],
 "tags": ["ingredient", "herb"],
-"traits": {
-"cleanse": 6,
-"rest": 3,
-"creativity": 1
-}
+"traits": {}
 }, {
 "consumableEffect": {
 "description": "Removes one risk from the selected ingredient.",

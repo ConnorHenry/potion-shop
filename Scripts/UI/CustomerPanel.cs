@@ -39,7 +39,6 @@ public partial class CustomerPanel : Control
 	[Export] public NodePath SaleResultBodyPath = default!;
 	[Export] public NodePath SaleResultCloseButtonPath = default!;
 	[Export] public NodePath CloseButtonPath = default!;
-	[Export] public NodePath InventoryPanelPath = new("../InventoryPanel");
 	[Export] public NodePath GameStatePath = new(AutoloadNodePaths.GameState);
 	[Export] public NodePath ItemCatalogPath = new(AutoloadNodePaths.ItemCatalog);
 
@@ -71,7 +70,6 @@ public partial class CustomerPanel : Control
 	private readonly List<PotionSlotView> _potionSlotViews = new();
 	private GameState _gameState = default!;
 	private ItemCatalogService _itemCatalog = default!;
-	private InventoryPanel? _inventoryPanel;
 	private Godot.Timer? _dialogueTypewriterTimer;
 	private Control.GuiInputEventHandler? _dialogueGuiInputHandler;
 	private DialogueLine? _activeDialogueLine;
@@ -87,8 +85,8 @@ public partial class CustomerPanel : Control
 	private const int SuccessDreadChange = -2;
 	private const int FailureDreadChange = 4;
 	private const int CustomerPotionSlotCount = 4;
-	private const float CustomerPotionSlotSize = 70.0f;
-	private const float CustomerPotionIconSize = 46.0f;
+	private const float CustomerPotionSlotWidth = 94.0f;
+	private const float CustomerPotionSlotHeight = 132.0f;
 	private static readonly Color SeenDialogueOptionModulate = new(0.58f, 0.58f, 0.58f, 1f);
 	private static readonly Color DefaultButtonModulate = new(1f, 1f, 1f, 1f);
 
@@ -110,9 +108,6 @@ public partial class CustomerPanel : Control
 
 		_gameState = gameState;
 		_itemCatalog = itemCatalog;
-		_inventoryPanel = GetNodeOrNull<InventoryPanel>(InventoryPanelPath);
-		if (_inventoryPanel is null)
-			GD.PushError($"CustomerPanel: InventoryPanel was not found at '{InventoryPanelPath}'.");
 
 		_title = ResolveOptionalNode(TitlePath, "TitlePath", GetNodeOrNull<Label>);
 		_desiredTraits = GetNode<RichTextLabel>(DesiredTraitsPath);
@@ -262,7 +257,7 @@ public partial class CustomerPanel : Control
 			_title.Text = interaction.Title;
 		ResetConversationHistory();
 		if (!HasActiveDialogueInteraction())
-			AppendCustomerLine(interaction.Text);
+			AppendAuthoredLines(interaction.Lines, interaction.Text, CustomerDialogueTextFormatter.CustomerSpeakerName);
 		SetRequestTraits(request);
 		if (TryShowDialogueStart())
 		{
@@ -279,6 +274,23 @@ public partial class CustomerPanel : Control
 	public Button? GetNextCustomerButton()
 	{
 		return _nextCustomerButton;
+	}
+
+	public Control? GetVisiblePotionSlot(string itemId)
+	{
+		if (string.IsNullOrWhiteSpace(itemId) || _potionSlotViews.Count == 0)
+			return null;
+
+		foreach (var slotView in _potionSlotViews)
+		{
+			var button = slotView.Button;
+			if (!button.Visible || button.Disabled)
+				continue;
+			if (string.Equals(button.ItemId, itemId, StringComparison.OrdinalIgnoreCase))
+				return button;
+		}
+
+		return null;
 	}
 
 	public bool IsCloseShopMode => _closeShopMode;
@@ -411,7 +423,14 @@ public partial class CustomerPanel : Control
 		_requestRevealed = false;
 		_sellingMode = false;
 		var outcomeText = BuildOutcomeText(itemId, brewResult);
-		if (HasActiveDialogueInteraction())
+		if (TryBuildStructuredOutcomeConversation(itemId, brewResult, out var outcomeLines))
+		{
+			if (HasActiveDialogueInteraction())
+				AppendConversationLines(outcomeLines);
+			else
+				SetConversationHistory(outcomeLines);
+		}
+		else if (HasActiveDialogueInteraction())
 			AppendCustomerLine(outcomeText);
 		else
 			SetConversationHistory(outcomeText);
@@ -458,7 +477,19 @@ public partial class CustomerPanel : Control
 		var authoredResponse = request is null ? null : FindPotionResponse(itemId, request, brewResult, isSuccess);
 		if (authoredResponse is not null)
 		{
-			lines.Add(authoredResponse.Text);
+			if (authoredResponse.Lines.Count > 0)
+			{
+				foreach (var line in authoredResponse.Lines)
+				{
+					if (!string.IsNullOrWhiteSpace(line.Text))
+						lines.Add(FormatPlainAuthoredLine(line));
+				}
+			}
+			else
+			{
+				lines.Add(authoredResponse.Text);
+			}
+
 			return string.Join("\n", lines);
 		}
 
@@ -468,6 +499,37 @@ public partial class CustomerPanel : Control
 		lines.Add($"Customer response: {GetCustomerResponseText(matchedDesiredTraitCount)}");
 
 		return string.Join("\n", lines);
+	}
+
+	private bool TryBuildStructuredOutcomeConversation(
+		string itemId,
+		PotionResult brewResult,
+		out List<DialogueLine> outcomeLines)
+	{
+		outcomeLines = new List<DialogueLine>();
+		var request = _interaction?.BuildRequest();
+		if (request is null)
+			return false;
+
+		var isSuccess = IsRequestSatisfiedByPotion(itemId, request, brewResult);
+		var authoredResponse = FindPotionResponse(itemId, request, brewResult, isSuccess);
+		if (authoredResponse is null || authoredResponse.Lines.Count == 0)
+			return false;
+
+		var itemName = DisplayName(itemId, _itemCatalog.GetItemName(itemId));
+		outcomeLines.Add(new DialogueLine(null, $"Potion: {itemName}"));
+		outcomeLines.Add(new DialogueLine(null, $"Sale: {(isSuccess ? "Success" : "Failure")}"));
+		AddAuthoredDialogueLines(outcomeLines, authoredResponse.Lines);
+
+		return outcomeLines.Count > 2;
+	}
+
+	private static string FormatPlainAuthoredLine(CustomerDialogueLineDef line)
+	{
+		if (string.IsNullOrWhiteSpace(line.Speaker))
+			return line.Text;
+
+		return $"{line.Speaker}: {line.Text}";
 	}
 
 	private static string GetCustomerResponseText(int matchedDesiredTraitCount)
@@ -616,12 +678,17 @@ public partial class CustomerPanel : Control
 		{
 			if (requiredIngredientAmount is null || string.IsNullOrWhiteSpace(requiredIngredientAmount.IngredientId))
 				continue;
-			if (requiredIngredientAmount.Grams <= 0)
+			if (requiredIngredientAmount.Grams <= 0 && string.IsNullOrWhiteSpace(requiredIngredientAmount.PreparationId))
 				continue;
 
 			var hasMatchingPortion = potionBatch.Any(portion =>
 				string.Equals(portion.IngredientId, requiredIngredientAmount.IngredientId, System.StringComparison.OrdinalIgnoreCase) &&
-				portion.Grams == requiredIngredientAmount.Grams);
+				(requiredIngredientAmount.Grams <= 0 || portion.Grams == requiredIngredientAmount.Grams) &&
+				(string.IsNullOrWhiteSpace(requiredIngredientAmount.PreparationId) ||
+					string.Equals(
+						IngredientPreparationCatalog.NormalizePreparationId(portion.PreparationId),
+						IngredientPreparationCatalog.NormalizePreparationId(requiredIngredientAmount.PreparationId),
+						System.StringComparison.OrdinalIgnoreCase)));
 			if (!hasMatchingPortion)
 				return false;
 		}
@@ -645,6 +712,13 @@ public partial class CustomerPanel : Control
 		RefreshConversationHistory();
 	}
 
+	private void SetConversationHistory(IReadOnlyList<DialogueLine> lines)
+	{
+		ResetConversationHistory();
+		AddConversationLinesToHistory(lines);
+		RefreshConversationHistory();
+	}
+
 	private void AppendCustomerLine(string text)
 	{
 		AppendConversationLine(CustomerDialogueTextFormatter.CustomerSpeakerName, text);
@@ -655,13 +729,49 @@ public partial class CustomerPanel : Control
 		AppendConversationLine(CustomerDialogueTextFormatter.PlayerSpeakerName, text);
 	}
 
-	private void AppendConversationLine(string speaker, string text)
+	private void AppendConversationLine(string? speaker, string text)
+	{
+		if (string.IsNullOrWhiteSpace(text))
+			return;
+
+		AddConversationLineToHistory(speaker, text);
+		RefreshConversationHistory();
+	}
+
+	private void AppendConversationLines(IReadOnlyList<DialogueLine> lines)
+	{
+		AddConversationLinesToHistory(lines);
+		RefreshConversationHistory();
+	}
+
+	private void AppendAuthoredLines(
+		IReadOnlyList<CustomerDialogueLineDef> lines,
+		string legacyText,
+		string? legacySpeaker)
+	{
+		if (lines.Count > 0)
+		{
+			foreach (var line in lines)
+				AppendConversationLine(line.Speaker, line.Text);
+
+			return;
+		}
+
+		AppendConversationLine(legacySpeaker, legacyText);
+	}
+
+	private void AddConversationLinesToHistory(IReadOnlyList<DialogueLine> lines)
+	{
+		foreach (var line in lines)
+			AddConversationLineToHistory(line.Speaker, line.Text);
+	}
+
+	private void AddConversationLineToHistory(string? speaker, string text)
 	{
 		if (string.IsNullOrWhiteSpace(text))
 			return;
 
 		_conversationHistory.Add(CustomerDialogueTextFormatter.FormatConversationLine(speaker, text));
-		RefreshConversationHistory();
 	}
 
 	private void RefreshConversationHistory()
@@ -690,12 +800,41 @@ public partial class CustomerPanel : Control
 		QueueConversationLine(CustomerDialogueTextFormatter.PlayerSpeakerName, text);
 	}
 
-	private void QueueConversationLine(string speaker, string text)
+	private void QueueAuthoredLines(
+		IReadOnlyList<CustomerDialogueLineDef> lines,
+		string legacyText,
+		string? legacySpeaker)
+	{
+		if (lines.Count > 0)
+		{
+			foreach (var line in lines)
+				QueueConversationLine(line.Speaker, line.Text);
+
+			return;
+		}
+
+		QueueConversationLine(legacySpeaker, legacyText);
+	}
+
+	private void QueueConversationLine(string? speaker, string text)
 	{
 		if (string.IsNullOrWhiteSpace(text))
 			return;
 
 		_pendingDialogueLines.Enqueue(new DialogueLine(speaker, text));
+	}
+
+	private static void AddAuthoredDialogueLines(
+		List<DialogueLine> target,
+		IReadOnlyList<CustomerDialogueLineDef> lines)
+	{
+		foreach (var line in lines)
+		{
+			if (string.IsNullOrWhiteSpace(line.Text))
+				continue;
+
+			target.Add(new DialogueLine(line.Speaker, line.Text));
+		}
 	}
 
 	private void PlayQueuedDialogueLines(Action? completedAction)
@@ -857,13 +996,12 @@ public partial class CustomerPanel : Control
 			_gameState.RecordStoryCustomerDialogueOptionSelected(_interaction, option.Id);
 		ApplyOutcomeEffects(option.Effects);
 
-		if (!string.IsNullOrWhiteSpace(option.ResponseText))
-			QueueCustomerLine(option.ResponseText);
+		QueueDialogueOptionResponse(option);
 
 		if (option.RevealsRequest)
 		{
-			if (string.IsNullOrWhiteSpace(option.ResponseText) && !string.IsNullOrWhiteSpace(_interaction?.Text))
-				QueueCustomerLine(_interaction.Text);
+			if (!HasDialogueOptionResponse(option) && _interaction is not null)
+				QueueAuthoredLines(_interaction.Lines, _interaction.Text, CustomerDialogueTextFormatter.CustomerSpeakerName);
 			PlayQueuedDialogueLines(() => EnterPotionSellingMode(option));
 			return true;
 		}
@@ -952,10 +1090,17 @@ public partial class CustomerPanel : Control
 
 		SetDialoguePresentationState();
 		QueuePlayerLine(_refusePotionButton.Text);
-		var responseText = string.IsNullOrWhiteSpace(_interaction.PotionRefusedText)
-			? "The customer leaves without a potion."
-			: _interaction.PotionRefusedText;
-		QueueCustomerLine(responseText);
+		if (_interaction.PotionRefusedLines.Count > 0 || !string.IsNullOrWhiteSpace(_interaction.PotionRefusedText))
+		{
+			QueueAuthoredLines(
+				_interaction.PotionRefusedLines,
+				_interaction.PotionRefusedText,
+				CustomerDialogueTextFormatter.CustomerSpeakerName);
+		}
+		else
+		{
+			QueueCustomerLine("The customer leaves without a potion.");
+		}
 		var effects = _interaction.OnPotionRefusedEffects.Count > 0
 			? _interaction.OnPotionRefusedEffects
 			: _interaction.OnSkipEffects;
@@ -1004,8 +1149,20 @@ public partial class CustomerPanel : Control
 
 	private void QueueDialogueNodeText(CustomerDialogueNodeDef node)
 	{
-		if (!string.IsNullOrWhiteSpace(node.Text))
-			QueueCustomerLine(node.Text);
+		QueueAuthoredLines(node.Lines, node.Text, null);
+	}
+
+	private void QueueDialogueOptionResponse(CustomerDialogueOptionDef option)
+	{
+		QueueAuthoredLines(
+			option.ResponseLines,
+			option.ResponseText,
+			CustomerDialogueTextFormatter.CustomerSpeakerName);
+	}
+
+	private static bool HasDialogueOptionResponse(CustomerDialogueOptionDef option)
+	{
+		return option.ResponseLines.Count > 0 || !string.IsNullOrWhiteSpace(option.ResponseText);
 	}
 
 	private void FinishShowingDialogueNode(CustomerDialogueNodeDef node)
@@ -1181,7 +1338,7 @@ public partial class CustomerPanel : Control
 			{
 				Name = "PotionSlots",
 				Visible = false,
-				CustomMinimumSize = new Vector2(0, CustomerPotionSlotSize),
+				CustomMinimumSize = new Vector2(0, CustomerPotionSlotHeight),
 				SizeFlagsHorizontal = SizeFlags.ExpandFill
 			};
 			_potionSlotsRow.AddThemeConstantOverride("separation", 8);
@@ -1202,21 +1359,7 @@ public partial class CustomerPanel : Control
 				_potionSlotsRow.AddChild(slot);
 			}
 
-			var icon = slot.GetNodeOrNull<TextureRect>("Icon");
-			if (icon is null)
-			{
-				icon = CreatePotionSlotIcon();
-				slot.AddChild(icon);
-			}
-
-			var quantity = slot.GetNodeOrNull<Label>("Quantity");
-			if (quantity is null)
-			{
-				quantity = CreatePotionSlotQuantityLabel();
-				slot.AddChild(quantity);
-			}
-
-			_potionSlotViews.Add(new PotionSlotView(slot, icon, quantity));
+			_potionSlotViews.Add(new PotionSlotView(slot));
 		}
 
 		RefreshPotionSlotRow();
@@ -1228,49 +1371,16 @@ public partial class CustomerPanel : Control
 		{
 			Name = name,
 			Text = "",
-			CustomMinimumSize = new Vector2(CustomerPotionSlotSize, CustomerPotionSlotSize),
-			Size = new Vector2(CustomerPotionSlotSize, CustomerPotionSlotSize),
-			SizeFlagsHorizontal = SizeFlags.ExpandFill,
+			CustomMinimumSize = new Vector2(CustomerPotionSlotWidth, CustomerPotionSlotHeight),
+			Size = new Vector2(CustomerPotionSlotWidth, CustomerPotionSlotHeight),
+			SizeFlagsHorizontal = SizeFlags.Fill,
 			FocusMode = FocusModeEnum.None,
 			Disabled = true
 		};
 		slot.AddThemeStyleboxOverride("normal", CreatePotionSlotStyleBox());
 		slot.AddThemeStyleboxOverride("hover", CreatePotionSlotHoverStyleBox());
 		slot.AddThemeStyleboxOverride("disabled", CreatePotionSlotStyleBox());
-		slot.SlotActivated += ShowPotionDetail;
 		return slot;
-	}
-
-	private static TextureRect CreatePotionSlotIcon()
-	{
-		return new TextureRect
-		{
-			Name = "Icon",
-			Position = new Vector2((CustomerPotionSlotSize - CustomerPotionIconSize) * 0.5f, 8.0f),
-			CustomMinimumSize = new Vector2(CustomerPotionIconSize, CustomerPotionIconSize),
-			Size = new Vector2(CustomerPotionIconSize, CustomerPotionIconSize),
-			ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
-			StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
-			MouseFilter = MouseFilterEnum.Ignore
-		};
-	}
-
-	private static Label CreatePotionSlotQuantityLabel()
-	{
-		var quantity = new Label
-		{
-			Name = "Quantity",
-			Position = new Vector2(42.0f, 48.0f),
-			CustomMinimumSize = new Vector2(24.0f, 18.0f),
-			Size = new Vector2(24.0f, 18.0f),
-			HorizontalAlignment = HorizontalAlignment.Center,
-			VerticalAlignment = VerticalAlignment.Center,
-			MouseFilter = MouseFilterEnum.Ignore,
-			Visible = false
-		};
-		quantity.AddThemeFontSizeOverride("font_size", 12);
-		quantity.AddThemeColorOverride("font_color", Colors.White);
-		return quantity;
 	}
 
 	private static StyleBoxFlat CreatePotionSlotStyleBox()
@@ -1344,20 +1454,7 @@ public partial class CustomerPanel : Control
 		slotView.Button.Disabled = false;
 		slotView.Button.Text = "";
 		slotView.Button.TooltipText = $"{displayName} x{quantity}";
-		slotView.Icon.Texture = UiIconLoader.LoadIcon(item.IconPath);
-		slotView.Icon.Visible = true;
-		slotView.Quantity.Text = quantity > 1 ? quantity.ToString() : "";
-		slotView.Quantity.Visible = quantity > 1;
-	}
-
-	private void ShowPotionDetail(string itemId)
-	{
-		if (string.IsNullOrWhiteSpace(itemId))
-			return;
-		if (!IsPotionItem(itemId))
-			return;
-
-		_inventoryPanel?.OpenItemDetail(itemId);
+		SetPotionSlotContent(slotView.Button, displayName, itemId, quantity);
 	}
 
 	private static void ClearPotionSlot(PotionSlotView slotView)
@@ -1369,10 +1466,33 @@ public partial class CustomerPanel : Control
 		slotView.Button.Disabled = true;
 		slotView.Button.Text = "";
 		slotView.Button.TooltipText = "";
-		slotView.Icon.Texture = null;
-		slotView.Icon.Visible = false;
-		slotView.Quantity.Text = "";
-		slotView.Quantity.Visible = false;
+		ClearPotionSlotContent(slotView.Button);
+	}
+
+	private static void SetPotionSlotContent(InventoryItemSlot slot, string displayName, string potionItemId, int quantity)
+	{
+		ClearPotionSlotContent(slot);
+		slot.AddChild(JarredInventorySlotView.CreatePotionContent(
+			new Vector2(CustomerPotionSlotWidth, CustomerPotionSlotHeight),
+			displayName,
+			potionItemId,
+			quantity,
+			new JarredInventorySlotLayout
+			{
+				ArtSize = new Vector2(CustomerPotionSlotWidth, CustomerPotionSlotHeight),
+				IconSizeRatio = 0.54f,
+				NameFontSize = 8,
+				QuantityFontSize = 10
+			}));
+	}
+
+	private static void ClearPotionSlotContent(InventoryItemSlot slot)
+	{
+		foreach (var child in slot.GetChildren())
+		{
+			slot.RemoveChild(child);
+			child.QueueFree();
+		}
 	}
 
 	private Button GetOrCreateSellingButton(string name, string text)
@@ -1570,27 +1690,23 @@ public partial class CustomerPanel : Control
 
 	private sealed class DialogueLine
 	{
-		public DialogueLine(string speaker, string text)
+		public DialogueLine(string? speaker, string text)
 		{
 			Speaker = speaker;
 			Text = text;
 		}
 
-		public string Speaker { get; }
+		public string? Speaker { get; }
 		public string Text { get; }
 	}
 
 	private sealed class PotionSlotView
 	{
-		public PotionSlotView(InventoryItemSlot button, TextureRect icon, Label quantity)
+		public PotionSlotView(InventoryItemSlot button)
 		{
 			Button = button;
-			Icon = icon;
-			Quantity = quantity;
 		}
 
 		public InventoryItemSlot Button { get; }
-		public TextureRect Icon { get; }
-		public Label Quantity { get; }
 	}
 }

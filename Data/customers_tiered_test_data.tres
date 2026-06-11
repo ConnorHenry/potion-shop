@@ -6,569 +6,22 @@
 script = ExtResource("1")
 Entries = [
   {
-    "id": "tier1_sleep_draught",
-    "title": "Sleep Draught",
-    "text": "A tired customer rubs their eyes and asks for something simple to help them sleep through the night.",
-    "characterImagePath": "res://art/Middleclass-Woman.png",
-    "pool": "tier1_simple",
-    "difficulty": 1,
-    "requires": {
-      "dayMin": 1,
-      "dayMax": 2
-    },
-    "weight": 10,
-    "desiredTraits": {
-      "rest": 5,
-      "calm": 2
-    },
-    "badTraits": {}
-  },
-  {
-    "id": "tier1_pain_relief_tonic",
-    "title": "Pain Relief Tonic",
-    "text": "A labourer clutches their back and asks for a straightforward tonic to soothe pain after a long week of hauling crates.",
-    "characterImagePath": "res://art/Middleclass-Woman.png",
-    "pool": "tier1_simple",
-    "difficulty": 1,
-    "requires": {
-      "dayMin": 1,
-      "dayMax": 2
-    },
-    "weight": 10,
-    "desiredTraits": {
-      "soothe": 5,
-      "mend": 2
-    },
-    "badTraits": {}
-  },
-  {
-    "id": "tier1_focus_elixir",
-    "title": "Focus Elixir",
-    "text": "A student says their exam is tomorrow and asks for something to help their thoughts feel clear and steady.",
-    "characterImagePath": "res://art/Middleclass-Woman.png",
-    "pool": "tier1_simple",
-    "difficulty": 1,
-    "requires": {
-      "dayMin": 1,
-      "dayMax": 2
-    },
-    "weight": 10,
-    "desiredTraits": {
-      "clarity": 5,
-      "calm": 2
-    },
-    "badTraits": {}
-  },
-  {
-    "id": "tier1_steady_hands_tincture",
-    "title": "Steady Hands Tincture",
-    "text": "A clockmaker says their hands shake around tiny gears and asks for a simple tincture to calm their nerves.",
-    "characterImagePath": "res://art/Middleclass-Woman.png",
-    "pool": "tier1_simple",
-    "difficulty": 1,
-    "requires": {
-      "dayMin": 2,
-      "dayMax": 2
-    },
-    "weight": 10,
-    "desiredTraits": {
-      "calm": 5,
-      "clarity": 2
-    },
-    "badTraits": {}
-  },
-  {
-    "id": "tier2_clean_sleep_draught",
-    "title": "Clean Sleep Draught",
-    "text": "A customer needs sleep, but they refuse anything that might leave them sick in the morning.",
-    "characterImagePath": "res://art/Middleclass-Woman.png",
-    "pool": "tier2_risk",
-    "difficulty": 2,
-    "requires": {
-      "dayMin": 3,
-      "dayMax": 4
-    },
-    "weight": 10,
-    "desiredTraits": {
-      "rest": 5,
-      "calm": 3,
-      "dream": 1
-    },
-    "badTraits": {
-      "nausea": 5
-    }
-  },
-  {
-    "id": "tier2_dawn_energy_tonic",
-    "title": "Dawn Energy Tonic",
-    "text": "A baker has ovens to tend before sunrise and needs energy without anything that will keep them awake tomorrow night.",
-    "characterImagePath": "res://art/Middleclass-Woman.png",
-    "pool": "tier2_risk",
-    "difficulty": 2,
-    "requires": {
-      "dayMin": 3,
-      "dayMax": 4
-    },
-    "weight": 10,
-    "desiredTraits": {
-      "vigor": 5,
-      "clarity": 3,
-      "calm": 1
-    },
-    "badTraits": {
-      "insomnia": 5
-    }
-  },
-  {
-    "id": "tier2_clear_voice_balm",
-    "title": "Clear Voice Balm",
-    "text": "A market singer croaks that their voice is nearly gone and asks for something soothing that will not darken their mood.",
-    "characterImagePath": "res://art/Middleclass-Woman.png",
-    "pool": "tier2_risk",
-    "difficulty": 2,
-    "requires": {
-      "dayMin": 3,
-      "dayMax": 4
-    },
-    "weight": 10,
-    "desiredTraits": {
-      "soothe": 5,
-      "cleanse": 3,
-      "mend": 1
-    },
-    "badTraits": {
-      "melancholy": 5
-    }
-  },
-  {
-    "id": "tier2_uncorrupted_charm_philter",
-    "title": "Uncorrupted Charm Philter",
-    "text": "A hopeful customer wants to feel warm and appealing at a dance, but they are wary of anything with a corrupting edge.",
-    "characterImagePath": "res://art/Middleclass-Woman.png",
-    "pool": "tier2_risk",
-    "difficulty": 2,
-    "requires": {
-      "dayMin": 4,
-      "dayMax": 4
-    },
-    "weight": 10,
-    "desiredTraits": {
-      "charm": 5,
-      "calm": 3,
-      "vigor": 1
-    },
-    "badTraits": {
-      "corruption": 5
-    }
-  },
-  {
-    "id": "tier3_nightmare_ward",
-    "title": "Nightmare Ward",
-    "text": "A nervous customer needs strong dreamwork and enough courage to face the same nightmare, but they cannot risk waking sick.",
-    "characterImagePath": "res://art/Middleclass-Woman.png",
-    "pool": "tier3_threshold",
-    "difficulty": 3,
-    "requires": {
-      "dayMin": 5,
-      "dayMax": 6
-    },
-    "weight": 10,
-    "desiredTraits": {
-      "dream": 7,
-      "calm": 3,
-      "courage": 2
-    },
-    "badTraits": {
-      "nausea": 4
-    }
-  },
-  {
-    "id": "tier3_antidote_potion",
-    "title": "Antidote Potion",
-    "text": "A queasy customer drank something strange at the tavern and needs a strong cleanser that will settle the damage without corrupting them further.",
-    "characterImagePath": "res://art/Middleclass-Woman.png",
-    "pool": "tier3_threshold",
-    "difficulty": 3,
-    "requires": {
-      "dayMin": 5,
-      "dayMax": 6
-    },
-    "weight": 10,
-    "desiredTraits": {
-      "cleanse": 7,
-      "soothe": 3,
-      "mend": 2
-    },
-    "badTraits": {
-      "corruption": 4
-    }
-  },
-  {
-    "id": "tier3_confidence_draught",
-    "title": "Confidence Draught",
-    "text": "A customer must speak before the council and needs clear courage, but nothing that leaves them sleepless or grim.",
-    "characterImagePath": "res://art/Middleclass-Woman.png",
-    "pool": "tier3_threshold",
-    "difficulty": 3,
-    "requires": {
-      "dayMin": 5,
-      "dayMax": 6
-    },
-    "weight": 10,
-    "desiredTraits": {
-      "courage": 7,
-      "clarity": 3,
-      "calm": 2
-    },
-    "badTraits": {
-      "insomnia": 3,
-      "melancholy": 3
-    }
-  },
-  {
-    "id": "tier3_recovery_brew",
-    "title": "Recovery Brew",
-    "text": "A pale customer says the fever has passed, but their body still needs a strong mending brew without nausea.",
-    "characterImagePath": "res://art/Middleclass-Woman.png",
-    "pool": "tier3_threshold",
-    "difficulty": 3,
-    "requires": {
-      "dayMin": 6,
-      "dayMax": 6
-    },
-    "weight": 10,
-    "desiredTraits": {
-      "mend": 7,
-      "rest": 3,
-      "cleanse": 2
-    },
-    "badTraits": {
-      "nausea": 5
-    }
-  },
-  {
-    "id": "tier4_moonlit_rest_draught",
-    "title": "Moonlit Rest Draught",
-    "text": "A night watch clerk points to the recipe book and asks for Moonlit Rest Draught by name, but they need it clean enough to avoid sickness and sleepless aftershocks.",
-    "characterImagePath": "res://Assets/Characters/rest_draught_customer.svg",
-    "pool": "tier4_recipe",
-    "difficulty": 4,
-    "requires": {
-      "dayMin": 7,
-      "dayMax": 8
-    },
-    "weight": 10,
-    "desiredTraits": {
-      "rest": 8,
-      "calm": 4,
-      "dream": 3
-    },
-    "badTraits": {
-      "nausea": 5,
-      "insomnia": 3
-    }
-  },
-  {
-    "id": "tier4_gravekeepers_balm",
-    "title": "Gravekeeper's Balm",
-    "text": "A cemetery keeper asks for Gravekeeper's Balm from the recipe book. They need a strong soothing balm that mends cleanly and carries no corruption.",
-    "characterImagePath": "res://Assets/Characters/gravekeepers_balm_customer.svg",
-    "pool": "tier4_recipe",
-    "difficulty": 4,
-    "requires": {
-      "dayMin": 7,
-      "dayMax": 8
-    },
-    "weight": 10,
-    "desiredTraits": {
-      "soothe": 8,
-      "mend": 4,
-      "cleanse": 3
-    },
-    "badTraits": {
-      "corruption": 5,
-      "melancholy": 3
-    }
-  },
-  {
-    "id": "tier4_silver_focus_tonic",
-    "title": "Silver Focus Tonic",
-    "text": "A junior magistrate asks for Silver Focus Tonic and insists the clarity must be sharp without leaving them melancholy or sleepless.",
-    "characterImagePath": "res://Assets/Characters/silver_focus_customer.svg",
-    "pool": "tier4_recipe",
-    "difficulty": 4,
-    "requires": {
-      "dayMin": 7,
-      "dayMax": 8
-    },
-    "weight": 10,
-    "desiredTraits": {
-      "clarity": 8,
-      "courage": 4,
-      "vigor": 3
-    },
-    "badTraits": {
-      "melancholy": 5,
-      "insomnia": 3
-    }
-  },
-  {
-    "id": "tier4_orchid_charm_philter",
-    "title": "Orchid Charm Philter",
-    "text": "A performer asks for Orchid Charm Philter by name. They need strong charm, calm stage presence, and no corrupting influence before the curtain rises.",
-    "characterImagePath": "res://Assets/Characters/orchid_charm_customer.svg",
-    "pool": "tier4_recipe",
-    "difficulty": 4,
-    "requires": {
-      "dayMin": 8,
-      "dayMax": 8
-    },
-    "weight": 10,
-    "desiredTraits": {
-      "charm": 8,
-      "calm": 4,
-      "dream": 3
-    },
-    "badTraits": {
-      "corruption": 6
-    }
-  },
-  {
-    "id": "tier4_threshold_obsidian_stitch_draught",
-    "title": "Obsidian Stitch Draught",
-    "text": "A surgeon sets a cracked silver needle on the counter. They need a draught with mend above 8, but vigor below 2 so the patient does not tear the stitching open.",
-    "characterImagePath": "res://art/Middleclass-Woman.png",
-    "pool": "tier4_threshold",
-    "difficulty": 4,
-    "requires": {
-      "dayMin": 7,
-      "dayMax": 8
-    },
-    "weight": 8,
-    "desiredTraits": {
-      "mend": 9,
-      "courage": 3
-    },
-    "badTraits": {},
-    "requiredMinTraits": {
-      "mend": 9
-    },
-    "requiredMaxTraits": {
-      "vigor": 1
-    }
-  },
-  {
-    "id": "tier4_threshold_chapel_ward_ink",
-    "title": "Chapel Ward Ink",
-    "text": "A chapel warden asks for ink to mark the cellar lintel. They need ward at 4 or higher, with dream no higher than 1; anything dreamlike invites the thing to answer.",
-    "characterImagePath": "res://Assets/Characters/chapel_warden.svg",
-    "pool": "tier4_threshold",
-    "difficulty": 4,
-    "requires": {
-      "dayMin": 7,
-      "dayMax": 8
-    },
-    "weight": 8,
-    "desiredTraits": {
-      "ward": 4,
-      "cleanse": 6
-    },
-    "badTraits": {},
-    "requiredMinTraits": {
-      "ward": 4
-    },
-    "requiredMaxTraits": {
-      "dream": 1
-    }
-  },
-  {
-    "id": "tier4_threshold_glass_truth_tonic",
-    "title": "Glass Truth Tonic",
-    "text": "A solicitor wants a tonic for a witness. They need honesty at 4 or higher, but charm no higher than 1; persuasion would spoil the testimony.",
-    "characterImagePath": "res://art/Middleclass-Woman.png",
-    "pool": "tier4_threshold",
-    "difficulty": 4,
-    "requires": {
-      "dayMin": 7,
-      "dayMax": 8
-    },
-    "weight": 8,
-    "desiredTraits": {
-      "honesty": 4,
-      "clarity": 3
-    },
-    "badTraits": {},
-    "requiredMinTraits": {
-      "honesty": 4
-    },
-    "requiredMaxTraits": {
-      "charm": 1
-    }
-  },
-  {
-    "id": "tier4_threshold_quick_hand_philter",
-    "title": "Quick Hand Philter",
-    "text": "A stage cutter needs steady speed before the curtain rises. They ask for reflexes at 4 or higher, but rest no higher than 1 so their hands do not slow.",
-    "characterImagePath": "res://art/Middleclass-Woman.png",
-    "pool": "tier4_threshold",
-    "difficulty": 4,
-    "requires": {
-      "dayMin": 7,
-      "dayMax": 8
-    },
-    "weight": 8,
-    "desiredTraits": {
-      "reflexes": 4,
-      "charm": 6
-    },
-    "badTraits": {},
-    "requiredMinTraits": {
-      "reflexes": 4
-    },
-    "requiredMaxTraits": {
-      "rest": 1
-    }
-  },
-  {
-    "id": "tier4_threshold_mercy_tincture",
-    "title": "Mercy Tincture",
-    "text": "A hospice sister asks for something gentle but useful. They need empathy at 4 or higher, and vigor no higher than 1; comfort must not become agitation.",
-    "characterImagePath": "res://art/Middleclass-Woman.png",
-    "pool": "tier4_threshold",
-    "difficulty": 4,
-    "requires": {
-      "dayMin": 7,
-      "dayMax": 8
-    },
-    "weight": 8,
-    "desiredTraits": {
-      "empathy": 4,
-      "mend": 6
-    },
-    "badTraits": {},
-    "requiredMinTraits": {
-      "empathy": 4
-    },
-    "requiredMaxTraits": {
-      "vigor": 1
-    }
-  },
-  {
-    "id": "tier4_threshold_muse_cordial",
-    "title": "Muse Cordial",
-    "text": "A blocked illuminator needs the first line of a manuscript to open in their mind. They need creativity at 4 or higher, but clarity no higher than 1 so judgment does not smother the image.",
-    "characterImagePath": "res://art/Middleclass-Woman.png",
-    "pool": "tier4_threshold",
-    "difficulty": 4,
-    "requires": {
-      "dayMin": 7,
-      "dayMax": 8
-    },
-    "weight": 8,
-    "desiredTraits": {
-      "creativity": 4,
-      "calm": 3
-    },
-    "badTraits": {},
-    "requiredMinTraits": {
-      "creativity": 4
-    },
-    "requiredMaxTraits": {
-      "clarity": 1
-    }
-  },
-  {
-    "id": "tier5_curse_cleanser",
-    "title": "Curse Cleanser",
-    "text": "A frightened customer whispers that bad luck has followed them home. They need an especially strong cleanser, courage to endure it, and no trace of corruption or nausea.",
-    "characterImagePath": "res://art/Middleclass-Woman.png",
-    "pool": "tier5_expert",
-    "difficulty": 5,
-    "requires": {
-      "dayMin": 9
-    },
-    "weight": 10,
-    "desiredTraits": {
-      "cleanse": 9,
-      "courage": 4,
-      "clarity": 3
-    },
-    "badTraits": {
-      "corruption": 6,
-      "nausea": 4
-    }
-  },
-  {
-    "id": "tier5_ravenheart_elixir",
-    "title": "Ravenheart Elixir",
-    "text": "A courier with a black sealed letter asks for Ravenheart Elixir. They need powerful courage and vigor, but cannot afford insomnia before crossing the old road.",
-    "characterImagePath": "res://Assets/Characters/ravenheart_customer.svg",
-    "pool": "tier5_expert",
-    "difficulty": 5,
-    "requires": {
-      "dayMin": 9
-    },
-    "weight": 10,
-    "desiredTraits": {
-      "courage": 9,
-      "vigor": 4,
-      "rest": 3
-    },
-    "badTraits": {
-      "insomnia": 6,
-      "nausea": 3
-    }
-  },
-  {
-    "id": "tier5_obsidian_mending_draught",
-    "title": "Obsidian Mending Draught",
-    "text": "A surgeon asks for a precise mending draught. It must mend strongly, keep the mind clear, and avoid melancholy during recovery.",
-    "characterImagePath": "res://art/Middleclass-Woman.png",
-    "pool": "tier5_expert",
-    "difficulty": 5,
-    "requires": {
-      "dayMin": 9
-    },
-    "weight": 10,
-    "desiredTraits": {
-      "mend": 9,
-      "clarity": 4,
-      "soothe": 3
-    },
-    "badTraits": {
-      "melancholy": 6,
-      "corruption": 3
-    }
-  },
-  {
-    "id": "tier5_nightshade_reverie",
-    "title": "Nightshade Reverie",
-    "text": "A poet wants a vivid reverie for their final performance, but the mixture must be charming and dreamlike without corruption taking hold.",
-    "characterImagePath": "res://art/Middleclass-Woman.png",
-    "pool": "tier5_expert",
-    "difficulty": 5,
-    "requires": {
-      "dayMin": 10
-    },
-    "weight": 10,
-    "desiredTraits": {
-      "dream": 9,
-      "charm": 4,
-      "vigor": 3
-    },
-    "badTraits": {
-      "corruption": 6,
-      "insomnia": 4
-    }
-  },
-  {
-    "id": "plot_miss_ives_visit_1",
-    "title": "Miss Ives",
-    "text": "Miss Ives needs a careful sleep draught: restful, calming, and gentle enough not to leave her sick by morning.",
+    "id": "plot_bridget_visit_1",
+    "title": "Bridget",
+    "text": "Bridget needs a potion that steadies her nerves and keeps her thoughts clear without sleepiness or taint.",
+    "lines": [
+      {
+        "text": "Bridget steps into the shop with a notebook pressed to her chest."
+      },
+      {
+        "speaker": "Bridget",
+        "text": "'My nerves are running ahead of me, and I need them brought to heel.'"
+      }
+    ],
     "characterImagePath": "res://art/Middleclass-Woman.png",
     "pool": "plot",
     "difficulty": 2,
-    "storyCharacterId": "miss_ives",
+    "storyCharacterId": "bridget",
     "visitId": "visit_1",
     "dialogueStartNodeId": "intro",
     "requires": {
@@ -576,27 +29,36 @@ Entries = [
     },
     "weight": 2,
     "desiredTraits": {
-      "rest": 5,
-      "calm": 3,
-      "dream": 1
+      "calm": { "min": 3 },
+      "clarity": { "min": 3 },
+      "cleanse": { "min": 2 }
     },
     "badTraits": {
-      "nausea": 3
+      "drowsiness": { "max": 0 },
+      "corruption": { "max": 0 }
     },
-    "potionRefusedText": "Miss Ives draws her gloves tight. 'Then I will endure another night.'",
+    "potionRefusedLines": [
+      {
+        "text": "Bridget closes her notebook with careful fingers."
+      },
+      {
+        "speaker": "Bridget",
+        "text": "'That's okay, dear. I knew it was a big ask.'"
+      }
+    ],
     "onPotionRefusedEffects": [
       {
-        "addStoryFlag": "miss_ives_refused_potion"
+        "addStoryFlag": "bridget_refused_potion"
       }
     ],
     "onSuccessEffects": [
       {
-        "addStoryFlag": "miss_ives_helped"
+        "addStoryFlag": "bridget_helped"
       }
     ],
     "onFailureEffects": [
       {
-        "addStoryFlag": "miss_ives_given_bad_potion"
+        "addStoryFlag": "bridget_given_bad_potion"
       }
     ],
     "potionResponses": [
@@ -605,46 +67,99 @@ Entries = [
         "success": true,
         "minMatchedDesiredTraits": 2,
         "maxMatchedBadTraits": 0,
-        "text": "Miss Ives studies the bottle, then nods once. 'Yes. This feels quiet enough to trust.'"
+        "lines": [
+          {
+            "text": "Bridget holds the bottle against the lamplight and watches the liquid settle clear."
+          },
+          {
+            "speaker": "Bridget",
+            "text": "'Yes. Quiet enough for my hands, sharp enough for the page.'"
+          }
+        ]
       },
       {
         "id": "risky_failure",
         "success": false,
-        "text": "Miss Ives accepts the bottle without conviction. 'If this worsens the dreams, I will remember who brewed it.'"
+        "lines": [
+          {
+            "text": "The mixture clings to the glass in slow, cloudy threads."
+          },
+          {
+            "speaker": "Bridget",
+            "text": "'No. This would slow me down or muddle the words. I cannot risk that.'"
+          }
+        ]
       }
     ],
     "dialogueNodes": [
       {
         "id": "intro",
-        "text": "The woman at the counter removes one glove finger by finger. 'Miss Ives. I was told you sell remedies for private troubles.'",
+        "lines": [
+          {
+            "text": "Bridget lays the notebook on the counter, then keeps one hand over its cover."
+          },
+          {
+            "speaker": "Bridget",
+            "text": "'I was told you can settle a person without sending them to sleep.'"
+          }
+        ],
         "options": [
           {
             "id": "intro_who_are_you",
             "label": "Who are you?",
-            "responseText": "'A housekeeper, for now. Names matter less than locked doors.'",
+            "responseLines": [
+              {
+                "text": "She straightens as if the question has weight."
+              },
+              {
+                "speaker": "Bridget",
+                "text": "'Bridget. I copy ledgers for people who dislike mistakes more than they dislike cruelty.'"
+              }
+            ],
             "nextNodeId": "hub"
           },
           {
             "id": "intro_private_trouble",
             "label": "What private trouble?",
-            "responseText": "'Sleep has become a room I cannot enter. When I do, something waits there.'",
+            "responseLines": [
+              {
+                "text": "Her thumb traces the corner of the notebook."
+              },
+              {
+                "speaker": "Bridget",
+                "text": "'Numbers move when I look at them too long. Or I think they do, which is worse.'"
+              }
+            ],
             "nextNodeId": "hub"
           },
           {
             "id": "intro_request",
             "label": "What potion do you need?",
-            "responseText": "'Something to let me sleep, but not so deeply that I cannot wake myself.'",
+            "responseLines": [
+              {
+                "speaker": "Bridget",
+                "text": "'Calm and clarity, with enough cleansing to keep the work clean. No drowsiness, and nothing corrupting.'"
+              }
+            ],
             "revealsRequest": true,
             "returnNodeId": "hub"
           },
           {
             "id": "intro_end",
             "label": "Not tonight.",
-            "responseText": "'Then I have mistaken the hour.'",
+            "responseLines": [
+              {
+                "text": "Bridget gathers the notebook back to her chest."
+              },
+              {
+                "speaker": "Bridget",
+                "text": "'Then I will try to keep my hand steady on my own.'"
+              }
+            ],
             "endsInteraction": true,
             "effects": [
               {
-                "addStoryFlag": "miss_ives_dismissed"
+                "addStoryFlag": "bridget_dismissed"
               }
             ]
           }
@@ -652,35 +167,464 @@ Entries = [
       },
       {
         "id": "hub",
-        "text": "Miss Ives folds her gloves on the counter and watches the shop in the glass behind you.",
+        "lines": [
+          {
+            "text": "Bridget opens the notebook only far enough to show columns of cramped figures."
+          }
+        ],
         "options": [
           {
             "id": "hub_house",
-            "label": "Tell me about the house.",
-            "responseText": "'It keeps its own schedule. Footsteps at noon, bells at midnight, letters under doors no one opened.'",
-            "nextNodeId": "hub"
-          },
-          {
-            "id": "hub_dreams",
-            "label": "What waits in the dreams?",
-            "responseText": "'A mirror with no reflection. A hand knocking from inside it.'",
+            "label": "Tell me about the office.",
+            "responseLines": [
+              {
+                "speaker": "Bridget",
+                "text": "'It is not a house, exactly. It is an office with too many locked drawers and not enough honest men.'"
+              }
+            ],
             "nextNodeId": "hub"
           },
           {
             "id": "hub_request",
             "label": "Tell me the potion again.",
-            "responseText": "'Rest, calm, and only a little dreamwork. Nothing that turns the stomach.'",
+            "responseLines": [
+              {
+                "speaker": "Bridget",
+                "text": "'Calm, clarity, and a clean edge if you can manage it. Drowsiness and corruption would ruin everything.'"
+              }
+            ],
             "revealsRequest": true,
             "returnNodeId": "hub"
           },
           {
             "id": "hub_leave",
             "label": "That is all for now.",
-            "responseText": "'Then I will leave before the shop changes its mind.'",
+            "responseLines": [
+              {
+                "speaker": "Bridget",
+                "text": "'Then I will leave before I lose my nerve.'"
+              }
+            ],
             "endsInteraction": true
           }
         ]
       }
     ]
+  },
+  {
+    "id": "plot_line_demo_visit_1",
+    "title": "Mrs Vale",
+    "text": "Mrs Vale needs a draught that steadies her nerves and keeps her thoughts clear, with no sleepy or mournful edge.",
+    "lines": [
+      {
+        "text": "A woman in a rain-dark cloak waits until the shop is quiet."
+      },
+      {
+        "speaker": "Mrs Vale",
+        "text": "'I need my hands still and my mind sharper than fear.'"
+      }
+    ],
+    "characterImagePath": "res://art/Middleclass-Woman.png",
+    "pool": "plot",
+    "difficulty": 2,
+    "storyCharacterId": "mrs_vale",
+    "visitId": "visit_1",
+    "dialogueStartNodeId": "intro",
+    "requires": {
+      "dayMin": 1
+    },
+    "weight": 1,
+    "desiredTraits": {
+      "soothe": { "min": 3 },
+      "clarity": { "min": 3 },
+      "courage": { "min": 2 }
+    },
+    "badTraits": {
+      "drowsiness": { "max": 0 },
+      "melancholy": { "max": 1 }
+    },
+    "potionRefusedLines": [
+      {
+        "text": "Mrs Vale tucks her gloves back into her sleeve."
+      },
+      {
+        "speaker": "Mrs Vale",
+        "text": "'Then I will try to keep steady without it.'"
+      }
+    ],
+    "onPotionRefusedEffects": [
+      {
+        "addStoryFlag": "mrs_vale_refused_potion"
+      }
+    ],
+    "onSuccessEffects": [
+      {
+        "addStoryFlag": "mrs_vale_helped"
+      }
+    ],
+    "onFailureEffects": [
+      {
+        "addStoryFlag": "mrs_vale_given_bad_potion"
+      }
+    ],
+    "potionResponses": [
+      {
+        "id": "clean_success",
+        "success": true,
+        "minMatchedDesiredTraits": 2,
+        "maxMatchedBadTraits": 0,
+        "lines": [
+          {
+            "text": "Mrs Vale tests the cork with one thumb, then lets out a slow breath."
+          },
+          {
+            "speaker": "Mrs Vale",
+            "text": "'Yes. Steady enough for the hand, clear enough for the work.'"
+          }
+        ]
+      },
+      {
+        "id": "clouded_failure",
+        "success": false,
+        "lines": [
+          {
+            "text": "The mixture clouds against the glass."
+          },
+          {
+            "speaker": "Mrs Vale",
+            "text": "'No. This would make the room tilt, and I need it still.'"
+          }
+        ]
+      }
+    ],
+    "dialogueNodes": [
+      {
+        "id": "intro",
+        "lines": [
+          {
+            "text": "Rain ticks against the counter glass as Mrs Vale removes a folded note."
+          },
+          {
+            "speaker": "Mrs Vale",
+            "text": "'I was told you can quiet a person without dulling them.'"
+          }
+        ],
+        "options": [
+          {
+            "id": "intro_work",
+            "label": "What work requires that?",
+            "responseLines": [
+              {
+                "text": "She looks toward the shop window before answering."
+              },
+              {
+                "speaker": "Mrs Vale",
+                "text": "'Copying a will before dawn. One wrong word and a dead man's house goes to war.'"
+              }
+            ],
+            "nextNodeId": "hub"
+          },
+          {
+            "id": "intro_fear",
+            "label": "What are you afraid of?",
+            "responseLines": [
+              {
+                "text": "The note trembles once in her hand."
+              },
+              {
+                "speaker": "Mrs Vale",
+                "text": "'That I will see the wrong name and write it anyway.'"
+              }
+            ],
+            "nextNodeId": "hub"
+          },
+          {
+            "id": "intro_request",
+            "label": "What should the potion do?",
+            "responseLines": [
+              {
+                "speaker": "Mrs Vale",
+                "text": "'Soothe the hand, clear the eye, and lend me courage if the brew can bear it. No drowsiness; barely any melancholy.'"
+              }
+            ],
+            "revealsRequest": true,
+            "returnNodeId": "hub"
+          },
+          {
+            "id": "intro_end",
+            "label": "I cannot help tonight.",
+            "responseLines": [
+              {
+                "text": "Mrs Vale folds the note along its old crease."
+              },
+              {
+                "speaker": "Mrs Vale",
+                "text": "'Then I will find a steadier hand elsewhere.'"
+              }
+            ],
+            "endsInteraction": true,
+            "effects": [
+              {
+                "addStoryFlag": "mrs_vale_dismissed"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "hub",
+        "lines": [
+          {
+            "text": "Mrs Vale keeps the folded note pressed flat beneath her palm."
+          }
+        ],
+        "options": [
+          {
+            "id": "hub_note",
+            "label": "Tell me about the note.",
+            "responseLines": [
+              {
+                "speaker": "Mrs Vale",
+                "text": "'It names people who have waited years to hate each other properly.'"
+              }
+            ],
+            "nextNodeId": "hub"
+          },
+          {
+            "id": "hub_request",
+            "label": "Repeat the potion request.",
+            "responseLines": [
+              {
+                "speaker": "Mrs Vale",
+                "text": "'Soothe, clarity, courage if possible. No drowsiness, and only the faintest melancholy.'"
+              }
+            ],
+            "revealsRequest": true,
+            "returnNodeId": "hub"
+          },
+          {
+            "id": "hub_leave",
+            "label": "That is enough.",
+            "responseLines": [
+              {
+                "speaker": "Mrs Vale",
+                "text": "'Then let us not waste the hour.'"
+              }
+            ],
+            "endsInteraction": true
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "customer_requests_counterfeit_calm",
+    "title": "Counterfeit Calm",
+    "text": "A document forger needs a draught that steadies their hand without making the ink swim. Calm and clarity matter most, with cleansing welcome as long as the brew stays awake and untainted.",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
+    "pool": "early",
+    "difficulty": 2,
+    "requires": {
+      "dayMin": 1
+    },
+    "weight": 8,
+    "desiredTraits": {
+      "calm": { "min": 3 },
+      "clarity": { "min": 3 },
+      "cleanse": { "min": 2 }
+    },
+    "badTraits": {
+      "drowsiness": { "max": 0 },
+      "corruption": { "max": 0 }
+    }
+  },
+  {
+    "id": "customer_requests_clean_blade_rinse",
+    "title": "Clean Blade Rinse",
+    "text": "A barber brings a nicked silver razor wrapped in cloth. They need cleansing strength, then either soothing or clarity to keep their hand steady.",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
+    "pool": "early",
+    "difficulty": 2,
+    "requires": {
+      "dayMin": 1
+    },
+    "weight": 8,
+    "desiredTraits": {
+      "cleanse": { "min": 4 },
+      "soothe": { "min": 3 },
+      "clarity": { "min": 2 }
+    },
+    "badTraits": {
+      "drowsiness": { "max": 0 },
+      "corruption": { "max": 0 }
+    }
+  },
+  {
+    "id": "customer_requests_soft_dream_tonic",
+    "title": "Soft Dream Tonic",
+    "text": "A childminder asks for kinder dreams without a heavy sleep. Dream and calm are ideal, and a little soothe can soften the edges.",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
+    "pool": "early",
+    "difficulty": 2,
+    "requires": {
+      "dayMin": 1
+    },
+    "weight": 8,
+    "desiredTraits": {
+      "dream": { "min": 4 },
+      "calm": { "min": 3 },
+      "soothe": { "min": 2 }
+    },
+    "badTraits": {
+      "drowsiness": { "max": 0 },
+      "melancholy": { "max": 1 }
+    }
+  },
+  {
+    "id": "customer_requests_grave_stitch_poultice",
+    "title": "Grave Stitch Poultice",
+    "text": "A surgeon wants a poultice that closes dead-cold wounds. Mending is the heart of it, with soothing or cleansing support to keep the mixture from turning bleak.",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
+    "pool": "early",
+    "difficulty": 3,
+    "requires": {
+      "dayMin": 1
+    },
+    "weight": 7,
+    "desiredTraits": {
+      "mend": { "min": 4 },
+      "soothe": { "min": 3 },
+      "cleanse": { "min": 3 }
+    },
+    "badTraits": {
+      "melancholy": { "max": 1 },
+      "corruption": { "max": 0 }
+    }
+  },
+  {
+    "id": "customer_requests_stage_door_spark",
+    "title": "Stage Door Spark",
+    "text": "A stage performer wants charm that carries them through the curtain call. Vigor or calm can support the brew, but corruption would sour the room.",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
+    "pool": "early",
+    "difficulty": 3,
+    "requires": {
+      "dayMin": 1
+    },
+    "weight": 7,
+    "desiredTraits": {
+      "charm": { "min": 4 },
+      "vigor": { "min": 3 },
+      "calm": { "min": 2 }
+    },
+    "badTraits": {
+      "corruption": { "max": 0 },
+      "insomnia": { "max": 1 }
+    }
+  },
+  {
+    "id": "customer_requests_bitter_wake_cure",
+    "title": "Bitter Wake Cure",
+    "text": "A watchman needs to stay awake after a poisoned supper. Vigor helps them stand, while cleansing or clarity shakes off the fog.",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
+    "pool": "early",
+    "difficulty": 3,
+    "requires": {
+      "dayMin": 1
+    },
+    "weight": 7,
+    "desiredTraits": {
+      "vigor": { "min": 3 },
+      "cleanse": { "min": 3 },
+      "clarity": { "min": 2 }
+    },
+    "badTraits": {
+      "insomnia": { "max": 1 },
+      "drowsiness": { "max": 0 }
+    }
+  },
+  {
+    "id": "customer_requests_quiet_courage_draught",
+    "title": "Quiet Courage Draught",
+    "text": "A witness needs courage without panic. A clear head or steady calm can carry the courage, but the potion cannot be corrupting.",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
+    "pool": "early",
+    "difficulty": 3,
+    "requires": {
+      "dayMin": 1
+    },
+    "weight": 7,
+    "desiredTraits": {
+      "courage": { "min": 4 },
+      "clarity": { "min": 3 },
+      "calm": { "min": 2 }
+    },
+    "badTraits": {
+      "melancholy": { "max": 1 },
+      "corruption": { "max": 0 }
+    }
+  },
+  {
+    "id": "customer_requests_restless_fever_draught",
+    "title": "Restless Fever Draught",
+    "text": "A feverish courier needs real rest without being knocked flat. Rest is the goal, with cleansing or soothing support to keep the fever from clinging.",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
+    "pool": "early",
+    "difficulty": 3,
+    "requires": {
+      "dayMin": 1
+    },
+    "weight": 7,
+    "desiredTraits": {
+      "rest": { "min": 4 },
+      "cleanse": { "min": 3 },
+      "soothe": { "min": 2 }
+    },
+    "badTraits": {
+      "corruption": { "max": 0 },
+      "drowsiness": { "max": 1 }
+    }
+  },
+  {
+    "id": "customer_requests_silver_invitation",
+    "title": "Silver Invitation",
+    "text": "A diplomat needs charm with a clear head. Courage is useful at the table, but corruption would make the invitation dangerous.",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
+    "pool": "early",
+    "difficulty": 3,
+    "requires": {
+      "dayMin": 1
+    },
+    "weight": 7,
+    "desiredTraits": {
+      "charm": { "min": 4 },
+      "clarity": { "min": 3 },
+      "courage": { "min": 2 }
+    },
+    "badTraits": {
+      "corruption": { "max": 0 },
+      "melancholy": { "max": 1 }
+    }
+  },
+  {
+    "id": "customer_requests_lantern_wash",
+    "title": "Lantern Wash",
+    "text": "A lamplighter wants a wash for a haunted lens. Soothe and cleanse are the obvious answers, though courage can hold the line if the mixture stays awake.",
+    "characterImagePath": "res://art/Middleclass-Woman.png",
+    "pool": "early",
+    "difficulty": 3,
+    "requires": {
+      "dayMin": 1
+    },
+    "weight": 7,
+    "desiredTraits": {
+      "soothe": { "min": 3 },
+      "cleanse": { "min": 3 },
+      "courage": { "min": 2 }
+    },
+    "badTraits": {
+      "drowsiness": { "max": 0 },
+      "melancholy": { "max": 1 }
+    }
   }
 ]

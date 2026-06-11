@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://djwhbc8pmmx8w"
-path="res://.godot/imported/raven_ash_peony.svg-5c9778282504a77a6b6db0b9996ac6d9.ctex"
+uid="uid://dkmjoa821iv4b"
+path="res://.godot/imported/kerry_samuel_lewis_1844_lowres.jpg-08e7561e7e471448b56c22ab6a9dcfab.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://Assets/Items/raven_ash_peony.svg"
-dest_files=["res://.godot/imported/raven_ash_peony.svg-5c9778282504a77a6b6db0b9996ac6d9.ctex"]
+source_file="res://Assets/Maps/kerry_samuel_lewis_1844_lowres.jpg"
+dest_files=["res://.godot/imported/kerry_samuel_lewis_1844_lowres.jpg-08e7561e7e471448b56c22ab6a9dcfab.ctex"]
 
 [params]
 
@@ -32,6 +32,3 @@ process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
 detect_3d/compress_to=1
-svg/scale=1.0
-editor/scale_with_editor_scale=false
-editor/convert_colors_with_editor_theme=false

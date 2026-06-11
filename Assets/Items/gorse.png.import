@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bjk7n6f5453w5"
-path="res://.godot/imported/iron_lullaby_root.png-297611a92a65769a8007243bb3d5694a.ctex"
+uid="uid://byqfy7ip857g0"
+path="res://.godot/imported/gorse.png-9377843727457ee8a1aee30f6e9e8f22.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://Assets/Items/iron_lullaby_root.png"
-dest_files=["res://.godot/imported/iron_lullaby_root.png-297611a92a65769a8007243bb3d5694a.ctex"]
+source_file="res://Assets/Items/gorse.png"
+dest_files=["res://.godot/imported/gorse.png-9377843727457ee8a1aee30f6e9e8f22.ctex"]
 
 [params]
 

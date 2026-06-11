@@ -91,6 +91,7 @@ public sealed class PotionRecipeLookup
 			.Select(id => new IngredientPortionDef
 			{
 				IngredientId = id,
+				ItemId = id,
 				Grams = 0
 			})
 			.ToList();
@@ -149,9 +150,12 @@ public sealed class PotionRecipeLookup
 	private static string BuildCombinationKeyPart(IngredientPortionDef ingredientPortion)
 	{
 		var ingredientId = ingredientPortion.IngredientId.Trim();
-		return ingredientPortion.Grams > 0
-			? $"{ingredientId}@{ingredientPortion.Grams}g"
-			: ingredientId;
+		var preparationId = IngredientPreparationCatalog.NormalizePreparationId(ingredientPortion.PreparationId);
+		var keyPart = string.IsNullOrWhiteSpace(preparationId)
+			? ingredientId
+			: $"{ingredientId}#{preparationId}";
+
+		return ingredientPortion.Grams > 0 ? $"{keyPart}@{ingredientPortion.Grams}g" : keyPart;
 	}
 
 	private static bool IngredientPortionMatchesRequirement(
@@ -160,6 +164,15 @@ public sealed class PotionRecipeLookup
 	{
 		if (!string.Equals(candidate.IngredientId, requirement.IngredientId, StringComparison.OrdinalIgnoreCase))
 			return false;
+
+		if (!string.IsNullOrWhiteSpace(requirement.PreparationId) &&
+			!string.Equals(
+				IngredientPreparationCatalog.NormalizePreparationId(candidate.PreparationId),
+				IngredientPreparationCatalog.NormalizePreparationId(requirement.PreparationId),
+				StringComparison.OrdinalIgnoreCase))
+		{
+			return false;
+		}
 
 		return requirement.Grams <= 0 || candidate.Grams == requirement.Grams;
 	}
@@ -177,6 +190,7 @@ public sealed class PotionRecipeLookup
 				.Select(id => new IngredientPortionDef
 				{
 					IngredientId = id,
+					ItemId = id,
 					Grams = 0
 				})
 				.ToList();
@@ -184,16 +198,18 @@ public sealed class PotionRecipeLookup
 		}
 
 		var portions = recipe.IngredientAmounts
-			.Where(x => x is not null && !string.IsNullOrWhiteSpace(x.IngredientId) && x.Grams > 0)
+			.Where(x => x is not null && !string.IsNullOrWhiteSpace(x.IngredientId) && (x.Grams > 0 || !string.IsNullOrWhiteSpace(x.PreparationId)))
 			.Select(x => new IngredientPortionDef
 			{
 				IngredientId = x.IngredientId.Trim(),
+				ItemId = x.ItemId,
+				PreparationId = IngredientPreparationCatalog.NormalizePreparationId(x.PreparationId),
 				Grams = x.Grams
 			})
 			.ToList();
 		if (portions.Count != 3)
 		{
-			reportError?.Invoke($"Predefined recipe '{recipe.Id}' must define exactly 3 ingredient amounts when exact grams are used.");
+			reportError?.Invoke($"Predefined recipe '{recipe.Id}' must define exactly 3 ingredient portion requirements.");
 			return false;
 		}
 

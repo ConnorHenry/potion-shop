@@ -36,7 +36,7 @@ theme_override_constants/separation = 24
 alignment = 1
 
 [node name="Status" type="HBoxContainer" parent="Content"]
-custom_minimum_size = Vector2(500, 0)
+custom_minimum_size = Vector2(310, 0)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 24
@@ -51,12 +51,6 @@ vertical_alignment = 1
 custom_minimum_size = Vector2(100, 0)
 layout_mode = 2
 text = "Day:"
-vertical_alignment = 1
-
-[node name="ShopTimer" type="Label" parent="Content/Status"]
-custom_minimum_size = Vector2(190, 0)
-layout_mode = 2
-text = "Shop Timer:"
 vertical_alignment = 1
 
 [node name="RequestAlert" type="Button" parent="Content/Status"]

@@ -100,7 +100,7 @@ public partial class IngredientScalesPanel : Control
 		if (ScaleWeightButton.TryParseDragData(value, out _))
 			return true;
 
-		return _itemCatalog is not null && _itemCatalog.IsIngredient(value);
+		return _itemCatalog is not null && _itemCatalog.IsPreparedIngredient(value);
 	}
 
 	public override void _DropData(Vector2 atPosition, Variant data)
@@ -129,6 +129,12 @@ public partial class IngredientScalesPanel : Control
 		if (!_itemCatalog.IsIngredient(itemId))
 		{
 			_statusLabel.Text = "The scales only accept ingredients.";
+			return;
+		}
+
+		if (!_itemCatalog.IsPreparedIngredient(itemId))
+		{
+			_statusLabel.Text = "Prepare this ingredient before weighing it.";
 			return;
 		}
 

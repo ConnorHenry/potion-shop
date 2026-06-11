@@ -288,6 +288,7 @@ public partial class PotionBookPanel : Control
 			Id = recipe.Id,
 			Name = recipe.Name,
 			IngredientIds = ingredientIds,
+			IngredientAmounts = CloneIngredientPortions(recipe.IngredientAmounts),
 			Traits = traits
 		};
 
@@ -335,9 +336,56 @@ public partial class PotionBookPanel : Control
 			Id = potionId,
 			Name = GetPotionDisplayName(potionId, potion.Name),
 			IngredientIds = sanitizedIngredientIds,
+			IngredientAmounts = BuildLearnedRecipePortions(sanitizedIngredientIds),
 			Traits = traits
 		}, true, false);
 		return true;
+	}
+
+	private List<IngredientPortionDef> BuildLearnedRecipePortions(IReadOnlyList<string> ingredientItemIds)
+	{
+		var portions = new List<IngredientPortionDef>(ingredientItemIds.Count);
+		foreach (var ingredientItemId in ingredientItemIds)
+		{
+			if (string.IsNullOrWhiteSpace(ingredientItemId))
+				continue;
+
+			if (_itemCatalog.TryGetPreparedIngredientInfo(ingredientItemId, out var baseIngredientId, out var preparationId))
+			{
+				portions.Add(new IngredientPortionDef
+				{
+					IngredientId = baseIngredientId,
+					ItemId = ingredientItemId,
+					PreparationId = preparationId
+				});
+				continue;
+			}
+
+			portions.Add(new IngredientPortionDef
+			{
+				IngredientId = ingredientItemId,
+				ItemId = ingredientItemId
+			});
+		}
+
+		return portions;
+	}
+
+	private static List<IngredientPortionDef> CloneIngredientPortions(IReadOnlyList<IngredientPortionDef>? portions)
+	{
+		var clones = new List<IngredientPortionDef>();
+		if (portions is null)
+			return clones;
+
+		foreach (var portion in portions)
+		{
+			if (portion is null)
+				continue;
+
+			clones.Add(portion.Clone());
+		}
+
+		return clones;
 	}
 
 	private void RebuildContentsEntries()
@@ -519,13 +567,41 @@ public partial class PotionBookPanel : Control
 
 	private string BuildIngredientsText(PotionRecipeDef recipe)
 	{
-		var lines = new List<string>(recipe.IngredientIds.Count);
-		foreach (var ingredientId in recipe.IngredientIds)
-			lines.Add($"- {_itemCatalog.GetItemName(ingredientId)}");
+		var portions = recipe.IngredientAmounts is { Count: > 0 }
+			? recipe.IngredientAmounts
+			: recipe.IngredientIds
+				.Select(id => new IngredientPortionDef { IngredientId = id, ItemId = id })
+				.ToList();
+		var lines = new List<string>(portions.Count);
+		foreach (var portion in portions)
+		{
+			if (portion is null || string.IsNullOrWhiteSpace(portion.IngredientId))
+				continue;
+
+			lines.Add($"- {BuildIngredientPortionText(portion)}");
+		}
 
 		return lines.Count == 0
 			? "None"
 			: string.Join("\n", lines);
+	}
+
+	private string BuildIngredientPortionText(IngredientPortionDef portion)
+	{
+		var preparationId = IngredientPreparationCatalog.NormalizePreparationId(portion.PreparationId);
+		var itemId = string.IsNullOrWhiteSpace(preparationId) && !string.IsNullOrWhiteSpace(portion.ItemId)
+			? portion.ItemId
+			: portion.IngredientId;
+		var itemName = _itemCatalog.TryGetItem(itemId, out _)
+			? _itemCatalog.GetItemName(itemId)
+			: _itemCatalog.GetItemName(portion.IngredientId);
+		if (string.IsNullOrWhiteSpace(preparationId))
+			return portion.Grams > 0 ? $"{itemName} ({portion.Grams}g)" : itemName;
+
+		var preparationText = IngredientPreparationCatalog.GetDisplayName(preparationId);
+		return portion.Grams > 0
+			? $"{itemName} - {preparationText} ({portion.Grams}g)"
+			: $"{itemName} - {preparationText}";
 	}
 
 	private static string BuildTraitsText(PotionRecipeDef recipe)

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dnek0tbjs8c3q"
-path="res://.godot/imported/grave_mint.png-583cf7d479e61106da1960ca8c30a855.ctex"
+uid="uid://bjk7n6f5453w5"
+path="res://.godot/imported/thyme.png-18ac63c27f85b2e3a623f1272ab130a6.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://Assets/Items/grave_mint.png"
-dest_files=["res://.godot/imported/grave_mint.png-583cf7d479e61106da1960ca8c30a855.ctex"]
+source_file="res://Assets/Items/thyme.png"
+dest_files=["res://.godot/imported/thyme.png-18ac63c27f85b2e3a623f1272ab130a6.ctex"]
 
 [params]
 

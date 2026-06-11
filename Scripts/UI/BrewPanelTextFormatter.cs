@@ -79,9 +79,6 @@ public static class BrewPanelTextFormatter
 				$"{EscapeBbCodeText(ingredientName)}: {EscapeBbCodeText(effectName)} - {EscapeBbCodeText(resultText)}");
 		}
 
-		foreach (var synergy in previewResult.TriggeredSynergyDetails.Take(1))
-			lines.Add($"Synergy preview: {EscapeBbCodeText(synergy.Id)}");
-
 		return string.Join("\n", lines);
 	}
 
@@ -117,30 +114,21 @@ public static class BrewPanelTextFormatter
 				$"{EscapeBbCodeText(ingredientName)}: {EscapeBbCodeText(effectName)} - {EscapeBbCodeText(resultText)}");
 		}
 
-		if (brewResult.TriggeredSynergyDetails.Count == 0)
-			return string.Join("\n", lines);
+		return string.Join("\n", lines);
+	}
 
-		foreach (var synergy in brewResult.TriggeredSynergyDetails)
+	public static string BuildBrewResultToastText(string potionName, PotionResult brewResult)
+	{
+		var lines = new List<string>
 		{
-			lines.Add($"Synergy triggered: {EscapeBbCodeText(synergy.Id)}");
+			$"Brewed: {potionName}"
+		};
 
-			var contributingTraits = synergy.ContributingTraits.Count == 0
-				? "None"
-				: string.Join(", ", synergy.ContributingTraits
-					.OrderBy(x => x.Key)
-					.Select(x => $"{EscapeBbCodeText(x.Key)} {x.Value}"));
-
-			var contributingRisks = synergy.ContributingRisks.Count == 0
-				? "None"
-				: string.Join(", ", synergy.ContributingRisks
-					.OrderBy(x => x.Key)
-					.Select(x => $"{EscapeBbCodeText(x.Key)} {x.Value}"));
-
-			lines.Add($"Traits: {contributingTraits}");
-			lines.Add($"Risks: {contributingRisks}");
-
-			if (!string.IsNullOrWhiteSpace(synergy.Description))
-				lines.Add(EscapeBbCodeText(synergy.Description));
+		foreach (var risk in brewResult.Risks
+			.Where(x => !string.IsNullOrWhiteSpace(x.Key) && x.Value > 0)
+			.OrderBy(x => x.Key))
+		{
+			lines.Add($"{potionName} has been tainted with - {risk.Key}");
 		}
 
 		return string.Join("\n", lines);

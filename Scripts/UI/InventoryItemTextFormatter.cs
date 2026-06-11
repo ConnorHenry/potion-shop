@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using OccultShop.Models;
+using OccultShop.Systems;
 
 namespace OccultShop.UI;
 
@@ -123,6 +124,10 @@ public static class InventoryItemTextFormatter
 		if (!string.IsNullOrWhiteSpace(item.Description))
 			lines.Add(item.Description);
 
+		var preparationText = BuildPreparedIngredientText(item);
+		if (!string.IsNullOrWhiteSpace(preparationText))
+			lines.Add(preparationText);
+
 		var effectText = BuildIngredientEffectsText(item);
 		if (!string.IsNullOrWhiteSpace(effectText))
 			lines.Add(effectText);
@@ -132,9 +137,22 @@ public static class InventoryItemTextFormatter
 
 	public static string BuildItemDetailDescription(ItemDef item)
 	{
-		return string.IsNullOrWhiteSpace(item.Description)
-			? string.Empty
-			: item.Description;
+		var lines = new List<string>();
+		if (!string.IsNullOrWhiteSpace(item.Description))
+			lines.Add(item.Description);
+
+		var preparationText = BuildPreparedIngredientText(item);
+		if (!string.IsNullOrWhiteSpace(preparationText))
+			lines.Add(preparationText);
+
+		return string.Join("\n", lines);
+	}
+
+	public static string BuildPreparedIngredientText(ItemDef item)
+	{
+		return IngredientPreparationCatalog.TryGetPreparedIngredientInfo(item, out _, out var preparationId)
+			? $"Preparation: {IngredientPreparationCatalog.GetDisplayName(preparationId)}."
+			: string.Empty;
 	}
 
 	public static string BuildIngredientEffectsText(ItemDef item)
@@ -214,6 +232,22 @@ public static class InventoryItemTextFormatter
 		return string.Join("\n", lines);
 	}
 
+	public static string FormatPreparationTraitNames(
+		Dictionary<string, IngredientPreparationDef>? preparations,
+		int maxCount,
+		string emptyLabel = "None")
+	{
+		return FormatPreparationStatNames(preparations, maxCount, emptyLabel, showTraits: true);
+	}
+
+	public static string FormatPreparationRiskNames(
+		Dictionary<string, IngredientPreparationDef>? preparations,
+		int maxCount,
+		string emptyLabel = "None")
+	{
+		return FormatPreparationStatNames(preparations, maxCount, emptyLabel, showTraits: false);
+	}
+
 	public static string DisplayStatName(string key)
 	{
 		if (string.IsNullOrWhiteSpace(key))
@@ -224,6 +258,49 @@ public static class InventoryItemTextFormatter
 			return string.Empty;
 
 		return char.ToUpperInvariant(normalized[0]) + normalized[1..];
+	}
+
+	private static string FormatPreparationStatNames(
+		Dictionary<string, IngredientPreparationDef>? preparations,
+		int maxCount,
+		string emptyLabel,
+		bool showTraits)
+	{
+		var statNames = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+		if (preparations is not null)
+		{
+			foreach (var preparation in preparations.Values)
+			{
+				if (preparation is null)
+					continue;
+
+				var stats = showTraits ? preparation.Traits : preparation.Risks;
+				if (stats is null)
+					continue;
+
+				foreach (var stat in stats)
+				{
+					if (string.IsNullOrWhiteSpace(stat.Key) || stat.Value <= 0)
+						continue;
+
+					statNames.Add(stat.Key);
+				}
+			}
+		}
+
+		var lines = statNames
+			.OrderBy(DisplayStatName)
+			.Take(maxCount)
+			.Select(DisplayStatName)
+			.ToList();
+
+		if (lines.Count == 0)
+			lines.Add(emptyLabel);
+
+		while (lines.Count < maxCount)
+			lines.Add(string.Empty);
+
+		return string.Join("\n", lines);
 	}
 
 	private static string BuildAuthoredIngredientEffectText(IngredientEffectDef effect)

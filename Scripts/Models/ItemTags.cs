@@ -9,4 +9,5 @@ public static class ItemTags
 	public const string Liquid = "liquid";
 	public const string Catalyst = "catalyst";
 	public const string Treated = "treated";
+	public const string PreparedIngredient = "prepared_ingredient";
 }

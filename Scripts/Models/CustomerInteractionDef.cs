@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace OccultShop.Models;
 
@@ -10,6 +12,7 @@ public sealed class CustomerInteractionDef
     public string Id { get; set; } = "";
     public string Title { get; set; } = "";
     public string Text { get; set; } = "";
+    public List<CustomerDialogueLineDef> Lines { get; set; } = new();
     public string? CharacterImagePath { get; set; }
     public string Pool { get; set; } = "";
     public int Difficulty { get; set; } = 1;
@@ -19,8 +22,10 @@ public sealed class CustomerInteractionDef
     public List<CustomerDialogueNodeDef> DialogueNodes { get; set; } = new();
     public RequirementsDef? Requires { get; set; }
     public int Weight { get; set; } = 1;
-    public Dictionary<string, int> DesiredTraits { get; set; } = new();
-    public Dictionary<string, int> BadTraits { get; set; } = new();
+    [JsonConverter(typeof(DesiredTraitRangeDictionaryJsonConverter))]
+    public Dictionary<string, CustomerTraitRangeDef> DesiredTraits { get; set; } = new();
+    [JsonConverter(typeof(BadTraitRangeDictionaryJsonConverter))]
+    public Dictionary<string, CustomerTraitRangeDef> BadTraits { get; set; } = new();
     public Dictionary<string, int> RequiredMinTraits { get; set; } = new();
     public Dictionary<string, int> RequiredMaxTraits { get; set; } = new();
     public List<IngredientPortionDef> RequiredIngredientAmounts { get; set; } = new();
@@ -28,6 +33,7 @@ public sealed class CustomerInteractionDef
     public List<EffectDef> OnFailureEffects { get; set; } = new();
     public List<EffectDef> OnSkipEffects { get; set; } = new();
     public string PotionRefusedText { get; set; } = "";
+    public List<CustomerDialogueLineDef> PotionRefusedLines { get; set; } = new();
     public List<EffectDef> OnPotionRefusedEffects { get; set; } = new();
     public List<CustomerPotionResponseDef> PotionResponses { get; set; } = new();
 
@@ -61,8 +67,8 @@ public sealed class CustomerInteractionDef
         {
             Id = Id,
             Description = Text,
-            DesiredTraits = new Dictionary<string, int>(DesiredTraits),
-            BadTraits = new Dictionary<string, int>(BadTraits),
+            DesiredTraits = CustomerTraitRangeDef.CloneDictionary(DesiredTraits),
+            BadTraits = CustomerTraitRangeDef.CloneDictionary(BadTraits),
             RequiredMinTraits = new Dictionary<string, int>(RequiredMinTraits),
             RequiredMaxTraits = new Dictionary<string, int>(RequiredMaxTraits),
             RequiredIngredientAmounts = RequiredIngredientAmounts.Select(x => x.Clone()).ToList()
@@ -70,11 +76,220 @@ public sealed class CustomerInteractionDef
     }
 }
 
+[JsonConverter(typeof(CustomerTraitRangeDefJsonConverter))]
+public sealed class CustomerTraitRangeDef
+{
+    public int? Min { get; set; }
+    public int? Max { get; set; }
+
+    public bool HasMin => Min is not null;
+    public bool HasMax => Max is not null;
+
+    public CustomerTraitRangeDef Clone()
+    {
+        return new CustomerTraitRangeDef
+        {
+            Min = Min,
+            Max = Max
+        };
+    }
+
+    public static Dictionary<string, CustomerTraitRangeDef> CloneDictionary(
+        IReadOnlyDictionary<string, CustomerTraitRangeDef>? source)
+    {
+        var clone = new Dictionary<string, CustomerTraitRangeDef>(StringComparer.OrdinalIgnoreCase);
+        if (source is null)
+            return clone;
+
+        foreach (var pair in source)
+        {
+            if (string.IsNullOrWhiteSpace(pair.Key) || pair.Value is null)
+                continue;
+
+            clone[pair.Key] = pair.Value.Clone();
+        }
+
+        return clone;
+    }
+}
+
+public sealed class CustomerTraitRangeDefJsonConverter : JsonConverter<CustomerTraitRangeDef>
+{
+    public override CustomerTraitRangeDef Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        return CustomerTraitRangeJsonConverterHelpers.ReadRange(ref reader, legacyIntIsMinimum: true) ?? new CustomerTraitRangeDef();
+    }
+
+    public override void Write(Utf8JsonWriter writer, CustomerTraitRangeDef value, JsonSerializerOptions options)
+    {
+        CustomerTraitRangeJsonConverterHelpers.WriteRange(writer, value);
+    }
+}
+
+public sealed class DesiredTraitRangeDictionaryJsonConverter : CustomerTraitRangeDictionaryJsonConverter
+{
+    protected override bool LegacyIntIsMinimum => true;
+}
+
+public sealed class BadTraitRangeDictionaryJsonConverter : CustomerTraitRangeDictionaryJsonConverter
+{
+    protected override bool LegacyIntIsMinimum => false;
+}
+
+public abstract class CustomerTraitRangeDictionaryJsonConverter : JsonConverter<Dictionary<string, CustomerTraitRangeDef>>
+{
+    protected abstract bool LegacyIntIsMinimum { get; }
+
+    public override Dictionary<string, CustomerTraitRangeDef> Read(
+        ref Utf8JsonReader reader,
+        Type typeToConvert,
+        JsonSerializerOptions options)
+    {
+        var result = new Dictionary<string, CustomerTraitRangeDef>(StringComparer.OrdinalIgnoreCase);
+        if (reader.TokenType == JsonTokenType.Null)
+            return result;
+
+        if (reader.TokenType != JsonTokenType.StartObject)
+            throw new JsonException("Trait ranges must be a JSON object.");
+
+        while (reader.Read())
+        {
+            if (reader.TokenType == JsonTokenType.EndObject)
+                return result;
+
+            if (reader.TokenType != JsonTokenType.PropertyName)
+                throw new JsonException("Trait range entries must use property names.");
+
+            var traitId = reader.GetString();
+            if (!reader.Read())
+                throw new JsonException("Trait range entry ended unexpectedly.");
+
+            var range = CustomerTraitRangeJsonConverterHelpers.ReadRange(ref reader, LegacyIntIsMinimum);
+            if (string.IsNullOrWhiteSpace(traitId) || range is null)
+                continue;
+
+            result[traitId] = range;
+        }
+
+        throw new JsonException("Trait range object ended unexpectedly.");
+    }
+
+    public override void Write(
+        Utf8JsonWriter writer,
+        Dictionary<string, CustomerTraitRangeDef> value,
+        JsonSerializerOptions options)
+    {
+        writer.WriteStartObject();
+        if (value is not null)
+        {
+            foreach (var pair in value)
+            {
+                if (string.IsNullOrWhiteSpace(pair.Key) || pair.Value is null)
+                    continue;
+
+                writer.WritePropertyName(pair.Key);
+                CustomerTraitRangeJsonConverterHelpers.WriteRange(writer, pair.Value);
+            }
+        }
+
+        writer.WriteEndObject();
+    }
+}
+
+internal static class CustomerTraitRangeJsonConverterHelpers
+{
+    public static CustomerTraitRangeDef? ReadRange(ref Utf8JsonReader reader, bool legacyIntIsMinimum)
+    {
+        if (reader.TokenType == JsonTokenType.Null)
+            return null;
+
+        if (reader.TokenType == JsonTokenType.Number)
+        {
+            var legacyValue = reader.GetInt32();
+            return legacyIntIsMinimum
+                ? new CustomerTraitRangeDef { Min = legacyValue }
+                : new CustomerTraitRangeDef { Max = legacyValue };
+        }
+
+        if (reader.TokenType != JsonTokenType.StartObject)
+        {
+            reader.Skip();
+            return null;
+        }
+
+        var range = new CustomerTraitRangeDef();
+        while (reader.Read())
+        {
+            if (reader.TokenType == JsonTokenType.EndObject)
+                return range.HasMin || range.HasMax ? range : null;
+
+            if (reader.TokenType != JsonTokenType.PropertyName)
+                throw new JsonException("Trait range fields must use property names.");
+
+            var propertyName = reader.GetString();
+            if (!reader.Read())
+                throw new JsonException("Trait range field ended unexpectedly.");
+
+            if (string.Equals(propertyName, "min", StringComparison.OrdinalIgnoreCase))
+            {
+                range.Min = ReadNullableInt(ref reader);
+                continue;
+            }
+
+            if (string.Equals(propertyName, "max", StringComparison.OrdinalIgnoreCase))
+            {
+                range.Max = ReadNullableInt(ref reader);
+                continue;
+            }
+
+            reader.Skip();
+        }
+
+        throw new JsonException("Trait range object ended unexpectedly.");
+    }
+
+    public static void WriteRange(Utf8JsonWriter writer, CustomerTraitRangeDef? range)
+    {
+        writer.WriteStartObject();
+        if (range is not null)
+        {
+            if (range.Min is int min)
+                writer.WriteNumber("min", min);
+
+            if (range.Max is int max)
+                writer.WriteNumber("max", max);
+        }
+
+        writer.WriteEndObject();
+    }
+
+    private static int? ReadNullableInt(ref Utf8JsonReader reader)
+    {
+        if (reader.TokenType == JsonTokenType.Null)
+            return null;
+
+        if (reader.TokenType != JsonTokenType.Number)
+        {
+            reader.Skip();
+            return null;
+        }
+
+        return reader.GetInt32();
+    }
+}
+
 public sealed class CustomerDialogueNodeDef
 {
     public string Id { get; set; } = "";
     public string Text { get; set; } = "";
+    public List<CustomerDialogueLineDef> Lines { get; set; } = new();
     public List<CustomerDialogueOptionDef> Options { get; set; } = new();
+}
+
+public sealed class CustomerDialogueLineDef
+{
+    public string Speaker { get; set; } = "";
+    public string Text { get; set; } = "";
 }
 
 public sealed class CustomerDialogueOptionDef
@@ -82,6 +297,7 @@ public sealed class CustomerDialogueOptionDef
     public string Id { get; set; } = "";
     public string Label { get; set; } = "";
     public string ResponseText { get; set; } = "";
+    public List<CustomerDialogueLineDef> ResponseLines { get; set; } = new();
     public string NextNodeId { get; set; } = "";
     public string ReturnNodeId { get; set; } = "";
     public bool RevealsRequest { get; set; }
@@ -102,6 +318,7 @@ public sealed class CustomerPotionResponseDef
     public int? MinMatchedDesiredTraits { get; set; }
     public int? MaxMatchedBadTraits { get; set; }
     public string Text { get; set; } = "";
+    public List<CustomerDialogueLineDef> Lines { get; set; } = new();
     public List<EffectDef> Effects { get; set; } = new();
 }
 
@@ -110,13 +327,15 @@ public sealed class CustomerRequestDef
     public string Id { get; set; } = "";
     public string Description { get; set; } = "";
 
-    // Desired effect traits
-    // Example: "sleep": 5, "calm": 3
-    public Dictionary<string, int> DesiredTraits { get; set; } = new();
+    // Desired effect trait ranges.
+    // Example: "calm": { min: 2, max: 4 }, "clarity": { min: 1 }
+    [JsonConverter(typeof(DesiredTraitRangeDictionaryJsonConverter))]
+    public Dictionary<string, CustomerTraitRangeDef> DesiredTraits { get; set; } = new();
 
-    // Traits/risks that are bad for this request
-    // Example: "addiction": 5, "rage": 4
-    public Dictionary<string, int> BadTraits { get; set; } = new();
+    // Trait/risk ranges that are bad for this request when exceeded.
+    // Example: "drowsiness": { max: 1 }, "confusion": { max: 0 }
+    [JsonConverter(typeof(BadTraitRangeDictionaryJsonConverter))]
+    public Dictionary<string, CustomerTraitRangeDef> BadTraits { get; set; } = new();
 
     // Hard trait thresholds that must be met by the final potion.
     // Example: "mend": 9 means Mend must be >= 9.

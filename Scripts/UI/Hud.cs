@@ -29,7 +29,6 @@ public partial class Hud : Control
 
 	[Export] public NodePath GoldLabelPath = new("Content/Status/Gold");
 	[Export] public NodePath DayLabelPath = new("Content/Status/Day");
-	[Export] public NodePath ShopTimerLabelPath = new("Content/Status/ShopTimer");
 	[Export] public NodePath RequestAlertButtonPath = new("Content/Status/RequestAlert");
 	[Export] public NodePath RequestPanelPath = new("RequestPanel");
 	[Export] public NodePath RequestDescriptionLabelPath = new("RequestPanel/Margin/VBox/Description");
@@ -45,7 +44,6 @@ public partial class Hud : Control
 
 	private Label _gold = default!;
 	private Label _day = default!;
-	private Label? _shopTimer;
 	private Button _requestAlertButton = default!;
 	private Button _serveCustomerButton = default!;
 	private Button _gardenButton = default!;
@@ -76,9 +74,6 @@ public partial class Hud : Control
 	{
 		_gold = GetNode<Label>(GoldLabelPath);
 		_day = GetNode<Label>(DayLabelPath);
-		_shopTimer = GetNodeOrNull<Label>(ShopTimerLabelPath) ?? GetNodeOrNull<Label>("ShopTimer");
-		if (_shopTimer is null)
-			GD.PushError("Hud: Shop timer label node is missing.");
 
 		_serveCustomerButton = GetNode<Button>(StartDayButtonPath);
 		_requestAlertButton = GetNode<Button>(RequestAlertButtonPath);
@@ -613,14 +608,6 @@ public partial class Hud : Control
 	private void RefreshShopState()
 	{
 		var isShopOpen = _dayController is not null && _dayController.IsShopOpen;
-		var secondsRemaining = _dayController?.SecondsRemaining ?? 0;
-
-		if (_shopTimer is not null)
-			_shopTimer.Text = _dayController is null
-				? "Shop Timer: Away"
-				: isShopOpen
-					? $"Shop Timer: {secondsRemaining}s"
-					: "Shop Timer: Closed";
 
 		_serveCustomerButton.Text = isShopOpen ? "Shop Open" : "Start Day";
 		_serveCustomerButton.Disabled = _dayController is null || isShopOpen;

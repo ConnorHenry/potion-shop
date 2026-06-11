@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cr6jfkuajv0ns"
-path="res://.godot/imported/moonwhisper_orchid.svg-303472a828753eaf573b50f9df429e98.ctex"
+uid="uid://tn7kb54jhhud"
+path="res://.godot/imported/yarrow.svg-aef53efcae586fe2c3cbd84af2712ad3.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://Assets/Items/moonwhisper_orchid.svg"
-dest_files=["res://.godot/imported/moonwhisper_orchid.svg-303472a828753eaf573b50f9df429e98.ctex"]
+source_file="res://Assets/Items/yarrow.svg"
+dest_files=["res://.godot/imported/yarrow.svg-aef53efcae586fe2c3cbd84af2712ad3.ctex"]
 
 [params]
 

@@ -1,23 +1,19 @@
 using Godot;
 using OccultShop.Autoload;
 using OccultShop.Infrastructure;
+using OccultShop.Models;
+using OccultShop.Systems;
 
 namespace OccultShop.UI;
 
 public partial class StationShelfInventory : Control
 {
 	private const float SlotWidth = 104.0f;
-	private const float SlotHeight = 106.0f;
-	private const float IconSize = 54.0f;
+	private const float SlotHeight = 160.0f;
 	private const float IngredientSlotWidth = 116.0f;
 	private const float IngredientSlotHeight = 160.0f;
-	private const float IngredientJarWidth = 116.0f;
-	private const float IngredientJarHeight = 120.0f;
-	private const float IngredientJarIconSize = 76.0f;
-	private const string IngredientJarOverlayPath = "res://Assets/UI/ingredient_jar_overlay.png";
 	private const int IngredientDefaultVisibleSlots = 12;
 	private const int ConsumableDefaultVisibleSlots = 4;
-	private const int ShelfNameSingleLineCharacterLimit = 12;
 
 	[Export] public NodePath IngredientSlotsPath = default!;
 	[Export] public NodePath ConsumableSlotsPath = default!;
@@ -25,8 +21,11 @@ public partial class StationShelfInventory : Control
 	[Export] public NodePath IngredientNextButtonPath = default!;
 	[Export] public NodePath ConsumablePreviousButtonPath = default!;
 	[Export] public NodePath ConsumableNextButtonPath = default!;
+	[Export] public NodePath IngredientTraitFilterPath = new("IngredientTraitFilterRow/TraitFilter");
+	[Export] public NodePath IngredientClearFilterButtonPath = new("IngredientTraitFilterRow/Clear");
 	[Export] public NodePath BrewPanelPath = default!;
-	[Export] public NodePath InventoryPanelPath = new("../../InventoryPanel");
+	[Export] public NodePath IngredientPreparationTrayPath = new("../IngredientPreparationTray");
+	[Export] public NodePath ItemDetailPanelPath = new("../StationItemDetailPanel");
 	[Export] public NodePath GameStatePath = new(AutoloadNodePaths.GameState);
 	[Export] public NodePath ItemCatalogPath = new(AutoloadNodePaths.ItemCatalog);
 	[Export] public int IngredientVisibleSlots = IngredientDefaultVisibleSlots;
@@ -38,12 +37,16 @@ public partial class StationShelfInventory : Control
 	private Button _ingredientNextButton = default!;
 	private Button _consumablePreviousButton = default!;
 	private Button _consumableNextButton = default!;
+	private OptionButton? _ingredientTraitFilter;
+	private Button? _ingredientClearFilterButton;
 	private BrewPanel _brewPanel = default!;
-	private InventoryPanel? _inventoryPanel;
+	private IngredientPreparationTray? _ingredientPreparationTray;
+	private StationItemDetailPanel? _itemDetailPanel;
 	private GameState _gameState = default!;
 	private ItemCatalogService _itemCatalog = default!;
 	private int _ingredientPage;
 	private int _consumablePage;
+	private string? _activeIngredientTraitFilter;
 
 	public override void _Ready()
 	{
@@ -71,9 +74,12 @@ public partial class StationShelfInventory : Control
 		_gameState = gameState;
 		_itemCatalog = itemCatalog;
 		_brewPanel = brewPanel;
-		_inventoryPanel = GetNodeOrNull<InventoryPanel>(InventoryPanelPath);
-		if (_inventoryPanel is null)
-			GD.PushError($"StationShelfInventory: InventoryPanel was not found at '{InventoryPanelPath}'.");
+		_ingredientPreparationTray = GetNodeOrNull<IngredientPreparationTray>(IngredientPreparationTrayPath);
+		if (_ingredientPreparationTray is null)
+			GD.PushError($"StationShelfInventory: IngredientPreparationTray was not found at '{IngredientPreparationTrayPath}'.");
+		_itemDetailPanel = GetNodeOrNull<StationItemDetailPanel>(ItemDetailPanelPath);
+		if (_itemDetailPanel is null)
+			GD.PushError($"StationShelfInventory: StationItemDetailPanel was not found at '{ItemDetailPanelPath}'.");
 
 		var ingredientSlots = NodeLookup.GetRequiredNodeOrNull<GridContainer>(
 			this,
@@ -121,11 +127,17 @@ public partial class StationShelfInventory : Control
 		_ingredientNextButton = ingredientNextButton;
 		_consumablePreviousButton = consumablePreviousButton;
 		_consumableNextButton = consumableNextButton;
+		_ingredientTraitFilter = GetNodeOrNull<OptionButton>(IngredientTraitFilterPath);
+		_ingredientClearFilterButton = GetNodeOrNull<Button>(IngredientClearFilterButtonPath);
 		MouseFilter = MouseFilterEnum.Ignore;
 		_ingredientPreviousButton.Pressed += ShowPreviousIngredientPage;
 		_ingredientNextButton.Pressed += ShowNextIngredientPage;
 		_consumablePreviousButton.Pressed += ShowPreviousConsumablePage;
 		_consumableNextButton.Pressed += ShowNextConsumablePage;
+		if (_ingredientTraitFilter is not null)
+			_ingredientTraitFilter.ItemSelected += OnIngredientTraitSelected;
+		if (_ingredientClearFilterButton is not null)
+			_ingredientClearFilterButton.Pressed += ClearIngredientTraitFilter;
 		_gameState.Changed += Refresh;
 
 		Refresh();
@@ -143,6 +155,10 @@ public partial class StationShelfInventory : Control
 			_consumablePreviousButton.Pressed -= ShowPreviousConsumablePage;
 		if (_consumableNextButton is not null)
 			_consumableNextButton.Pressed -= ShowNextConsumablePage;
+		if (_ingredientTraitFilter is not null)
+			_ingredientTraitFilter.ItemSelected -= OnIngredientTraitSelected;
+		if (_ingredientClearFilterButton is not null)
+			_ingredientClearFilterButton.Pressed -= ClearIngredientTraitFilter;
 	}
 
 	public void Refresh()
@@ -150,7 +166,7 @@ public partial class StationShelfInventory : Control
 		if (_gameState is null || _itemCatalog is null || _ingredientSlots is null || _consumableSlots is null)
 			return;
 
-		var ingredientStacks = BuildShelfStacks(includeIngredients: true);
+		var ingredientStacks = BuildVisibleIngredientStacks(refreshTraitOptions: true);
 		var consumableStacks = BuildShelfStacks(includeIngredients: false);
 		var ingredientVisibleSlots = GetSafeVisibleSlotCount(IngredientVisibleSlots, IngredientDefaultVisibleSlots);
 		var consumableVisibleSlots = GetSafeVisibleSlotCount(ConsumableVisibleSlots, ConsumableDefaultVisibleSlots);
@@ -162,6 +178,167 @@ public partial class StationShelfInventory : Control
 		RenderPage(_consumableSlots, consumableStacks, _consumablePage, consumableVisibleSlots, connectIngredientRequest: false);
 		UpdatePageButtons(ingredientStacks.Count, ingredientVisibleSlots, _ingredientPage, _ingredientPreviousButton, _ingredientNextButton);
 		UpdatePageButtons(consumableStacks.Count, consumableVisibleSlots, _consumablePage, _consumablePreviousButton, _consumableNextButton);
+	}
+
+	private List<ShelfStack> BuildVisibleIngredientStacks(bool refreshTraitOptions)
+	{
+		var ingredientStacks = BuildShelfStacks(includeIngredients: true);
+		if (refreshTraitOptions)
+			RefreshIngredientTraitFilterOptions();
+
+		return ApplyIngredientTraitFilter(ingredientStacks);
+	}
+
+	private void RefreshIngredientTraitFilterOptions()
+	{
+		if (_ingredientTraitFilter is null)
+		{
+			_activeIngredientTraitFilter = null;
+			UpdateIngredientTraitClearButtonVisibility();
+			return;
+		}
+
+		var traitNames = BuildKnownIngredientBookTraitNames();
+		ItemFilterUtilities.RefreshFilterOptions(_ingredientTraitFilter, traitNames, "Trait", ref _activeIngredientTraitFilter);
+		UpdateIngredientTraitClearButtonVisibility();
+	}
+
+	private List<string> BuildKnownIngredientBookTraitNames()
+	{
+		var traitNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+		foreach (var knownIngredientId in _gameState.KnownIngredients)
+		{
+			if (!_itemCatalog.TryGetItem(knownIngredientId, out var item))
+				continue;
+			if (!_itemCatalog.IsIngredient(knownIngredientId) || item.Treatment is not null)
+				continue;
+
+			AddIngredientBookTraitNames(item, traitNames);
+		}
+
+		var sortedTraitNames = new List<string>(traitNames);
+		sortedTraitNames.Sort(StringComparer.OrdinalIgnoreCase);
+		return sortedTraitNames;
+	}
+
+	private List<ShelfStack> ApplyIngredientTraitFilter(List<ShelfStack> ingredientStacks)
+	{
+		if (_ingredientTraitFilter is null || string.IsNullOrWhiteSpace(_activeIngredientTraitFilter))
+			return ingredientStacks;
+
+		var filteredStacks = new List<ShelfStack>();
+		foreach (var stack in ingredientStacks)
+		{
+			if (!ShelfStackMatchesIngredientTraitFilter(stack.ItemId))
+				continue;
+
+			filteredStacks.Add(stack);
+		}
+
+		return filteredStacks;
+	}
+
+	private bool ShelfStackMatchesIngredientTraitFilter(string itemId)
+	{
+		if (string.IsNullOrWhiteSpace(_activeIngredientTraitFilter))
+			return true;
+		if (ItemFilterUtilities.ItemHasTrait(itemId, _activeIngredientTraitFilter, _itemCatalog))
+			return true;
+
+		return TryGetKnownIngredientBookItem(itemId, out var bookItem) &&
+			ItemHasIngredientBookTrait(bookItem, _activeIngredientTraitFilter);
+	}
+
+	private bool TryGetKnownIngredientBookItem(string itemId, out ItemDef bookItem)
+	{
+		bookItem = default!;
+		if (string.IsNullOrWhiteSpace(itemId))
+			return false;
+
+		var ingredientBookItemId = itemId;
+		if (_itemCatalog.TryGetPreparedIngredientInfo(itemId, out var preparedBaseIngredientId, out _))
+		{
+			ingredientBookItemId = preparedBaseIngredientId;
+		}
+		else if (_itemCatalog.TryGetItem(itemId, out var item) && item.Treatment is not null)
+		{
+			var baseItemId = item.Treatment.BaseItemId;
+			if (string.IsNullOrWhiteSpace(baseItemId))
+				return false;
+			if (_itemCatalog.TryGetPreparedIngredientInfo(baseItemId, out var treatedPreparedBaseIngredientId, out _))
+				ingredientBookItemId = treatedPreparedBaseIngredientId;
+			else
+				ingredientBookItemId = baseItemId;
+		}
+
+		return _gameState.KnowsIngredient(ingredientBookItemId) &&
+			_itemCatalog.TryGetItem(ingredientBookItemId, out bookItem) &&
+			_itemCatalog.IsIngredient(ingredientBookItemId) &&
+			bookItem.Treatment is null;
+	}
+
+	private static void AddIngredientBookTraitNames(ItemDef item, HashSet<string> traitNames)
+	{
+		if (item.Traits is not null)
+			AddPositiveTraitNames(item.Traits, traitNames);
+
+		if (item.Preparations is null)
+			return;
+
+		foreach (var preparation in item.Preparations.Values)
+		{
+			if (preparation is null || preparation.Traits is null)
+				continue;
+
+			AddPositiveTraitNames(preparation.Traits, traitNames);
+		}
+	}
+
+	private static bool ItemHasIngredientBookTrait(ItemDef item, string traitName)
+	{
+		if (string.IsNullOrWhiteSpace(traitName))
+			return false;
+		if (DictionaryHasPositiveValue(item.Traits, traitName))
+			return true;
+		if (item.Preparations is null)
+			return false;
+
+		foreach (var preparation in item.Preparations.Values)
+		{
+			if (preparation is null)
+				continue;
+			if (DictionaryHasPositiveValue(preparation.Traits, traitName))
+				return true;
+		}
+
+		return false;
+	}
+
+	private static void AddPositiveTraitNames(Dictionary<string, int> values, HashSet<string> traitNames)
+	{
+		foreach (var trait in values)
+		{
+			if (string.IsNullOrWhiteSpace(trait.Key) || trait.Value <= 0)
+				continue;
+
+			traitNames.Add(trait.Key);
+		}
+	}
+
+	private static bool DictionaryHasPositiveValue(Dictionary<string, int>? values, string key)
+	{
+		if (values is null || string.IsNullOrWhiteSpace(key))
+			return false;
+
+		foreach (var pair in values)
+		{
+			if (!string.Equals(pair.Key, key, StringComparison.OrdinalIgnoreCase))
+				continue;
+
+			return pair.Value > 0;
+		}
+
+		return false;
 	}
 
 	private List<ShelfStack> BuildShelfStacks(bool includeIngredients)
@@ -181,7 +358,7 @@ public partial class StationShelfInventory : Control
 			if (!isMatchingType)
 				continue;
 
-			stacks.Add(new ShelfStack(stack.Key, item.Name, item.IconPath, stack.Value));
+			stacks.Add(new ShelfStack(stack.Key, BuildShelfDisplayName(stack.Key, item, includeIngredients), item.IconPath, stack.Value));
 		}
 
 		stacks.Sort((left, right) =>
@@ -192,6 +369,26 @@ public partial class StationShelfInventory : Control
 				: string.Compare(left.ItemId, right.ItemId, System.StringComparison.OrdinalIgnoreCase);
 		});
 		return stacks;
+	}
+
+	private string BuildShelfDisplayName(string itemId, ItemDef item, bool includeIngredients)
+	{
+		if (!includeIngredients)
+			return item.Name;
+		if (!_itemCatalog.TryGetPreparedIngredientInfo(itemId, out _, out var preparationId))
+			return item.Name;
+
+		var preparationName = IngredientPreparationCatalog.GetDisplayName(preparationId);
+		if (string.IsNullOrWhiteSpace(preparationName) || NameIncludesPreparation(item.Name, preparationName))
+			return item.Name;
+
+		return $"{item.Name} ({preparationName})";
+	}
+
+	private static bool NameIncludesPreparation(string itemName, string preparationName)
+	{
+		return itemName.Contains($"({preparationName})", StringComparison.OrdinalIgnoreCase) ||
+			itemName.Contains($"[{preparationName}]", StringComparison.OrdinalIgnoreCase);
 	}
 
 	private void RenderPage(
@@ -251,116 +448,23 @@ public partial class StationShelfInventory : Control
 			MouseFilter = MouseFilterEnum.Ignore
 		};
 
-		var quantity = new Label
-		{
-			Text = stack.Quantity.ToString(),
-			Position = connectIngredientRequest ? new Vector2(8.0f, 39.0f) : new Vector2(8.0f, 6.0f),
-			MouseFilter = MouseFilterEnum.Ignore
-		};
-		quantity.AddThemeColorOverride("font_color", new Color(0.98f, 0.9f, 0.62f, 1.0f));
-		quantity.AddThemeFontSizeOverride("font_size", 15);
-
-		var name = new Label
-		{
-			Text = FormatShelfSlotName(stack.Name),
-			Position = connectIngredientRequest ? new Vector2(5.0f, 2.0f) : new Vector2(5.0f, 70.0f),
-			CustomMinimumSize = new Vector2(slotSize.X - 10.0f, 34.0f),
-			Size = new Vector2(slotSize.X - 10.0f, 34.0f),
-			HorizontalAlignment = HorizontalAlignment.Center,
-			VerticalAlignment = VerticalAlignment.Top,
-			AutowrapMode = TextServer.AutowrapMode.WordSmart,
-			ClipText = true,
-			MouseFilter = MouseFilterEnum.Ignore
-		};
-		name.AddThemeColorOverride("font_color", new Color(0.92f, 0.86f, 0.72f, 1.0f));
-		name.AddThemeFontSizeOverride("font_size", 12);
-
-		content.AddChild(connectIngredientRequest ? CreateIngredientJar(stack) : CreateShelfIcon(stack.IconPath));
-		content.AddChild(quantity);
-		content.AddChild(name);
+		content.AddChild(JarredInventorySlotView.CreateContent(
+			slotSize,
+			stack.Name,
+			stack.IconPath,
+			stack.Quantity,
+			new JarredInventorySlotLayout
+			{
+				ArtSize = new Vector2(slotSize.X, slotSize.Y),
+				NameFontSize = connectIngredientRequest ? 12 : 11,
+				MinimumNameFontSize = connectIngredientRequest ? 10 : 9,
+				PreserveParentheticalSuffix = connectIngredientRequest,
+				SingleLineCharacterLimit = connectIngredientRequest ? 18 : 12,
+				QuantityFontSize = 13
+			}));
 		slot.AddChild(content);
 		slot.AddChild(hoverOutline);
 		return slot;
-	}
-
-	private static Control CreateShelfIcon(string? iconPath)
-	{
-		return new TextureRect
-		{
-			Position = new Vector2((SlotWidth - IconSize) * 0.5f, 12.0f),
-			CustomMinimumSize = new Vector2(IconSize, IconSize),
-			Size = new Vector2(IconSize, IconSize),
-			Texture = UiIconLoader.LoadIcon(iconPath),
-			ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
-			StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
-			MouseFilter = MouseFilterEnum.Ignore
-		};
-	}
-
-	private static Control CreateIngredientJar(ShelfStack stack)
-	{
-		var jar = new Control
-		{
-			Position = new Vector2((IngredientSlotWidth - IngredientJarWidth) * 0.5f, 36.0f),
-			CustomMinimumSize = new Vector2(IngredientJarWidth, IngredientJarHeight),
-			Size = new Vector2(IngredientJarWidth, IngredientJarHeight),
-			MouseFilter = MouseFilterEnum.Ignore
-		};
-
-		var icon = new TextureRect
-		{
-			Position = new Vector2((IngredientJarWidth - IngredientJarIconSize) * 0.5f, 40.0f),
-			CustomMinimumSize = new Vector2(IngredientJarIconSize, IngredientJarIconSize),
-			Size = new Vector2(IngredientJarIconSize, IngredientJarIconSize),
-			Texture = UiIconLoader.LoadIcon(stack.IconPath),
-			ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
-			StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
-			MouseFilter = MouseFilterEnum.Ignore
-		};
-
-		var overlay = new TextureRect
-		{
-			Position = Vector2.Zero,
-			CustomMinimumSize = new Vector2(IngredientJarWidth, IngredientJarHeight),
-			Size = new Vector2(IngredientJarWidth, IngredientJarHeight),
-			Texture = UiIconLoader.LoadIcon(IngredientJarOverlayPath),
-			ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
-			StretchMode = TextureRect.StretchModeEnum.Scale,
-			MouseFilter = MouseFilterEnum.Ignore
-		};
-
-		jar.AddChild(icon);
-		jar.AddChild(overlay);
-		return jar;
-	}
-
-	private static string FormatShelfSlotName(string itemName)
-	{
-		if (string.IsNullOrWhiteSpace(itemName))
-			return itemName;
-
-		var trimmedName = itemName.Trim();
-		if (trimmedName.Length <= ShelfNameSingleLineCharacterLimit)
-			return trimmedName;
-
-		InventoryItemTextFormatter.SplitInventoryName(trimmedName, out var firstLine, out var secondLine);
-		return string.IsNullOrWhiteSpace(secondLine)
-			? firstLine
-			: $"{firstLine}\n{secondLine}";
-	}
-
-	private void QueueIngredientFromShelf(string itemId)
-	{
-		if (string.IsNullOrWhiteSpace(itemId))
-			return;
-
-		if (!_itemCatalog.IsIngredient(itemId))
-			return;
-
-		if (!_brewPanel.Visible)
-			_brewPanel.ShowPanel();
-
-		_brewPanel.TryQueueIngredient(itemId);
 	}
 
 	private void ShowItemDetail(string itemId)
@@ -368,7 +472,36 @@ public partial class StationShelfInventory : Control
 		if (string.IsNullOrWhiteSpace(itemId))
 			return;
 
-		_inventoryPanel?.OpenItemDetail(itemId);
+		if (_itemDetailPanel is null)
+		{
+			GD.PushError("StationShelfInventory: Cannot show item detail because StationItemDetailPanel is missing.");
+			return;
+		}
+
+		_itemDetailPanel.ShowItem(itemId);
+	}
+
+	private void QueueIngredientFromShelf(string itemId)
+	{
+		if (string.IsNullOrWhiteSpace(itemId))
+			return;
+
+		if (_itemCatalog.IsPreparedIngredient(itemId))
+		{
+			if (!_brewPanel.Visible)
+				_brewPanel.ShowPanel();
+
+			_brewPanel.TryQueueIngredient(itemId);
+			return;
+		}
+
+		if (_ingredientPreparationTray is null)
+		{
+			GD.PushError("StationShelfInventory: Cannot send ingredient to prep station because IngredientPreparationTray is missing.");
+			return;
+		}
+
+		_ingredientPreparationTray.TrySelectIngredientFromInventory(itemId);
 	}
 
 	private void ShowPreviousIngredientPage()
@@ -383,12 +516,69 @@ public partial class StationShelfInventory : Control
 	private void ShowNextIngredientPage()
 	{
 		var visibleSlots = GetSafeVisibleSlotCount(IngredientVisibleSlots, IngredientDefaultVisibleSlots);
-		var maxPage = GetMaxPage(BuildShelfStacks(includeIngredients: true).Count, visibleSlots);
+		var maxPage = GetMaxPage(BuildVisibleIngredientStacks(refreshTraitOptions: false).Count, visibleSlots);
 		if (_ingredientPage >= maxPage)
 			return;
 
 		_ingredientPage += 1;
 		Refresh();
+	}
+
+	private void OnIngredientTraitSelected(long selectedIndex)
+	{
+		if (_ingredientTraitFilter is null)
+			return;
+		if (selectedIndex < 0 || selectedIndex >= _ingredientTraitFilter.ItemCount)
+			return;
+
+		var selectedTrait = _ingredientTraitFilter.GetItemText((int)selectedIndex);
+		if (string.Equals(selectedTrait, "Trait", System.StringComparison.OrdinalIgnoreCase))
+		{
+			if (string.IsNullOrWhiteSpace(_activeIngredientTraitFilter))
+			{
+				UpdateIngredientTraitClearButtonVisibility();
+				return;
+			}
+
+			_activeIngredientTraitFilter = null;
+			_ingredientPage = 0;
+			Refresh();
+			return;
+		}
+
+		_activeIngredientTraitFilter = string.Equals(_activeIngredientTraitFilter, selectedTrait, System.StringComparison.OrdinalIgnoreCase)
+			? null
+			: selectedTrait;
+		_ingredientPage = 0;
+		Refresh();
+	}
+
+	private void ClearIngredientTraitFilter()
+	{
+		if (_ingredientTraitFilter is null)
+			return;
+
+		if (string.IsNullOrWhiteSpace(_activeIngredientTraitFilter))
+		{
+			_ingredientTraitFilter.Selected = 0;
+			UpdateIngredientTraitClearButtonVisibility();
+			return;
+		}
+
+		_activeIngredientTraitFilter = null;
+		_ingredientPage = 0;
+		Refresh();
+	}
+
+	private void UpdateIngredientTraitClearButtonVisibility()
+	{
+		if (_ingredientClearFilterButton is null)
+			return;
+
+		var hasActiveFilter = !string.IsNullOrWhiteSpace(_activeIngredientTraitFilter);
+		_ingredientClearFilterButton.Visible = hasActiveFilter;
+		_ingredientClearFilterButton.Disabled = !hasActiveFilter;
+		_ingredientClearFilterButton.MouseFilter = hasActiveFilter ? MouseFilterEnum.Stop : MouseFilterEnum.Ignore;
 	}
 
 	private void ShowPreviousConsumablePage()

@@ -18,8 +18,5 @@ public partial class AuthoredDataResource : Resource
 	public string CustomerInteractionsPath { get; set; } = "res://Data/customers_data.tres";
 
 	[Export]
-	public string SynergiesPath { get; set; } = "res://Data/synergies_data.tres";
-
-	[Export]
 	public string PotionRecipesPath { get; set; } = "res://Data/potion_recipes_data.tres";
 }

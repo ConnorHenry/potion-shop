@@ -7,12 +7,11 @@ namespace OccultShop.Controllers;
 
 public partial class DayController : Node
 {
-	private const int ShopDurationSeconds = 60;
+	private const int MaxCustomersPerShopDay = 3;
 
 	[Export] public NodePath EventModalPath = default!;
 	[Export] public NodePath EventControllerPath = default!;
 	[Export] public NodePath CustomerEventControllerPath = default!;
-	[Export] public NodePath InventoryPanelPath = default!;
 	[Export] public NodePath CustomerPanelPath = default!;
 	[Export] public NodePath BrewPanelPath = default!;
 	[Export] public NodePath DaySummaryPanelPath = default!;
@@ -22,25 +21,19 @@ public partial class DayController : Node
 	private UI.EventModal _eventModal = default!;
 	private EventController _eventController = default!;
 	private CustomerEventController _customerEventController = default!;
-	private UI.InventoryPanel _inventoryPanel = default!;
 	private UI.CustomerPanel _customerPanel = default!;
 	private UI.BrewPanel _brewPanel = default!;
 	private UI.DaySummaryPanel _daySummaryPanel = default!;
-	private Godot.Timer _shopTimer = default!;
 	private readonly ShopDayStats _shopDayStats = new();
 	private DataDb _dataDb = default!;
 	private GameState _gameState = default!;
-	private int _secondsRemaining;
+	private int _customersArrived;
 	private bool _awaitingSaleResultClose;
-	private bool _shopClosingPending;
-	private bool _tutorialTimerPaused;
-	private bool _debugTimerPaused;
-	private bool _plotConversationTimerPaused;
+	private bool _closeShopAfterCurrentCustomer;
 
 	public bool IsShopOpen { get; private set; }
-	public int SecondsRemaining => _secondsRemaining;
-	public bool IsShopTimerPaused => _tutorialTimerPaused || _debugTimerPaused || _plotConversationTimerPaused;
-	public bool IsShopTimerDebugPaused => _debugTimerPaused;
+	public int CustomersArrivedToday => _customersArrived;
+	public int MaxCustomersPerDay => MaxCustomersPerShopDay;
 	public event Action? ShopStateChanged;
 
 	public override void _Ready()
@@ -48,7 +41,6 @@ public partial class DayController : Node
 		_eventModal = GetNode<UI.EventModal>(EventModalPath);
 		_eventController = GetNode<EventController>(EventControllerPath);
 		_customerEventController = GetNode<CustomerEventController>(CustomerEventControllerPath);
-		_inventoryPanel = GetNode<UI.InventoryPanel>(InventoryPanelPath);
 		_customerPanel = GetNode<UI.CustomerPanel>(CustomerPanelPath);
 		_brewPanel = GetNode<UI.BrewPanel>(BrewPanelPath);
 		_daySummaryPanel = GetNode<UI.DaySummaryPanel>(DaySummaryPanelPath);
@@ -69,18 +61,8 @@ public partial class DayController : Node
 		_dataDb = dataDb;
 		_gameState = gameState;
 
-		_shopTimer = new Godot.Timer
-		{
-			WaitTime = 1.0,
-			OneShot = false,
-			Autostart = false
-		};
-		AddChild(_shopTimer);
-		_shopTimer.Timeout += OnShopTimerTick;
-
 		_customerPanel.SaleResolved += OnCustomerSaleResolved;
 		_customerPanel.SaleResultClosed += OnCustomerSaleResultClosed;
-		_customerPanel.PlotConversationStarted += OnPlotConversationStarted;
 		_customerPanel.DialogueResolved += OnCustomerDialogueResolved;
 		_customerPanel.CustomerSkipped += OnCustomerSkipped;
 		_daySummaryPanel.ContinuePressed += OnSummaryContinuePressed;
@@ -92,16 +74,12 @@ public partial class DayController : Node
 
 	public override void _ExitTree()
 	{
-		if (_shopTimer != null)
-			_shopTimer.Timeout -= OnShopTimerTick;
 		if (_customerPanel != null)
 			_customerPanel.CustomerSkipped -= OnCustomerSkipped;
 		if (_customerPanel != null)
 			_customerPanel.SaleResolved -= OnCustomerSaleResolved;
 		if (_customerPanel != null)
 			_customerPanel.SaleResultClosed -= OnCustomerSaleResultClosed;
-		if (_customerPanel != null)
-			_customerPanel.PlotConversationStarted -= OnPlotConversationStarted;
 		if (_customerPanel != null)
 			_customerPanel.DialogueResolved -= OnCustomerDialogueResolved;
 		if (_daySummaryPanel != null)
@@ -118,12 +96,9 @@ public partial class DayController : Node
 		_customerPanel.SuppressSaleResultPanel = false;
 		_customerPanel.SetCloseShopMode(false);
 		_shopDayStats.Reset();
-		_secondsRemaining = ShopDurationSeconds;
+		_customersArrived = 0;
 		_awaitingSaleResultClose = false;
-		_shopClosingPending = false;
-		_tutorialTimerPaused = false;
-		_debugTimerPaused = false;
-		_plotConversationTimerPaused = false;
+		_closeShopAfterCurrentCustomer = false;
 		IsShopOpen = true;
 		EmitShopStateChanged();
 		_customerEventController.BeginShopDay();
@@ -133,109 +108,23 @@ public partial class DayController : Node
 			CloseShopAndShowSummary();
 			return;
 		}
-
-		if (!IsShopTimerPaused)
-			_shopTimer.Start();
 	}
 
-	public void PauseShopTimerForTutorial()
+	public void ForceCloseShopAfterCurrentCustomerForTutorial()
 	{
 		if (!IsShopOpen)
 			return;
 
-		if (_tutorialTimerPaused)
-			return;
-
-		_tutorialTimerPaused = true;
-		if (!_shopTimer.IsStopped())
-			_shopTimer.Stop();
-
+		_closeShopAfterCurrentCustomer = true;
 		EmitShopStateChanged();
 	}
 
-	public void ResumeShopTimerAfterTutorial()
-	{
-		if (!_tutorialTimerPaused)
-			return;
-
-		_tutorialTimerPaused = false;
-		if (CanRunShopTimer() && _shopTimer.IsStopped())
-			_shopTimer.Start();
-
-		EmitShopStateChanged();
-	}
-
-	public bool TrySetDebugShopTimerPaused(bool paused)
+	public bool TryCloseShopDayFromDebug()
 	{
 		if (!IsShopOpen)
 			return false;
 
-		if (_debugTimerPaused == paused)
-			return true;
-
-		_debugTimerPaused = paused;
-
-		if (paused)
-		{
-			if (!_shopTimer.IsStopped())
-				_shopTimer.Stop();
-
-			EmitShopStateChanged();
-			return true;
-		}
-
-		if (CanRunShopTimer() && _shopTimer.IsStopped())
-			_shopTimer.Start();
-
-		EmitShopStateChanged();
-		return true;
-	}
-
-	public void ForceShopTimerToZeroForTutorial()
-	{
-		TrySetShopTimerSecondsRemaining(0);
-	}
-
-	public bool TrySetShopTimerSecondsRemaining(int secondsRemaining)
-	{
-		if (!IsShopOpen)
-			return false;
-
-		_secondsRemaining = Math.Max(0, secondsRemaining);
-
-		if (_secondsRemaining <= 0)
-		{
-			if (!_shopTimer.IsStopped())
-				_shopTimer.Stop();
-
-			if (_customerPanel.HasActiveInteraction || _awaitingSaleResultClose)
-			{
-				_shopClosingPending = true;
-				_customerPanel.SetCloseShopMode(true);
-				EmitShopStateChanged();
-				return true;
-			}
-
-			CloseShopAndShowSummary();
-			return true;
-		}
-
-		if (IsShopTimerPaused)
-		{
-			EmitShopStateChanged();
-			return true;
-		}
-
-		if (_awaitingSaleResultClose)
-		{
-			EmitShopStateChanged();
-			return true;
-		}
-
-		if (_shopTimer.IsStopped())
-			_shopTimer.Start();
-
-		EmitShopStateChanged();
+		CloseShopAndShowSummary();
 		return true;
 	}
 
@@ -266,37 +155,11 @@ public partial class DayController : Node
 		_eventModal.ShowCard(card);
 	}
 
-	private void OnShopTimerTick()
-	{
-		if (!IsShopOpen || IsShopTimerPaused)
-			return;
-
-		_secondsRemaining = Math.Max(0, _secondsRemaining - 1);
-
-		if (_secondsRemaining <= 0)
-		{
-			_shopTimer.Stop();
-			if (_customerPanel.HasActiveInteraction || _awaitingSaleResultClose)
-			{
-				_shopClosingPending = true;
-				_customerPanel.SetCloseShopMode(true);
-				EmitShopStateChanged();
-				return;
-			}
-
-			CloseShopAndShowSummary();
-			return;
-		}
-
-		EmitShopStateChanged();
-	}
-
 	private void OnCustomerSaleResolved(bool success, int goldDelta, int dreadDelta, float finalScore, string grade)
 	{
 		if (!IsShopOpen)
 			return;
 
-		_plotConversationTimerPaused = false;
 		_shopDayStats.CustomersServed += 1;
 		_shopDayStats.GoldEarned += goldDelta;
 		_shopDayStats.DreadChange += dreadDelta;
@@ -305,25 +168,20 @@ public partial class DayController : Node
 		else
 			_shopDayStats.FailedSales += 1;
 
+		if (ShouldCloseShopAfterCurrentCustomer())
+		{
+			CloseShopAndShowSummary();
+			return;
+		}
+
 		if (_customerPanel.SuppressSaleResultPanel)
 		{
-			if (_secondsRemaining <= 0)
-			{
-				CloseShopAndShowSummary();
-				return;
-			}
-
 			if (!TryShowNextCustomer())
 				CloseShopAndShowSummary();
 			return;
 		}
 
-		if (!_shopTimer.IsStopped())
-			_shopTimer.Stop();
-
 		_awaitingSaleResultClose = true;
-		if (_shopClosingPending)
-			_customerPanel.SetCloseShopMode(true);
 		EmitShopStateChanged();
 	}
 
@@ -337,32 +195,11 @@ public partial class DayController : Node
 
 		_awaitingSaleResultClose = false;
 
-		if (_secondsRemaining <= 0)
-		{
-			CloseShopAndShowSummary();
-			return;
-		}
-
 		if (!TryShowNextCustomer())
 		{
 			CloseShopAndShowSummary();
 			return;
 		}
-
-		if (_shopTimer.IsStopped() && !IsShopTimerPaused)
-			_shopTimer.Start();
-
-		EmitShopStateChanged();
-	}
-
-	private void OnPlotConversationStarted()
-	{
-		if (!IsShopOpen)
-			return;
-
-		_plotConversationTimerPaused = true;
-		if (!_shopTimer.IsStopped())
-			_shopTimer.Stop();
 
 		EmitShopStateChanged();
 	}
@@ -372,14 +209,13 @@ public partial class DayController : Node
 		if (!IsShopOpen)
 			return;
 
-		_plotConversationTimerPaused = false;
-		if (!_shopTimer.IsStopped())
-			_shopTimer.Stop();
+		if (ShouldCloseShopAfterCurrentCustomer())
+		{
+			CloseShopAndShowSummary();
+			return;
+		}
 
 		_awaitingSaleResultClose = true;
-		if (_shopClosingPending)
-			_customerPanel.SetCloseShopMode(true);
-
 		EmitShopStateChanged();
 	}
 
@@ -388,12 +224,20 @@ public partial class DayController : Node
 		if (!IsShopOpen)
 			return false;
 
+		if (_customersArrived >= MaxCustomersPerShopDay)
+		{
+			_customerPanel.HidePanel();
+			return false;
+		}
+
 		var interaction = _customerEventController.DrawShopDayCustomerInteraction(_dataDb, _gameState);
 		if (interaction is null)
 		{
 			_customerPanel.HidePanel();
 			return false;
 		}
+
+		_customersArrived += 1;
 
 		if (_customerPanel.Visible)
 			_customerPanel.ShowInteraction(interaction);
@@ -409,8 +253,7 @@ public partial class DayController : Node
 		if (!IsShopOpen)
 			return;
 
-		_plotConversationTimerPaused = false;
-		if (_secondsRemaining <= 0)
+		if (ShouldCloseShopAfterCurrentCustomer())
 		{
 			CloseShopAndShowSummary();
 			return;
@@ -422,16 +265,10 @@ public partial class DayController : Node
 
 	private void CloseShopAndShowSummary()
 	{
-		if (_shopTimer.IsStopped() == false)
-			_shopTimer.Stop();
-
 		IsShopOpen = false;
-		_secondsRemaining = 0;
+		_customersArrived = 0;
 		_awaitingSaleResultClose = false;
-		_shopClosingPending = false;
-		_tutorialTimerPaused = false;
-		_debugTimerPaused = false;
-		_plotConversationTimerPaused = false;
+		_closeShopAfterCurrentCustomer = false;
 		_customerPanel.HidePanel();
 		_customerPanel.SuppressSaleResultPanel = false;
 		_customerPanel.SetCloseShopMode(false);
@@ -460,12 +297,9 @@ public partial class DayController : Node
 		ShopStateChanged?.Invoke();
 	}
 
-	private bool CanRunShopTimer()
+	private bool ShouldCloseShopAfterCurrentCustomer()
 	{
-		return IsShopOpen
-			&& !IsShopTimerPaused
-			&& !_awaitingSaleResultClose
-			&& _secondsRemaining > 0;
+		return _closeShopAfterCurrentCustomer || _customersArrived >= MaxCustomersPerShopDay;
 	}
 
 	private sealed class ShopDayStats

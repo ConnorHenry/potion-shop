@@ -19,8 +19,11 @@ internal static class CustomerFlowTests
         runner.Run("Forced customer fallback resolves legacy ids deterministically", TestForcedCustomerFallbackResolvesLegacyIdsDeterministically);
         runner.Run("Customer events respect scheduling and story outcomes", TestCustomerEventSchedulingAndStoryOutcomes);
         runner.Run("Customer trait thresholds are enforced", TestCustomerTraitThresholdsAreEnforced);
+        runner.Run("Customer trait ranges are enforced", TestCustomerTraitRangesAreEnforced);
         runner.Run("Active customer catalog includes trait threshold requests", TestActiveCustomerCatalogIncludesTraitThresholdRequests);
+        runner.Run("Tiered customer data is a day-one flexible trait catalog", TestTieredCustomerDataIsDayOneFlexibleTraitCatalog);
         runner.Run("Story customer dialogue trees support selling mode", TestStoryCustomerDialogueTreesSupportSellingMode);
+        runner.Run("CustomerPanel renders dialogue node text as narration", TestCustomerPanelRendersDialogueNodeTextAsNarration);
         runner.Run("CustomerPanel shows draggable potion sale slots", TestCustomerPanelShowsDraggablePotionSaleSlots);
         runner.Run("Customer drop box stays disabled until next customer", TestCustomerDropBoxDisablesAfterSale);
     }
@@ -77,8 +80,14 @@ internal static class CustomerFlowTests
         AssertTrue("CustomerEventController randomizes the customer order", source.Contains("_random.Next("));
         AssertTrue("CustomerEventController resets the order at the start of a shop day", source.Contains("BeginShopDay()"));
         AssertTrue("DayController resets customer order when the shop opens", dayController.Contains("_customerEventController.BeginShopDay();"));
-        AssertTrue("DayController tracks when the shop should close after the current customer", dayController.Contains("_shopClosingPending"));
-        AssertTrue("DayController keeps the shop open while the current customer is active at zero seconds", dayController.Contains("_customerPanel.HasActiveInteraction || _awaitingSaleResultClose"));
+        AssertTrue("DayController caps shop-day customer arrivals at three",
+            dayController.Contains("MaxCustomersPerShopDay = 3") &&
+            dayController.Contains("_customersArrived >= MaxCustomersPerShopDay"));
+        AssertTrue("DayController counts customer arrivals when a customer is shown",
+            dayController.Contains("_customersArrived += 1;"));
+        AssertTrue("DayController closes the shop after the current final customer is resolved",
+            dayController.Contains("ShouldCloseShopAfterCurrentCustomer()") &&
+            dayController.Contains("CloseShopAndShowSummary();"));
         AssertTrue("CustomerPanel exposes active interaction state", customerPanel.Contains("HasActiveInteraction => _interaction is not null"));
         AssertTrue("CustomerPanel can switch the next button to Close Shop", customerPanel.Contains("SetCloseShopMode(bool closeShopMode)"));
         AssertTrue("CustomerPanel exposes close shop mode state", customerPanel.Contains("IsCloseShopMode => _closeShopMode"));
@@ -88,6 +97,7 @@ internal static class CustomerFlowTests
     {
         var customerController = ReadProjectFile("Scripts/Controllers/CustomerEventController.cs");
         var authoredData = ReadProjectFile("Data/authored_data.tres");
+        var customers = ReadProjectFile("Data/customers_data.tres");
         var tieredCustomers = ReadProjectFile("Data/customers_tiered_test_data.tres");
 
         AssertTrue("Forced customer resolver keeps exact ids authoritative",
@@ -101,9 +111,8 @@ internal static class CustomerFlowTests
         AssertTrue("Forced customer suffix fallback fails loudly on tied shortest matches",
             customerController.Contains("shortestMatchCount > 1") &&
             customerController.Contains("matched multiple equally specific candidates"));
-        AssertTrue("Tiered customer data contains overlapping sleep draught suffixes",
-            tieredCustomers.Contains("\"id\": \"tier1_sleep_draught\"") &&
-            tieredCustomers.Contains("\"id\": \"tier2_clean_sleep_draught\""));
+        AssertTrue("Customer data contains legacy-prefixed customer request ids",
+            customers.Contains("\"id\": \"customer_requests_sleep_draught\""));
         AssertTrue("Authored data may use tiered customer interactions",
             authoredData.Contains("CustomerInteractionsPath = \"res://Data/customers_tiered_test_data.tres\"") ||
             authoredData.Contains("CustomerInteractionsPath = \"res://Data/customers_data.tres\""));
@@ -154,9 +163,9 @@ internal static class CustomerFlowTests
     {
         var request = new CustomerRequestDef
         {
-            DesiredTraits = new Dictionary<string, int>
+            DesiredTraits = new Dictionary<string, CustomerTraitRangeDef>
             {
-                ["mend"] = 9
+                ["mend"] = Range(min: 9)
             },
             RequiredMinTraits = new Dictionary<string, int>
             {
@@ -212,6 +221,90 @@ internal static class CustomerFlowTests
             CustomerSaleRules.IsRequestSatisfiedByPotion(request, quietResult, true));
     }
 
+    private static void TestCustomerTraitRangesAreEnforced()
+    {
+        var request = new CustomerRequestDef
+        {
+            DesiredTraits = new Dictionary<string, CustomerTraitRangeDef>
+            {
+                ["calming"] = Range(min: 2, max: 4),
+                ["clarity"] = Range(min: 1)
+            },
+            BadTraits = new Dictionary<string, CustomerTraitRangeDef>
+            {
+                ["drowsiness"] = Range(max: 1),
+                ["confusion"] = Range(max: 0)
+            }
+        };
+
+        var passingResult = new PotionResult
+        {
+            Traits = new Dictionary<string, int>
+            {
+                ["calming"] = 3,
+                ["clarity"] = 1
+            },
+            Risks = new Dictionary<string, int>
+            {
+                ["drowsiness"] = 1
+            }
+        };
+        AssertTrue("Potion inside desired and bad ranges succeeds",
+            CustomerSaleRules.IsRequestSatisfiedByPotion(request, passingResult, true));
+
+        var weakResult = new PotionResult
+        {
+            Traits = new Dictionary<string, int>
+            {
+                ["calming"] = 1,
+                ["clarity"] = 1
+            }
+        };
+        AssertTrue("Potion below desired min fails",
+            !CustomerSaleRules.IsRequestSatisfiedByPotion(request, weakResult, true));
+
+        var overStrongResult = new PotionResult
+        {
+            Traits = new Dictionary<string, int>
+            {
+                ["calming"] = 5,
+                ["clarity"] = 1
+            }
+        };
+        AssertTrue("Potion above desired max fails",
+            !CustomerSaleRules.IsRequestSatisfiedByPotion(request, overStrongResult, true));
+
+        var drowsyResult = new PotionResult
+        {
+            Traits = new Dictionary<string, int>
+            {
+                ["calming"] = 3,
+                ["clarity"] = 1
+            },
+            Risks = new Dictionary<string, int>
+            {
+                ["drowsiness"] = 2
+            }
+        };
+        AssertTrue("Potion above bad max fails",
+            !CustomerSaleRules.IsRequestSatisfiedByPotion(request, drowsyResult, true));
+
+        var confusedResult = new PotionResult
+        {
+            Traits = new Dictionary<string, int>
+            {
+                ["calming"] = 3,
+                ["clarity"] = 1
+            },
+            Risks = new Dictionary<string, int>
+            {
+                ["confusion"] = 1
+            }
+        };
+        AssertTrue("Potion with zero-tolerance bad risk fails",
+            !CustomerSaleRules.IsRequestSatisfiedByPotion(request, confusedResult, true));
+    }
+
     private static void TestActiveCustomerCatalogIncludesTraitThresholdRequests()
     {
         var customerDef = ReadProjectFile("Scripts/Models/CustomerInteractionDef.cs");
@@ -220,20 +313,31 @@ internal static class CustomerFlowTests
         var customerPanel = ReadProjectFile("Scripts/UI/CustomerPanel.cs");
         var formatter = ReadProjectFile("Scripts/UI/CustomerDialogueTextFormatter.cs");
         var customers = ReadProjectFile("Data/customers_data.tres");
+        var tieredCustomers = ReadProjectFile("Data/customers_tiered_test_data.tres");
 
         AssertTrue("Customer requests store hard trait thresholds",
             customerDef.Contains("RequiredMinTraits") &&
-            customerDef.Contains("RequiredMaxTraits"));
+            customerDef.Contains("RequiredMaxTraits") &&
+            customerDef.Contains("CustomerTraitRangeDef"));
+        AssertTrue("Customer requests store desired and bad trait ranges",
+            customerDef.Contains("Dictionary<string, CustomerTraitRangeDef> DesiredTraits") &&
+            customerDef.Contains("Dictionary<string, CustomerTraitRangeDef> BadTraits"));
+        AssertTrue("DataDb parses desired and bad trait ranges",
+            dataDb.Contains("ReadTraitRangeDictionary(entry, \"desiredTraits\", legacyIntIsMinimum: true)") &&
+            dataDb.Contains("ReadTraitRangeDictionary(entry, \"badTraits\", legacyIntIsMinimum: false)"));
         AssertTrue("DataDb parses hard trait thresholds",
             dataDb.Contains("ReadStringIntDictionary(entry, \"requiredMinTraits\")") &&
             dataDb.Contains("ReadStringIntDictionary(entry, \"requiredMaxTraits\")"));
         AssertTrue("Sale rules enforce hard trait thresholds",
             saleRules.Contains("AreRequiredTraitThresholdsSatisfied") &&
             saleRules.Contains("AreRequiredMinTraitsSatisfied") &&
-            saleRules.Contains("AreRequiredMaxTraitsSatisfied"));
-        AssertTrue("Customer panel displays hard trait thresholds",
+            saleRules.Contains("AreRequiredMaxTraitsSatisfied") &&
+            saleRules.Contains("AreBadTraitRangesSatisfied"));
+        AssertTrue("Customer panel displays hard trait thresholds and ranges",
             customerPanel.Contains("BuildDesiredRequestText") &&
             customerPanel.Contains("BuildBadRequestText") &&
+            formatter.Contains("FormatTraitRange") &&
+            formatter.Contains("FormatBadTraitListWithViolations") &&
             formatter.Contains("FormatMinTraitThresholdsWithMatches") &&
             formatter.Contains("FormatMaxTraitThresholdsWithViolations"));
         AssertTrue("Active customer data includes six threshold customers",
@@ -246,8 +350,65 @@ internal static class CustomerFlowTests
         AssertTrue("Threshold customer data uses min and max trait gates",
             customers.Contains("\"requiredMinTraits\"") &&
             customers.Contains("\"requiredMaxTraits\"") &&
-            customers.Contains("\"mend\": 9") &&
+            customers.Contains("\"mend\": { \"min\": 9 }") &&
             customers.Contains("\"vigor\": 1"));
+        AssertTrue("Customer data includes preparation puzzle requests in both catalogs",
+            customers.Contains("\"id\": \"customer_requests_counterfeit_calm\"") &&
+            customers.Contains("\"id\": \"customer_requests_grave_stitch_poultice\"") &&
+            customers.Contains("\"id\": \"customer_requests_stage_door_spark\"") &&
+            customers.Contains("\"id\": \"customer_requests_bitter_wake_cure\"") &&
+            customers.Contains("\"id\": \"customer_requests_lantern_wash\"") &&
+            tieredCustomers.Contains("\"id\": \"customer_requests_counterfeit_calm\"") &&
+            tieredCustomers.Contains("\"id\": \"customer_requests_grave_stitch_poultice\"") &&
+            tieredCustomers.Contains("\"id\": \"customer_requests_stage_door_spark\"") &&
+            tieredCustomers.Contains("\"id\": \"customer_requests_bitter_wake_cure\"") &&
+            tieredCustomers.Contains("\"id\": \"customer_requests_lantern_wash\""));
+        AssertTrue("Customer request text can display preparation requirements",
+            formatter.Contains("FormatIngredientPortionRequirement") &&
+            formatter.Contains("IngredientPreparationCatalog.GetDisplayName") &&
+            formatter.Contains("prep"));
+    }
+
+    private static void TestTieredCustomerDataIsDayOneFlexibleTraitCatalog()
+    {
+        var tieredCustomers = ReadProjectFile("Data/customers_tiered_test_data.tres");
+        var catalog = ReadProjectFile("Data/customers_tiered_test_catalog.md");
+
+        AssertTrue("Tiered customer data has no later-day gates",
+            !tieredCustomers.Contains("\"dayMax\"") &&
+            CountOccurrences(tieredCustomers, "\"requires\":") == CountOccurrences(tieredCustomers, "\"dayMin\": 1"));
+        AssertTrue("Tiered customer data avoids hard ingredient and prep locks",
+            !tieredCustomers.Contains("\"requiredIngredientAmounts\"") &&
+            !tieredCustomers.Contains("\"requiredMinTraits\"") &&
+            !tieredCustomers.Contains("\"requiredMaxTraits\""));
+        AssertTrue("Tiered customer data uses current ingredient traits",
+            tieredCustomers.Contains("\"calm\"") &&
+            tieredCustomers.Contains("\"dream\"") &&
+            tieredCustomers.Contains("\"soothe\"") &&
+            tieredCustomers.Contains("\"cleanse\"") &&
+            tieredCustomers.Contains("\"rest\"") &&
+            tieredCustomers.Contains("\"vigor\"") &&
+            tieredCustomers.Contains("\"mend\"") &&
+            tieredCustomers.Contains("\"charm\"") &&
+            tieredCustomers.Contains("\"clarity\"") &&
+            tieredCustomers.Contains("\"courage\""));
+        AssertTrue("Tiered customer data uses current prep risks",
+            tieredCustomers.Contains("\"drowsiness\"") &&
+            tieredCustomers.Contains("\"melancholy\"") &&
+            tieredCustomers.Contains("\"corruption\"") &&
+            tieredCustomers.Contains("\"insomnia\""));
+        AssertTrue("Tiered customer data omits old unsupported traits and risks",
+            !tieredCustomers.Contains("\"confusion\"") &&
+            !tieredCustomers.Contains("\"nausea\"") &&
+            !tieredCustomers.Contains("\"ward\"") &&
+            !tieredCustomers.Contains("\"honesty\"") &&
+            !tieredCustomers.Contains("\"reflexes\"") &&
+            !tieredCustomers.Contains("\"empathy\"") &&
+            !tieredCustomers.Contains("\"creativity\""));
+        AssertTrue("Tiered customer catalog documents the day-one flexible request design",
+            catalog.Contains("All entries in this catalog are available from day 1") &&
+            catalog.Contains("requests avoid hard `requiredIngredientAmounts`") &&
+            catalog.Contains("multiple successful recipes"));
     }
 
     private static void TestStoryCustomerDialogueTreesSupportSellingMode()
@@ -256,6 +417,7 @@ internal static class CustomerFlowTests
         var dataDb = ReadProjectFile("Scripts/Autoload/DataDb.cs");
         var customerPanel = ReadProjectFile("Scripts/UI/CustomerPanel.cs");
         var customerTextFormatter = ReadProjectFile("Scripts/UI/CustomerDialogueTextFormatter.cs");
+        var validator = ReadProjectFile("Scripts/Systems/AuthoredDataValidator.cs");
         var dayController = ReadProjectFile("Scripts/Controllers/DayController.cs");
         var gameState = ReadProjectFile("Scripts/Autoload/GameState.cs");
         var storyVisitState = ReadProjectFile("Scripts/Systems/StoryCustomerVisitState.cs");
@@ -283,6 +445,12 @@ internal static class CustomerFlowTests
             customerDef.Contains("List<CustomerPotionResponseDef> PotionResponses") &&
             customerDef.Contains("MinMatchedDesiredTraits") &&
             customerDef.Contains("MaxMatchedBadTraits"));
+        AssertTrue("Customer authored text supports structured narration and named speakers",
+            customerDef.Contains("public sealed class CustomerDialogueLineDef") &&
+            customerDef.Contains("public string Speaker") &&
+            customerDef.Contains("List<CustomerDialogueLineDef> Lines") &&
+            customerDef.Contains("List<CustomerDialogueLineDef> ResponseLines") &&
+            customerDef.Contains("List<CustomerDialogueLineDef> PotionRefusedLines"));
 
         AssertTrue("DataDb parses customer dialogue start node",
             dataDb.Contains("DialogueStartNodeId = ReadString(entry, \"dialogueStartNodeId\")"));
@@ -296,6 +464,11 @@ internal static class CustomerFlowTests
             dataDb.Contains("RevealsRequest = ReadBool(entry, \"revealsRequest\")") &&
             dataDb.Contains("ReturnNodeId = ReadString(entry, \"returnNodeId\")") &&
             dataDb.Contains("ParseCustomerPotionResponses(ReadArray(entry, \"potionResponses\"))"));
+        AssertTrue("DataDb parses structured customer dialogue lines",
+            dataDb.Contains("ParseCustomerDialogueLines(ReadArray(entry, \"lines\"))") &&
+            dataDb.Contains("ReadAuthoredLineArray(entry, \"responseLines\", \"lines\")") &&
+            dataDb.Contains("PotionRefusedLines = ParseCustomerDialogueLines") &&
+            dataDb.Contains("Lines = lines"));
 
         AssertTrue("CustomerPanel starts story dialogue instead of sale pending state",
             customerPanel.Contains("TryShowDialogueStart()"));
@@ -347,6 +520,14 @@ internal static class CustomerFlowTests
             customerPanel.Contains("FindPotionResponse") &&
             customerPanel.Contains("PotionResponseMatches") &&
             customerPanel.Contains("ApplyOutcomeEffects(response?.Effects)"));
+        AssertTrue("CustomerPanel renders structured customer dialogue lines",
+            customerPanel.Contains("AppendAuthoredLines") &&
+            customerPanel.Contains("QueueAuthoredLines") &&
+            customerPanel.Contains("QueueDialogueOptionResponse") &&
+            customerPanel.Contains("TryBuildStructuredOutcomeConversation") &&
+            customerPanel.Contains("AddAuthoredDialogueLines"));
+        AssertTrue("Authored data validation accepts structured option responses",
+            validator.Contains("option.ResponseLines.Count == 0"));
         AssertTrue("CustomerPanel restores normal skip button labels for regular customers",
             customerPanel.Contains("_comeBackTomorrowButton.Text = \"Come back tomorrow\"") &&
             customerPanel.Contains("_sorryCantHelpYouButton.Text = \"Sorry can't help you\""));
@@ -360,14 +541,31 @@ internal static class CustomerFlowTests
             dayController.Contains("_customerPanel.DialogueResolved += OnCustomerDialogueResolved") &&
             dayController.Contains("private void OnCustomerDialogueResolved()") &&
             dayController.Contains("_awaitingSaleResultClose = true;"));
-        AssertTrue("DayController pauses the shop timer during plot conversations",
-            dayController.Contains("_customerPanel.PlotConversationStarted += OnPlotConversationStarted") &&
-            dayController.Contains("private void OnPlotConversationStarted()") &&
-            dayController.Contains("_shopTimer.Stop();"));
+        AssertTrue("DayController closes final dialogue customers through the shared customer-limit path",
+            dayController.Contains("private void OnCustomerDialogueResolved()") &&
+            dayController.Contains("ShouldCloseShopAfterCurrentCustomer()") &&
+            dayController.Contains("_awaitingSaleResultClose = true;"));
         AssertTrue("Tiered customer data includes a sample plot customer dialogue tree",
-            tieredCustomers.Contains("\"id\": \"plot_miss_ives_visit_1\"") &&
+            tieredCustomers.Contains("\"id\": \"plot_bridget_visit_1\"") &&
             tieredCustomers.Contains("\"revealsRequest\": true") &&
             tieredCustomers.Contains("\"potionResponses\""));
+    }
+
+    private static void TestCustomerPanelRendersDialogueNodeTextAsNarration()
+    {
+        var customerPanel = ReadProjectFile("Scripts/UI/CustomerPanel.cs");
+        var formatter = ReadProjectFile("Scripts/UI/CustomerDialogueTextFormatter.cs");
+
+        AssertTrue("Conversation formatter supports headerless narration",
+            formatter.Contains("FormatNarrationLine") &&
+            formatter.Contains("string.IsNullOrWhiteSpace(speaker)") &&
+            formatter.Contains("return FormatNarrationLine(text);"));
+        AssertTrue("CustomerPanel queues dialogue node text as narration",
+            customerPanel.Contains("QueueAuthoredLines(node.Lines, node.Text, null);"));
+        AssertTrue("CustomerPanel keeps legacy option responses under customer speaker",
+            customerPanel.Contains("QueueDialogueOptionResponse(option);") &&
+            customerPanel.Contains("option.ResponseText") &&
+            customerPanel.Contains("CustomerDialogueTextFormatter.CustomerSpeakerName"));
     }
 
     private static void TestCustomerDropBoxDisablesAfterSale()
@@ -416,6 +614,7 @@ internal static class CustomerFlowTests
     {
         var customerPanel = ReadProjectFile("Scripts/UI/CustomerPanel.cs");
         var inventorySlot = ReadProjectFile("Scripts/UI/InventoryItemSlot.cs");
+        var jarredSlot = ReadProjectFile("Scripts/UI/JarredInventorySlotView.cs");
 
         AssertTrue("CustomerPanel defines exactly four customer potion slots",
             customerPanel.Contains("CustomerPotionSlotCount = 4") &&
@@ -426,20 +625,22 @@ internal static class CustomerFlowTests
         AssertTrue("CustomerPanel uses inventory slots so customer potion slots drag item ids",
             customerPanel.Contains("InventoryItemSlot") &&
             inventorySlot.Contains("return Variant.CreateFrom(ItemId);"));
-        AssertTrue("CustomerPanel left-click opens customer potion details through the shared inventory panel",
-            customerPanel.Contains("InventoryPanelPath = new(\"../InventoryPanel\")") &&
-            customerPanel.Contains("slot.SlotActivated += ShowPotionDetail;") &&
-            customerPanel.Contains("_inventoryPanel?.OpenItemDetail(itemId);"));
+        AssertTrue("CustomerPanel exposes visible potion slots for tutorial highlighting without the removed inventory panel",
+            customerPanel.Contains("public Control? GetVisiblePotionSlot(string itemId)") &&
+            !customerPanel.Contains("InventoryPanelPath") &&
+            !customerPanel.Contains("OpenItemDetail"));
         AssertTrue("CustomerPanel fills potion slots from current potion inventory",
             customerPanel.Contains("_gameState.Inventory") &&
             customerPanel.Contains("Where(stack => IsPotionItem(stack.Key) && stack.Value > 0)") &&
-            customerPanel.Contains("UiIconLoader.LoadIcon(item.IconPath)"));
+            customerPanel.Contains("SetPotionSlotContent(slotView.Button, displayName, itemId, quantity)"));
         AssertTrue("CustomerPanel leaves empty potion slots visible but disabled",
             customerPanel.Contains("ClearPotionSlot") &&
             customerPanel.Contains("slotView.Button.Disabled = true") &&
-            customerPanel.Contains("slotView.Icon.Visible = false"));
+            customerPanel.Contains("ClearPotionSlotContent(slotView.Button)"));
         AssertTrue("CustomerPanel shows potion slot quantity badges",
-            customerPanel.Contains("slotView.Quantity.Text = quantity > 1 ? quantity.ToString() : \"\"") &&
+            jarredSlot.Contains("Name = \"Quantity\"") &&
+            jarredSlot.Contains("PotionLiquidView") &&
+            customerPanel.Contains("QuantityFontSize = 10") &&
             customerPanel.Contains("slotView.Button.TooltipText = $\"{displayName} x{quantity}\""));
         AssertTrue("CustomerPanel shows potion slots only when a potion can be sold",
             customerPanel.Contains("SetPotionSlotRowVisible(true)") &&
@@ -449,5 +650,32 @@ internal static class CustomerFlowTests
         AssertTrue("CustomerPanel refreshes potion slots when inventory changes",
             customerPanel.Contains("_gameState.Changed += RefreshPotionSlotRow") &&
             customerPanel.Contains("_gameState.Changed -= RefreshPotionSlotRow"));
+    }
+
+    private static CustomerTraitRangeDef Range(int? min = null, int? max = null)
+    {
+        return new CustomerTraitRangeDef
+        {
+            Min = min,
+            Max = max
+        };
+    }
+
+    private static int CountOccurrences(string text, string value)
+    {
+        if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(value))
+            return 0;
+
+        var count = 0;
+        var startIndex = 0;
+        while (true)
+        {
+            var index = text.IndexOf(value, startIndex, StringComparison.Ordinal);
+            if (index < 0)
+                return count;
+
+            count += 1;
+            startIndex = index + value.Length;
+        }
     }
 }

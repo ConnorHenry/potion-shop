@@ -21,18 +21,17 @@ internal static class PotionBrewingServiceTests
         runner.Run("Carried ingredient risks apply price penalty", TestCarriedIngredientRisksApplyPricePenalty);
         runner.Run("Failed ingredient risks do not apply price penalty", TestFailedIngredientRisksDoNotApplyPricePenalty);
         runner.Run("Clamps risk chances at ten", TestClampsRiskChancesAtTen);
-        runner.Run("Failed carried risks do not affect synergies or scoring", TestFailedCarriedRisksDoNotAffectSynergiesOrScoring);
-        runner.Run("Synergy-added risks roll before reaching the potion", TestSynergyAddedRisksRollBeforeReachingPotion);
-        runner.Run("Applies risk and trait gated synergies", TestRiskAndTraitSynergyRequirement);
+        runner.Run("Failed carried risks do not affect scoring", TestFailedCarriedRisksDoNotAffectScoring);
         runner.Run("Ingredient effects boost the lowest other trait", TestIngredientEffectBoostsLowestOtherTrait);
         runner.Run("Ingredient effects reduce other risk chances before rolls", TestIngredientEffectHalvesOtherRiskChances);
         runner.Run("Ingredient effects can add volatile risk chances", TestIngredientEffectAddsVolatileRiskChance);
         runner.Run("Ingredient effects can suppress one carried risk", TestIngredientEffectSuppressesSingleCarriedRisk);
         runner.Run("Ingredient effects ignore ingredient queue order", TestIngredientEffectsIgnoreIngredientOrder);
         runner.Run("PotionRecipeLookup exact grams override base recipes", TestPotionRecipeLookupExactGrams);
-        runner.Run("Triggers healing_corruption from healing trait and corruption risk", TestHealingCorruptionFromTraitAndRisk);
+        runner.Run("PotionRecipeLookup distinguishes preparation methods", TestPotionRecipeLookupPreparationMethods);
+        runner.Run("Prepared ingredients use preparation traits and metadata", TestPreparedIngredientFactoryUsesPreparationData);
         runner.Run("Scores a clean positive brew", TestPositiveBrew);
-        runner.Run("Handles negative synergy and penalties", TestNegativeBrew);
+        runner.Run("Handles risk penalties", TestRiskPenaltyBrew);
     }
 
     private static void TestPotionRecipeLookupExactGrams()
@@ -44,18 +43,18 @@ internal static class PotionBrewingServiceTests
             {
                 Id = "base_rest",
                 Name = "Base Rest",
-                IngredientIds = new List<string> { "mooncap_mushroom", "black_ichor", "lavender_ash" }
+                IngredientIds = new List<string> { "heather", "elder", "rosemary" }
             },
             new()
             {
                 Id = "exact_rest",
                 Name = "Exact Rest",
-                IngredientIds = new List<string> { "mooncap_mushroom", "black_ichor", "lavender_ash" },
+                IngredientIds = new List<string> { "heather", "elder", "rosemary" },
                 IngredientAmounts = new List<IngredientPortionDef>
                 {
-                    new() { IngredientId = "mooncap_mushroom", Grams = 6 },
-                    new() { IngredientId = "black_ichor", Grams = 2 },
-                    new() { IngredientId = "lavender_ash", Grams = 1 }
+                    new() { IngredientId = "heather", Grams = 6 },
+                    new() { IngredientId = "elder", Grams = 2 },
+                    new() { IngredientId = "rosemary", Grams = 1 }
                 }
             }
         };
@@ -64,16 +63,16 @@ internal static class PotionBrewingServiceTests
 
         var exactPortions = new List<IngredientPortionDef>
         {
-            new() { IngredientId = "black_ichor", Grams = 2 },
-            new() { IngredientId = "lavender_ash", Grams = 1 },
-            new() { IngredientId = "mooncap_mushroom", Grams = 6 }
+            new() { IngredientId = "elder", Grams = 2 },
+            new() { IngredientId = "rosemary", Grams = 1 },
+            new() { IngredientId = "heather", Grams = 6 }
         };
         var exactMatched = lookup.TryGetRecipe(exactPortions, out var exactRecipe);
         AssertTrue("Exact measured recipe matches", exactMatched);
         AssertEqual("Exact recipe id", "exact_rest", exactRecipe.Id);
         AssertEqual(
             "Exact combination key",
-            "black_ichor@2g|lavender_ash@1g|mooncap_mushroom@6g",
+            "elder@2g|heather@6g|rosemary@1g",
             PotionRecipeLookup.BuildCombinationKey(exactPortions));
 
         exactPortions[2].Grams = 7;
@@ -83,19 +82,98 @@ internal static class PotionBrewingServiceTests
 
         var directPortions = new List<IngredientPortionDef>
         {
-            new() { IngredientId = "black_ichor" },
-            new() { IngredientId = "lavender_ash" },
-            new() { IngredientId = "mooncap_mushroom" }
+            new() { IngredientId = "elder" },
+            new() { IngredientId = "rosemary" },
+            new() { IngredientId = "heather" }
         };
         var directMatched = lookup.TryGetRecipe(directPortions, out var directRecipe);
         AssertTrue("Direct unmeasured recipe still matches base", directMatched);
         AssertEqual("Direct recipe id", "base_rest", directRecipe.Id);
     }
 
+    private static void TestPotionRecipeLookupPreparationMethods()
+    {
+        var lookup = new PotionRecipeLookup();
+        var recipes = new List<PotionRecipeDef>
+        {
+            new()
+            {
+                Id = "steeped_rest",
+                Name = "Steeped Rest",
+                IngredientIds = new List<string> { "heather", "elder", "rosemary" },
+                IngredientAmounts = new List<IngredientPortionDef>
+                {
+                    new() { IngredientId = "heather", PreparationId = "steeped" },
+                    new() { IngredientId = "elder", PreparationId = "boiled" },
+                    new() { IngredientId = "rosemary", PreparationId = "raw" }
+                }
+            }
+        };
+
+        lookup.Rebuild(recipes, _ => true);
+
+        var matchingPortions = new List<IngredientPortionDef>
+        {
+            new() { IngredientId = "rosemary", PreparationId = "raw" },
+            new() { IngredientId = "heather", PreparationId = "steeped" },
+            new() { IngredientId = "elder", PreparationId = "boiled" }
+        };
+
+        AssertTrue("Prepared recipe matches exact preparation ids",
+            lookup.TryGetRecipe(matchingPortions, out var matchedRecipe));
+        AssertEqual("Prepared recipe id", "steeped_rest", matchedRecipe.Id);
+        AssertEqual(
+            "Prepared combination key",
+            "elder#boiled|heather#steeped|rosemary#raw",
+            PotionRecipeLookup.BuildCombinationKey(matchingPortions));
+
+        matchingPortions[1].PreparationId = "crushed";
+        AssertTrue("Wrong preparation does not match prepared recipe",
+            !lookup.TryGetRecipe(matchingPortions, out _));
+    }
+
+    private static void TestPreparedIngredientFactoryUsesPreparationData()
+    {
+        var baseIngredient = new ItemDef
+        {
+            Id = "mint",
+            Name = "Mint",
+            IconPath = "res://Assets/Items/mint.png",
+            BasePrice = 7,
+            Quality = 70,
+            Tags = new List<string> { ItemTags.Ingredient, ItemTags.Herb },
+            Traits = new Dictionary<string, int>(),
+            Risks = new Dictionary<string, int>(),
+            Preparations = new Dictionary<string, IngredientPreparationDef>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["crushed"] = new()
+                {
+                    Traits = new Dictionary<string, int> { ["cleanse"] = 5 },
+                    Risks = new Dictionary<string, int> { ["melancholy"] = 1 }
+                }
+            }
+        };
+
+        var built = PreparedIngredientFactory.TryBuildPreparedIngredient(
+            baseIngredient,
+            "crushed",
+            out var preparedIngredient,
+            out var error);
+
+        AssertTrue($"Prepared ingredient builds without error: {error}", built);
+        AssertEqual("Prepared item id", "mint__prep_crushed", preparedIngredient.Id);
+        AssertEqual("Prepared item name", "Mint (Crushed)", preparedIngredient.Name);
+        AssertEqual("Prepared trait", 5, preparedIngredient.Traits["cleanse"]);
+        AssertEqual("Prepared risk", 1, preparedIngredient.Risks["melancholy"]);
+        AssertEqual("Prepared metadata base", "mint", preparedIngredient.PreparedIngredient?.BaseIngredientId ?? "");
+        AssertEqual("Prepared metadata prep", "crushed", preparedIngredient.PreparedIngredient?.PreparationId ?? "");
+        AssertTrue("Prepared tag is present", preparedIngredient.Tags.Contains(ItemTags.PreparedIngredient));
+    }
+
     private static void TestRejectsEmptyIngredients()
     {
         var service = new PotionBrewingService();
-        var result = service.BrewPotion(new List<IngredientDef>(), null, new List<SynergyRule>());
+        var result = service.BrewPotion(new List<IngredientDef>(), null);
 
         AssertEqual("Grade", "F", result.Grade);
         AssertEqual("FinalScore", 0.0f, result.FinalScore);
@@ -111,8 +189,8 @@ internal static class PotionBrewingServiceTests
         {
             new()
             {
-                Id = "mooncap_mushroom",
-                Name = "Mooncap Mushroom",
+                Id = "heather",
+                Name = "Heather",
                 Quality = 40,
                 Traits = new Dictionary<string, int>
                 {
@@ -122,8 +200,8 @@ internal static class PotionBrewingServiceTests
             },
             new()
             {
-                Id = "grave_mint",
-                Name = "Grave Mint",
+                Id = "mint",
+                Name = "Mint",
                 Quality = 40,
                 Traits = new Dictionary<string, int>
                 {
@@ -133,7 +211,7 @@ internal static class PotionBrewingServiceTests
             }
         };
 
-        var result = service.BrewPotion(ingredients, null, new List<SynergyRule>());
+        var result = service.BrewPotion(ingredients, null);
 
         AssertEqual("Trait count", 4, result.Traits.Count);
         AssertEqual("sleep", 4, result.Traits["sleep"]);
@@ -182,7 +260,7 @@ internal static class PotionBrewingServiceTests
             }
         };
 
-        var result = service.PreviewPotion(ingredients, null, new List<SynergyRule>());
+        var result = service.PreviewPotion(ingredients, null);
 
         AssertEqual("Actual carried risk count", 0, result.Risks.Count);
         AssertEqual("Possible risk count", 4, result.PossibleRisks.Count);
@@ -225,7 +303,7 @@ internal static class PotionBrewingServiceTests
             }
         };
 
-        var result = service.BrewPotion(ingredients, null, new List<SynergyRule>());
+        var result = service.BrewPotion(ingredients, null);
 
         AssertEqual("Combined risk rolled once", 1, rollCount);
         AssertEqual("Possible nausea chance", 6, result.PossibleRisks["nausea"]);
@@ -240,8 +318,8 @@ internal static class PotionBrewingServiceTests
         {
             new()
             {
-                Id = "amber_nightshade",
-                Name = "Amber Nightshade",
+                Id = "yarrow",
+                Name = "Yarrow",
                 Quality = 40,
                 BasePrice = 12,
                 Risks = new Dictionary<string, int>
@@ -251,21 +329,21 @@ internal static class PotionBrewingServiceTests
             },
             new()
             {
-                Id = "black_ichor",
-                Name = "Black Ichor",
+                Id = "elder",
+                Name = "Elder",
                 Quality = 40,
                 BasePrice = 18
             },
             new()
             {
-                Id = "grave_mint",
-                Name = "Grave Mint",
+                Id = "mint",
+                Name = "Mint",
                 Quality = 40,
                 BasePrice = 8
             }
         };
 
-        var result = service.BrewPotion(ingredients, null, new List<SynergyRule>());
+        var result = service.BrewPotion(ingredients, null);
 
         AssertEqual("Insomnia is carried", 1, result.Risks["insomnia"]);
         AssertEqual("Risk ingredient price penalty", 12, result.RiskIngredientPricePenalty);
@@ -278,8 +356,8 @@ internal static class PotionBrewingServiceTests
         {
             new()
             {
-                Id = "amber_nightshade",
-                Name = "Amber Nightshade",
+                Id = "yarrow",
+                Name = "Yarrow",
                 Quality = 40,
                 BasePrice = 12,
                 Risks = new Dictionary<string, int>
@@ -289,7 +367,7 @@ internal static class PotionBrewingServiceTests
             }
         };
 
-        var result = service.BrewPotion(ingredients, null, new List<SynergyRule>());
+        var result = service.BrewPotion(ingredients, null);
 
         AssertEqual("No carried risk", 0, result.Risks.Count);
         AssertEqual("No risk ingredient price penalty", 0, result.RiskIngredientPricePenalty);
@@ -313,22 +391,22 @@ internal static class PotionBrewingServiceTests
             }
         };
 
-        var result = service.BrewPotion(ingredients, null, new List<SynergyRule>());
+        var result = service.BrewPotion(ingredients, null);
 
         AssertEqual("Fever chance clamped", 10, result.PossibleRisks["fever"]);
         AssertTrue("Zero chance risk ignored", !result.PossibleRisks.ContainsKey("ignored"));
         AssertEqual("Clamped risk always carries", 1, result.Risks["fever"]);
     }
 
-    private static void TestFailedCarriedRisksDoNotAffectSynergiesOrScoring()
+    private static void TestFailedCarriedRisksDoNotAffectScoring()
     {
         var service = new PotionBrewingService(() => 0.99f);
         var ingredients = new List<IngredientDef>
         {
             new()
             {
-                Id = "mooncap_mushroom",
-                Name = "Mooncap Mushroom",
+                Id = "heather",
+                Name = "Heather",
                 Quality = 80,
                 Traits = new Dictionary<string, int>
                 {
@@ -344,133 +422,22 @@ internal static class PotionBrewingServiceTests
         var request = new CustomerRequestDef
         {
             Id = "clean_healing",
-            DesiredTraits = new Dictionary<string, int>
+            DesiredTraits = new Dictionary<string, CustomerTraitRangeDef>
             {
-                ["healing"] = 2
+                ["healing"] = Range(min: 2)
             },
-            BadTraits = new Dictionary<string, int>
+            BadTraits = new Dictionary<string, CustomerTraitRangeDef>
             {
-                ["corruption"] = 1
+                ["corruption"] = Range(max: 0)
             }
         };
 
-        var rules = new List<SynergyRule>
-        {
-            new()
-            {
-                Id = "healing_corruption",
-                RequiredTraits = new List<string> { "healing" },
-                RequiredRisks = new List<string> { "corruption" },
-                Modifier = -20,
-                ResultTrait = "unstable_regeneration"
-            }
-        };
-
-        var result = service.BrewPotion(ingredients, request, rules);
+        var result = service.BrewPotion(ingredients, request);
 
         AssertEqual("Possible corruption chance", 1, result.PossibleRisks["corruption"]);
         AssertEqual("Carried risk count", 0, result.Risks.Count);
-        AssertEqual("SynergyScore", 0, result.SynergyScore);
-        AssertTrue("Risk-gated synergy did not trigger", !result.TriggeredSynergies.Contains("healing_corruption"));
-        AssertTrue("Risk result trait not added", !result.Traits.ContainsKey("unstable_regeneration"));
         AssertEqual("EffectFitScore ignores failed risk", 100, result.EffectFitScore);
-    }
-
-    private static void TestSynergyAddedRisksRollBeforeReachingPotion()
-    {
-        var service = new PotionBrewingService(() => 0.49f);
-        var ingredients = new List<IngredientDef>
-        {
-            new()
-            {
-                Id = "healing_bloom",
-                Name = "Healing Bloom",
-                Quality = 50,
-                Traits = new Dictionary<string, int>
-                {
-                    ["healing"] = 3,
-                    ["corruption"] = 2
-                }
-            }
-        };
-
-        var rules = new List<SynergyRule>
-        {
-            new()
-            {
-                Id = "healing_corruption",
-                RequiredTraits = new List<string> { "healing", "corruption" },
-                Modifier = -20,
-                AddedRisk = "mutation",
-                AddedRiskStrength = 5
-            }
-        };
-
-        var result = service.BrewPotion(ingredients, null, rules);
-
-        AssertTrue("healing_corruption triggered", result.TriggeredSynergies.Contains("healing_corruption"));
-        AssertEqual("Possible mutation chance", 5, result.PossibleRisks["mutation"]);
-        AssertEqual("Mutation is stored as presence", 1, result.Risks["mutation"]);
-    }
-
-    private static void TestRiskAndTraitSynergyRequirement()
-    {
-        var service = new PotionBrewingService(() => 0.0f);
-
-        var ingredients = new List<IngredientDef>
-        {
-            new()
-            {
-                Id = "frost_mint",
-                Name = "Frost Mint",
-                Quality = 65,
-                Traits = new Dictionary<string, int>
-                {
-                    ["calm"] = 3
-                },
-                Risks = new Dictionary<string, int>
-                {
-                    ["chill"] = 2
-                }
-            },
-            new()
-            {
-                Id = "night_pollen",
-                Name = "Night Pollen",
-                Quality = 65,
-                Traits = new Dictionary<string, int>
-                {
-                    ["sleep"] = 2
-                }
-            }
-        };
-
-        var rules = new List<SynergyRule>
-        {
-            new()
-            {
-                Id = "cold_slumber",
-                RequiredTraits = new List<string> { "sleep", "calm" },
-                RequiredRisks = new List<string> { "chill" },
-                Modifier = 8,
-                ResultTrait = "deep_rest"
-            },
-            new()
-            {
-                Id = "missing_risk_gate",
-                RequiredTraits = new List<string> { "sleep" },
-                RequiredRisks = new List<string> { "burn" },
-                Modifier = 20,
-                ResultTrait = "should_not_trigger"
-            }
-        };
-
-        var result = service.BrewPotion(ingredients, null, rules);
-
-        AssertEqual("SynergyScore", 8, result.SynergyScore);
-        AssertTrue("Triggered includes risk-gated synergy", result.TriggeredSynergies.Contains("cold_slumber"));
-        AssertTrue("Missing-risk rule does not trigger", !result.TriggeredSynergies.Contains("missing_risk_gate"));
-        AssertTrue("Result trait added", result.Traits.ContainsKey("deep_rest"));
+        AssertEqual("PenaltyScore ignores failed risk", 0, result.PenaltyScore);
     }
 
     private static void TestIngredientEffectBoostsLowestOtherTrait()
@@ -480,8 +447,8 @@ internal static class PotionBrewingServiceTests
         {
             new()
             {
-                Id = "lavender_ash",
-                Name = "Lavender Ash",
+                Id = "rosemary",
+                Name = "Rosemary",
                 Quality = 80,
                 Traits = new Dictionary<string, int>
                 {
@@ -499,8 +466,8 @@ internal static class PotionBrewingServiceTests
             },
             new()
             {
-                Id = "mooncap_mushroom",
-                Name = "Mooncap Mushroom",
+                Id = "heather",
+                Name = "Heather",
                 Quality = 80,
                 Traits = new Dictionary<string, int>
                 {
@@ -509,8 +476,8 @@ internal static class PotionBrewingServiceTests
             },
             new()
             {
-                Id = "black_ichor",
-                Name = "Black Ichor",
+                Id = "elder",
+                Name = "Elder",
                 Quality = 80,
                 Traits = new Dictionary<string, int>
                 {
@@ -519,7 +486,7 @@ internal static class PotionBrewingServiceTests
             }
         };
 
-        var result = service.PreviewPotion(ingredients, null, new List<SynergyRule>());
+        var result = service.PreviewPotion(ingredients, null);
 
         AssertEqual("Lowest other trait boosted", 5, result.Traits["calm"]);
         AssertEqual("Source trait remains", 5, result.Traits["dream"]);
@@ -534,22 +501,22 @@ internal static class PotionBrewingServiceTests
         {
             new()
             {
-                Id = "obsidian_resin",
-                Name = "Obsidian Resin",
+                Id = "gorse",
+                Name = "Gorse",
                 Quality = 80,
                 IngredientEffects = new List<IngredientEffectDef>
                 {
                     new()
                     {
                         Kind = IngredientEffectDef.HalveOtherRisksKind,
-                        Name = "Obsidian Binding"
+                        Name = "Gorse Binding"
                     }
                 }
             },
             new()
             {
-                Id = "black_ichor",
-                Name = "Black Ichor",
+                Id = "elder",
+                Name = "Elder",
                 Quality = 80,
                 Risks = new Dictionary<string, int>
                 {
@@ -558,8 +525,8 @@ internal static class PotionBrewingServiceTests
             },
             new()
             {
-                Id = "amber_nightshade",
-                Name = "Amber Nightshade",
+                Id = "yarrow",
+                Name = "Yarrow",
                 Quality = 80,
                 Risks = new Dictionary<string, int>
                 {
@@ -569,7 +536,7 @@ internal static class PotionBrewingServiceTests
             }
         };
 
-        var result = service.PreviewPotion(ingredients, null, new List<SynergyRule>());
+        var result = service.PreviewPotion(ingredients, null);
 
         AssertEqual("Nausea chance halved", 2, result.PossibleRisks["nausea"]);
         AssertEqual("Insomnia chance halved", 1, result.PossibleRisks["insomnia"]);
@@ -583,8 +550,8 @@ internal static class PotionBrewingServiceTests
         {
             new()
             {
-                Id = "black_ichor",
-                Name = "Black Ichor",
+                Id = "elder",
+                Name = "Elder",
                 Quality = 80,
                 Traits = new Dictionary<string, int>
                 {
@@ -604,8 +571,8 @@ internal static class PotionBrewingServiceTests
             },
             new()
             {
-                Id = "mooncap_mushroom",
-                Name = "Mooncap Mushroom",
+                Id = "heather",
+                Name = "Heather",
                 Quality = 80,
                 Traits = new Dictionary<string, int>
                 {
@@ -614,7 +581,7 @@ internal static class PotionBrewingServiceTests
             }
         };
 
-        var result = service.BrewPotion(ingredients, null, new List<SynergyRule>());
+        var result = service.BrewPotion(ingredients, null);
 
         AssertEqual("Strongest trait boosted", 7, result.Traits["rest"]);
         AssertEqual("Possible corruption chance", 2, result.PossibleRisks["corruption"]);
@@ -628,8 +595,8 @@ internal static class PotionBrewingServiceTests
         {
             new()
             {
-                Id = "black_ichor",
-                Name = "Black Ichor",
+                Id = "elder",
+                Name = "Elder",
                 Quality = 80,
                 Risks = new Dictionary<string, int>
                 {
@@ -638,8 +605,8 @@ internal static class PotionBrewingServiceTests
             },
             new()
             {
-                Id = "iron_lullaby_root",
-                Name = "Iron Lullaby Root",
+                Id = "thyme",
+                Name = "Thyme",
                 Quality = 80,
                 IngredientEffects = new List<IngredientEffectDef>
                 {
@@ -652,7 +619,7 @@ internal static class PotionBrewingServiceTests
             }
         };
 
-        var result = service.BrewPotion(ingredients, null, new List<SynergyRule>());
+        var result = service.BrewPotion(ingredients, null);
 
         AssertEqual("Possible risk remains visible", 2, result.PossibleRisks["nausea"]);
         AssertEqual("Carried risk suppressed", 0, result.Risks.Count);
@@ -713,66 +680,15 @@ internal static class PotionBrewingServiceTests
 
         var firstResult = service.PreviewPotion(
             new List<IngredientDef> { darkCatalyst, dreamBloom, silverTemper },
-            null,
-            new List<SynergyRule>());
+            null);
         var reversedResult = service.PreviewPotion(
             new List<IngredientDef> { silverTemper, dreamBloom, darkCatalyst },
-            null,
-            new List<SynergyRule>());
+            null);
 
         AssertEqual("Clarity does not depend on queue order", firstResult.Traits["clarity"], reversedResult.Traits["clarity"]);
         AssertEqual("Dream does not depend on queue order", firstResult.Traits["dream"], reversedResult.Traits["dream"]);
         AssertEqual("Rest does not depend on queue order", firstResult.Traits["rest"], reversedResult.Traits["rest"]);
         AssertEqual("Effect count does not depend on queue order", firstResult.TriggeredIngredientEffects.Count, reversedResult.TriggeredIngredientEffects.Count);
-    }
-
-    private static void TestHealingCorruptionFromTraitAndRisk()
-    {
-        var service = new PotionBrewingService(() => 0.0f);
-
-        var ingredients = new List<IngredientDef>
-        {
-            new()
-            {
-                Id = "mooncap_mushroom",
-                Name = "Mooncap Mushroom",
-                Quality = 85,
-                Traits = new Dictionary<string, int>
-                {
-                    ["healing"] = 2
-                }
-            },
-            new()
-            {
-                Id = "lavender_ash",
-                Name = "Lavender Ash",
-                Quality = 80,
-                Risks = new Dictionary<string, int>
-                {
-                    ["corruption"] = 1
-                }
-            }
-        };
-
-        var rules = new List<SynergyRule>
-        {
-            new()
-            {
-                Id = "healing_corruption",
-                RequiredTraits = new List<string> { "healing" },
-                RequiredRisks = new List<string> { "corruption" },
-                Modifier = -20,
-                ResultTrait = "unstable_regeneration",
-                AddedRisk = "mutation",
-                AddedRiskStrength = 4
-            }
-        };
-
-        var result = service.BrewPotion(ingredients, null, rules);
-
-        AssertTrue("healing_corruption triggered", result.TriggeredSynergies.Contains("healing_corruption"));
-        AssertEqual("Mutation is stored as presence", 1, result.Risks["mutation"]);
-        AssertTrue("synergy details include risk contribution", result.TriggeredSynergyDetails[0].ContributingRisks.ContainsKey("corruption"));
     }
 
     private static void TestPositiveBrew()
@@ -809,40 +725,24 @@ internal static class PotionBrewingServiceTests
         {
             Id = "rest_request",
             Description = "A potion that calms and induces rest.",
-            DesiredTraits = new Dictionary<string, int>
+            DesiredTraits = new Dictionary<string, CustomerTraitRangeDef>
             {
-                ["sleep"] = 5,
-                ["calm"] = 4,
-                ["peaceful_sedation"] = 2
+                ["sleep"] = Range(min: 5),
+                ["calm"] = Range(min: 4)
             }
         };
 
-        var synergyRules = new List<SynergyRule>
-        {
-            new()
-            {
-                Id = "sleep_calm",
-                RequiredTraits = new List<string> { "sleep", "calm" },
-                Modifier = 10,
-                ResultTrait = "peaceful_sedation",
-                Description = "Sleep and calm combine into a smooth sedative effect."
-            }
-        };
-
-        var result = service.BrewPotion(ingredients, request, synergyRules);
+        var result = service.BrewPotion(ingredients, request);
 
         AssertEqual("IngredientQualityScore", 70, result.IngredientQualityScore);
         AssertEqual("EffectFitScore", 100, result.EffectFitScore);
-        AssertEqual("SynergyScore", 10, result.SynergyScore);
         AssertEqual("StabilityScore", 100, result.StabilityScore);
         AssertEqual("PenaltyScore", 0, result.PenaltyScore);
-        AssertEqual("FinalScore", 70.0f, result.FinalScore);
-        AssertEqual("Grade", "B-", result.Grade);
-        AssertTrue("Triggered synergies includes sleep_calm", result.TriggeredSynergies.Contains("sleep_calm"));
-        AssertTrue("Result trait added", result.Traits.ContainsKey("peaceful_sedation"));
+        AssertEqual("FinalScore", 91.0f, result.FinalScore);
+        AssertEqual("Grade", "A", result.Grade);
     }
 
-    private static void TestNegativeBrew()
+    private static void TestRiskPenaltyBrew()
     {
         var service = new PotionBrewingService(() => 0.0f);
 
@@ -856,16 +756,10 @@ internal static class PotionBrewingServiceTests
                 Traits = new Dictionary<string, int>
                 {
                     ["healing"] = 3
-                }
-            },
-            new()
-            {
-                Id = "corrupt_root",
-                Name = "Corrupt Root",
-                Quality = 50,
-                Traits = new Dictionary<string, int>
+                },
+                Risks = new Dictionary<string, int>
                 {
-                    ["corruption"] = 2
+                    ["mutation"] = 4
                 }
             }
         };
@@ -874,40 +768,33 @@ internal static class PotionBrewingServiceTests
         {
             Id = "anti_mutation",
             Description = "The customer wants healing without corruption.",
-            DesiredTraits = new Dictionary<string, int>
+            DesiredTraits = new Dictionary<string, CustomerTraitRangeDef>
             {
-                ["healing"] = 3
+                ["healing"] = Range(min: 3)
             },
-            BadTraits = new Dictionary<string, int>
+            BadTraits = new Dictionary<string, CustomerTraitRangeDef>
             {
-                ["mutation"] = 4
+                ["mutation"] = Range(max: 0)
             }
         };
 
-        var synergyRules = new List<SynergyRule>
-        {
-            new()
-            {
-                Id = "healing_corruption",
-                RequiredTraits = new List<string> { "healing", "corruption" },
-                Modifier = -20,
-                ResultTrait = "unstable_regeneration",
-                AddedRisk = "mutation",
-                AddedRiskStrength = 4,
-                Description = "Healing mixed with corruption creates mutation risk."
-            }
-        };
-
-        var result = service.BrewPotion(ingredients, request, synergyRules);
+        var result = service.BrewPotion(ingredients, request);
 
         AssertEqual("IngredientQualityScore", 50, result.IngredientQualityScore);
-        AssertEqual("SynergyScore", -20, result.SynergyScore);
-        AssertEqual("EffectFitScore", 75, result.EffectFitScore);
-        AssertEqual("StabilityScore", 92, result.StabilityScore);
-        AssertEqual("PenaltyScore", 7, result.PenaltyScore);
-        AssertEqual("FinalScore", 41.4f, result.FinalScore);
+        AssertEqual("EffectFitScore", 0, result.EffectFitScore);
+        AssertEqual("StabilityScore", 98, result.StabilityScore);
+        AssertEqual("PenaltyScore", 1, result.PenaltyScore);
+        AssertEqual("FinalScore", 38.5f, result.FinalScore);
         AssertEqual("Grade", "F", result.Grade);
-        AssertTrue("Triggered synergies includes healing_corruption", result.TriggeredSynergies.Contains("healing_corruption"));
         AssertEqual("Mutation is stored as presence", 1, result.Risks["mutation"]);
+    }
+
+    private static CustomerTraitRangeDef Range(int? min = null, int? max = null)
+    {
+        return new CustomerTraitRangeDef
+        {
+            Min = min,
+            Max = max
+        };
     }
 }

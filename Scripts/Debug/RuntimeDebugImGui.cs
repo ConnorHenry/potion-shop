@@ -30,7 +30,6 @@ public partial class RuntimeDebugImGui : Node
 
 	private int _goldInput;
 	private int _dreadInput;
-	private int _shopTimerSecondsInput = 60;
 	private int _addPotionQuantity = 1;
 	private int _removePotionQuantity = 1;
 	private int _addConsumableQuantity = 1;
@@ -93,12 +92,9 @@ public partial class RuntimeDebugImGui : Node
 
 		_goldInput = _gameState.Gold;
 		_dreadInput = _gameState.Dread;
-		SyncShopTimerInputFromController();
 
 		RebuildDebugCatalog();
 		_runtimeContentDb.Changed += OnRuntimeContentChanged;
-		if (_dayController is not null)
-			_dayController.ShopStateChanged += OnDayControllerShopStateChanged;
 
 		ImGuiGD.Connect(DrawDebugWindow);
 		ImGuiGD.Visible = true;
@@ -108,8 +104,6 @@ public partial class RuntimeDebugImGui : Node
 	{
 		if (_runtimeContentDb is not null)
 			_runtimeContentDb.Changed -= OnRuntimeContentChanged;
-		if (_dayController is not null)
-			_dayController.ShopStateChanged -= OnDayControllerShopStateChanged;
 	}
 
 	private void DrawDebugWindow()
@@ -205,55 +199,26 @@ public partial class RuntimeDebugImGui : Node
 		}
 
 		ImGui.Separator();
-		ImGui.Text($"Shop Timer: {_shopTimerSecondsInput} seconds");
-		DrawShopTimerPauseControls();
-
-		ImGui.InputInt("Stop Timer Seconds", ref _shopTimerSecondsInput);
-		if (_shopTimerSecondsInput < 0)
-			_shopTimerSecondsInput = 0;
-
-		if (ImGui.Button("Apply Stop Timer"))
-		{
-			if (!TrySetShopTimerSeconds(_shopTimerSecondsInput))
-				return;
-		}
-
-		ImGui.SameLine();
-		if (ImGui.SmallButton("End Day Now"))
-		{
-			_shopTimerSecondsInput = 0;
-			TrySetShopTimerSeconds(0);
-		}
+		DrawShopDayControls();
 	}
 
-	private void DrawShopTimerPauseControls()
+	private void DrawShopDayControls()
 	{
 		if (_dayController is null)
 		{
-			ImGui.Text("Shop Timer Pause: DayController unavailable");
+			ImGui.Text("Shop Day: DayController unavailable");
 			return;
 		}
 
 		if (!_dayController.IsShopOpen)
 		{
-			ImGui.Text("Shop Timer Pause: shop closed");
+			ImGui.Text("Shop Day: closed");
 			return;
 		}
 
-		if (_dayController.IsShopTimerDebugPaused)
-		{
-			ImGui.Text("Shop Timer Pause: debug paused");
-			if (ImGui.Button("Resume Shop Timer"))
-				TrySetShopTimerDebugPaused(false);
-			return;
-		}
-
-		ImGui.Text(_dayController.IsShopTimerPaused
-			? "Shop Timer Pause: paused by another system"
-			: "Shop Timer Pause: running");
-
-		if (ImGui.Button("Pause Shop Timer"))
-			TrySetShopTimerDebugPaused(true);
+		ImGui.Text($"Shop Day: open ({_dayController.CustomersArrivedToday}/{_dayController.MaxCustomersPerDay} customers)");
+		if (ImGui.Button("Close Shop Now"))
+			TryCloseShopDay();
 	}
 
 	private void DrawPotionSection()
@@ -796,62 +761,23 @@ public partial class RuntimeDebugImGui : Node
 		RebuildDebugCatalog();
 	}
 
-	private void OnDayControllerShopStateChanged()
-	{
-		SyncShopTimerInputFromController();
-	}
-
-	private void SyncShopTimerInputFromController()
-	{
-		if (_dayController is null)
-			return;
-
-		_shopTimerSecondsInput = Math.Max(0, _dayController.SecondsRemaining);
-	}
-
-	private bool TrySetShopTimerSeconds(int seconds)
+	private bool TryCloseShopDay()
 	{
 		if (_dayController is null)
 		{
-			_statusMessage = "DayController is unavailable, so the stop timer cannot be changed.";
+			_statusMessage = "DayController is unavailable, so the shop day cannot be closed.";
 			return false;
 		}
 
-		var applied = _dayController.TrySetShopTimerSecondsRemaining(seconds);
+		var applied = _dayController.TryCloseShopDayFromDebug();
 
 		if (!applied)
 		{
-			_statusMessage = "DayController is unavailable or the shop is closed, so the stop timer cannot be changed.";
+			_statusMessage = "The shop is already closed.";
 			return false;
 		}
 
-		_statusMessage = seconds <= 0
-			? "Stop timer set to 0 seconds and the shop will close."
-			: $"Stop timer set to {seconds} seconds.";
-		return true;
-	}
-
-	private bool TrySetShopTimerDebugPaused(bool paused)
-	{
-		if (_dayController is null)
-		{
-			_statusMessage = "DayController is unavailable, so the shop timer pause cannot be changed.";
-			return false;
-		}
-
-		var applied = _dayController.TrySetDebugShopTimerPaused(paused);
-
-		if (!applied)
-		{
-			_statusMessage = "DayController is unavailable or the shop is closed, so the shop timer pause cannot be changed.";
-			return false;
-		}
-
-		_statusMessage = paused
-			? "Shop timer paused from debug panel."
-			: _dayController.IsShopTimerPaused
-				? "Debug timer pause cleared; another timer pause is still active."
-				: "Debug timer pause cleared; the shop timer will run when the current shop state allows it.";
+		_statusMessage = "Shop closed and day summary shown.";
 		return true;
 	}
 
