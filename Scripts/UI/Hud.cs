@@ -254,6 +254,8 @@ public partial class Hud : Control
 
 	private void OnStartDayPressed()
 	{
+		if (IsSceneNavigationBlocked())
+			return;
 		if (_dayController is null)
 			return;
 
@@ -270,6 +272,8 @@ public partial class Hud : Control
 
 	private void OnGardenPressed()
 	{
+		if (IsSceneNavigationBlocked())
+			return;
 		if (_dayController is not null && _dayController.IsShopOpen)
 			return;
 		if (GetTree().CurrentScene is Garden)
@@ -285,6 +289,8 @@ public partial class Hud : Control
 
 	private void OnMapPressed()
 	{
+		if (IsSceneNavigationBlocked())
+			return;
 		if (GetTree().CurrentScene is Map)
 			return;
 
@@ -298,6 +304,9 @@ public partial class Hud : Control
 
 	private void OnSettingsPressed()
 	{
+		if (IsSceneNavigationBlocked())
+			return;
+
 		var shouldOpen = !_settingsPanel.Visible;
 		SetSettingsPanelVisible(shouldOpen);
 		if (shouldOpen)
@@ -312,6 +321,9 @@ public partial class Hud : Control
 
 	private void OnReturnToMainMenuPressed()
 	{
+		if (IsSceneNavigationBlocked())
+			return;
+
 		Error error = GetTree().ChangeSceneToFile(ScenePaths.MainMenu);
 		if (error != Error.Ok)
 		{
@@ -605,15 +617,27 @@ public partial class Hud : Control
 		return _settingsPanel.Visible || _settingsDetailsPanel.Visible || _requestPanel.Visible;
 	}
 
+	private bool IsSceneNavigationBlocked()
+	{
+		return GetTree().CurrentScene is ForestGathering;
+	}
+
 	private void RefreshShopState()
 	{
 		var isShopOpen = _dayController is not null && _dayController.IsShopOpen;
+		var navigationBlocked = IsSceneNavigationBlocked();
+		if (navigationBlocked)
+		{
+			SetSettingsPanelVisible(false);
+			SetSettingsDetailsVisible(false);
+		}
 
 		_serveCustomerButton.Text = isShopOpen ? "Shop Open" : "Start Day";
-		_serveCustomerButton.Disabled = _dayController is null || isShopOpen;
-		_gardenButton.Disabled = isShopOpen;
+		_serveCustomerButton.Disabled = navigationBlocked || _dayController is null || isShopOpen;
+		_gardenButton.Disabled = navigationBlocked || isShopOpen;
 		if (GetTree().CurrentScene is Garden)
 			_gardenButton.Disabled = true;
-		_mapButton.Disabled = GetTree().CurrentScene is Map;
+		_mapButton.Disabled = navigationBlocked || GetTree().CurrentScene is Map;
+		_settingsButton.Disabled = navigationBlocked;
 	}
 }

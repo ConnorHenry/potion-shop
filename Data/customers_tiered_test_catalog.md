@@ -15,9 +15,9 @@ Customer request traits use range objects:
 
 ```json
 "desiredTraits": {
-  "calm": { "min": 3 },
-  "clarity": { "min": 3 },
-  "cleanse": { "min": 2 }
+  "calm": { "min": 3, "max": 6 },
+  "clarity": { "min": 3, "max": 6 },
+  "cleanse": { "min": 2, "max": 5 }
 },
 "badTraits": {
   "drowsiness": { "max": 0 },
@@ -25,7 +25,7 @@ Customer request traits use range objects:
 }
 ```
 
-For requests with three desired traits, the customer sale rules require at least two desired traits to match. This leaves room for multiple successful recipes while still making the customer's intent readable.
+For requests with three desired traits, the customer sale rules require at least two desired traits to fall inside their ranges. This leaves room for multiple successful recipes while still making the customer's intent readable.
 
 ## Available Customers
 

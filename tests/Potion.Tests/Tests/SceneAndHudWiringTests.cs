@@ -29,6 +29,7 @@ internal static class SceneAndHudWiringTests
         runner.Run("Persistent HUD owns global HUD visibility", TestPersistentHudOwnsGlobalHudVisibility);
         runner.Run("HUD map navigation is wired", TestHudMapNavigation);
         runner.Run("Map scene builds coordinate grid and modal outcomes", TestMapSceneCoordinateGridAndModalOutcomes);
+        runner.Run("F12 forest gathering scene is wired", TestF12ForestGatheringScene);
         runner.Run("Hud return-to-menu does not auto-save", TestHudReturnToMainMenuDoesNotAutoSave);
         runner.Run("Hud settings panel closes on outside click", TestHudSettingsPanelClosesOnOutsideClick);
         runner.Run("Hud ambient rain settings are wired", TestHudAmbientRainSettingsAreWired);
@@ -53,6 +54,7 @@ internal static class SceneAndHudWiringTests
             ["OccultShop.UI.PotionInventoryRow"] = "Control",
             ["OccultShop.UI.Garden"] = "Control",
             ["OccultShop.UI.Map"] = "Control",
+            ["OccultShop.UI.ForestGathering"] = "Control",
             ["MainMenu"] = "Control"
         };
 
@@ -521,7 +523,7 @@ internal static class SceneAndHudWiringTests
             hud.Contains("TryAutoSave(\"entering the map\")") &&
             hud.Contains("GetTree().ChangeSceneToFile(ScenePaths.Map)"));
         AssertTrue("Hud keeps the map button usable while the shop is open",
-            hud.Contains("_mapButton.Disabled = GetTree().CurrentScene is Map;") &&
+            hud.Contains("_mapButton.Disabled = navigationBlocked || GetTree().CurrentScene is Map;") &&
             !hud.Contains("_mapButton.Disabled = isShopOpen"));
 
         AssertTrue("Map script returns to main scene",
@@ -587,6 +589,304 @@ internal static class SceneAndHudWiringTests
             map.Contains("MouseExited += () => ClearHoveredCoordinate(coordinate)") &&
             map.Contains("Cell: {coordinate.Value}") &&
             map.Contains("new Color(0.98f, 0.82f, 0.34f, 0.34f)"));
+    }
+
+    private static void TestF12ForestGatheringScene()
+    {
+        var scenePaths = ReadProjectFile("Scripts/Infrastructure/ScenePaths.cs");
+        var map = ReadProjectFile("Scripts/UI/Map.cs");
+        var mapScene = ReadProjectFile("Scenes/Main/Map.tscn");
+        var gathering = ReadProjectFile("Scripts/UI/ForestGathering.cs");
+        var gatheringScene = ReadProjectFile("Scenes/Main/ForestGathering.tscn");
+        var normalizedGatheringScene = gatheringScene.Replace("\r\n", "\n");
+        var hud = ReadProjectFile("Scripts/UI/Hud.cs");
+        var plantSpriteDir = Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory,
+            "..",
+            "..",
+            "..",
+            "..",
+            "..",
+            "Assets",
+            "Gathering",
+            "Plants"));
+        var inspectionPlantSpriteDir = Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory,
+            "..",
+            "..",
+            "..",
+            "..",
+            "..",
+            "Assets",
+            "Gathering",
+            "InspectionPlants"));
+        var mintSketchPath = Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory,
+            "..",
+            "..",
+            "..",
+            "..",
+            "..",
+            "Assets",
+            "Gathering",
+            "Sketches",
+            "mint_high_quality_pencil_sketch.png"));
+        var magnifyingGlassCursorPath = Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory,
+            "..",
+            "..",
+            "..",
+            "..",
+            "..",
+            "Assets",
+            "UI",
+            "magnifying_glass_cursor.png"));
+
+        AssertTrue("ScenePaths exposes the forest gathering scene",
+            scenePaths.Contains("public const string ForestGathering") &&
+            scenePaths.Contains("res://Scenes/Main/ForestGathering.tscn"));
+        AssertTrue("Map F12 defaults to the forest gathering scene",
+            map.Contains("F12ScenePath = ScenePaths.ForestGathering") &&
+            map.Contains("damp forest edge"));
+        AssertTrue("Map scene keeps the script F12 destination default",
+            mapScene.Contains("path=\"res://Scripts/UI/Map.cs\"") &&
+            !mapScene.Contains("F12ScenePath = \"\""));
+        AssertTrue("Forest gathering scene uses the gathering script and reserves HUD space",
+            gatheringScene.Contains("path=\"res://Scripts/UI/ForestGathering.cs\"") &&
+            gatheringScene.Contains("offset_top = 50.0") &&
+            gatheringScene.Contains("clip_contents = true"));
+        AssertTrue("Forest gathering is configured for three mint selections",
+            gathering.Contains("TargetItemId = \"mint\"") &&
+            gathering.Contains("MaxActions = 3") &&
+            gatheringScene.Contains("path=\"res://Scripts/UI/ForestGathering.cs\""));
+        AssertTrue("Forest gathering clue sketch uses the high quality mint pencil drawing",
+            File.Exists(mintSketchPath) &&
+            new FileInfo(mintSketchPath).Length > 100_000 &&
+            gathering.Contains("SketchTexturePath = \"res://Assets/Gathering/Sketches/mint_high_quality_pencil_sketch.png\"") &&
+            gatheringScene.Contains("SketchPreviewOverlayPath = NodePath(\"Root/SketchPreviewOverlay\")") &&
+            gatheringScene.Contains("SketchPreviewImagePath = NodePath(\"Root/SketchPreviewOverlay/PreviewFrame/Margin/SketchPreview\")") &&
+            !gathering.Contains("SketchTexturePath = \"res://Assets/Items/mint.png\""));
+        AssertTrue("Forest gathering keeps authored plant definitions over the forest art",
+            gathering.Contains("PlantDefinitions") &&
+            gathering.Contains("new(\"mint\", \"Specimen A\"") &&
+            gathering.Contains("new(\"thyme\", \"Specimen M\"") &&
+            gathering.Contains("new(\"yarrow\", \"Specimen S\"") &&
+            gathering.Contains("new(\"willow\", \"Specimen X\"") &&
+            gathering.Contains("new(\"thyme\", \"Specimen Y\"") &&
+            gathering.Contains("new(\"comfrey\", \"Specimen AI\"") &&
+            gathering.Contains("new(\"willow\", \"Specimen AJ\"") &&
+            gatheringScene.Contains("PlantHotspotsPath = NodePath(\"Root/PlantHotspots\")") &&
+            gatheringScene.Contains("forest_gathering_mint.png"));
+        AssertEqual("Forest gathering keeps exactly three authored mint targets",
+            3,
+            gathering.Split("new(\"mint\",").Length - 1);
+        AssertTrue("Forest gathering randomizes the selectable plant layout on load",
+            gathering.Contains("RandomizePlantLayout();") &&
+            gathering.Contains("new RandomNumberGenerator()") &&
+            gathering.Contains("random.Randomize();") &&
+            gathering.Contains("FindPlantPlacement") &&
+            gathering.Contains("PlacementAttemptsPerPlant") &&
+            gathering.Contains("_activePlantEntries.Sort"));
+        AssertTrue("Forest gathering renders randomized plant sprites above the forest art",
+            gathering.Contains("CreatePlantVisuals();") &&
+            gathering.Contains("new TextureRect") &&
+            gathering.Contains("LoadPlantTexture(entry.TexturePath)") &&
+            gathering.Contains("SetNormalizedRect(visual, entry.Center, entry.Size)") &&
+            gathering.Contains("PlantVisualDepthRange") &&
+            gathering.Contains("_plantHotspots.AddChild(visual)") &&
+            gathering.Contains("mint_decoy_hidden_bud.png") &&
+            gathering.Contains("mint_decoy_wrong_veins.png"));
+        AssertTrue("Forest gathering keeps candidate debug borders disabled by default",
+            gathering.Contains("ShowCandidateDebugBorders = false") &&
+            gathering.Contains("CandidateDebugBorderZIndex = PlantVisualDepthRange + 1") &&
+            gathering.Contains("new Panel") &&
+            gathering.Contains("CreateCandidateDebugBorderStyleBox") &&
+            gathering.Contains("CalculateCandidateBounds(entry, hotspotSize)") &&
+            gathering.Contains("SetNormalizedRect(border, candidateBounds.Position + (candidateBounds.Size * 0.5f), candidateBounds.Size)") &&
+            gathering.Contains("_plantHotspots.AddChild(border)") &&
+            !gathering.Contains("ShowCandidateDebugBorders = true"));
+        AssertTrue("Forest gathering keeps target mint highlights disabled by default",
+            gathering.Contains("ShowTargetDebugHighlights = false") &&
+            gathering.Contains("TargetDebugHighlightZIndex = CandidateDebugBorderZIndex + 1") &&
+            gathering.Contains("CreateTargetDebugHighlightStyleBox") &&
+            gathering.Contains("Name = $\"TargetDebugHighlight{index}\"") &&
+            gathering.Contains("IsTargetEntry(entry)") &&
+            gathering.Contains("_plantHotspots.AddChild(highlight)") &&
+            gathering.Contains("_targetDebugHighlights.Add(highlight)") &&
+            !gathering.Contains("ShowTargetDebugHighlights = true"));
+        AssertTrue("Forest gathering narrows candidate hit areas to plant texture content",
+            gathering.Contains("CalculateCandidateBounds(candidate, surfaceSize)") &&
+            gathering.Contains("candidateBounds.HasPoint(normalizedPosition)") &&
+            gathering.Contains("GetPlantContentTextureBounds(entry.TexturePath)") &&
+            gathering.Contains("image.GetUsedRect()") &&
+            gathering.Contains("CandidateBoundsPaddingPixels") &&
+            !gathering.Contains("public bool Contains(Vector2 normalizedPosition)"));
+        AssertTrue("Forest gathering keeps randomized plants below UI panels",
+            gathering.Contains("ZIndex = Mathf.RoundToInt(entry.Center.Y * PlantVisualDepthRange)") &&
+            normalizedGatheringScene.Contains("[node name=\"TopPanel\" type=\"PanelContainer\" parent=\"Root\"]\nz_index = 35") &&
+            normalizedGatheringScene.Contains("[node name=\"FeedbackPanel\" type=\"PanelContainer\" parent=\"Root\"]\nz_index = 35") &&
+            normalizedGatheringScene.Contains("[node name=\"InspectionPanel\" type=\"PanelContainer\" parent=\"Root\"]\nvisible = false\nz_index = 50") &&
+            normalizedGatheringScene.Contains("[node name=\"CluePanel\" type=\"PanelContainer\" parent=\"Root\"]\nvisible = false\nz_index = 45") &&
+            normalizedGatheringScene.Contains("[node name=\"SketchPreviewOverlay\" type=\"Control\" parent=\"Root\"]\nvisible = false\nz_index = 80") &&
+            normalizedGatheringScene.Contains("[node name=\"ReturnPrompt\" type=\"Control\" parent=\".\"]\nvisible = false\nz_index = 100"));
+        AssertTrue("Forest gathering sprite assets exist",
+            File.Exists(Path.Combine(plantSpriteDir, "mint_target_a.png")) &&
+            File.Exists(Path.Combine(plantSpriteDir, "mint_decoy_hidden_bud.png")) &&
+            File.Exists(Path.Combine(plantSpriteDir, "mint_decoy_wrong_veins.png")) &&
+            File.Exists(Path.Combine(plantSpriteDir, "forest_flowering_stems.png")));
+        AssertTrue("Forest gathering key plant sprites keep high-detail source art",
+            new FileInfo(Path.Combine(plantSpriteDir, "mint_target_a.png")).Length > 100_000 &&
+            new FileInfo(Path.Combine(plantSpriteDir, "mint_decoy_hidden_bud.png")).Length > 100_000 &&
+            new FileInfo(Path.Combine(plantSpriteDir, "mint_decoy_wrong_veins.png")).Length > 100_000 &&
+            new FileInfo(Path.Combine(plantSpriteDir, "forest_flowering_stems.png")).Length > 100_000);
+        AssertTrue("Forest gathering uses higher-resolution inspection-only plant art",
+            Directory.Exists(inspectionPlantSpriteDir) &&
+            File.Exists(Path.Combine(inspectionPlantSpriteDir, "inspection_mint_target_a.png")) &&
+            File.Exists(Path.Combine(inspectionPlantSpriteDir, "inspection_mint_decoy_hidden_bud.png")) &&
+            File.Exists(Path.Combine(inspectionPlantSpriteDir, "inspection_forest_slender_stems.png")) &&
+            new FileInfo(Path.Combine(inspectionPlantSpriteDir, "inspection_mint_target_a.png")).Length > new FileInfo(Path.Combine(plantSpriteDir, "mint_target_a.png")).Length &&
+            new FileInfo(Path.Combine(inspectionPlantSpriteDir, "inspection_mint_decoy_hidden_bud.png")).Length > new FileInfo(Path.Combine(plantSpriteDir, "mint_decoy_hidden_bud.png")).Length &&
+            new FileInfo(Path.Combine(inspectionPlantSpriteDir, "inspection_forest_slender_stems.png")).Length > new FileInfo(Path.Combine(plantSpriteDir, "forest_slender_stems.png")).Length &&
+            gathering.Contains("InspectionPlantTexturePathPrefix = \"res://Assets/Gathering/InspectionPlants/\"") &&
+            gathering.Contains("BuildInspectionTexturePath(definition.TexturePath)") &&
+            gathering.Contains("entry.InspectionTexturePath"));
+        AssertTrue("Forest gathering accepts free clicks to inspect plants instead of grid cells",
+            gathering.Contains("_plantHotspots.GuiInput += _plantHotspotsGuiInputHandler") &&
+            gathering.Contains("OnPlantHotspotsGuiInput") &&
+            gathering.Contains("HandleGatheringClick(mouseButton.GlobalPosition)") &&
+            gathering.Contains("ShowInspection(plantIndex, entry)") &&
+            gathering.Contains("TryGetPlantEntryAtGlobalPosition") &&
+            gathering.Contains("TryGetPlantEntryAtNormalizedPosition") &&
+            gathering.Contains("No clear candidate there.") &&
+            gathering.Contains("That plant has already been harvested.") &&
+            gathering.Contains("_plantHotspots.MouseFilter = MouseFilterEnum.Stop") &&
+            gatheringScene.Contains("[node name=\"ForestBackground\" type=\"TextureRect\" parent=\"Root\"]") &&
+            gatheringScene.Contains("[node name=\"PlantHotspots\" type=\"Control\" parent=\"Root\"]") &&
+            !gatheringScene.Contains("GridContainer") &&
+            !gathering.Contains("CreatePlantHotspot") &&
+            !gathering.Contains("SetAnchorsAndOffsets("));
+        AssertTrue("Forest gathering keeps correctness tied to authored plant identity",
+            gathering.Contains("IsTargetPlant(plantIndex)") &&
+            gathering.Contains("IsTargetEntry(_activePlantEntries[plantIndex])") &&
+            gathering.Contains("string.Equals(entry.ItemId, TargetItemId") &&
+            gathering.Contains("TargetItemId") &&
+            !gathering.Contains("_targetPlantIndexes") &&
+            !gathering.Contains("SelectTargetPlants"));
+        AssertTrue("Forest gathering inspection panel is visual-only and confirms harvests",
+            gatheringScene.Contains("InspectionPanelPath = NodePath(\"Root/InspectionPanel\")") &&
+            gatheringScene.Contains("custom_minimum_size = Vector2(720, 680)") &&
+            gatheringScene.Contains("anchors_preset = 8") &&
+            gatheringScene.Contains("InspectionImagePath = NodePath(\"Root/InspectionPanel/Margin/VBox/Body/InspectionImageFrame/InspectionImage\")") &&
+            gatheringScene.Contains("custom_minimum_size = Vector2(664, 540)") &&
+            gatheringScene.Contains("mouse_filter = 0") &&
+            gatheringScene.Contains("[node name=\"Harvest\" type=\"Button\" parent=\"Root/InspectionPanel/Margin/VBox/Actions\"]") &&
+            gatheringScene.Contains("[node name=\"KeepLooking\" type=\"Button\" parent=\"Root/InspectionPanel/Margin/VBox/Actions\"]") &&
+            gathering.Contains("RefreshInspectionImage") &&
+            gathering.Contains("_inspectionSourceTexture = texture") &&
+            gathering.Contains("OnHarvestPressed") &&
+            !gathering.Contains("TargetInspectionDetail") &&
+            !gathering.Contains("FalseInspectionDetail") &&
+            !gatheringScene.Contains("InspectionDetailLabelPath") &&
+            !gatheringScene.Contains("[node name=\"Detail\""));
+        AssertTrue("Forest gathering inspection supports close-up zoom with a magnifying cursor",
+            File.Exists(magnifyingGlassCursorPath) &&
+            gathering.Contains("MagnifyingGlassCursorPath = \"res://Assets/UI/magnifying_glass_cursor.png\"") &&
+            gathering.Contains("LoadMagnifyingGlassCursor") &&
+            gathering.Contains("Input.SetCustomMouseCursor") &&
+            gathering.Contains("public override void _Input(InputEvent @event)") &&
+            gathering.Contains("_inspectionImage.GuiInput += _inspectionImageGuiInputHandler") &&
+            gathering.Contains("private void OnInspectionImageGuiInput(InputEvent @event)") &&
+            gathering.Contains("ToggleInspectionZoom(mouseButton.GlobalPosition)") &&
+            gathering.Contains("_inspectionZoomEnabled = false") &&
+            gathering.Contains("DefaultInspectionZoomScale = 2.8f") &&
+            gathering.Contains("InspectionZoomWheelStep = 0.35f") &&
+            gathering.Contains("AdjustInspectionZoom(mouseButton.ButtonIndex, mouseButton.GlobalPosition)") &&
+            gathering.Contains("buttonIndex == MouseButton.WheelUp || buttonIndex == MouseButton.WheelDown") &&
+            gathering.Contains("_inspectionZoomScale = Math.Clamp(") &&
+            gathering.Contains("RefreshInspectionMagnifierForMousePosition") &&
+            gathering.Contains("ShouldUseInspectionMagnifier") &&
+            gathering.Contains("UpdateInspectionZoomFromGlobalPosition") &&
+            gathering.Contains("TryMapInspectionGlobalPositionToSource") &&
+            gathering.Contains("TryMapInspectionImagePositionToSource(localPosition, true, out sourcePosition)") &&
+            gathering.Contains("BuildInspectionZoomCrop") &&
+            gathering.Contains("ImageTexture.CreateFromImage(crop)") &&
+            gathering.Contains("RestoreFullInspectionImage") &&
+            gathering.Contains("OnInspectionActionButtonMouseEntered") &&
+            gathering.Contains("Math.Clamp(globalPosition.X - imageRect.Position.X") &&
+            !gathering.Contains("InspectionZoomAlphaThreshold") &&
+            !gathering.Contains("private const float InspectionZoomScale"));
+        AssertTrue("Forest gathering clue panel is toggled from the header and draggable",
+            gatheringScene.Contains("ClueToggleButtonPath = NodePath(\"Root/TopPanel/Margin/Row/ClueToggle\")") &&
+            gatheringScene.Contains("[node name=\"ClueToggle\" type=\"Button\" parent=\"Root/TopPanel/Margin/Row\"]") &&
+            gatheringScene.Contains("text = \"!\"") &&
+            gatheringScene.Contains("[node name=\"CluePanel\" type=\"PanelContainer\" parent=\"Root\"]") &&
+            gatheringScene.Contains("visible = false") &&
+            gatheringScene.Contains("custom_minimum_size = Vector2(340, 318)") &&
+            gatheringScene.Contains("offset_top = 52.0") &&
+            gatheringScene.Contains("offset_bottom = 370.0") &&
+            gatheringScene.Contains("[node name=\"Description\" type=\"Label\" parent=\"Root/CluePanel/Margin/VBox\"]") &&
+            gatheringScene.Contains("custom_minimum_size = Vector2(0, 74)") &&
+            gatheringScene.Contains("[node name=\"SketchFrame\" type=\"PanelContainer\" parent=\"Root/CluePanel/Margin/VBox\"]") &&
+            gatheringScene.Contains("custom_minimum_size = Vector2(0, 178)") &&
+            gatheringScene.Contains("[node name=\"Sketch\" type=\"TextureRect\" parent=\"Root/CluePanel/Margin/VBox/SketchFrame\"]") &&
+            gatheringScene.Contains("custom_minimum_size = Vector2(0, 176)") &&
+            gatheringScene.Contains("path=\"res://Scripts/UI/DraggablePanel.cs\"") &&
+            gatheringScene.Contains("DragHandlePath = NodePath(\"Margin/VBox/TargetName\")") &&
+            gathering.Contains("ConfigureCluePanelLayout();") &&
+            gathering.Contains("CluePanelSize = new(340.0f, 318.0f)") &&
+            gathering.Contains("CluePanelTopRightOffset = new(-358.0f, 52.0f)") &&
+            gathering.Contains("_cluePanel.Size = CluePanelSize") &&
+            gathering.Contains("_sketchTextureRect.CustomMinimumSize = ClueSketchSize") &&
+            gathering.Contains("_clueToggleButton.Pressed += OnClueTogglePressed") &&
+            gathering.Contains("private void OnClueTogglePressed()") &&
+            gathering.Contains("_cluePanel.Visible = shouldShow"));
+        AssertTrue("Forest gathering opens a centered sketch preview from the clue sketch",
+            gatheringScene.Contains("[node name=\"Sketch\" type=\"TextureRect\" parent=\"Root/CluePanel/Margin/VBox/SketchFrame\"]") &&
+            gatheringScene.Contains("[node name=\"SketchPreviewOverlay\" type=\"Control\" parent=\"Root\"]") &&
+            gatheringScene.Contains("[node name=\"PreviewFrame\" type=\"PanelContainer\" parent=\"Root/SketchPreviewOverlay\"]") &&
+            gatheringScene.Contains("custom_minimum_size = Vector2(620, 860)") &&
+            gatheringScene.Contains("[node name=\"SketchPreview\" type=\"TextureRect\" parent=\"Root/SketchPreviewOverlay/PreviewFrame/Margin\"]") &&
+            gatheringScene.Contains("custom_minimum_size = Vector2(592, 832)") &&
+            gathering.Contains("_sketchTextureRect.GuiInput += _sketchGuiInputHandler") &&
+            gathering.Contains("_sketchPreviewOverlay.GuiInput += _sketchPreviewOverlayGuiInputHandler") &&
+            gathering.Contains("private void OnSketchGuiInput(InputEvent @event)") &&
+            gathering.Contains("private void OnSketchPreviewOverlayGuiInput(InputEvent @event)") &&
+            gathering.Contains("ShowSketchPreview();") &&
+            gathering.Contains("HideSketchPreview();") &&
+            gathering.Contains("!_sketchPreviewImage.GetGlobalRect().HasPoint(mouseButton.GlobalPosition)") &&
+            gathering.Contains("_sketchPreviewImage.Texture = texture"));
+        AssertTrue("Correct selection stages the target ingredient until return",
+            gathering.Contains("_pendingTargetQuantity += RewardQuantityPerCorrectSelection") &&
+            gathering.Contains("Correct. Marked") &&
+            gathering.Contains("CollectTargetPlant()"));
+        AssertTrue("Harvest confirmations consume attempts and wrong harvests show feedback",
+            gathering.Contains("private void OnHarvestPressed()") &&
+            gathering.Contains("_remainingActions -= 1") &&
+            gathering.Contains("Wrong plant. It does not match the clue closely enough.") &&
+            gathering.Contains("Harvests remaining: {_remainingActions}"));
+        AssertTrue("Perfect gathering stages a mint seed through garden seed inventory",
+            gathering.Contains("_correctSelections == MaxActions") &&
+            gathering.Contains("StagePerfectGatheringSeedReward") &&
+            gathering.Contains("_pendingSeedQuantity = 1"));
+        AssertTrue("Forest gathering prompts return to the house with a reward summary",
+            gathering.Contains("ReturnPromptPath") &&
+            gathering.Contains("BuildReturnSummary") &&
+            gathering.Contains("Return to the house to add:") &&
+            gathering.Contains("GetTree().ChangeSceneToFile(ScenePaths.Main)") &&
+            gatheringScene.Contains("[node name=\"ReturnPrompt\" type=\"Control\" parent=\".\"]") &&
+            gatheringScene.Contains("text = \"Return\""));
+        AssertTrue("Forest gathering commits staged rewards only when returning",
+            gathering.Contains("private void CommitGatheredRewards()") &&
+            gathering.Contains("if (_rewardsCommitted)") &&
+            gathering.Contains("_gameState.AddItem(TargetItemId, _pendingTargetQuantity)") &&
+            gathering.Contains("_gameState.AddSeed(GameState.BuildSeedId(TargetItemId), _pendingSeedQuantity)") &&
+            gathering.Contains("CommitGatheredRewards();"));
+        AssertTrue("HUD blocks navigation while the gathering scene is active",
+            hud.Contains("private bool IsSceneNavigationBlocked()") &&
+            hud.Contains("GetTree().CurrentScene is ForestGathering") &&
+            hud.Contains("if (IsSceneNavigationBlocked())") &&
+            hud.Contains("_settingsButton.Disabled = navigationBlocked") &&
+            hud.Contains("_mapButton.Disabled = navigationBlocked || GetTree().CurrentScene is Map"));
     }
 
     private static void TestHudReturnToMainMenuDoesNotAutoSave()

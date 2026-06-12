@@ -29,9 +29,9 @@ Entries = [
     },
     "weight": 2,
     "desiredTraits": {
-      "calm": { "min": 3 },
-      "clarity": { "min": 3 },
-      "cleanse": { "min": 2 }
+      "calm": { "min": 3, "max": 6 },
+      "clarity": { "min": 3, "max": 6 },
+      "cleanse": { "min": 2, "max": 5 }
     },
     "badTraits": {
       "drowsiness": { "max": 0 },
@@ -235,9 +235,9 @@ Entries = [
     },
     "weight": 1,
     "desiredTraits": {
-      "soothe": { "min": 3 },
-      "clarity": { "min": 3 },
-      "courage": { "min": 2 }
+      "soothe": { "min": 3, "max": 6 },
+      "clarity": { "min": 3, "max": 6 },
+      "courage": { "min": 2, "max": 5 }
     },
     "badTraits": {
       "drowsiness": { "max": 0 },
@@ -429,9 +429,9 @@ Entries = [
     },
     "weight": 8,
     "desiredTraits": {
-      "calm": { "min": 3 },
-      "clarity": { "min": 3 },
-      "cleanse": { "min": 2 }
+      "calm": { "min": 3, "max": 6 },
+      "clarity": { "min": 3, "max": 6 },
+      "cleanse": { "min": 2, "max": 5 }
     },
     "badTraits": {
       "drowsiness": { "max": 0 },
@@ -450,9 +450,9 @@ Entries = [
     },
     "weight": 8,
     "desiredTraits": {
-      "cleanse": { "min": 4 },
-      "soothe": { "min": 3 },
-      "clarity": { "min": 2 }
+      "cleanse": { "min": 4, "max": 7 },
+      "soothe": { "min": 3, "max": 6 },
+      "clarity": { "min": 2, "max": 5 }
     },
     "badTraits": {
       "drowsiness": { "max": 0 },
@@ -471,9 +471,9 @@ Entries = [
     },
     "weight": 8,
     "desiredTraits": {
-      "dream": { "min": 4 },
-      "calm": { "min": 3 },
-      "soothe": { "min": 2 }
+      "dream": { "min": 4, "max": 7 },
+      "calm": { "min": 3, "max": 6 },
+      "soothe": { "min": 2, "max": 5 }
     },
     "badTraits": {
       "drowsiness": { "max": 0 },
@@ -492,9 +492,9 @@ Entries = [
     },
     "weight": 7,
     "desiredTraits": {
-      "mend": { "min": 4 },
-      "soothe": { "min": 3 },
-      "cleanse": { "min": 3 }
+      "mend": { "min": 4, "max": 7 },
+      "soothe": { "min": 3, "max": 6 },
+      "cleanse": { "min": 3, "max": 6 }
     },
     "badTraits": {
       "melancholy": { "max": 1 },
@@ -513,9 +513,9 @@ Entries = [
     },
     "weight": 7,
     "desiredTraits": {
-      "charm": { "min": 4 },
-      "vigor": { "min": 3 },
-      "calm": { "min": 2 }
+      "charm": { "min": 4, "max": 7 },
+      "vigor": { "min": 3, "max": 6 },
+      "calm": { "min": 2, "max": 5 }
     },
     "badTraits": {
       "corruption": { "max": 0 },
@@ -534,9 +534,9 @@ Entries = [
     },
     "weight": 7,
     "desiredTraits": {
-      "vigor": { "min": 3 },
-      "cleanse": { "min": 3 },
-      "clarity": { "min": 2 }
+      "vigor": { "min": 3, "max": 6 },
+      "cleanse": { "min": 3, "max": 6 },
+      "clarity": { "min": 2, "max": 5 }
     },
     "badTraits": {
       "insomnia": { "max": 1 },
@@ -555,9 +555,9 @@ Entries = [
     },
     "weight": 7,
     "desiredTraits": {
-      "courage": { "min": 4 },
-      "clarity": { "min": 3 },
-      "calm": { "min": 2 }
+      "courage": { "min": 4, "max": 7 },
+      "clarity": { "min": 3, "max": 6 },
+      "calm": { "min": 2, "max": 5 }
     },
     "badTraits": {
       "melancholy": { "max": 1 },
@@ -576,9 +576,9 @@ Entries = [
     },
     "weight": 7,
     "desiredTraits": {
-      "rest": { "min": 4 },
-      "cleanse": { "min": 3 },
-      "soothe": { "min": 2 }
+      "rest": { "min": 4, "max": 7 },
+      "cleanse": { "min": 3, "max": 6 },
+      "soothe": { "min": 2, "max": 5 }
     },
     "badTraits": {
       "corruption": { "max": 0 },
@@ -597,9 +597,9 @@ Entries = [
     },
     "weight": 7,
     "desiredTraits": {
-      "charm": { "min": 4 },
-      "clarity": { "min": 3 },
-      "courage": { "min": 2 }
+      "charm": { "min": 4, "max": 7 },
+      "clarity": { "min": 3, "max": 6 },
+      "courage": { "min": 2, "max": 5 }
     },
     "badTraits": {
       "corruption": { "max": 0 },
@@ -618,9 +618,9 @@ Entries = [
     },
     "weight": 7,
     "desiredTraits": {
-      "soothe": { "min": 3 },
-      "cleanse": { "min": 3 },
-      "courage": { "min": 2 }
+      "soothe": { "min": 3, "max": 6 },
+      "cleanse": { "min": 3, "max": 6 },
+      "courage": { "min": 2, "max": 5 }
     },
     "badTraits": {
       "drowsiness": { "max": 0 },

@@ -328,7 +328,8 @@ public sealed class CustomerRequestDef
     public string Description { get; set; } = "";
 
     // Desired effect trait ranges.
-    // Example: "calm": { min: 2, max: 4 }, "clarity": { min: 1 }
+    // Authored customer requests should use both min and max so overshooting can fail.
+    // Example: "calm": { min: 2, max: 4 }, "clarity": { min: 1, max: 3 }
     [JsonConverter(typeof(DesiredTraitRangeDictionaryJsonConverter))]
     public Dictionary<string, CustomerTraitRangeDef> DesiredTraits { get; set; } = new();
 

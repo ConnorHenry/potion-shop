@@ -21,7 +21,7 @@ internal static class CustomerFlowTests
         runner.Run("Customer trait thresholds are enforced", TestCustomerTraitThresholdsAreEnforced);
         runner.Run("Customer trait ranges are enforced", TestCustomerTraitRangesAreEnforced);
         runner.Run("Active customer catalog includes trait threshold requests", TestActiveCustomerCatalogIncludesTraitThresholdRequests);
-        runner.Run("Tiered customer data is a day-one flexible trait catalog", TestTieredCustomerDataIsDayOneFlexibleTraitCatalog);
+        runner.Run("Tiered customer data is a day-one bounded trait catalog", TestTieredCustomerDataIsDayOneFlexibleTraitCatalog);
         runner.Run("Story customer dialogue trees support selling mode", TestStoryCustomerDialogueTreesSupportSellingMode);
         runner.Run("CustomerPanel renders dialogue node text as narration", TestCustomerPanelRendersDialogueNodeTextAsNarration);
         runner.Run("CustomerPanel shows draggable potion sale slots", TestCustomerPanelShowsDraggablePotionSaleSlots);
@@ -350,8 +350,9 @@ internal static class CustomerFlowTests
         AssertTrue("Threshold customer data uses min and max trait gates",
             customers.Contains("\"requiredMinTraits\"") &&
             customers.Contains("\"requiredMaxTraits\"") &&
-            customers.Contains("\"mend\": { \"min\": 9 }") &&
+            customers.Contains("\"mend\": { \"min\": 9, \"max\": 12 }") &&
             customers.Contains("\"vigor\": 1"));
+        AssertAllDesiredTraitRangesAreBounded("Data/customers_data.tres");
         AssertTrue("Customer data includes preparation puzzle requests in both catalogs",
             customers.Contains("\"id\": \"customer_requests_counterfeit_calm\"") &&
             customers.Contains("\"id\": \"customer_requests_grave_stitch_poultice\"") &&
@@ -381,6 +382,7 @@ internal static class CustomerFlowTests
             !tieredCustomers.Contains("\"requiredIngredientAmounts\"") &&
             !tieredCustomers.Contains("\"requiredMinTraits\"") &&
             !tieredCustomers.Contains("\"requiredMaxTraits\""));
+        AssertAllDesiredTraitRangesAreBounded("Data/customers_tiered_test_data.tres");
         AssertTrue("Tiered customer data uses current ingredient traits",
             tieredCustomers.Contains("\"calm\"") &&
             tieredCustomers.Contains("\"dream\"") &&
@@ -659,6 +661,42 @@ internal static class CustomerFlowTests
             Min = min,
             Max = max
         };
+    }
+
+    private static void AssertAllDesiredTraitRangesAreBounded(string projectPath)
+    {
+        var interactions = ReadAuthoredCustomerInteractions(projectPath);
+        foreach (var interaction in interactions)
+        {
+            foreach (var desired in interaction.DesiredTraits)
+            {
+                AssertTrue(
+                    $"{interaction.Id} desired trait '{desired.Key}' has a minimum",
+                    desired.Value?.HasMin == true);
+                AssertTrue(
+                    $"{interaction.Id} desired trait '{desired.Key}' has a maximum",
+                    desired.Value?.HasMax == true);
+
+                if (desired.Value?.Min is int min && desired.Value.Max is int max)
+                    AssertTrue($"{interaction.Id} desired trait '{desired.Key}' has a valid range", min <= max);
+            }
+        }
+    }
+
+    private static List<CustomerInteractionDef> ReadAuthoredCustomerInteractions(string projectPath)
+    {
+        var source = ReadProjectFile(projectPath);
+        const string marker = "Entries = ";
+        var start = source.IndexOf(marker, StringComparison.Ordinal);
+        AssertTrue($"{projectPath} contains an Entries array", start >= 0);
+
+        var json = source[(start + marker.Length)..].Trim();
+        var options = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        };
+        return JsonSerializer.Deserialize<List<CustomerInteractionDef>>(json, options)
+            ?? throw new InvalidOperationException($"Could not parse authored customers from {projectPath}.");
     }
 
     private static int CountOccurrences(string text, string value)

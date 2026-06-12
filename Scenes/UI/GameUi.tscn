@@ -1931,7 +1931,6 @@ offset_top = -160.0
 offset_right = 220.0
 offset_bottom = 160.0
 script = ExtResource("12_6x1m8")
-DragHandlePath = NodePath("")
 
 [node name="Margin" type="MarginContainer" parent="CustomerSaleResultPanel"]
 layout_mode = 2

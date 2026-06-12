@@ -102,7 +102,7 @@ internal static class GardenTests
         AssertTrue("Hud points to the garden scene", hudSource.Contains("ScenePaths.Garden") && scenePaths.Contains("res://Scenes/Main/Garden.tscn"));
         AssertTrue("Hud has a garden button field", hudSource.Contains("private Button _gardenButton"));
         AssertTrue("Hud resolves the garden button", hudSource.Contains("GetNode<Button>(GardenButtonPath)"));
-        AssertTrue("Hud disables garden while shop is open", hudSource.Contains("_gardenButton.Disabled = isShopOpen;"));
+        AssertTrue("Hud disables garden while shop is open", hudSource.Contains("_gardenButton.Disabled = navigationBlocked || isShopOpen;"));
         AssertTrue("Hud autosaves before entering garden", hudSource.Contains("TryAutoSave(\"entering the garden\")"));
         AssertTrue("Hud scene includes Garden button", hudScene.Contains("[node name=\"Garden\" type=\"Button\" parent=\"Content/Actions\"]"));
         AssertTrue("Garden button stays in the HUD menu", hudScene.Contains("text = \"Garden\""));

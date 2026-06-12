@@ -4,7 +4,7 @@ namespace OccultShop.UI;
 
 public partial class DraggablePanel : PanelContainer
 {
-	[Export] public NodePath DragHandlePath = default!;
+	[Export] public NodePath DragHandlePath = new("");
 
 	private Control? _dragHandle;
 	private bool _dragFromWholePanel;

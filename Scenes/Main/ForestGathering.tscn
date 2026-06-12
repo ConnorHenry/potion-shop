@@ -1,0 +1,426 @@
+[gd_scene load_steps=8 format=3 uid="uid://iqvo02u2jcmc"]
+
+[ext_resource type="Script" uid="uid://bsc4a5pqgyyr4" path="res://Scripts/UI/ForestGathering.cs" id="1_forest"]
+[ext_resource type="Texture2D" uid="uid://cvxcknuyycckf" path="res://Assets/Backgrounds/forest_gathering_mint.png" id="2_forest_bg"]
+[ext_resource type="Script" uid="uid://cdkl4a6bue2us" path="res://Scripts/UI/DraggablePanel.cs" id="3_drag"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_top_panel"]
+bg_color = Color(0.035, 0.05, 0.032, 0.82)
+border_width_bottom = 1
+border_color = Color(0.22, 0.3, 0.17, 0.8)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_clue_panel"]
+bg_color = Color(0.07, 0.09, 0.055, 0.88)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.45, 0.37, 0.2, 0.92)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_feedback_panel"]
+bg_color = Color(0.045, 0.055, 0.036, 0.78)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.35, 0.43, 0.23, 0.82)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_return_panel"]
+bg_color = Color(0.08, 0.12, 0.075, 0.98)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.68, 0.72, 0.42, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[node name="ForestGathering" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_forest")
+ForestBackgroundPath = NodePath("Root/ForestBackground")
+ClueToggleButtonPath = NodePath("Root/TopPanel/Margin/Row/ClueToggle")
+CluePanelPath = NodePath("Root/CluePanel")
+TargetNameLabelPath = NodePath("Root/CluePanel/Margin/VBox/TargetName")
+TargetDescriptionLabelPath = NodePath("Root/CluePanel/Margin/VBox/Description")
+SketchTextureRectPath = NodePath("Root/CluePanel/Margin/VBox/SketchFrame/Sketch")
+SketchPreviewOverlayPath = NodePath("Root/SketchPreviewOverlay")
+SketchPreviewImagePath = NodePath("Root/SketchPreviewOverlay/PreviewFrame/Margin/SketchPreview")
+ActionsRemainingLabelPath = NodePath("Root/TopPanel/Margin/Row/ActionsRemaining")
+FeedbackLabelPath = NodePath("Root/FeedbackPanel/Margin/Feedback")
+PlantHotspotsPath = NodePath("Root/PlantHotspots")
+InspectionPanelPath = NodePath("Root/InspectionPanel")
+InspectionImagePath = NodePath("Root/InspectionPanel/Margin/VBox/Body/InspectionImageFrame/InspectionImage")
+InspectionTitleLabelPath = NodePath("Root/InspectionPanel/Margin/VBox/Title")
+InspectionHarvestButtonPath = NodePath("Root/InspectionPanel/Margin/VBox/Actions/Harvest")
+InspectionKeepLookingButtonPath = NodePath("Root/InspectionPanel/Margin/VBox/Actions/KeepLooking")
+ReturnPromptPath = NodePath("ReturnPrompt")
+ReturnPromptMessagePath = NodePath("ReturnPrompt/Dialog/Margin/VBox/Message")
+ReturnButtonPath = NodePath("ReturnPrompt/Dialog/Margin/VBox/Return")
+
+[node name="Root" type="Control" parent="."]
+clip_contents = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = 50.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="ForestBackground" type="TextureRect" parent="Root"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("2_forest_bg")
+expand_mode = 1
+
+[node name="Shade" type="ColorRect" parent="Root"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 0.16)
+
+[node name="PlantHotspots" type="Control" parent="Root"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="TopPanel" type="PanelContainer" parent="Root"]
+z_index = 35
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 44.0
+grow_horizontal = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_top_panel")
+
+[node name="Margin" type="MarginContainer" parent="Root/TopPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 6
+
+[node name="Row" type="HBoxContainer" parent="Root/TopPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="Title" type="Label" parent="Root/TopPanel/Margin/Row"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.9, 0.86, 0.68, 1)
+theme_override_font_sizes/font_size = 20
+text = "Forest Edge"
+vertical_alignment = 1
+
+[node name="ActionsRemaining" type="Label" parent="Root/TopPanel/Margin/Row"]
+custom_minimum_size = Vector2(190, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.96, 0.91, 0.62, 1)
+theme_override_font_sizes/font_size = 18
+text = "Harvests remaining: 3"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ClueToggle" type="Button" parent="Root/TopPanel/Margin/Row"]
+custom_minimum_size = Vector2(36, 32)
+layout_mode = 2
+tooltip_text = "Toggle plant clue"
+text = "!"
+
+[node name="CluePanel" type="PanelContainer" parent="Root"]
+visible = false
+z_index = 45
+custom_minimum_size = Vector2(340, 318)
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -358.0
+offset_top = 52.0
+offset_right = -18.0
+offset_bottom = 370.0
+grow_horizontal = 0
+theme_override_styles/panel = SubResource("StyleBoxFlat_clue_panel")
+script = ExtResource("3_drag")
+DragHandlePath = NodePath("Margin/VBox/TargetName")
+
+[node name="Margin" type="MarginContainer" parent="Root/CluePanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 10
+
+[node name="VBox" type="VBoxContainer" parent="Root/CluePanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="TargetName" type="Label" parent="Root/CluePanel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.96, 0.91, 0.62, 1)
+theme_override_font_sizes/font_size = 18
+text = "Looking for: Mint"
+
+[node name="Description" type="Label" parent="Root/CluePanel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 74)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.91, 0.88, 0.76, 1)
+theme_override_font_sizes/font_size = 13
+text = "Look for bright green oval leaves with lightly toothed edges, paired on crisp square stems. There should be an even number of leaves parallel on each side."
+autowrap_mode = 3
+
+[node name="SketchFrame" type="PanelContainer" parent="Root/CluePanel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 178)
+layout_mode = 2
+
+[node name="Sketch" type="TextureRect" parent="Root/CluePanel/Margin/VBox/SketchFrame"]
+custom_minimum_size = Vector2(0, 176)
+layout_mode = 2
+mouse_filter = 0
+expand_mode = 1
+stretch_mode = 5
+
+[node name="SketchPreviewOverlay" type="Control" parent="Root"]
+visible = false
+z_index = 80
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Backdrop" type="ColorRect" parent="Root/SketchPreviewOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 0.48)
+
+[node name="PreviewFrame" type="PanelContainer" parent="Root/SketchPreviewOverlay"]
+custom_minimum_size = Vector2(620, 860)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -310.0
+offset_top = -430.0
+offset_right = 310.0
+offset_bottom = 430.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_clue_panel")
+
+[node name="Margin" type="MarginContainer" parent="Root/SketchPreviewOverlay/PreviewFrame"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 14
+
+[node name="SketchPreview" type="TextureRect" parent="Root/SketchPreviewOverlay/PreviewFrame/Margin"]
+custom_minimum_size = Vector2(592, 832)
+layout_mode = 2
+mouse_filter = 0
+expand_mode = 1
+stretch_mode = 5
+
+[node name="FeedbackPanel" type="PanelContainer" parent="Root"]
+z_index = 35
+custom_minimum_size = Vector2(520, 42)
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -260.0
+offset_top = -62.0
+offset_right = 260.0
+offset_bottom = -16.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_styles/panel = SubResource("StyleBoxFlat_feedback_panel")
+
+[node name="Margin" type="MarginContainer" parent="Root/FeedbackPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 8
+
+[node name="Feedback" type="Label" parent="Root/FeedbackPanel/Margin"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.95, 0.88, 0.68, 1)
+theme_override_font_sizes/font_size = 16
+text = "Choose 3 plants."
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="InspectionPanel" type="PanelContainer" parent="Root"]
+visible = false
+z_index = 50
+custom_minimum_size = Vector2(720, 680)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -360.0
+offset_top = -340.0
+offset_right = 360.0
+offset_bottom = 340.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_clue_panel")
+
+[node name="Margin" type="MarginContainer" parent="Root/InspectionPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 10
+
+[node name="VBox" type="VBoxContainer" parent="Root/InspectionPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="Root/InspectionPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.96, 0.91, 0.62, 1)
+theme_override_font_sizes/font_size = 18
+text = "Inspection"
+
+[node name="Body" type="HBoxContainer" parent="Root/InspectionPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+alignment = 1
+
+[node name="InspectionImageFrame" type="PanelContainer" parent="Root/InspectionPanel/Margin/VBox/Body"]
+custom_minimum_size = Vector2(664, 540)
+layout_mode = 2
+
+[node name="InspectionImage" type="TextureRect" parent="Root/InspectionPanel/Margin/VBox/Body/InspectionImageFrame"]
+layout_mode = 2
+mouse_filter = 0
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Actions" type="HBoxContainer" parent="Root/InspectionPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+alignment = 2
+
+[node name="KeepLooking" type="Button" parent="Root/InspectionPanel/Margin/VBox/Actions"]
+custom_minimum_size = Vector2(120, 32)
+layout_mode = 2
+text = "Keep Looking"
+
+[node name="Harvest" type="Button" parent="Root/InspectionPanel/Margin/VBox/Actions"]
+custom_minimum_size = Vector2(96, 32)
+layout_mode = 2
+text = "Harvest"
+
+[node name="ReturnPrompt" type="Control" parent="."]
+visible = false
+z_index = 100
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Backdrop" type="ColorRect" parent="ReturnPrompt"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.46)
+
+[node name="Dialog" type="PanelContainer" parent="ReturnPrompt"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -220.0
+offset_top = -92.0
+offset_right = 220.0
+offset_bottom = 92.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_return_panel")
+
+[node name="Margin" type="MarginContainer" parent="ReturnPrompt/Dialog"]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 16
+
+[node name="VBox" type="VBoxContainer" parent="ReturnPrompt/Dialog/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Title" type="Label" parent="ReturnPrompt/Dialog/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.96, 0.91, 0.62, 1)
+theme_override_font_sizes/font_size = 21
+text = "Gathering Complete"
+horizontal_alignment = 1
+
+[node name="Message" type="Label" parent="ReturnPrompt/Dialog/Margin/VBox"]
+custom_minimum_size = Vector2(0, 64)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.91, 0.88, 0.76, 1)
+text = "Return to the house."
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="Return" type="Button" parent="ReturnPrompt/Dialog/Margin/VBox"]
+custom_minimum_size = Vector2(140, 36)
+layout_mode = 2
+size_flags_horizontal = 4
+text = "Return"

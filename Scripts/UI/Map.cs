@@ -25,8 +25,8 @@ public partial class Map : Control
 	[Export] public NodePath ModalCloseButtonPath = default!;
 	[Export] public NodePath SaveGameManagerPath = new(AutoloadNodePaths.SaveGameManager);
 	[Export] public string MapTexturePath = "res://Assets/Maps/kerry_samuel_lewis_1844_lowres.jpg";
-	[Export] public string F12ScenePath = "";
-	[Export] public string F12PointOfInterestMessage = "There is something of interest at F12.";
+	[Export] public string F12ScenePath = ScenePaths.ForestGathering;
+	[Export] public string F12PointOfInterestMessage = "A damp forest edge is marked here. The undergrowth may hold useful mint.";
 
 	private readonly Dictionary<string, MapPointOfInterest> _pointsOfInterest = new(StringComparer.OrdinalIgnoreCase);
 
@@ -120,7 +120,6 @@ public partial class Map : Control
 	{
 		_pointsOfInterest.Clear();
 
-		// TODO: Assign F12ScenePath once the destination scene for this map clue exists.
 		_pointsOfInterest[DefaultPointOfInterestCoordinate] = new MapPointOfInterest(
 			DefaultPointOfInterestCoordinate,
 			F12PointOfInterestMessage,
