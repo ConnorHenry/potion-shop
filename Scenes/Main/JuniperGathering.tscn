@@ -1,0 +1,334 @@
+[gd_scene load_steps=8 format=3 uid="uid://cypw46rlrx1vl"]
+
+[ext_resource type="Script" uid="uid://bkj8f17o7n42a" path="res://Scripts/UI/JuniperGathering.cs" id="1_juniper"]
+[ext_resource type="Texture2D" path="res://Assets/Gathering/Juniper/juniper_catching_background.png" id="2_background"]
+[ext_resource type="Texture2D" path="res://Assets/Gathering/Juniper/juniper_bush.png" id="3_bush"]
+[ext_resource type="Texture2D" path="res://Assets/Gathering/Juniper/juniper_basket.png" id="4_basket"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_top_panel"]
+bg_color = Color(0.035, 0.044, 0.042, 0.88)
+border_width_bottom = 1
+border_color = Color(0.47, 0.38, 0.2, 0.9)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_feedback_panel"]
+bg_color = Color(0.042, 0.052, 0.044, 0.88)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.45, 0.37, 0.2, 0.92)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_result_panel"]
+bg_color = Color(0.08, 0.10, 0.12, 0.98)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.45, 0.58, 0.72, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[node name="JuniperGathering" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_juniper")
+PlayAreaPath = NodePath("Root/PlayArea")
+BushPath = NodePath("Root/PlayArea/Bush")
+BasketPath = NodePath("Root/PlayArea/Basket")
+CatchLinePath = NodePath("Root/PlayArea/CatchLine")
+TimerLabelPath = NodePath("Root/TopPanel/Margin/Row/Timer")
+RipeCountLabelPath = NodePath("Root/TopPanel/Margin/Row/RipeCount")
+RewardLabelPath = NodePath("Root/TopPanel/Margin/Row/Reward")
+FreezeLabelPath = NodePath("Root/TopPanel/Margin/Row/Freeze")
+FeedbackLabelPath = NodePath("Root/FeedbackPanel/Margin/Feedback")
+ResultPromptPath = NodePath("ResultPrompt")
+ResultMessagePath = NodePath("ResultPrompt/Dialog/Margin/VBox/Message")
+ReturnButtonPath = NodePath("ResultPrompt/Dialog/Margin/VBox/Return")
+
+[node name="Root" type="Control" parent="."]
+clip_contents = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = 50.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Background" type="TextureRect" parent="Root"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("2_background")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="Shade" type="ColorRect" parent="Root"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 0.14)
+
+[node name="PlayArea" type="Control" parent="Root"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Bush" type="TextureRect" parent="Root/PlayArea"]
+z_index = 8
+layout_mode = 0
+mouse_filter = 0
+texture = ExtResource("3_bush")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="CatchLine" type="ColorRect" parent="Root/PlayArea"]
+z_index = 10
+layout_mode = 0
+mouse_filter = 2
+color = Color(0.72, 0.82, 0.92, 0)
+
+[node name="Basket" type="TextureRect" parent="Root/PlayArea"]
+z_index = 20
+layout_mode = 0
+mouse_filter = 0
+texture = ExtResource("4_basket")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="TopPanel" type="PanelContainer" parent="Root"]
+z_index = 40
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 44.0
+grow_horizontal = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_top_panel")
+
+[node name="Margin" type="MarginContainer" parent="Root/TopPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 6
+
+[node name="Row" type="HBoxContainer" parent="Root/TopPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="Title" type="Label" parent="Root/TopPanel/Margin/Row"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.90, 0.90, 0.78, 1)
+theme_override_font_sizes/font_size = 20
+text = "Juniper"
+vertical_alignment = 1
+
+[node name="Timer" type="Label" parent="Root/TopPanel/Margin/Row"]
+custom_minimum_size = Vector2(86, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.94, 0.96, 0.80, 1)
+theme_override_font_sizes/font_size = 18
+text = "Time: 30"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="RipeCount" type="Label" parent="Root/TopPanel/Margin/Row"]
+custom_minimum_size = Vector2(86, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.68, 0.78, 1, 1)
+theme_override_font_sizes/font_size = 18
+text = "Ripe: 0"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Reward" type="Label" parent="Root/TopPanel/Margin/Row"]
+custom_minimum_size = Vector2(150, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.82, 0.90, 0.72, 1)
+theme_override_font_sizes/font_size = 18
+text = "Reward: 0 Juniper"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Freeze" type="Label" parent="Root/TopPanel/Margin/Row"]
+custom_minimum_size = Vector2(116, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.68, 0.55, 1)
+theme_override_font_sizes/font_size = 18
+text = ""
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="InstructionPanel" type="PanelContainer" parent="Root"]
+z_index = 40
+custom_minimum_size = Vector2(214, 176)
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -232.0
+offset_top = 58.0
+offset_right = -18.0
+offset_bottom = 234.0
+grow_horizontal = 0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_feedback_panel")
+
+[node name="Margin" type="MarginContainer" parent="Root/InstructionPanel"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 12
+
+[node name="VBox" type="VBoxContainer" parent="Root/InstructionPanel/Margin"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="Root/InstructionPanel/Margin/VBox"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.96, 0.91, 0.62, 1)
+theme_override_font_sizes/font_size = 18
+text = "Shake the Juniper"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="Rule" type="Label" parent="Root/InstructionPanel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 92)
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.94, 0.90, 0.76, 1)
+theme_override_font_sizes/font_size = 15
+text = "Shake loose berries, then catch only the dark blue ones."
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="FeedbackPanel" type="PanelContainer" parent="Root"]
+z_index = 40
+custom_minimum_size = Vector2(520, 42)
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -260.0
+offset_top = -62.0
+offset_right = 260.0
+offset_bottom = -16.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_feedback_panel")
+
+[node name="Margin" type="MarginContainer" parent="Root/FeedbackPanel"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 8
+
+[node name="Feedback" type="Label" parent="Root/FeedbackPanel/Margin"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.94, 0.90, 0.76, 1)
+theme_override_font_sizes/font_size = 16
+text = ""
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="ResultPrompt" type="Control" parent="."]
+visible = false
+z_index = 100
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Backdrop" type="ColorRect" parent="ResultPrompt"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.5)
+
+[node name="Dialog" type="PanelContainer" parent="ResultPrompt"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -230.0
+offset_top = -116.0
+offset_right = 230.0
+offset_bottom = 116.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_result_panel")
+
+[node name="Margin" type="MarginContainer" parent="ResultPrompt/Dialog"]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 16
+
+[node name="VBox" type="VBoxContainer" parent="ResultPrompt/Dialog/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Title" type="Label" parent="ResultPrompt/Dialog/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.86, 0.92, 1, 1)
+theme_override_font_sizes/font_size = 21
+text = "Gathering Complete"
+horizontal_alignment = 1
+
+[node name="Message" type="Label" parent="ResultPrompt/Dialog/Margin/VBox"]
+custom_minimum_size = Vector2(0, 94)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.91, 0.88, 0.76, 1)
+text = "Return to the house."
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="Return" type="Button" parent="ResultPrompt/Dialog/Margin/VBox"]
+custom_minimum_size = Vector2(140, 36)
+layout_mode = 2
+size_flags_horizontal = 4
+text = "Return"

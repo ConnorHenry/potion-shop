@@ -16,6 +16,7 @@ internal static class GameStateTests
     {
         runner.Run("GameState seeds only the starter potion ingredients", TestStartingInventorySeedsOnlyTutorialRecipeItems);
         runner.Run("GameState persists and backfills known ingredient book entries", TestKnownIngredientBookEntriesPersistAndBackfill);
+        runner.Run("GameState persists ingredient preparation knowledge separately", TestIngredientPreparationKnowledgePersistsSeparately);
         runner.Run("GameState can forget book records for debug toggles", TestBookRecordsCanBeForgottenForDebugToggles);
     }
 
@@ -75,6 +76,29 @@ internal static class GameStateTests
             gameStateSource.Contains("BackfillKnownIngredientsFromInventory();") &&
             gameStateSource.Contains("BackfillKnownIngredientsFromGardenPots();") &&
             gameStateSource.Contains("_potionKnowledgeState.BackfillKnownIngredientsFromKnownRecipes();"));
+    }
+
+    private static void TestIngredientPreparationKnowledgePersistsSeparately()
+    {
+        var gameStateSource = ReadProjectFile("Scripts/Autoload/GameState.cs");
+        var potionKnowledgeState = ReadProjectFile("Scripts/Systems/PotionKnowledgeState.cs");
+        var saveDataSource = ReadProjectFile("Scripts/Persistence/SaveData.cs");
+
+        AssertTrue("Save data persists known ingredient preparations separately from ingredient discovery",
+            saveDataSource.Contains("KnownIngredientPreparations") &&
+            gameStateSource.Contains("public HashSet<string> KnownIngredientPreparations"));
+        AssertTrue("GameState snapshots and restores preparation knowledge without seeding it for starting ingredients",
+            gameStateSource.Contains("KnownIngredientPreparations = _potionKnowledgeState.BuildKnownIngredientPreparationSnapshot()") &&
+            potionKnowledgeState.Contains("RestoreKnownIngredientPreparations(snapshot.KnownIngredientPreparations)") &&
+            !gameStateSource.Contains("SeedStartingIngredientPreparationKnowledge"));
+        AssertTrue("GameState exposes preparation knowledge APIs",
+            gameStateSource.Contains("LearnIngredientPreparation") &&
+            gameStateSource.Contains("KnowsIngredientPreparation") &&
+            gameStateSource.Contains("RecordIngredientPreparationKnowledge") &&
+            gameStateSource.Contains("UnlockAllIngredientPreparations"));
+        AssertTrue("Preparation knowledge keys are scoped by ingredient and normalized preparation id",
+            potionKnowledgeState.Contains("IngredientPreparationCatalog.NormalizePreparationId(preparationId)") &&
+            potionKnowledgeState.Contains("::{normalizedPreparationId}"));
     }
 
     private static void TestBookRecordsCanBeForgottenForDebugToggles()

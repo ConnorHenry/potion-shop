@@ -331,8 +331,12 @@ public partial class IngredientPreparationTray : Control
 		}
 	}
 
-	private static string BuildPreparationPreviewText(ItemDef item, string preparationId)
+	private string BuildPreparationPreviewText(ItemDef item, string preparationId)
 	{
+		var preparationName = IngredientPreparationCatalog.GetDisplayName(preparationId);
+		if (!_gameState.KnowsIngredientPreparation(item.Id, preparationId))
+			return $"{preparationName}: {InventoryItemTextFormatter.UnknownPreparationStatsLabel}";
+
 		if (!IngredientPreparationCatalog.TryGetPreparation(item, preparationId, out var preparation))
 			return MissingPreviewText;
 
@@ -355,7 +359,7 @@ public partial class IngredientPreparationTray : Control
 			lines.Add($"[color=#F0544F]{riskName} +{risk.Value}[/color]");
 		}
 
-		return lines.Count == 0 ? MissingPreviewText : string.Join("\n", lines);
+		return lines.Count == 0 ? $"{preparationName}: None" : $"{preparationName}: {string.Join("\n", lines)}";
 	}
 
 	private void SetStatus(string text)

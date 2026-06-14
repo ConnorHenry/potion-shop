@@ -190,6 +190,10 @@ internal static class InventoryAndBrewPanelTests
             source.Contains("RefreshRequestChecklist(null);"));
         AssertTrue("BrewPanel calculates a live preview for request checklist matching",
             source.Contains("var previewResult = _brewingService.PreviewPotion(") &&
+            source.Contains("knownStatsOnly: true") &&
+            source.Contains("ingredient.Traits.Clear();") &&
+            source.Contains("ingredient.Risks.Clear();") &&
+            source.Contains("ingredient.IngredientEffects.Clear();") &&
             source.Contains("RefreshRequestChecklist(previewResult);"));
         AssertTrue("BrewPanel scene removes the requested current brew information fields",
             !scene.Contains("[node name=\"CurrentBrew\" type=\"Control\" parent=\"PotionBrewingStationView/BrewPanel/Panel\"]") &&
@@ -340,7 +344,7 @@ internal static class InventoryAndBrewPanelTests
         var brewPanel = ReadProjectFile("Scripts/UI/BrewPanel.cs");
 
         AssertTrue("Game UI references the brewing station scales sprite",
-            scene.Contains("path=\"res://Assets/ConceptArt/BrewingStation/scales.png\"") &&
+            scene.Contains("path=\"res://Assets/Art/BrewingStationBright/scales_bright.png\"") &&
             scene.Contains("[node name=\"IngredientScales\" type=\"Control\" parent=\"PotionBrewingStationView\"]") &&
             scene.Contains("script = ExtResource(\"34_scales_panel\")"));
         AssertTrue("Scales panel exposes only the ingredient drop box",
@@ -477,6 +481,8 @@ internal static class InventoryAndBrewPanelTests
             tray.Contains("ItemDef? selectedItem = null;") &&
             tray.Contains("RefreshPreparationPreviews(selectedItem);") &&
             tray.Contains("BuildPreparationPreviewText(item, option.Id)") &&
+            tray.Contains("_gameState.KnowsIngredientPreparation(item.Id, preparationId)") &&
+            tray.Contains("UnknownPreparationStatsLabel") &&
             tray.Contains("IngredientPreparationCatalog.TryGetPreparation(item, preparationId, out var preparation)"));
         AssertTrue("IngredientPreparationTray supports right-click inventory selection and selected-item return",
             tray.Contains("public bool TrySelectIngredientFromInventory(string itemId)") &&
@@ -495,7 +501,7 @@ internal static class InventoryAndBrewPanelTests
             !tray.Contains("Risk: {"));
         AssertTrue("Game UI reserves room for preparation preview labels under buttons",
             scene.Contains("custom_minimum_size = Vector2(430, 330)") &&
-            scene.Contains("offset_bottom = 1008.0") &&
+            scene.Contains("offset_bottom = 1117.0") &&
             scene.Contains("[node name=\"PreparationMethods\" type=\"HBoxContainer\" parent=\"PotionBrewingStationView/IngredientPreparationTray\"]"));
     }
 
@@ -519,6 +525,9 @@ internal static class InventoryAndBrewPanelTests
             !brewPanel.Contains("_gameState.AddItem(removedIngredientId, 1)") &&
             brewPanel.Contains("_queuedIngredients.Clear();") &&
             brewPanel.Contains("_queuedIngredients.RemoveAt(slotIndex);"));
+        AssertTrue("Preparation trait knowledge is recorded only by successful brew paths",
+            !tray.Contains("RecordIngredientPreparationKnowledge") &&
+            brewPanel.Contains("_gameState.RecordIngredientPreparationKnowledge(_queuedIngredients);"));
     }
 
     private static void TestConsumableInventoryAndTreatmentTrayWiring()
@@ -668,9 +677,12 @@ internal static class InventoryAndBrewPanelTests
             brewPanel.Contains("totalPrice += Math.Max(0, item.BasePrice);"));
 
         var gameState = ReadProjectFile("Scripts/Autoload/GameState.cs");
+        var potionInventoryBrewService = ReadProjectFile("Scripts/Systems/PotionInventoryBrewService.cs");
         AssertTrue("GameState exposes stored potion prices",
             gameState.Contains("RegisterPotionBasePrice") &&
             gameState.Contains("TryGetPotionBasePrice"));
+        AssertTrue("Potion book repeat brews unlock the consumed preparation traits",
+            potionInventoryBrewService.Contains("_gameState.RecordIngredientPreparationKnowledge(requiredIngredients.Keys);"));
     }
 
     private static void TestBrewPanelSplitsRiskVariantsForKnownCombinations()

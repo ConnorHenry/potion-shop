@@ -35,14 +35,16 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_map")
 BackButtonPath = NodePath("Root/Margin/Main/Header/Back")
-HoveredCoordinateLabelPath = NodePath("Root/Margin/Main/Header/HoveredCoordinate")
-MapTextureRectPath = NodePath("Root/Margin/Main/MapArea/MapMargin/MapCenter/MapCanvas/MapTexture")
+HoveredCoordinateLabelPath = NodePath("HoveredCoordinate")
+MapArtworkPath = NodePath("Root/Margin/Main/MapArea/MapMargin/MapCenter/MapCanvas/MapArtwork")
 MapGridPath = NodePath("Root/Margin/Main/MapArea/MapMargin/MapCenter/MapCanvas/MapGrid")
 ModalLayerPath = NodePath("ModalLayer")
-ModalTitlePath = NodePath("ModalLayer/Dialog/Margin/VBox/Title")
-ModalMessagePath = NodePath("ModalLayer/Dialog/Margin/VBox/Message")
-ModalTravelButtonPath = NodePath("ModalLayer/Dialog/Margin/VBox/Actions/Travel")
-ModalCloseButtonPath = NodePath("ModalLayer/Dialog/Margin/VBox/Actions/Close")
+ModalDialogPath = NodePath("ModalLayer/Dialog")
+ModalTilePreviewPath = NodePath("ModalLayer/Dialog/Margin/Content/TilePreview")
+ModalTitlePath = NodePath("ModalLayer/Dialog/Margin/Content/Text/VBox/Title")
+ModalMessagePath = NodePath("ModalLayer/Dialog/Margin/Content/Text/VBox/Message")
+ModalTravelButtonPath = NodePath("ModalLayer/Dialog/Margin/Content/Text/VBox/Actions/Travel")
+ModalCloseButtonPath = NodePath("ModalLayer/Dialog/Margin/Content/Text/VBox/Actions/Close")
 
 [node name="Root" type="Control" parent="."]
 clip_contents = true
@@ -71,10 +73,10 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/margin_left = 24
-theme_override_constants/margin_top = 18
-theme_override_constants/margin_right = 24
-theme_override_constants/margin_bottom = 18
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 14
 
 [node name="Main" type="VBoxContainer" parent="Root/Margin"]
 layout_mode = 2
@@ -91,15 +93,6 @@ theme_override_colors/font_color = Color(0.88, 0.76, 0.55, 1)
 theme_override_font_sizes/font_size = 22
 text = "Map of Kerry"
 
-[node name="HoveredCoordinate" type="Label" parent="Root/Margin/Main/Header"]
-custom_minimum_size = Vector2(120, 0)
-layout_mode = 2
-theme_override_colors/font_color = Color(0.94, 0.78, 0.47, 1)
-theme_override_font_sizes/font_size = 20
-text = "Cell: --"
-horizontal_alignment = 1
-vertical_alignment = 1
-
 [node name="Back" type="Button" parent="Root/Margin/Main/Header"]
 layout_mode = 2
 text = "Back"
@@ -112,22 +105,26 @@ theme_override_styles/panel = SubResource("StyleBoxFlat_map_panel")
 
 [node name="MapMargin" type="MarginContainer" parent="Root/Margin/Main/MapArea"]
 layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 10
-theme_override_constants/margin_right = 10
-theme_override_constants/margin_bottom = 10
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 8
 
-[node name="MapCenter" type="CenterContainer" parent="Root/Margin/Main/MapArea/MapMargin"]
+[node name="MapCenter" type="Control" parent="Root/Margin/Main/MapArea/MapMargin"]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 
 [node name="MapCanvas" type="Control" parent="Root/Margin/Main/MapArea/MapMargin/MapCenter"]
 clip_contents = true
-custom_minimum_size = Vector2(560, 560)
-layout_mode = 2
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 
-[node name="MapTexture" type="TextureRect" parent="Root/Margin/Main/MapArea/MapMargin/MapCenter/MapCanvas"]
+[node name="MapArtwork" type="TextureRect" parent="Root/Margin/Main/MapArea/MapMargin/MapCenter/MapCanvas"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -159,10 +156,22 @@ grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/h_separation = 0
 theme_override_constants/v_separation = 0
-columns = 16
+columns = 31
+
+[node name="HoveredCoordinate" type="Label" parent="."]
+visible = false
+z_index = 90
+custom_minimum_size = Vector2(42, 26)
+layout_mode = 1
+theme_override_colors/font_color = Color(1, 0.88, 0.48, 1)
+theme_override_colors/font_outline_color = Color(0.055, 0.031, 0.013, 0.95)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 21
+text = "F12"
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="ModalLayer" type="Control" parent="."]
-visible = false
 z_index = 100
 layout_mode = 1
 anchors_preset = 15
@@ -182,39 +191,54 @@ color = Color(0, 0, 0, 0.48)
 
 [node name="Dialog" type="PanelContainer" parent="ModalLayer"]
 layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -190.0
-offset_top = -96.0
-offset_right = 190.0
-offset_bottom = 96.0
+anchors_preset = -1
+anchor_left = 0.25
+anchor_top = 0.25
+anchor_right = 0.75
+anchor_bottom = 0.75
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_modal_panel")
 
 [node name="Margin" type="MarginContainer" parent="ModalLayer/Dialog"]
 layout_mode = 2
-theme_override_constants/margin_left = 16
-theme_override_constants/margin_top = 14
-theme_override_constants/margin_right = 16
-theme_override_constants/margin_bottom = 14
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 18
 
-[node name="VBox" type="VBoxContainer" parent="ModalLayer/Dialog/Margin"]
+[node name="Content" type="HBoxContainer" parent="ModalLayer/Dialog/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="TilePreview" type="TextureRect" parent="ModalLayer/Dialog/Margin/Content"]
+visible = false
+custom_minimum_size = Vector2(280, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Text" type="MarginContainer" parent="ModalLayer/Dialog/Margin/Content"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="VBox" type="VBoxContainer" parent="ModalLayer/Dialog/Margin/Content/Text"]
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="Title" type="Label" parent="ModalLayer/Dialog/Margin/VBox"]
+[node name="Title" type="Label" parent="ModalLayer/Dialog/Margin/Content/Text/VBox"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.94, 0.78, 0.47, 1)
 theme_override_font_sizes/font_size = 21
 text = "Coordinate"
 horizontal_alignment = 1
 
-[node name="Message" type="Label" parent="ModalLayer/Dialog/Margin/VBox"]
-custom_minimum_size = Vector2(0, 76)
+[node name="Message" type="Label" parent="ModalLayer/Dialog/Margin/Content/Text/VBox"]
+custom_minimum_size = Vector2(0, 58)
 layout_mode = 2
 size_flags_vertical = 3
 theme_override_colors/font_color = Color(0.93, 0.87, 0.74, 1)
@@ -223,17 +247,17 @@ horizontal_alignment = 1
 vertical_alignment = 1
 autowrap_mode = 3
 
-[node name="Actions" type="HBoxContainer" parent="ModalLayer/Dialog/Margin/VBox"]
+[node name="Actions" type="HBoxContainer" parent="ModalLayer/Dialog/Margin/Content/Text/VBox"]
 layout_mode = 2
 theme_override_constants/separation = 10
 alignment = 1
 
-[node name="Travel" type="Button" parent="ModalLayer/Dialog/Margin/VBox/Actions"]
+[node name="Travel" type="Button" parent="ModalLayer/Dialog/Margin/Content/Text/VBox/Actions"]
 custom_minimum_size = Vector2(96, 34)
 layout_mode = 2
 text = "Travel"
 
-[node name="Close" type="Button" parent="ModalLayer/Dialog/Margin/VBox/Actions"]
+[node name="Close" type="Button" parent="ModalLayer/Dialog/Margin/Content/Text/VBox/Actions"]
 custom_minimum_size = Vector2(96, 34)
 layout_mode = 2
 text = "Close"

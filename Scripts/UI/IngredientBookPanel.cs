@@ -355,9 +355,15 @@ public partial class IngredientBookPanel : Control
 		page.Icon.Visible = page.Icon.Texture is not null;
 		page.Icon.TooltipText = item.Name;
 		page.UnknownIcon.Visible = false;
-		page.TraitsLabel.Text = BuildPreparationStatsText(item.Preparations, showTraits: true);
-		page.RisksLabel.Text = BuildPreparationStatsText(item.Preparations, showTraits: false);
-		page.DescriptionLabel.Text = InventoryItemTextFormatter.BuildDescriptionWithIngredientEffects(item);
+		page.TraitsLabel.Text = InventoryItemTextFormatter.FormatKnownPreparationTraitRows(
+			item.Preparations,
+			preparationId => _gameState.KnowsIngredientPreparation(item.Id, preparationId));
+		page.RisksLabel.Text = InventoryItemTextFormatter.FormatKnownPreparationRiskRows(
+			item.Preparations,
+			preparationId => _gameState.KnowsIngredientPreparation(item.Id, preparationId));
+		page.DescriptionLabel.Text = InventoryItemTextFormatter.BuildDescriptionWithIngredientEffects(
+			item,
+			_gameState.KnowsAnyIngredientPreparation(item.Id));
 	}
 
 	private static void ShowUnknownIngredientPage(IngredientBookPageView page)

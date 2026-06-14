@@ -123,6 +123,7 @@ public sealed class PotionInventoryBrewService
 		}
 
 		_gameState.AddItem(potionItemId, 1);
+		_gameState.RecordIngredientPreparationKnowledge(requiredIngredients.Keys);
 		return true;
 	}
 

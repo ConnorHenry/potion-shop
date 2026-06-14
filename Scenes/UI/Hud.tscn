@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3 uid="uid://cikvfbes8y0kf"]
+[gd_scene load_steps=3 format=3 uid="uid://cikvfbes8y0kf"]
 
 [ext_resource type="Script" uid="uid://cpdo7gyxh2gvl" path="res://Scripts/UI/Hud.cs" id="1_khu2m"]
+[ext_resource type="Theme" uid="uid://bcxrpcn1ol80g" path="res://Assets/UI/BrewPanelTheme.tres" id="2_brew_theme"]
 
 [node name="Hud" type="Control"]
 custom_minimum_size = Vector2(0, 50)
@@ -9,6 +10,7 @@ anchors_preset = 10
 anchor_right = 1.0
 offset_bottom = 50.0
 grow_horizontal = 2
+theme = ExtResource("2_brew_theme")
 script = ExtResource("1_khu2m")
 
 [node name="Background" type="ColorRect" parent="."]
@@ -19,7 +21,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-color = Color(0, 0, 0, 1)
+color = Color(0.125, 0.076, 0.035, 1)
 
 [node name="Content" type="HBoxContainer" parent="."]
 layout_mode = 1
@@ -44,12 +46,16 @@ theme_override_constants/separation = 24
 [node name="Gold" type="Label" parent="Content/Status"]
 custom_minimum_size = Vector2(120, 0)
 layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.92, 0.72, 1)
+theme_override_font_sizes/font_size = 20
 text = "Gold:"
 vertical_alignment = 1
 
 [node name="Day" type="Label" parent="Content/Status"]
 custom_minimum_size = Vector2(100, 0)
 layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.92, 0.72, 1)
+theme_override_font_sizes/font_size = 20
 text = "Day:"
 vertical_alignment = 1
 
@@ -71,21 +77,25 @@ alignment = 2
 [node name="ServeCustomer" type="Button" parent="Content/Actions"]
 custom_minimum_size = Vector2(120, 34)
 layout_mode = 2
+theme_override_font_sizes/font_size = 18
 text = "Start Day"
 
 [node name="Garden" type="Button" parent="Content/Actions"]
 custom_minimum_size = Vector2(96, 34)
 layout_mode = 2
+theme_override_font_sizes/font_size = 18
 text = "Garden"
 
 [node name="Map" type="Button" parent="Content/Actions"]
 custom_minimum_size = Vector2(80, 34)
 layout_mode = 2
+theme_override_font_sizes/font_size = 18
 text = "Map"
 
 [node name="MainMenu" type="Button" parent="Content/Actions"]
 custom_minimum_size = Vector2(88, 34)
 layout_mode = 2
+theme_override_font_sizes/font_size = 18
 text = "Menu"
 
 [node name="RequestPanel" type="PanelContainer" parent="."]
@@ -179,10 +189,6 @@ theme_override_constants/margin_bottom = 12
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="ReturnToMainMenu" type="Button" parent="SettingsPanel/Margin/VBox"]
-layout_mode = 2
-text = "Return to Main Menu"
-
 [node name="SaveGame" type="Button" parent="SettingsPanel/Margin/VBox"]
 layout_mode = 2
 text = "Save Game"
@@ -194,6 +200,10 @@ text = "Settings"
 [node name="ToggleDebugPanel" type="Button" parent="SettingsPanel/Margin/VBox"]
 layout_mode = 2
 text = "Debug Panel"
+
+[node name="ReturnToMainMenu" type="Button" parent="SettingsPanel/Margin/VBox"]
+layout_mode = 2
+text = "Return to Main Menu"
 
 [node name="Settings" type="PanelContainer" parent="."]
 visible = false

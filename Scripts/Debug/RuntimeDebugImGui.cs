@@ -310,7 +310,7 @@ public partial class RuntimeDebugImGui : Node
 		if (!ImGui.CollapsingHeader("Ingredients", ImGuiTreeNodeFlags.DefaultOpen))
 			return;
 
-		ImGui.TextWrapped("Developer action for filling the inventory with every ingredient.");
+		ImGui.TextWrapped("Developer action for filling the inventory with every base ingredient.");
 
 		if (_ingredientItemIds.Count == 0)
 		{
@@ -320,11 +320,46 @@ public partial class RuntimeDebugImGui : Node
 
 		if (ImGui.Button("Add 10x of Every Ingredient"))
 		{
-			foreach (var ingredientId in _ingredientItemIds)
-				_gameState.AddItem(ingredientId, 10);
+			var addedStackCount = AddEveryIngredientStack(10);
 
-			_statusMessage = $"Added 10x of every ingredient to inventory.";
+			_statusMessage = addedStackCount > 0
+				? $"Added 10x of {addedStackCount} base ingredient stacks to inventory."
+				: "No base ingredient stacks were added.";
 		}
+	}
+
+	private int AddEveryIngredientStack(int quantity)
+	{
+		if (quantity <= 0)
+			return 0;
+
+		var addedStackCount = 0;
+		var ingredientIds = new List<string>(_ingredientItemIds);
+		foreach (var ingredientId in ingredientIds)
+		{
+			if (!TryGetDebugItem(ingredientId, out var item) || !IsBaseIngredient(item))
+				continue;
+
+			if (TryAddInventoryStack(item.Id, quantity))
+				addedStackCount += 1;
+		}
+
+		return addedStackCount;
+	}
+
+	private bool TryAddInventoryStack(string itemId, int quantity)
+	{
+		var before = _gameState.Inventory.GetValueOrDefault(itemId);
+		_gameState.AddItem(itemId, quantity);
+		return _gameState.Inventory.GetValueOrDefault(itemId) > before;
+	}
+
+	private bool TryGetDebugItem(string itemId, out ItemDef item)
+	{
+		if (_runtimeContentDb.TryGetItem(itemId, out item))
+			return true;
+
+		return _dataDb.TryGetItem(itemId, out item);
 	}
 
 	private void DrawConsumableSection()
@@ -477,10 +512,23 @@ public partial class RuntimeDebugImGui : Node
 
 		var recorded = _gameState.KnowsIngredient(ingredientId);
 		ImGui.Text(recorded ? "Current: Recorded" : "Current: Unknown");
-		if (!ImGui.Checkbox("Recorded in ingredient book", ref recorded))
+		if (ImGui.Checkbox("Recorded in ingredient book", ref recorded))
+			SetIngredientRecordedInBook(ingredientId, recorded);
+
+		ImGui.Separator();
+		DrawIngredientTraitKnowledgeControls();
+	}
+
+	private void DrawIngredientTraitKnowledgeControls()
+	{
+		if (!ImGui.Button("Unlock All Ingredient Traits"))
 			return;
 
-		SetIngredientRecordedInBook(ingredientId, recorded);
+		var items = new List<ItemDef>();
+		items.AddRange(_dataDb.Items.Values);
+		items.AddRange(_runtimeContentDb.Items.Values);
+		_gameState.UnlockAllIngredientPreparations(items);
+		_statusMessage = "Unlocked all ingredient preparation traits and risks.";
 	}
 
 	private bool IsPotionRecipeRecordedInBook(string recipeId)
@@ -978,6 +1026,14 @@ public partial class RuntimeDebugImGui : Node
 			return false;
 
 		return HasTag(item, "ingredient");
+	}
+
+	private static bool IsBaseIngredient(ItemDef? item)
+	{
+		if (item is null || string.IsNullOrWhiteSpace(item.Id) || item.Treatment is not null || item.PreparedIngredient is not null)
+			return false;
+
+		return HasTag(item, ItemTags.Ingredient);
 	}
 
 	private string BuildItemLabel(string itemId)

@@ -152,6 +152,8 @@ public partial class ShopFloor : Control
 
 	private void ApplyInitialPanelState()
 	{
+		Visible = true;
+
 		if (_customerCloseupView is not null)
 			_customerCloseupView.Visible = false;
 		if (_potionBookCloseupView is not null)

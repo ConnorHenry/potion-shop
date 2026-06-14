@@ -9,6 +9,7 @@ public partial class MainMenu : Control
 	[Export] public NodePath StartButtonPath = default!;
 	[Export] public NodePath NewGameButtonPath = default!;
 	[Export] public NodePath LoadButtonPath = default!;
+	[Export] public NodePath ExitToDesktopButtonPath = default!;
 	[Export] public NodePath NewGameTutorialPopupPath = default!;
 	[Export] public NodePath StartTutorialButtonPath = default!;
 	[Export] public NodePath SkipTutorialButtonPath = default!;
@@ -17,6 +18,7 @@ public partial class MainMenu : Control
 	private Button _startButton = default!;
 	private Button _newGameButton = default!;
 	private Button _loadButton = default!;
+	private Button _exitToDesktopButton = default!;
 	private Control _newGameTutorialPopup = default!;
 	private Button _startTutorialButton = default!;
 	private Button _skipTutorialButton = default!;
@@ -40,6 +42,8 @@ public partial class MainMenu : Control
 			return;
 		if (!NodeLookup.TryGetRequiredNode<Button>(this, LoadButtonPath, nameof(MainMenu), nameof(LoadButtonPath), out _loadButton))
 			return;
+		if (!NodeLookup.TryGetRequiredNode<Button>(this, ExitToDesktopButtonPath, nameof(MainMenu), nameof(ExitToDesktopButtonPath), out _exitToDesktopButton))
+			return;
 		if (!NodeLookup.TryGetRequiredNode<Control>(this, NewGameTutorialPopupPath, nameof(MainMenu), nameof(NewGameTutorialPopupPath), out _newGameTutorialPopup))
 			return;
 		if (!NodeLookup.TryGetRequiredNode<Button>(this, StartTutorialButtonPath, nameof(MainMenu), nameof(StartTutorialButtonPath), out _startTutorialButton))
@@ -53,6 +57,7 @@ public partial class MainMenu : Control
 		_startButton.Pressed += OnStartButtonPressed;
 		_newGameButton.Pressed += OnNewGamePressed;
 		_loadButton.Pressed += OnLoadButtonPressed;
+		_exitToDesktopButton.Pressed += OnExitToDesktopPressed;
 		_startTutorialButton.Pressed += OnStartTutorialPressed;
 		_skipTutorialButton.Pressed += OnSkipTutorialPressed;
 	}
@@ -70,6 +75,8 @@ public partial class MainMenu : Control
 			_newGameButton.Pressed -= OnNewGamePressed;
 		if (_loadButton is not null)
 			_loadButton.Pressed -= OnLoadButtonPressed;
+		if (_exitToDesktopButton is not null)
+			_exitToDesktopButton.Pressed -= OnExitToDesktopPressed;
 		if (_startTutorialButton is not null)
 			_startTutorialButton.Pressed -= OnStartTutorialPressed;
 		if (_skipTutorialButton is not null)
@@ -100,11 +107,17 @@ public partial class MainMenu : Control
 		}
 	}
 
+	private void OnExitToDesktopPressed()
+	{
+		GetTree().Quit();
+	}
+
 	private void UpdateButtonLabels()
 	{
 		_startButton.Text = "Continue";
 		_newGameButton.Text = "New Game";
 		_loadButton.Text = "Load Game";
+		_exitToDesktopButton.Text = "Exit to desktop";
 	}
 
 	private void UpdateContinueButtonVisibility()

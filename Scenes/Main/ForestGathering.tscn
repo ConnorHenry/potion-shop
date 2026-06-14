@@ -68,6 +68,7 @@ InspectionPanelPath = NodePath("Root/InspectionPanel")
 InspectionImagePath = NodePath("Root/InspectionPanel/Margin/VBox/Body/InspectionImageFrame/InspectionImage")
 InspectionTitleLabelPath = NodePath("Root/InspectionPanel/Margin/VBox/Title")
 InspectionHarvestButtonPath = NodePath("Root/InspectionPanel/Margin/VBox/Actions/Harvest")
+InspectionRemoveButtonPath = NodePath("Root/InspectionPanel/Margin/VBox/Actions/Remove")
 InspectionKeepLookingButtonPath = NodePath("Root/InspectionPanel/Margin/VBox/Actions/KeepLooking")
 ReturnPromptPath = NodePath("ReturnPrompt")
 ReturnPromptMessagePath = NodePath("ReturnPrompt/Dialog/Margin/VBox/Message")
@@ -352,6 +353,11 @@ alignment = 2
 custom_minimum_size = Vector2(120, 32)
 layout_mode = 2
 text = "Keep Looking"
+
+[node name="Remove" type="Button" parent="Root/InspectionPanel/Margin/VBox/Actions"]
+custom_minimum_size = Vector2(96, 32)
+layout_mode = 2
+text = "Remove"
 
 [node name="Harvest" type="Button" parent="Root/InspectionPanel/Margin/VBox/Actions"]
 custom_minimum_size = Vector2(96, 32)

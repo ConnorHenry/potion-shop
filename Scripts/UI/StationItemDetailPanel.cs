@@ -209,8 +209,8 @@ public partial class StationItemDetailPanel : Control
 		_risksHeader.Text = "RISKS";
 		if (_itemCatalog.IsIngredient(_currentItemId))
 		{
-			_traits.Text = FormatIngredientTraitText(item);
-			_risks.Text = FormatIngredientRiskText(item);
+			_traits.Text = FormatIngredientTraitText(_currentItemId, item);
+			_risks.Text = FormatIngredientRiskText(_currentItemId, item);
 		}
 		else
 		{
@@ -235,7 +235,9 @@ public partial class StationItemDetailPanel : Control
 		if (_itemCatalog.IsPotion(itemId) && item.Treatment is null)
 			return _brewService.BuildPotionDescriptionText(itemId, item.Description);
 		if (_itemCatalog.IsIngredient(itemId))
-			return InventoryItemTextFormatter.BuildDescriptionWithIngredientEffects(item);
+			return InventoryItemTextFormatter.BuildDescriptionWithIngredientEffects(
+				item,
+				_gameState.KnowsAnyItemIngredientPreparation(itemId));
 
 		return InventoryItemTextFormatter.BuildItemDetailDescription(item);
 	}
@@ -246,18 +248,53 @@ public partial class StationItemDetailPanel : Control
 		_description.Visible = !string.IsNullOrWhiteSpace(text);
 	}
 
-	private static string FormatIngredientTraitText(ItemDef item)
+	private string FormatIngredientTraitText(string itemId, ItemDef item)
 	{
-		return HasPositiveStats(item.Traits)
-			? InventoryItemTextFormatter.FormatTopStats(item.Traits, 3)
-			: InventoryItemTextFormatter.FormatPreparationTraitNames(item.Preparations, 3);
+		if (_gameState.TryResolveIngredientPreparation(itemId, out var ingredientId, out var preparationId))
+		{
+			return _gameState.KnowsIngredientPreparation(ingredientId, preparationId)
+				? InventoryItemTextFormatter.FormatTopStats(item.Traits, 3)
+				: InventoryItemTextFormatter.UnknownPreparationStatsLabel;
+		}
+
+		if (HasPreparationStats(item))
+		{
+			return InventoryItemTextFormatter.FormatKnownPreparationTraitRows(
+				item.Preparations,
+				preparationId => _gameState.KnowsIngredientPreparation(item.Id, preparationId));
+		}
+
+		if (HasPositiveStats(item.Traits))
+			return InventoryItemTextFormatter.FormatTopStats(item.Traits, 3);
+
+		return InventoryItemTextFormatter.UnknownPreparationStatsLabel;
 	}
 
-	private static string FormatIngredientRiskText(ItemDef item)
+	private string FormatIngredientRiskText(string itemId, ItemDef item)
 	{
-		return HasPositiveStats(item.Risks)
-			? InventoryItemTextFormatter.FormatTopStats(item.Risks, 3, "None")
-			: InventoryItemTextFormatter.FormatPreparationRiskNames(item.Preparations, 3);
+		if (_gameState.TryResolveIngredientPreparation(itemId, out var ingredientId, out var preparationId))
+		{
+			return _gameState.KnowsIngredientPreparation(ingredientId, preparationId)
+				? InventoryItemTextFormatter.FormatTopStats(item.Risks, 3, "None")
+				: InventoryItemTextFormatter.UnknownPreparationStatsLabel;
+		}
+
+		if (HasPreparationStats(item))
+		{
+			return InventoryItemTextFormatter.FormatKnownPreparationRiskRows(
+				item.Preparations,
+				preparationId => _gameState.KnowsIngredientPreparation(item.Id, preparationId));
+		}
+
+		if (HasPositiveStats(item.Risks))
+			return InventoryItemTextFormatter.FormatTopStats(item.Risks, 3, "None");
+
+		return InventoryItemTextFormatter.UnknownPreparationStatsLabel;
+	}
+
+	private static bool HasPreparationStats(ItemDef item)
+	{
+		return item.Preparations is not null && item.Preparations.Count > 0;
 	}
 
 	private static bool HasPositiveStats(Dictionary<string, int>? stats)

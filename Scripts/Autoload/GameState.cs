@@ -46,6 +46,7 @@ public partial class GameState : Node
 	public List<string> KnownPotionOrder { get; } = new();
 	public HashSet<string> KnownIngredients { get; } = new(StringComparer.OrdinalIgnoreCase);
 	public List<string> KnownIngredientOrder { get; } = new();
+	public HashSet<string> KnownIngredientPreparations { get; } = new(StringComparer.OrdinalIgnoreCase);
 	public Dictionary<string, string> PotionDisplayNames { get; } = new(StringComparer.OrdinalIgnoreCase);
 	public IReadOnlyDictionary<string, int> SeedInventory => _gardenState.SeedInventory;
 	public IReadOnlyList<GardenPotState> GardenPots => _gardenState.GardenPots;
@@ -88,6 +89,7 @@ public partial class GameState : Node
 			KnownPotionOrder,
 			KnownIngredients,
 			KnownIngredientOrder,
+			KnownIngredientPreparations,
 			PotionDisplayNames,
 			ResolveKnownIngredientIdOrNull);
 		_inventoryState = new InventoryState(
@@ -186,6 +188,7 @@ public partial class GameState : Node
 			KnownPotionOrder = _potionKnowledgeState.CloneKnownPotionOrder(),
 			KnownIngredients = _potionKnowledgeState.BuildKnownIngredientSnapshot(),
 			KnownIngredientOrder = _potionKnowledgeState.CloneKnownIngredientOrder(),
+			KnownIngredientPreparations = _potionKnowledgeState.BuildKnownIngredientPreparationSnapshot(),
 			PotionDisplayNames = _potionKnowledgeState.ClonePotionDisplayNames(),
 			PotionBasePrices = _potionKnowledgeState.ClonePotionBasePrices(),
 			PotionRecipes = _potionKnowledgeState.ClonePotionRecipes(),
@@ -485,6 +488,95 @@ public partial class GameState : Node
 		return _potionKnowledgeState.KnowsIngredient(ingredientId);
 	}
 
+	public void LearnIngredientPreparation(string ingredientId, string preparationId)
+	{
+		if (_potionKnowledgeState.AddKnownIngredientPreparation(ingredientId, preparationId))
+			EmitChanged();
+	}
+
+	public bool KnowsIngredientPreparation(string ingredientId, string preparationId)
+	{
+		return _potionKnowledgeState.KnowsIngredientPreparation(ingredientId, preparationId);
+	}
+
+	public bool KnowsAnyIngredientPreparation(string ingredientId)
+	{
+		return _potionKnowledgeState.KnowsAnyIngredientPreparation(ingredientId);
+	}
+
+	public bool KnowsItemIngredientPreparation(string itemId)
+	{
+		return TryResolveIngredientPreparation(itemId, out var ingredientId, out var preparationId) &&
+			KnowsIngredientPreparation(ingredientId, preparationId);
+	}
+
+	public bool KnowsAnyItemIngredientPreparation(string itemId)
+	{
+		return TryResolveKnownIngredientId(itemId, out var ingredientId) &&
+			KnowsAnyIngredientPreparation(ingredientId);
+	}
+
+	public void RecordIngredientPreparationKnowledge(IEnumerable<IngredientPortionDef> ingredientPortions)
+	{
+		if (ingredientPortions is null)
+			return;
+
+		var changed = false;
+		foreach (var portion in ingredientPortions)
+		{
+			if (portion is null)
+				continue;
+
+			var ingredientId = string.IsNullOrWhiteSpace(portion.IngredientId)
+				? portion.InventoryItemId
+				: portion.IngredientId;
+			changed |= _potionKnowledgeState.AddKnownIngredientPreparation(ingredientId, portion.PreparationId);
+		}
+
+		if (changed)
+			EmitChanged();
+	}
+
+	public void RecordIngredientPreparationKnowledge(IEnumerable<string> itemIds)
+	{
+		if (itemIds is null)
+			return;
+
+		var changed = false;
+		foreach (var itemId in itemIds)
+		{
+			if (!TryResolveIngredientPreparation(itemId, out var ingredientId, out var preparationId))
+				continue;
+
+			changed |= _potionKnowledgeState.AddKnownIngredientPreparation(ingredientId, preparationId);
+		}
+
+		if (changed)
+			EmitChanged();
+	}
+
+	public void UnlockAllIngredientPreparations(IEnumerable<ItemDef> items)
+	{
+		if (items is null)
+			return;
+
+		var changed = false;
+		foreach (var item in items)
+		{
+			if (item is null || item.Treatment is not null || !IsIngredient(item))
+				continue;
+			if (item.Preparations is null || item.Preparations.Count == 0)
+				continue;
+
+			changed |= AddKnownIngredient(item.Id, emitChanged: false);
+			foreach (var preparationId in item.Preparations.Keys)
+				changed |= _potionKnowledgeState.AddKnownIngredientPreparation(item.Id, preparationId);
+		}
+
+		if (changed)
+			EmitChanged();
+	}
+
 	public void ForgetIngredient(string ingredientId)
 	{
 		if (_potionKnowledgeState.ForgetIngredient(ingredientId))
@@ -695,6 +787,29 @@ public partial class GameState : Node
 
 		knownIngredientId = baseItem.Id;
 		return true;
+	}
+
+	public bool TryResolveIngredientPreparation(
+		string itemId,
+		out string ingredientId,
+		out string preparationId)
+	{
+		ingredientId = string.Empty;
+		preparationId = string.Empty;
+		if (string.IsNullOrWhiteSpace(itemId))
+			return false;
+		if (_itemCatalog is null || !_itemCatalog.TryGetItem(itemId, out var item))
+			return false;
+		if (IngredientPreparationCatalog.TryGetPreparedIngredientInfo(item, out ingredientId, out preparationId))
+			return true;
+
+		var baseItemId = item.Treatment?.BaseItemId;
+		if (string.IsNullOrWhiteSpace(baseItemId))
+			return false;
+		if (!_itemCatalog.TryGetItem(baseItemId, out var baseItem))
+			return false;
+
+		return IngredientPreparationCatalog.TryGetPreparedIngredientInfo(baseItem, out ingredientId, out preparationId);
 	}
 
 	public int CountOwnedUniquePotions()

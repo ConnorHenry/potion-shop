@@ -1,3 +1,4 @@
+using System;
 using Godot;
 using OccultShop.Autoload;
 
@@ -22,6 +23,7 @@ public partial class InventoryDragPreview : Control
 	private Vector2 _dropAnimationStartTopLeft;
 	private Vector2 _dropAnimationEndTopLeft;
 	private double _dropAnimationElapsedSeconds;
+	private Action? _dropAnimationCompleted;
 
 	public override void _Ready()
 	{
@@ -84,10 +86,14 @@ public partial class InventoryDragPreview : Control
 			SetProcess(false);
 	}
 
-	public static bool TryPlayBrewDropAnimation(string iconPath, Vector2 startCenterGlobalPosition, Vector2 endCenterGlobalPosition)
+	public static bool TryPlayBrewDropAnimation(
+		string iconPath,
+		Vector2 startCenterGlobalPosition,
+		Vector2 endCenterGlobalPosition,
+		Action? completed = null)
 	{
 		return _activePreview is not null &&
-			_activePreview.StartBrewDropAnimation(iconPath, startCenterGlobalPosition, endCenterGlobalPosition);
+			_activePreview.StartBrewDropAnimation(iconPath, startCenterGlobalPosition, endCenterGlobalPosition, completed);
 	}
 
 	private void TryShowPreview()
@@ -148,7 +154,11 @@ public partial class InventoryDragPreview : Control
 		_icon.Visible = false;
 	}
 
-	private bool StartBrewDropAnimation(string iconPath, Vector2 startCenterGlobalPosition, Vector2 endCenterGlobalPosition)
+	private bool StartBrewDropAnimation(
+		string iconPath,
+		Vector2 startCenterGlobalPosition,
+		Vector2 endCenterGlobalPosition,
+		Action? completed)
 	{
 		var texture = UiIconLoader.LoadIcon(iconPath);
 		if (texture is null)
@@ -167,6 +177,7 @@ public partial class InventoryDragPreview : Control
 		_dropAnimationStartTopLeft = startCenterGlobalPosition - halfSize;
 		_dropAnimationEndTopLeft = endCenterGlobalPosition - halfSize;
 		_dropAnimationElapsedSeconds = 0.0;
+		_dropAnimationCompleted = completed;
 		_dropAnimationActive = true;
 		_icon.Position = _dropAnimationStartTopLeft;
 		SetProcess(true);
@@ -187,6 +198,9 @@ public partial class InventoryDragPreview : Control
 		_icon.Texture = null;
 		_icon.Visible = false;
 		SetIconSize(PreviewSize);
+		var completed = _dropAnimationCompleted;
+		_dropAnimationCompleted = null;
+		completed?.Invoke();
 	}
 
 	private void SetIconSize(float size)

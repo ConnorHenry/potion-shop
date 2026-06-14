@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using OccultShop.Models;
@@ -14,6 +15,8 @@ public sealed class InventoryItemTagDisplayRule
 
 public static class InventoryItemTextFormatter
 {
+	public const string UnknownPreparationStatsLabel = "Unknown";
+
 	public static readonly InventoryItemTagDisplayRule[] ItemTagDisplayRules =
 	{
 		new() { Tag = ItemTags.Herb, DisplayName = "Herb", VisibleToPlayer = true },
@@ -118,7 +121,7 @@ public static class InventoryItemTextFormatter
 		return string.Join("\n", lines);
 	}
 
-	public static string BuildDescriptionWithIngredientEffects(ItemDef item)
+	public static string BuildDescriptionWithIngredientEffects(ItemDef item, bool showIngredientEffects = true)
 	{
 		var lines = new List<string>();
 		if (!string.IsNullOrWhiteSpace(item.Description))
@@ -128,9 +131,12 @@ public static class InventoryItemTextFormatter
 		if (!string.IsNullOrWhiteSpace(preparationText))
 			lines.Add(preparationText);
 
-		var effectText = BuildIngredientEffectsText(item);
-		if (!string.IsNullOrWhiteSpace(effectText))
-			lines.Add(effectText);
+		if (showIngredientEffects)
+		{
+			var effectText = BuildIngredientEffectsText(item);
+			if (!string.IsNullOrWhiteSpace(effectText))
+				lines.Add(effectText);
+		}
 
 		return lines.Count == 0 ? "No description recorded." : string.Join("\n\n", lines);
 	}
@@ -248,6 +254,20 @@ public static class InventoryItemTextFormatter
 		return FormatPreparationStatNames(preparations, maxCount, emptyLabel, showTraits: false);
 	}
 
+	public static string FormatKnownPreparationTraitRows(
+		Dictionary<string, IngredientPreparationDef>? preparations,
+		Func<string, bool> isPreparationKnown)
+	{
+		return FormatKnownPreparationStatRows(preparations, isPreparationKnown, showTraits: true);
+	}
+
+	public static string FormatKnownPreparationRiskRows(
+		Dictionary<string, IngredientPreparationDef>? preparations,
+		Func<string, bool> isPreparationKnown)
+	{
+		return FormatKnownPreparationStatRows(preparations, isPreparationKnown, showTraits: false);
+	}
+
 	public static string DisplayStatName(string key)
 	{
 		if (string.IsNullOrWhiteSpace(key))
@@ -301,6 +321,44 @@ public static class InventoryItemTextFormatter
 			lines.Add(string.Empty);
 
 		return string.Join("\n", lines);
+	}
+
+	private static string FormatKnownPreparationStatRows(
+		Dictionary<string, IngredientPreparationDef>? preparations,
+		Func<string, bool> isPreparationKnown,
+		bool showTraits)
+	{
+		if (preparations is null || preparations.Count == 0)
+			return "No preparations recorded.";
+
+		var lines = new List<string>();
+		foreach (var option in IngredientPreparationCatalog.AllOptions)
+		{
+			if (!preparations.TryGetValue(option.Id, out var preparation) || preparation is null)
+				continue;
+
+			var statText = isPreparationKnown(option.Id)
+				? FormatInlineStats(showTraits ? preparation.Traits : preparation.Risks)
+				: UnknownPreparationStatsLabel;
+			lines.Add($"{option.DisplayName}: {statText}");
+		}
+
+		return lines.Count == 0 ? "No preparations recorded." : string.Join("\n", lines);
+	}
+
+	private static string FormatInlineStats(Dictionary<string, int>? values)
+	{
+		if (values is null || values.Count == 0)
+			return "None";
+
+		var lines = values
+			.Where(x => !string.IsNullOrWhiteSpace(x.Key) && x.Value > 0)
+			.OrderByDescending(x => x.Value)
+			.ThenBy(x => x.Key)
+			.Select(x => $"{DisplayStatName(x.Key)} +{x.Value}")
+			.ToList();
+
+		return lines.Count == 0 ? "None" : string.Join(", ", lines);
 	}
 
 	private static string BuildAuthoredIngredientEffectText(IngredientEffectDef effect)

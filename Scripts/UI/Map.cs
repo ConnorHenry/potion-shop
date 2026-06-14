@@ -8,38 +8,60 @@ namespace OccultShop.UI;
 
 public partial class Map : Control
 {
-	private const int ColumnCount = 15;
-	private const int RowCount = 15;
+	private const int ColumnCount = 30;
 	private const char FirstRowLetter = 'A';
+	private const char LastRowLetter = 'Q';
 	private const string EmptyCoordinateMessage = "Nothing of interest here";
 	private const string DefaultPointOfInterestCoordinate = "F12";
+	private const string JuniperPointOfInterestCoordinate = "K17";
+	private const float HoveredCoordinateOffsetX = 18.0f;
+	private const float HoveredCoordinateOffsetY = 22.0f;
+	private const float HoveredCoordinateScreenPadding = 8.0f;
+	private const float CompactModalHalfWidth = 190.0f;
+	private const float CompactModalHalfHeight = 94.0f;
+	private const float CompactModalMessageMinimumHeight = 58.0f;
+	private const float PreviewModalMessageMinimumHeight = 200.0f;
+	private const int GridColumnSlotCount = ColumnCount + 1;
+	private static int RowCount => LastRowLetter - FirstRowLetter + 1;
+	private static int GridRowSlotCount => RowCount + 1;
 
 	[Export] public NodePath BackButtonPath = default!;
 	[Export] public NodePath HoveredCoordinateLabelPath = default!;
-	[Export] public NodePath MapTextureRectPath = default!;
+	[Export] public NodePath MapArtworkPath = default!;
 	[Export] public NodePath MapGridPath = default!;
 	[Export] public NodePath ModalLayerPath = default!;
+	[Export] public NodePath ModalDialogPath = default!;
+	[Export] public NodePath ModalTilePreviewPath = default!;
 	[Export] public NodePath ModalTitlePath = default!;
 	[Export] public NodePath ModalMessagePath = default!;
 	[Export] public NodePath ModalTravelButtonPath = default!;
 	[Export] public NodePath ModalCloseButtonPath = default!;
 	[Export] public NodePath SaveGameManagerPath = new(AutoloadNodePaths.SaveGameManager);
-	[Export] public string MapTexturePath = "res://Assets/Maps/kerry_samuel_lewis_1844_lowres.jpg";
+	[Export] public string MapTexturePath = "res://Assets/Maps/kerry_parchment_map_hires.png";
 	[Export] public string F12ScenePath = ScenePaths.ForestGathering;
 	[Export] public string F12PointOfInterestMessage = "A damp forest edge is marked here. The undergrowth may hold useful mint.";
+	[Export] public string F12PreviewTexturePath = "res://Assets/Maps/CellPreviews/map_popup_f12_parchment_sketch.png";
+	[Export] public string K17ScenePath = ScenePaths.JuniperGathering;
+	[Export] public string K17PointOfInterestMessage = "Juniper bushes grow thick here. Ripe berries can be gathered with care.";
+	[Export] public string K17PreviewTexturePath = "res://Assets/Maps/CellPreviews/map_popup_k17_parchment_sketch.png";
 
 	private readonly Dictionary<string, MapPointOfInterest> _pointsOfInterest = new(StringComparer.OrdinalIgnoreCase);
 
 	private Button _backButton = default!;
 	private Label _hoveredCoordinateLabel = default!;
-	private TextureRect _mapTextureRect = default!;
+	private Control _mapCanvas = default!;
+	private TextureRect _mapArtwork = default!;
 	private GridContainer _mapGrid = default!;
+	private MapGridLineOverlay? _gridLineOverlay;
 	private Control _modalLayer = default!;
+	private Control _modalDialog = default!;
+	private TextureRect _modalTilePreview = default!;
 	private Label _modalTitle = default!;
 	private Label _modalMessage = default!;
 	private Button _modalTravelButton = default!;
 	private Button _modalCloseButton = default!;
 	private SaveGameManager? _saveGameManager;
+	private MapCoordinate? _hoveredCoordinate;
 	private string? _pendingTravelScenePath;
 
 	public override void _Ready()
@@ -60,6 +82,8 @@ public partial class Map : Control
 		BuildPointsOfInterest();
 		BuildMapGrid();
 		AddDottedGridLineOverlay();
+		_mapCanvas.Resized += LayoutMapLayersToCanvas;
+		LayoutMapLayersToCanvas();
 		SetHoveredCoordinate(null);
 		TryAutoSave("entering the map");
 	}
@@ -72,6 +96,8 @@ public partial class Map : Control
 			_modalTravelButton.Pressed -= OnTravelPressed;
 		if (_modalCloseButton is not null)
 			_modalCloseButton.Pressed -= HideModal;
+		if (_mapCanvas is not null)
+			_mapCanvas.Resized -= LayoutMapLayersToCanvas;
 	}
 
 	private bool ResolveNodes()
@@ -80,11 +106,22 @@ public partial class Map : Control
 			return false;
 		if (!NodeLookup.TryGetRequiredNode(this, HoveredCoordinateLabelPath, nameof(Map), nameof(HoveredCoordinateLabelPath), out _hoveredCoordinateLabel))
 			return false;
-		if (!NodeLookup.TryGetRequiredNode(this, MapTextureRectPath, nameof(Map), nameof(MapTextureRectPath), out _mapTextureRect))
+		if (!NodeLookup.TryGetRequiredNode(this, MapArtworkPath, nameof(Map), nameof(MapArtworkPath), out _mapArtwork))
 			return false;
 		if (!NodeLookup.TryGetRequiredNode(this, MapGridPath, nameof(Map), nameof(MapGridPath), out _mapGrid))
 			return false;
+		if (_mapGrid.GetParent() is not Control mapCanvas)
+		{
+			GD.PushError("Map: MapGrid parent must be a Control so the grid can be laid out.");
+			return false;
+		}
+
+		_mapCanvas = mapCanvas;
 		if (!NodeLookup.TryGetRequiredNode(this, ModalLayerPath, nameof(Map), nameof(ModalLayerPath), out _modalLayer))
+			return false;
+		if (!NodeLookup.TryGetRequiredNode(this, ModalDialogPath, nameof(Map), nameof(ModalDialogPath), out _modalDialog))
+			return false;
+		if (!NodeLookup.TryGetRequiredNode(this, ModalTilePreviewPath, nameof(Map), nameof(ModalTilePreviewPath), out _modalTilePreview))
 			return false;
 		if (!NodeLookup.TryGetRequiredNode(this, ModalTitlePath, nameof(Map), nameof(ModalTitlePath), out _modalTitle))
 			return false;
@@ -113,7 +150,7 @@ public partial class Map : Control
 			return;
 		}
 
-		_mapTextureRect.Texture = texture;
+		_mapArtwork.Texture = texture;
 	}
 
 	private void BuildPointsOfInterest()
@@ -123,13 +160,20 @@ public partial class Map : Control
 		_pointsOfInterest[DefaultPointOfInterestCoordinate] = new MapPointOfInterest(
 			DefaultPointOfInterestCoordinate,
 			F12PointOfInterestMessage,
-			F12ScenePath);
+			F12ScenePath,
+			F12PreviewTexturePath);
+
+		_pointsOfInterest[JuniperPointOfInterestCoordinate] = new MapPointOfInterest(
+			JuniperPointOfInterestCoordinate,
+			K17PointOfInterestMessage,
+			K17ScenePath,
+			K17PreviewTexturePath);
 	}
 
 	private void BuildMapGrid()
 	{
 		ClearChildren(_mapGrid);
-		_mapGrid.Columns = ColumnCount + 1;
+		_mapGrid.Columns = GridColumnSlotCount;
 
 		var labelStyle = CreateLabelStyle();
 		var normalCellStyle = CreateCellStyle(new Color(0.93f, 0.82f, 0.57f, 0.0f));
@@ -163,7 +207,6 @@ public partial class Map : Control
 		{
 			Text = "",
 			Flat = false,
-			TooltipText = coordinate.ToString(),
 			SizeFlagsHorizontal = SizeFlags.ExpandFill,
 			SizeFlagsVertical = SizeFlags.ExpandFill,
 			FocusMode = FocusModeEnum.None,
@@ -176,8 +219,15 @@ public partial class Map : Control
 		button.AddThemeStyleboxOverride("focus", normalStyle);
 		button.MouseEntered += () => SetHoveredCoordinate(coordinate);
 		button.MouseExited += () => ClearHoveredCoordinate(coordinate);
+		button.GuiInput += @event => OnMapCellGuiInput(coordinate, @event);
 		button.Pressed += () => ShowCoordinateResult(coordinate);
 		return button;
+	}
+
+	private void OnMapCellGuiInput(MapCoordinate coordinate, InputEvent @event)
+	{
+		if (@event is InputEventMouseMotion mouseMotion)
+			SetHoveredCoordinate(coordinate, mouseMotion.GlobalPosition);
 	}
 
 	private Label CreateHeaderCell(string text, StyleBoxFlat labelStyle)
@@ -233,38 +283,126 @@ public partial class Map : Control
 		var overlay = new MapGridLineOverlay
 		{
 			Name = "DottedGridLines",
-			Columns = ColumnCount + 1,
-			Rows = RowCount + 1,
+			Columns = GridColumnSlotCount,
+			Rows = GridRowSlotCount,
 			ZIndex = _mapGrid.ZIndex + 1,
 			MouseFilter = MouseFilterEnum.Ignore
 		};
-		FillParent(overlay);
+		_gridLineOverlay = overlay;
 		mapCanvas.AddChild(overlay);
+	}
+
+	private void LayoutMapLayersToCanvas()
+	{
+		if (_mapCanvas is null || _mapArtwork is null || _mapGrid is null)
+			return;
+		if (_mapCanvas.Size.X <= 0.0f || _mapCanvas.Size.Y <= 0.0f)
+			return;
+		if (!TryCalculateMapLayoutRects(out var artworkRect, out var gridRect))
+			return;
+
+		SetControlRect(_mapArtwork, artworkRect);
+		SetControlRect(_mapGrid, gridRect);
+		if (_gridLineOverlay is not null)
+			SetControlRect(_gridLineOverlay, gridRect);
+
+		var sepiaTint = _mapCanvas.GetNodeOrNull<Control>("SepiaTint");
+		if (sepiaTint is not null)
+			SetControlRect(sepiaTint, artworkRect);
+	}
+
+	private bool TryCalculateMapLayoutRects(out Rect2 artworkRect, out Rect2 gridRect)
+	{
+		artworkRect = default;
+		gridRect = default;
+
+		if (_mapArtwork.Texture is null)
+			return false;
+
+		var textureSize = _mapArtwork.Texture.GetSize();
+		if (textureSize.X <= 0.0f || textureSize.Y <= 0.0f)
+			return false;
+
+		var artworkAspect = textureSize.X / textureSize.Y;
+		var gridWidthScale = (float)GridColumnSlotCount / ColumnCount;
+		var gridHeightScale = (float)GridRowSlotCount / RowCount;
+		var artworkHeight = Mathf.Min(
+			_mapCanvas.Size.X / (artworkAspect * gridWidthScale),
+			_mapCanvas.Size.Y / gridHeightScale);
+
+		if (artworkHeight <= 0.0f)
+			return false;
+
+		var artworkSize = new Vector2(artworkHeight * artworkAspect, artworkHeight);
+		var headerSize = new Vector2(artworkSize.X / ColumnCount, artworkSize.Y / RowCount);
+		var gridSize = artworkSize + headerSize;
+		var gridPosition = new Vector2(
+			Mathf.Round((_mapCanvas.Size.X - gridSize.X) * 0.5f),
+			Mathf.Round((_mapCanvas.Size.Y - gridSize.Y) * 0.5f));
+
+		gridRect = new Rect2(gridPosition, gridSize);
+		artworkRect = new Rect2(gridPosition + headerSize, artworkSize);
+		return true;
 	}
 
 	private void SetHoveredCoordinate(MapCoordinate? coordinate)
 	{
-		_hoveredCoordinateLabel.Text = coordinate is null
-			? "Cell: --"
-			: $"Cell: {coordinate.Value}";
+		SetHoveredCoordinate(coordinate, GetGlobalMousePosition());
+	}
+
+	private void SetHoveredCoordinate(MapCoordinate? coordinate, Vector2 cursorGlobalPosition)
+	{
+		_hoveredCoordinate = coordinate;
+
+		if (coordinate is null)
+		{
+			_hoveredCoordinateLabel.Visible = false;
+			_hoveredCoordinateLabel.Text = "";
+			return;
+		}
+
+		_hoveredCoordinateLabel.Text = coordinate.Value.ToString();
+		_hoveredCoordinateLabel.Visible = true;
+		PositionHoveredCoordinateLabel(cursorGlobalPosition);
 	}
 
 	private void ClearHoveredCoordinate(MapCoordinate coordinate)
 	{
-		if (_hoveredCoordinateLabel.Text == $"Cell: {coordinate}")
+		if (_hoveredCoordinate.HasValue && _hoveredCoordinate.Value.Equals(coordinate))
 			SetHoveredCoordinate(null);
 	}
 
-	private static void FillParent(Control control)
+	private void PositionHoveredCoordinateLabel(Vector2 cursorGlobalPosition)
+	{
+		var labelSize = _hoveredCoordinateLabel.GetCombinedMinimumSize();
+		if (labelSize.X <= 0.0f || labelSize.Y <= 0.0f)
+			labelSize = _hoveredCoordinateLabel.Size;
+		_hoveredCoordinateLabel.Size = labelSize;
+
+		var viewportSize = GetViewport().GetVisibleRect().Size;
+		var position = cursorGlobalPosition + new Vector2(HoveredCoordinateOffsetX, HoveredCoordinateOffsetY);
+		position.X = Mathf.Clamp(
+			position.X,
+			HoveredCoordinateScreenPadding,
+			Mathf.Max(HoveredCoordinateScreenPadding, viewportSize.X - labelSize.X - HoveredCoordinateScreenPadding));
+		position.Y = Mathf.Clamp(
+			position.Y,
+			HoveredCoordinateScreenPadding,
+			Mathf.Max(HoveredCoordinateScreenPadding, viewportSize.Y - labelSize.Y - HoveredCoordinateScreenPadding));
+
+		_hoveredCoordinateLabel.GlobalPosition = position;
+	}
+
+	private static void SetControlRect(Control control, Rect2 rect)
 	{
 		control.AnchorLeft = 0.0f;
 		control.AnchorTop = 0.0f;
-		control.AnchorRight = 1.0f;
-		control.AnchorBottom = 1.0f;
-		control.OffsetLeft = 0.0f;
-		control.OffsetTop = 0.0f;
-		control.OffsetRight = 0.0f;
-		control.OffsetBottom = 0.0f;
+		control.AnchorRight = 0.0f;
+		control.AnchorBottom = 0.0f;
+		control.OffsetLeft = rect.Position.X;
+		control.OffsetTop = rect.Position.Y;
+		control.OffsetRight = rect.Position.X + rect.Size.X;
+		control.OffsetBottom = rect.Position.Y + rect.Size.Y;
 	}
 
 	private void ShowCoordinateResult(MapCoordinate coordinate)
@@ -272,23 +410,27 @@ public partial class Map : Control
 		var coordinateText = coordinate.ToString();
 		if (_pointsOfInterest.TryGetValue(coordinateText, out var pointOfInterest))
 		{
-			ShowPointOfInterest(pointOfInterest);
+			ShowPointOfInterest(coordinate, pointOfInterest);
 			return;
 		}
 
 		_pendingTravelScenePath = null;
+		HideModalTilePreview();
+		UseCompactModalLayout();
 		_modalTitle.Text = coordinateText;
 		_modalMessage.Text = EmptyCoordinateMessage;
 		_modalTravelButton.Visible = false;
 		ShowModal();
 	}
 
-	private void ShowPointOfInterest(MapPointOfInterest pointOfInterest)
+	private void ShowPointOfInterest(MapCoordinate coordinate, MapPointOfInterest pointOfInterest)
 	{
 		var scenePath = pointOfInterest.ScenePath.Trim();
 		var hasTravelTarget = !string.IsNullOrWhiteSpace(scenePath);
 
 		_pendingTravelScenePath = hasTravelTarget ? scenePath : null;
+		SetModalTilePreview(coordinate, pointOfInterest);
+		UsePreviewModalLayout();
 		_modalTitle.Text = pointOfInterest.Coordinate;
 		_modalMessage.Text = hasTravelTarget
 			? pointOfInterest.Message
@@ -297,12 +439,96 @@ public partial class Map : Control
 		_modalTravelButton.Disabled = !hasTravelTarget;
 		_modalTravelButton.TooltipText = hasTravelTarget
 			? "Travel to this location."
-			: "Assign F12ScenePath on the Map scene to enable travel.";
+			: "Assign a scene path on the Map scene to enable travel.";
 		ShowModal();
+	}
+
+	private void SetModalTilePreview(MapCoordinate coordinate, MapPointOfInterest pointOfInterest)
+	{
+		var previewTexturePath = pointOfInterest.PreviewTexturePath.Trim();
+		if (!string.IsNullOrWhiteSpace(previewTexturePath))
+		{
+			var previewTexture = ResourceLoader.Load<Texture2D>(previewTexturePath);
+			if (previewTexture is not null)
+			{
+				_modalTilePreview.Texture = previewTexture;
+				_modalTilePreview.Visible = true;
+				return;
+			}
+
+			GD.PushError($"Map: Failed to load point-of-interest preview texture from '{previewTexturePath}'.");
+		}
+
+		SetModalTilePreviewFromMapCrop(coordinate);
+	}
+
+	private void SetModalTilePreviewFromMapCrop(MapCoordinate coordinate)
+	{
+		if (_mapArtwork.Texture is null)
+		{
+			_modalTilePreview.Texture = null;
+			_modalTilePreview.Visible = false;
+			GD.PushError("Map: Cannot show tile preview because the map texture is missing.");
+			return;
+		}
+
+		var tileRegion = CalculateTileSourceRegion(coordinate, _mapArtwork.Texture.GetSize());
+		_modalTilePreview.Texture = new AtlasTexture
+		{
+			Atlas = _mapArtwork.Texture,
+			Region = tileRegion
+		};
+		_modalTilePreview.Visible = true;
+	}
+
+	private void HideModalTilePreview()
+	{
+		_modalTilePreview.Texture = null;
+		_modalTilePreview.Visible = false;
+	}
+
+	private void UseCompactModalLayout()
+	{
+		SetModalMessageMinimumHeight(CompactModalMessageMinimumHeight);
+		_modalDialog.AnchorLeft = 0.5f;
+		_modalDialog.AnchorTop = 0.5f;
+		_modalDialog.AnchorRight = 0.5f;
+		_modalDialog.AnchorBottom = 0.5f;
+		_modalDialog.OffsetLeft = -CompactModalHalfWidth;
+		_modalDialog.OffsetTop = -CompactModalHalfHeight;
+		_modalDialog.OffsetRight = CompactModalHalfWidth;
+		_modalDialog.OffsetBottom = CompactModalHalfHeight;
+	}
+
+	private void UsePreviewModalLayout()
+	{
+		SetModalMessageMinimumHeight(PreviewModalMessageMinimumHeight);
+		_modalDialog.AnchorLeft = 0.25f;
+		_modalDialog.AnchorTop = 0.25f;
+		_modalDialog.AnchorRight = 0.75f;
+		_modalDialog.AnchorBottom = 0.75f;
+		_modalDialog.OffsetLeft = 0.0f;
+		_modalDialog.OffsetTop = 0.0f;
+		_modalDialog.OffsetRight = 0.0f;
+		_modalDialog.OffsetBottom = 0.0f;
+	}
+
+	private void SetModalMessageMinimumHeight(float height)
+	{
+		_modalMessage.CustomMinimumSize = new Vector2(_modalMessage.CustomMinimumSize.X, height);
+	}
+
+	private static Rect2 CalculateTileSourceRegion(MapCoordinate coordinate, Vector2 textureSize)
+	{
+		var columnIndex = coordinate.Column - 1;
+		var rowIndex = coordinate.Row - FirstRowLetter;
+		var tileSize = new Vector2(textureSize.X / ColumnCount, textureSize.Y / RowCount);
+		return new Rect2(columnIndex * tileSize.X, rowIndex * tileSize.Y, tileSize);
 	}
 
 	private void ShowModal()
 	{
+		SetHoveredCoordinate(null);
 		_modalLayer.Visible = true;
 		_modalLayer.MoveToFront();
 		_modalCloseButton.GrabFocus();
@@ -370,7 +596,7 @@ public partial class Map : Control
 		}
 	}
 
-	private readonly record struct MapPointOfInterest(string Coordinate, string Message, string ScenePath);
+	private readonly record struct MapPointOfInterest(string Coordinate, string Message, string ScenePath, string PreviewTexturePath);
 }
 
 public partial class MapGridLineOverlay : Control

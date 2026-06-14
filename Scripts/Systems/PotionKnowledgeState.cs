@@ -11,6 +11,7 @@ public sealed class PotionKnowledgeState
 	private readonly List<string> _knownPotionOrder;
 	private readonly HashSet<string> _knownIngredients;
 	private readonly List<string> _knownIngredientOrder;
+	private readonly HashSet<string> _knownIngredientPreparations;
 	private readonly Dictionary<string, string> _potionDisplayNames;
 	private readonly Func<string, string?> _resolveKnownIngredientId;
 	private readonly Dictionary<string, int> _potionBasePrices = new(StringComparer.OrdinalIgnoreCase);
@@ -22,6 +23,7 @@ public sealed class PotionKnowledgeState
 		List<string> knownPotionOrder,
 		HashSet<string> knownIngredients,
 		List<string> knownIngredientOrder,
+		HashSet<string> knownIngredientPreparations,
 		Dictionary<string, string> potionDisplayNames,
 		Func<string, string?> resolveKnownIngredientId)
 	{
@@ -29,6 +31,7 @@ public sealed class PotionKnowledgeState
 		_knownPotionOrder = knownPotionOrder;
 		_knownIngredients = knownIngredients;
 		_knownIngredientOrder = knownIngredientOrder;
+		_knownIngredientPreparations = knownIngredientPreparations;
 		_potionDisplayNames = potionDisplayNames;
 		_resolveKnownIngredientId = resolveKnownIngredientId;
 	}
@@ -39,6 +42,7 @@ public sealed class PotionKnowledgeState
 		_knownPotionOrder.Clear();
 		_knownIngredients.Clear();
 		_knownIngredientOrder.Clear();
+		_knownIngredientPreparations.Clear();
 		_potionDisplayNames.Clear();
 		_potionBasePrices.Clear();
 		_potionRecipes.Clear();
@@ -50,6 +54,7 @@ public sealed class PotionKnowledgeState
 		Clear();
 		RestoreKnownPotions(snapshot.KnownPotions, snapshot.KnownPotionOrder);
 		RestoreKnownIngredients(snapshot.KnownIngredients, snapshot.KnownIngredientOrder);
+		RestoreKnownIngredientPreparations(snapshot.KnownIngredientPreparations);
 		RestorePotionDisplayNames(snapshot.PotionDisplayNames);
 		RestorePotionBasePrices(snapshot.PotionBasePrices);
 		RestorePotionRecipes(snapshot.PotionRecipes);
@@ -74,6 +79,13 @@ public sealed class PotionKnowledgeState
 	public List<string> CloneKnownIngredientOrder()
 	{
 		return new List<string>(_knownIngredientOrder);
+	}
+
+	public List<string> BuildKnownIngredientPreparationSnapshot()
+	{
+		var preparations = new List<string>(_knownIngredientPreparations);
+		preparations.Sort(StringComparer.OrdinalIgnoreCase);
+		return preparations;
 	}
 
 	public Dictionary<string, string> ClonePotionDisplayNames()
@@ -153,6 +165,39 @@ public sealed class PotionKnowledgeState
 		return !string.IsNullOrWhiteSpace(ingredientId) && _knownIngredients.Contains(ingredientId);
 	}
 
+	public bool AddKnownIngredientPreparation(string ingredientId, string preparationId)
+	{
+		if (!TryBuildIngredientPreparationKnowledgeKey(ingredientId, preparationId, out var key, out var knownIngredientId))
+			return false;
+
+		AddKnownIngredient(knownIngredientId);
+		return _knownIngredientPreparations.Add(key);
+	}
+
+	public bool KnowsIngredientPreparation(string ingredientId, string preparationId)
+	{
+		return TryBuildIngredientPreparationKnowledgeKey(ingredientId, preparationId, out var key, out _) &&
+			_knownIngredientPreparations.Contains(key);
+	}
+
+	public bool KnowsAnyIngredientPreparation(string ingredientId)
+	{
+		var knownIngredientId = _resolveKnownIngredientId(ingredientId);
+		if (string.IsNullOrWhiteSpace(knownIngredientId))
+			knownIngredientId = ingredientId?.Trim() ?? string.Empty;
+		if (string.IsNullOrWhiteSpace(knownIngredientId))
+			return false;
+
+		var prefix = BuildIngredientPreparationKnowledgeKeyPrefix(knownIngredientId);
+		foreach (var key in _knownIngredientPreparations)
+		{
+			if (key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+				return true;
+		}
+
+		return false;
+	}
+
 	public bool ForgetIngredient(string ingredientId)
 	{
 		if (string.IsNullOrWhiteSpace(ingredientId))
@@ -161,7 +206,9 @@ public sealed class PotionKnowledgeState
 		var knownIngredientId = _resolveKnownIngredientId(ingredientId) ?? ingredientId.Trim();
 		var removedKnown = _knownIngredients.RemoveWhere(id => string.Equals(id, knownIngredientId, StringComparison.OrdinalIgnoreCase)) > 0;
 		var removedOrder = _knownIngredientOrder.RemoveAll(id => string.Equals(id, knownIngredientId, StringComparison.OrdinalIgnoreCase)) > 0;
-		return removedKnown || removedOrder;
+		var removedPreparations = _knownIngredientPreparations.RemoveWhere(key =>
+			key.StartsWith(BuildIngredientPreparationKnowledgeKeyPrefix(knownIngredientId), StringComparison.OrdinalIgnoreCase)) > 0;
+		return removedKnown || removedOrder || removedPreparations;
 	}
 
 	public bool RecordPotionRecipe(string potionItemId, IReadOnlyList<string> ingredientIds)
@@ -308,6 +355,21 @@ public sealed class PotionKnowledgeState
 		}
 	}
 
+	private void RestoreKnownIngredientPreparations(IEnumerable<string>? knownIngredientPreparations)
+	{
+		_knownIngredientPreparations.Clear();
+		if (knownIngredientPreparations is null)
+			return;
+
+		foreach (var key in knownIngredientPreparations)
+		{
+			if (string.IsNullOrWhiteSpace(key))
+				continue;
+
+			_knownIngredientPreparations.Add(key.Trim());
+		}
+	}
+
 	private void RestorePotionDisplayNames(Dictionary<string, string>? potionDisplayNames)
 	{
 		_potionDisplayNames.Clear();
@@ -366,5 +428,31 @@ public sealed class PotionKnowledgeState
 
 			_combinationPotionItems[pair.Key] = pair.Value;
 		}
+	}
+
+	private bool TryBuildIngredientPreparationKnowledgeKey(
+		string ingredientId,
+		string preparationId,
+		out string key,
+		out string knownIngredientId)
+	{
+		key = string.Empty;
+		knownIngredientId = string.Empty;
+
+		if (string.IsNullOrWhiteSpace(ingredientId) || string.IsNullOrWhiteSpace(preparationId))
+			return false;
+
+		knownIngredientId = _resolveKnownIngredientId(ingredientId) ?? ingredientId.Trim();
+		var normalizedPreparationId = IngredientPreparationCatalog.NormalizePreparationId(preparationId);
+		if (string.IsNullOrWhiteSpace(knownIngredientId) || string.IsNullOrWhiteSpace(normalizedPreparationId))
+			return false;
+
+		key = $"{knownIngredientId.Trim().ToLowerInvariant()}::{normalizedPreparationId}";
+		return true;
+	}
+
+	private static string BuildIngredientPreparationKnowledgeKeyPrefix(string ingredientId)
+	{
+		return $"{ingredientId.Trim().ToLowerInvariant()}::";
 	}
 }

@@ -26,10 +26,12 @@ internal static class SceneAndHudWiringTests
         runner.Run("Brew entry points open the potion brewing station", TestBrewEntryPointsOpenPotionBrewingStation);
         runner.Run("Scenario debugger can close the active shop day", TestScenarioDebuggerShopDayControls);
         runner.Run("Scenario debugger can toggle book records", TestScenarioDebuggerBookRecordingControls);
+        runner.Run("Scenario debugger fills base ingredient stacks only", TestScenarioDebuggerBaseIngredientFill);
         runner.Run("Persistent HUD owns global HUD visibility", TestPersistentHudOwnsGlobalHudVisibility);
         runner.Run("HUD map navigation is wired", TestHudMapNavigation);
         runner.Run("Map scene builds coordinate grid and modal outcomes", TestMapSceneCoordinateGridAndModalOutcomes);
         runner.Run("F12 forest gathering scene is wired", TestF12ForestGatheringScene);
+        runner.Run("K17 juniper gathering scene is wired", TestK17JuniperGatheringScene);
         runner.Run("Hud return-to-menu does not auto-save", TestHudReturnToMainMenuDoesNotAutoSave);
         runner.Run("Hud settings panel closes on outside click", TestHudSettingsPanelClosesOnOutsideClick);
         runner.Run("Hud ambient rain settings are wired", TestHudAmbientRainSettingsAreWired);
@@ -55,6 +57,7 @@ internal static class SceneAndHudWiringTests
             ["OccultShop.UI.Garden"] = "Control",
             ["OccultShop.UI.Map"] = "Control",
             ["OccultShop.UI.ForestGathering"] = "Control",
+            ["OccultShop.UI.JuniperGathering"] = "Control",
             ["MainMenu"] = "Control"
         };
 
@@ -74,15 +77,19 @@ internal static class SceneAndHudWiringTests
 
         AssertTrue("MainMenu has load button path", source.Contains("LoadButtonPath"));
         AssertTrue("MainMenu has new game button path", source.Contains("NewGameButtonPath"));
+        AssertTrue("MainMenu has exit-to-desktop button path", source.Contains("ExitToDesktopButtonPath"));
         AssertTrue("MainMenu continues the latest save", source.Contains("LoadLatestGameIfExists()"));
         AssertTrue("MainMenu falls back to a new game when no save exists", source.Contains("StartNewGame();"));
         AssertTrue("MainMenu hides continue until saves exist", source.Contains("Visible = _saveGameManager.HasSavedGames()"));
         AssertTrue("MainMenu opens load browser", source.Contains("ScenePaths.LoadGameMenu") && scenePaths.Contains("res://Scenes/UI/LoadGameMenu.tscn"));
+        AssertTrue("MainMenu exits to desktop", source.Contains("GetTree().Quit();"));
         AssertTrue("MainMenu scene has load button", scene.Contains("LoadButton"));
         AssertTrue("MainMenu scene has new game button", scene.Contains("NewGameButton"));
+        AssertTrue("MainMenu scene has exit-to-desktop button", scene.Contains("ExitToDesktopButton"));
         AssertTrue("MainMenu scene labels the new game button", scene.Contains("text = \"New Game\""));
         AssertTrue("MainMenu scene labels the continue button", scene.Contains("text = \"Continue\""));
         AssertTrue("MainMenu scene labels the load button", scene.Contains("text = \"Load Game\""));
+        AssertTrue("MainMenu scene labels the exit-to-desktop button", scene.Contains("text = \"Exit to desktop\""));
     }
 
     private static void TestLoadGameMenuScene()
@@ -142,7 +149,7 @@ internal static class SceneAndHudWiringTests
         var shopFloor = ReadProjectFile("Scripts/UI/ShopFloor.cs");
 
         AssertTrue("GameUi references the potion brewing station art",
-            scene.Contains("path=\"res://Assets/ConceptArt/BrewingStation/brewing_station_background_clean.png\""));
+            scene.Contains("path=\"res://Assets/Art/BrewingStationBright/brewing_station_background_bright_shelf_v2.png\""));
         AssertTrue("GameUi defines the potion brewing station view",
             scene.Contains("[node name=\"PotionBrewingStationView\" type=\"Control\" parent=\".\"]"));
         AssertTrue("GameUi draws the potion brewing station image",
@@ -254,11 +261,12 @@ internal static class SceneAndHudWiringTests
         AssertTrue("Station shelf keeps ingredients to a limited visible slot count",
             scene.Contains("theme_override_constants/h_separation = 23") &&
             scene.Contains("theme_override_constants/v_separation = 4") &&
-            shelf.Contains("IngredientDefaultVisibleSlots = 12") &&
+            shelf.Contains("IngredientDefaultVisibleSlots = 10") &&
             shelf.Contains("IngredientVisibleSlots"));
         AssertTrue("Station shelf slots use the generated jar and plaque treatment",
             shelf.Contains("JarredInventorySlotView.CreateContent") &&
-            jarredSlot.Contains("res://Assets/UI/ingredient_jar_overlay.png") &&
+            jarredSlot.Contains("res://Assets/Art/BrewingStationBright/ingredient_jar_overlay_bright.png") &&
+            jarredSlot.Contains("res://Assets/Art/BrewingStationBright/ingredient_label_overlay_bright.png") &&
             jarredSlot.Contains("Name = \"Quantity\""));
         AssertTrue("Station shelf preserves prepared ingredient methods on plaque labels",
             shelf.Contains("BuildShelfDisplayName") &&
@@ -276,12 +284,14 @@ internal static class SceneAndHudWiringTests
         AssertTrue("Station shelf trait filter is populated from known ingredient book entries",
             shelf.Contains("foreach (var knownIngredientId in _gameState.KnownIngredients)") &&
             shelf.Contains("AddIngredientBookTraitNames(item, traitNames)") &&
+            shelf.Contains("_gameState.KnowsIngredientPreparation(item.Id, option.Id)") &&
             shelf.Contains("preparation.Traits") &&
             shelf.Contains("ItemFilterUtilities.RefreshFilterOptions(_ingredientTraitFilter, traitNames, \"Trait\", ref _activeIngredientTraitFilter)"));
-        AssertTrue("Station shelf trait filter matches shelf items against direct traits and known book preparation traits",
-            shelf.Contains("ItemFilterUtilities.ItemHasTrait(itemId, _activeIngredientTraitFilter, _itemCatalog)") &&
+        AssertTrue("Station shelf trait filter matches shelf items only against known book preparation traits",
+            !shelf.Contains("ItemFilterUtilities.ItemHasTrait(itemId, _activeIngredientTraitFilter, _itemCatalog)") &&
             shelf.Contains("TryGetKnownIngredientBookItem(itemId, out var bookItem)") &&
             shelf.Contains("ItemHasIngredientBookTrait(bookItem, _activeIngredientTraitFilter)") &&
+            shelf.Contains("_gameState.KnowsIngredientPreparation(item.Id, option.Id)") &&
             shelf.Contains("_gameState.KnowsIngredient(ingredientBookItemId)"));
         AssertTrue("Station shelf clear button is visible only while a trait filter is active",
             shelf.Contains("_ingredientClearFilterButton.Visible = hasActiveFilter") &&
@@ -307,11 +317,11 @@ internal static class SceneAndHudWiringTests
         AssertTrue("Station item detail panel closes on outside click",
             outsideClickBranch.Contains("HidePanel();") &&
             outsideClickBranch.Contains("AcceptEvent();"));
-        AssertTrue("Station item detail panel falls back to preparation stat names for unprepared ingredients",
-            itemDetailPanel.Contains("FormatPreparationTraitNames(item.Preparations, 3)") &&
-            itemDetailPanel.Contains("FormatPreparationRiskNames(item.Preparations, 3)") &&
-            itemDetailPanel.Contains("HasPositiveStats(item.Traits)") &&
-            itemDetailPanel.Contains("HasPositiveStats(item.Risks)"));
+        AssertTrue("Station item detail panel masks locked ingredient preparation stats",
+            itemDetailPanel.Contains("FormatKnownPreparationTraitRows") &&
+            itemDetailPanel.Contains("FormatKnownPreparationRiskRows") &&
+            itemDetailPanel.Contains("_gameState.TryResolveIngredientPreparation(itemId, out var ingredientId, out var preparationId)") &&
+            itemDetailPanel.Contains("UnknownPreparationStatsLabel"));
         AssertTrue("Station shelf does not resolve the removed inventory panel",
             !shelf.Contains("InventoryPanelPath") &&
             !shelf.Contains("OpenItemDetail"));
@@ -362,7 +372,7 @@ internal static class SceneAndHudWiringTests
         AssertTrue("Potion row keeps potion slot previews bottled and concise",
             row.Contains("JarredInventorySlotView.CreatePotionContent") &&
             row.Contains("stack.Quantity") &&
-            jarredSlot.Contains("res://Assets/UI/potion_bottle_overlay.png") &&
+            jarredSlot.Contains("res://Assets/Art/BrewingStationBright/potion_card_overlay_bright.png") &&
             jarredSlot.Contains("PotionLiquidView") &&
             row.Contains("DisplayName(stack.Key, item.Name)") &&
             !row.Contains("GetItemPrice(stack.Key, item)") &&
@@ -371,6 +381,15 @@ internal static class SceneAndHudWiringTests
             !row.Contains("CreateSlotTraitTag") &&
             row.Contains("HasActiveRisk(item)") &&
             row.Contains("new Color(0.58f, 0.05f, 0.04f, 1.0f)"));
+        AssertTrue("Potion row centers readable live text inside the generated bottle label",
+            row.Contains("SingleLineCharacterLimit = 10") &&
+            row.Contains("GeneratedLabelRectRatio = new Rect2(new Vector2(0.03f, 0.634f), new Vector2(0.94f, 0.34f))") &&
+            row.Contains("GeneratedNameRectRatio = new Rect2(new Vector2(0.08f, 0.657f), new Vector2(0.84f, 0.20f))") &&
+            row.Contains("GeneratedQuantityRectRatio = new Rect2(new Vector2(0.36f, 0.858f), new Vector2(0.28f, 0.17f))") &&
+            jarredSlot.Contains("ResolveNameHorizontalInset") &&
+            jarredSlot.Contains("TextOverrunBehavior = TextServer.OverrunBehavior.NoTrimming") &&
+            jarredSlot.Contains("GetStringSize(text, HorizontalAlignment.Left, -1.0f, fontSize)") &&
+            jarredSlot.Contains("NameFitSafetyPadding"));
     }
 
     private static void TestBrewEntryPointsOpenPotionBrewingStation()
@@ -447,9 +466,29 @@ internal static class SceneAndHudWiringTests
         AssertTrue("Scenario debugger records and forgets ingredient book entries through GameState",
             runtimeDebug.Contains("LearnIngredient(ingredientId)") &&
             runtimeDebug.Contains("ForgetIngredient(ingredientId)"));
+        AssertTrue("Scenario debugger can unlock all authored and runtime ingredient preparation traits",
+            runtimeDebug.Contains("Unlock All Ingredient Traits") &&
+            runtimeDebug.Contains("items.AddRange(_dataDb.Items.Values)") &&
+            runtimeDebug.Contains("items.AddRange(_runtimeContentDb.Items.Values)") &&
+            runtimeDebug.Contains("_gameState.UnlockAllIngredientPreparations(items)"));
         AssertTrue("Scenario debugger lists authored book entries",
             runtimeDebug.Contains("_dataDb.PotionRecipes") &&
             runtimeDebug.Contains("IsBookIngredient(item)"));
+    }
+
+    private static void TestScenarioDebuggerBaseIngredientFill()
+    {
+        var runtimeDebug = ReadProjectFile("Scripts/Debug/RuntimeDebugImGui.cs");
+
+        AssertTrue("Scenario debugger snapshots ingredient ids before runtime catalog changes",
+            runtimeDebug.Contains("new List<string>(_ingredientItemIds)"));
+        AssertTrue("Scenario debugger filters bulk adds to base ingredients",
+            runtimeDebug.Contains("IsBaseIngredient(item)") &&
+            runtimeDebug.Contains("item.PreparedIngredient is not null"));
+        AssertTrue("Scenario debugger adds only the base ingredient item id",
+            runtimeDebug.Contains("TryAddInventoryStack(item.Id, quantity)") &&
+            !runtimeDebug.Contains("TryAddInventoryStack(preparedIngredient.Id, quantity)") &&
+            !runtimeDebug.Contains("AddPreparedIngredientStacks"));
     }
 
     private static void TestPersistentHudOwnsGlobalHudVisibility()
@@ -477,11 +516,11 @@ internal static class SceneAndHudWiringTests
         AssertTrue("Main menu hides the persistent HUD", mainMenu.Contains("[node name=\"PersistentHudVisibility\" type=\"Node\" parent=\".\"]") && mainMenu.Contains("HudVisible = false"));
         AssertTrue("Load game menu hides the persistent HUD", loadMenu.Contains("[node name=\"PersistentHudVisibility\" type=\"Node\" parent=\".\"]") && loadMenu.Contains("HudVisible = false"));
         AssertTrue("ShopFloor no longer hides HUD for close-up views", !shopFloor.Contains("_hud.Visible = false") && !shopFloor.Contains("HudPath"));
-        AssertTrue("HUD is a full-width black top bar capped at 50px",
+        AssertTrue("HUD is a full-width warm top bar capped at 50px",
             hudScene.Contains("custom_minimum_size = Vector2(0, 50)") &&
             hudScene.Contains("offset_bottom = 50.0") &&
             hudScene.Contains("[node name=\"Background\" type=\"ColorRect\" parent=\".\"]") &&
-            hudScene.Contains("color = Color(0, 0, 0, 1)"));
+            hudScene.Contains("color = Color(0.125, 0.076, 0.035, 1)"));
         AssertTrue("HUD omits dread from the top bar",
             !hud.Contains("DreadLabelPath") &&
             !hudScene.Contains("[node name=\"Dread\"") &&
@@ -554,40 +593,114 @@ internal static class SceneAndHudWiringTests
             "..",
             "Assets",
             "Maps",
-            "kerry_samuel_lewis_1844_lowres.jpg"));
+            "kerry_parchment_map_hires.png"));
 
-        AssertTrue("Map uses a 15 by 15 coordinate grid from A to O",
-            map.Contains("ColumnCount = 15") &&
-            map.Contains("RowCount = 15") &&
-            map.Contains("FirstRowLetter = 'A'"));
-        AssertTrue("Map uses the Kerry map background asset",
-            map.Contains("res://Assets/Maps/kerry_samuel_lewis_1844_lowres.jpg") &&
-            File.Exists(mapAssetPath));
-        AssertTrue("Map scene wires the texture, coordinate grid, and modal nodes",
-            mapScene.Contains("HoveredCoordinateLabelPath = NodePath(\"Root/Margin/Main/Header/HoveredCoordinate\")") &&
-            mapScene.Contains("[node name=\"HoveredCoordinate\" type=\"Label\" parent=\"Root/Margin/Main/Header\"]") &&
-            mapScene.Contains("MapTextureRectPath = NodePath(\"Root/Margin/Main/MapArea/MapMargin/MapCenter/MapCanvas/MapTexture\")") &&
+        AssertTrue("Map uses a wide 30 column coordinate grid from A to Q",
+            map.Contains("ColumnCount = 30") &&
+            map.Contains("FirstRowLetter = 'A'") &&
+            map.Contains("LastRowLetter = 'Q'"));
+        AssertTrue("Map uses the new generated Kerry parchment texture instead of the old image asset",
+            map.Contains("MapTexturePath = \"res://Assets/Maps/kerry_parchment_map_hires.png\"") &&
+            map.Contains("LoadMapTexture") &&
+            map.Contains("ResourceLoader.Load<Texture2D>(MapTexturePath)") &&
+            File.Exists(mapAssetPath) &&
+            !map.Contains("kerry_samuel_lewis_1844_lowres.jpg"));
+        AssertTrue("Map fits coordinate cells to the artwork while keeping labels outside as headers",
+            map.Contains("LayoutMapLayersToCanvas") &&
+            map.Contains("TryCalculateMapLayoutRects") &&
+            map.Contains("GridColumnSlotCount") &&
+            map.Contains("GridRowSlotCount") &&
+            map.Contains("_mapArtwork.Texture.GetSize()") &&
+            map.Contains("var headerSize = new Vector2(artworkSize.X / ColumnCount, artworkSize.Y / RowCount)") &&
+            map.Contains("SetControlRect(_mapArtwork, artworkRect)") &&
+            map.Contains("SetControlRect(_mapGrid, gridRect)") &&
+            map.Contains("SetControlRect(_gridLineOverlay, gridRect)") &&
+            map.Contains("SetControlRect(sepiaTint, artworkRect)"));
+        AssertTrue("Map scene wires the artwork, floating coordinate label, coordinate grid, and modal nodes",
+            mapScene.Contains("HoveredCoordinateLabelPath = NodePath(\"HoveredCoordinate\")") &&
+            mapScene.Contains("[node name=\"HoveredCoordinate\" type=\"Label\" parent=\".\"]") &&
+            mapScene.Contains("MapArtworkPath = NodePath(\"Root/Margin/Main/MapArea/MapMargin/MapCenter/MapCanvas/MapArtwork\")") &&
+            mapScene.Contains("[node name=\"MapArtwork\" type=\"TextureRect\" parent=\"Root/Margin/Main/MapArea/MapMargin/MapCenter/MapCanvas\"]") &&
             mapScene.Contains("MapGridPath = NodePath(\"Root/Margin/Main/MapArea/MapMargin/MapCenter/MapCanvas/MapGrid\")") &&
             mapScene.Contains("[node name=\"MapGrid\" type=\"GridContainer\"") &&
-            mapScene.Contains("columns = 16") &&
+            mapScene.Contains("columns = 31") &&
             mapScene.Contains("ModalLayerPath = NodePath(\"ModalLayer\")") &&
-            mapScene.Contains("[node name=\"Travel\" type=\"Button\" parent=\"ModalLayer/Dialog/Margin/VBox/Actions\"]"));
+            mapScene.Contains("ModalDialogPath = NodePath(\"ModalLayer/Dialog\")") &&
+            mapScene.Contains("ModalTilePreviewPath = NodePath(\"ModalLayer/Dialog/Margin/Content/TilePreview\")") &&
+            mapScene.Contains("[node name=\"TilePreview\" type=\"TextureRect\" parent=\"ModalLayer/Dialog/Margin/Content\"]") &&
+            mapScene.Contains("[node name=\"Travel\" type=\"Button\" parent=\"ModalLayer/Dialog/Margin/Content/Text/VBox/Actions\"]"));
+        AssertTrue("Map modal is a quarter-screen preview with text to the right of the tile image",
+            mapScene.Contains("anchor_left = 0.25") &&
+            mapScene.Contains("anchor_top = 0.25") &&
+            mapScene.Contains("anchor_right = 0.75") &&
+            mapScene.Contains("anchor_bottom = 0.75") &&
+            !mapScene.Contains("scale = Vector2(0.29, 0.29)") &&
+            mapScene.Contains("[node name=\"Content\" type=\"HBoxContainer\" parent=\"ModalLayer/Dialog/Margin\"]") &&
+            mapScene.Contains("[node name=\"Text\" type=\"MarginContainer\" parent=\"ModalLayer/Dialog/Margin/Content\"]") &&
+            mapScene.Contains("visible = false") &&
+            mapScene.Contains("custom_minimum_size = Vector2(280, 0)") &&
+            mapScene.Contains("stretch_mode = 5"));
+        AssertTrue("Map scene lets the canvas fill the MapArea panel with padding around the screen edges",
+            mapScene.Contains("[node name=\"MapCenter\" type=\"Control\" parent=\"Root/Margin/Main/MapArea/MapMargin\"]") &&
+            mapScene.Contains("[node name=\"MapCanvas\" type=\"Control\" parent=\"Root/Margin/Main/MapArea/MapMargin/MapCenter\"]") &&
+            mapScene.Contains("anchors_preset = 15") &&
+            mapScene.Contains("size_flags_horizontal = 3") &&
+            mapScene.Contains("theme_override_constants/margin_left = 18") &&
+            mapScene.Contains("theme_override_constants/margin_right = 18"));
         AssertTrue("Map keeps F12 as the first point of interest with an assignable destination",
             map.Contains("DefaultPointOfInterestCoordinate = \"F12\"") &&
             map.Contains("F12ScenePath") &&
             map.Contains("ChangeSceneToFile(_pendingTravelScenePath)"));
         AssertTrue("Map empty coordinates show the requested modal message without travel",
             map.Contains("Nothing of interest here") &&
+            map.Contains("HideModalTilePreview();") &&
+            map.Contains("UseCompactModalLayout();") &&
+            map.Contains("CompactModalHalfWidth = 190.0f") &&
+            map.Contains("CompactModalHalfHeight = 94.0f") &&
+            map.Contains("CompactModalMessageMinimumHeight = 58.0f") &&
+            map.Contains("_modalDialog.AnchorLeft = 0.5f") &&
+            map.Contains("_modalDialog.OffsetLeft = -CompactModalHalfWidth") &&
+            map.Contains("_modalTilePreview.Visible = false") &&
             map.Contains("_modalTravelButton.Visible = false"));
+        AssertTrue("Map modal shows point-of-interest previews without requiring images for every cell",
+            map.Contains("F12PreviewTexturePath") &&
+            map.Contains("K17PreviewTexturePath") &&
+            map.Contains("ShowPointOfInterest(coordinate, pointOfInterest)") &&
+            map.Contains("SetModalTilePreview(coordinate, pointOfInterest)") &&
+            map.Contains("UsePreviewModalLayout();") &&
+            map.Contains("PreviewModalMessageMinimumHeight = 200.0f") &&
+            map.Contains("_modalDialog.AnchorLeft = 0.25f") &&
+            map.Contains("_modalDialog.AnchorRight = 0.75f") &&
+            map.Contains("PreviewTexturePath") &&
+            map.Contains("ResourceLoader.Load<Texture2D>(previewTexturePath)") &&
+            map.Contains("SetModalTilePreviewFromMapCrop(coordinate)") &&
+            map.Contains("CalculateTileSourceRegion") &&
+            map.Contains("new AtlasTexture") &&
+            map.Contains("Atlas = _mapArtwork.Texture") &&
+            map.Contains("Region = tileRegion") &&
+            map.Contains("_modalTilePreview.Visible = true") &&
+            map.Contains("coordinate.Column - 1") &&
+            map.Contains("coordinate.Row - FirstRowLetter") &&
+            map.Contains("textureSize.X / ColumnCount") &&
+            map.Contains("textureSize.Y / RowCount"));
         AssertTrue("Map draws visible dotted grid lines over hoverable cells",
             map.Contains("MapGridLineOverlay") &&
             map.Contains("DrawDottedLine") &&
             map.Contains("DrawCircle") &&
             map.Contains("MouseFilterEnum.Ignore"));
-        AssertTrue("Map updates the top coordinate readout and highlights hovered cells",
+        AssertTrue("Map shows a cursor-side coordinate readout over playable cells and highlights hovered cells",
             map.Contains("MouseEntered += () => SetHoveredCoordinate(coordinate)") &&
             map.Contains("MouseExited += () => ClearHoveredCoordinate(coordinate)") &&
-            map.Contains("Cell: {coordinate.Value}") &&
+            map.Contains("button.GuiInput += @event => OnMapCellGuiInput(coordinate, @event)") &&
+            map.Contains("InputEventMouseMotion mouseMotion") &&
+            map.Contains("_hoveredCoordinateLabel.Text = coordinate.Value.ToString();") &&
+            map.Contains("HoveredCoordinateOffsetX = 18.0f") &&
+            map.Contains("HoveredCoordinateOffsetY = 22.0f") &&
+            map.Contains("_hoveredCoordinateLabel.Size = labelSize;") &&
+            map.Contains("_hoveredCoordinateLabel.GlobalPosition = position") &&
+            map.Contains("SetHoveredCoordinate(null);") &&
+            !map.Contains("TooltipText = coordinate.ToString()") &&
+            !mapScene.Contains("[node name=\"HoveredCoordinate\" type=\"Label\" parent=\"Root/Margin/Main/Header\"]") &&
             map.Contains("new Color(0.98f, 0.82f, 0.34f, 0.34f)"));
     }
 
@@ -780,6 +893,7 @@ internal static class SceneAndHudWiringTests
             gatheringScene.Contains("custom_minimum_size = Vector2(664, 540)") &&
             gatheringScene.Contains("mouse_filter = 0") &&
             gatheringScene.Contains("[node name=\"Harvest\" type=\"Button\" parent=\"Root/InspectionPanel/Margin/VBox/Actions\"]") &&
+            gatheringScene.Contains("[node name=\"Remove\" type=\"Button\" parent=\"Root/InspectionPanel/Margin/VBox/Actions\"]") &&
             gatheringScene.Contains("[node name=\"KeepLooking\" type=\"Button\" parent=\"Root/InspectionPanel/Margin/VBox/Actions\"]") &&
             gathering.Contains("RefreshInspectionImage") &&
             gathering.Contains("_inspectionSourceTexture = texture") &&
@@ -859,11 +973,27 @@ internal static class SceneAndHudWiringTests
             gathering.Contains("_pendingTargetQuantity += RewardQuantityPerCorrectSelection") &&
             gathering.Contains("Correct. Marked") &&
             gathering.Contains("CollectTargetPlant()"));
-        AssertTrue("Harvest confirmations consume attempts and wrong harvests show feedback",
+        AssertTrue("Harvest confirmations consume attempts and explain wrong harvests",
             gathering.Contains("private void OnHarvestPressed()") &&
             gathering.Contains("_remainingActions -= 1") &&
-            gathering.Contains("Wrong plant. It does not match the clue closely enough.") &&
+            gathering.Contains("BuildWrongPlantFeedback(_activePlantEntries[plantIndex])") &&
+            gathering.Contains("TryGetMintDecoyClueName") &&
+            gathering.Contains("decoyClueName = clueName.Replace('_', ' ')") &&
+            gathering.Contains("\"rounder leaf\"") &&
+            gathering.Contains("the leaves are too wide for {targetName}") &&
+            gathering.Contains("That was {plantName}, not {targetName}.") &&
             gathering.Contains("Harvests remaining: {_remainingActions}"));
+        AssertTrue("Inspection can remove plants without staging rewards",
+            gatheringScene.Contains("InspectionRemoveButtonPath = NodePath(\"Root/InspectionPanel/Margin/VBox/Actions/Remove\")") &&
+            gatheringScene.Contains("text = \"Remove\"") &&
+            gathering.Contains("_inspectionRemoveButton.Pressed += OnRemovePressed") &&
+            gathering.Contains("private void OnRemovePressed()") &&
+            gathering.Contains("_removedPlantIndexes.Add(plantIndex)") &&
+            gathering.Contains("RemovePlantFromArea(plantIndex)") &&
+            gathering.Contains("Removed this plant from the area.") &&
+            gathering.Contains("private bool HasSelectablePlants()") &&
+            gathering.Contains("if (!HasSelectablePlants())") &&
+            gathering.Contains("FinishGathering();"));
         AssertTrue("Perfect gathering stages a mint seed through garden seed inventory",
             gathering.Contains("_correctSelections == MaxActions") &&
             gathering.Contains("StagePerfectGatheringSeedReward") &&
@@ -885,6 +1015,91 @@ internal static class SceneAndHudWiringTests
             hud.Contains("private bool IsSceneNavigationBlocked()") &&
             hud.Contains("GetTree().CurrentScene is ForestGathering") &&
             hud.Contains("if (IsSceneNavigationBlocked())") &&
+            hud.Contains("_settingsButton.Disabled = navigationBlocked") &&
+            hud.Contains("_mapButton.Disabled = navigationBlocked || GetTree().CurrentScene is Map"));
+    }
+
+    private static void TestK17JuniperGatheringScene()
+    {
+        var scenePaths = ReadProjectFile("Scripts/Infrastructure/ScenePaths.cs");
+        var map = ReadProjectFile("Scripts/UI/Map.cs");
+        var gathering = ReadProjectFile("Scripts/UI/JuniperGathering.cs");
+        var gatheringScene = ReadProjectFile("Scenes/Main/JuniperGathering.tscn");
+        var hud = ReadProjectFile("Scripts/UI/Hud.cs");
+        var items = ReadProjectFile("Data/items_data.tres");
+
+        AssertTrue("ScenePaths exposes the juniper gathering scene",
+            scenePaths.Contains("public const string JuniperGathering") &&
+            scenePaths.Contains("res://Scenes/Main/JuniperGathering.tscn"));
+        AssertTrue("Map K17 defaults to the juniper gathering scene",
+            map.Contains("JuniperPointOfInterestCoordinate = \"K17\"") &&
+            map.Contains("K17ScenePath = ScenePaths.JuniperGathering") &&
+            map.Contains("K17PointOfInterestMessage") &&
+            map.Contains("_pointsOfInterest[JuniperPointOfInterestCoordinate]"));
+        AssertTrue("Juniper gathering uses the authored juniper item id",
+            gathering.Contains("TargetItemId = \"juniper\"") &&
+            items.Contains("\"id\": \"juniper\"") &&
+            items.Contains("\"name\": \"Juniper\""));
+        AssertTrue("Juniper gathering scene uses the gathering script and reserves HUD space",
+            gatheringScene.Contains("path=\"res://Scripts/UI/JuniperGathering.cs\"") &&
+            gatheringScene.Contains("offset_top = 50.0") &&
+            gatheringScene.Contains("clip_contents = true"));
+        AssertTrue("Juniper gathering scene wires the playfield and result prompt nodes",
+            gatheringScene.Contains("PlayAreaPath = NodePath(\"Root/PlayArea\")") &&
+            gatheringScene.Contains("BushPath = NodePath(\"Root/PlayArea/Bush\")") &&
+            gatheringScene.Contains("BasketPath = NodePath(\"Root/PlayArea/Basket\")") &&
+            gatheringScene.Contains("CatchLinePath = NodePath(\"Root/PlayArea/CatchLine\")") &&
+            gatheringScene.Contains("ResultPromptPath = NodePath(\"ResultPrompt\")") &&
+            gatheringScene.Contains("[node name=\"Return\" type=\"Button\" parent=\"ResultPrompt/Dialog/Margin/VBox\"]"));
+        AssertTrue("Juniper gathering shakes the bush to release falling berries",
+            gathering.Contains("_bush.GuiInput += OnBushGuiInput") &&
+            gathering.Contains("ShakeDistanceForBurst") &&
+            gathering.Contains("SpawnBerryBurst") &&
+            gathering.Contains("BerriesPerBurst") &&
+            gathering.Contains("berry.Y += berry.Speed * deltaSeconds"));
+        AssertTrue("Juniper gathering moves a bottom basket and freezes it after wrong catches",
+            gathering.Contains("_basket.GuiInput += OnBasketGuiInput") &&
+            gathering.Contains("MoveBasketToMouse") &&
+            gathering.Contains("ClampBasketX") &&
+            gathering.Contains("ClampBasketY") &&
+            gathering.Contains("FreezeDurationSeconds = 2.0f") &&
+            gathering.Contains("_basketFreezeRemaining = FreezeDurationSeconds") &&
+            gathering.Contains("_basketDragActive = false"));
+        AssertTrue("Juniper gathering catches berries only when their bounds touch the basket",
+            gathering.Contains("IsBerryTouchingBasket") &&
+            gathering.Contains("berryRight >= basketLeft") &&
+            gathering.Contains("berryLeft <= basketRight") &&
+            gathering.Contains("berryBottom >= basketTop") &&
+            gathering.Contains("berryTop <= basketBottom") &&
+            !gathering.Contains("IsBerryCaughtByBasket"));
+        AssertTrue("Juniper gathering only rewards dark blue ripe berries",
+            gathering.Contains("RipeBerryTexturePath") &&
+            gathering.Contains("juniper_berry_ripe.png") &&
+            gathering.Contains("WrongBerryRedTexturePath") &&
+            gathering.Contains("WrongBerryAmberTexturePath") &&
+            gathering.Contains("WrongBerryGreenTexturePath") &&
+            gathering.Contains("WrongBerryPaleBlueTexturePath") &&
+            gathering.Contains("_wrongBerryTextures") &&
+            gathering.Contains("if (berry.IsRipe)") &&
+            gathering.Contains("_ripeCaught += 1") &&
+            gathering.Contains("_wrongCaught += 1"));
+        AssertTrue("Juniper gathering keeps the requested thirty second reward thresholds",
+            gathering.Contains("GatheringDurationSeconds = 30.0f") &&
+            gathering.Contains("if (_ripeCaught >= 15)") &&
+            gathering.Contains("return 3") &&
+            gathering.Contains("if (_ripeCaught >= 10)") &&
+            gathering.Contains("return 2") &&
+            gathering.Contains("if (_ripeCaught >= 5)") &&
+            gathering.Contains("return 1"));
+        AssertTrue("Juniper gathering stages rewards until the result return button",
+            gathering.Contains("FinishGathering") &&
+            gathering.Contains("Return to the house to add:") &&
+            gathering.Contains("private void CommitGatheredRewards()") &&
+            gathering.Contains("if (_rewardsCommitted)") &&
+            gathering.Contains("_gameState.AddItem(TargetItemId, rewardQuantity)") &&
+            gathering.Contains("GetTree().ChangeSceneToFile(ScenePaths.Main)"));
+        AssertTrue("HUD blocks navigation while either gathering scene is active",
+            hud.Contains("GetTree().CurrentScene is ForestGathering or JuniperGathering") &&
             hud.Contains("_settingsButton.Disabled = navigationBlocked") &&
             hud.Contains("_mapButton.Disabled = navigationBlocked || GetTree().CurrentScene is Map"));
     }
@@ -919,6 +1134,10 @@ internal static class SceneAndHudWiringTests
         var source = ReadProjectFile("Scripts/UI/Hud.cs");
         var scene = ReadProjectFile("Scenes/UI/Hud.tscn");
         var persistentHud = ReadProjectFile("Scripts/Autoload/PersistentHud.cs");
+        var saveGameButtonIndex = scene.IndexOf("[node name=\"SaveGame\" type=\"Button\" parent=\"SettingsPanel/Margin/VBox\"]", StringComparison.Ordinal);
+        var openSettingsButtonIndex = scene.IndexOf("[node name=\"OpenSettings\" type=\"Button\" parent=\"SettingsPanel/Margin/VBox\"]", StringComparison.Ordinal);
+        var toggleDebugPanelButtonIndex = scene.IndexOf("[node name=\"ToggleDebugPanel\" type=\"Button\" parent=\"SettingsPanel/Margin/VBox\"]", StringComparison.Ordinal);
+        var returnToMainMenuButtonIndex = scene.IndexOf("[node name=\"ReturnToMainMenu\" type=\"Button\" parent=\"SettingsPanel/Margin/VBox\"]", StringComparison.Ordinal);
         var audioPath = Path.GetFullPath(Path.Combine(
             AppContext.BaseDirectory,
             "..",
@@ -935,6 +1154,11 @@ internal static class SceneAndHudWiringTests
             scene.Contains("[node name=\"SaveGame\" type=\"Button\" parent=\"SettingsPanel/Margin/VBox\"]") &&
             scene.Contains("[node name=\"OpenSettings\" type=\"Button\" parent=\"SettingsPanel/Margin/VBox\"]") &&
             scene.Contains("text = \"Settings\""));
+        AssertTrue("Hud gear menu keeps Return to Main Menu at the bottom",
+            saveGameButtonIndex >= 0 &&
+            openSettingsButtonIndex > saveGameButtonIndex &&
+            toggleDebugPanelButtonIndex > openSettingsButtonIndex &&
+            returnToMainMenuButtonIndex > toggleDebugPanelButtonIndex);
         AssertTrue("Hud defines the Settings panel",
             scene.Contains("[node name=\"Settings\" type=\"PanelContainer\" parent=\".\"]"));
         AssertTrue("Settings panel exposes the ambient sounds toggle",

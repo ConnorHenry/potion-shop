@@ -1,7 +1,102 @@
-[gd_scene load_steps=3 format=3 uid="uid://boigrb01slkht"]
+[gd_scene load_steps=10 format=3 uid="uid://boigrb01slkht"]
 
 [ext_resource type="Script" uid="uid://cimefhgyfykx8" path="res://Scripts/UI/MainMenu.cs" id="1_7ivci"]
 [ext_resource type="Script" uid="uid://ceakky6r2bi" path="res://Scripts/UI/PersistentHudVisibility.cs" id="2_hud_visibility"]
+[ext_resource type="Texture2D" uid="uid://bri5uwpk0c4g7" path="res://Assets/UI/title_screen_mockup_background.png" id="3_background"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_menu_panel"]
+content_margin_left = 26.0
+content_margin_top = 26.0
+content_margin_right = 26.0
+content_margin_bottom = 26.0
+bg_color = Color(0.83, 0.62, 0.36, 0.18)
+draw_center = false
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.219608, 0.129412, 0.054902, 0)
+border_blend = true
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_button_disabled"]
+content_margin_left = 22.0
+content_margin_top = 13.0
+content_margin_right = 22.0
+content_margin_bottom = 13.0
+bg_color = Color(0.34, 0.27, 0.18, 0.7)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.18, 0.14, 0.095, 0.72)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_button_hover"]
+content_margin_left = 22.0
+content_margin_top = 13.0
+content_margin_right = 22.0
+content_margin_bottom = 13.0
+bg_color = Color(0.74, 0.55, 0.29, 0.96)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.28, 0.16, 0.055, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_button_pressed"]
+content_margin_left = 22.0
+content_margin_top = 13.0
+content_margin_right = 22.0
+content_margin_bottom = 13.0
+bg_color = Color(0.48, 0.31, 0.13, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.13, 0.075, 0.026, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_button_normal"]
+content_margin_left = 22.0
+content_margin_top = 13.0
+content_margin_right = 22.0
+content_margin_bottom = 13.0
+bg_color = Color(0.66, 0.46, 0.22, 0.88)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.2, 0.12, 0.045, 0.92)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_popup_panel"]
+content_margin_left = 22.0
+content_margin_top = 22.0
+content_margin_right = 22.0
+content_margin_bottom = 22.0
+bg_color = Color(0.8, 0.61, 0.36, 0.96)
+border_width_left = 4
+border_width_top = 4
+border_width_right = 4
+border_width_bottom = 4
+border_color = Color(0.2, 0.12, 0.045, 0.96)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
 
 [node name="MainMenu" type="Control"]
 layout_mode = 3
@@ -11,9 +106,10 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_7ivci")
-StartButtonPath = NodePath("CenterContainer/VBox/StartButton")
-NewGameButtonPath = NodePath("CenterContainer/VBox/NewGameButton")
-LoadButtonPath = NodePath("CenterContainer/VBox/LoadButton")
+StartButtonPath = NodePath("MenuPanel/Margin/VBox/StartButton")
+NewGameButtonPath = NodePath("MenuPanel/Margin/VBox/NewGameButton")
+LoadButtonPath = NodePath("MenuPanel/Margin/VBox/LoadButton")
+ExitToDesktopButtonPath = NodePath("MenuPanel/Margin/VBox/ExitToDesktopButton")
 NewGameTutorialPopupPath = NodePath("NewGameTutorialPopup")
 StartTutorialButtonPath = NodePath("NewGameTutorialPopup/Panel/Margin/VBox/Actions/StartTutorialButton")
 SkipTutorialButtonPath = NodePath("NewGameTutorialPopup/Panel/Margin/VBox/Actions/SkipTutorialButton")
@@ -22,36 +118,118 @@ SkipTutorialButtonPath = NodePath("NewGameTutorialPopup/Panel/Margin/VBox/Action
 script = ExtResource("2_hud_visibility")
 HudVisible = false
 
-[node name="CenterContainer" type="CenterContainer" parent="."]
+[node name="Background" type="TextureRect" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("3_background")
+expand_mode = 1
+stretch_mode = 6
 
-[node name="VBox" type="VBoxContainer" parent="CenterContainer"]
+[node name="WarmShade" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.075, 0.035, 0.015, 0.1)
+
+[node name="MenuPanel" type="PanelContainer" parent="."]
+custom_minimum_size = Vector2(300, 0)
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.715
+anchor_top = 0.205
+anchor_right = 0.945
+anchor_bottom = 0.64
+offset_left = 102.8
+offset_top = -82.6
+offset_right = 108.4
+offset_bottom = -82.6
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_menu_panel")
+
+[node name="Margin" type="MarginContainer" parent="MenuPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 22
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 22
+
+[node name="VBox" type="VBoxContainer" parent="MenuPanel/Margin"]
 layout_mode = 2
 theme_override_constants/separation = 16
+alignment = 1
 
-[node name="Title" type="Label" parent="CenterContainer/VBox"]
+[node name="StartButton" type="Button" parent="MenuPanel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 54)
 layout_mode = 2
-text = "Potion Seller"
-horizontal_alignment = 1
-
-[node name="StartButton" type="Button" parent="CenterContainer/VBox"]
-layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_disabled_color = Color(0.25, 0.19, 0.12, 0.72)
+theme_override_colors/font_hover_color = Color(0.08, 0.035, 0.012, 1)
+theme_override_colors/font_color = Color(0.11, 0.055, 0.02, 1)
+theme_override_colors/font_pressed_color = Color(0.08, 0.035, 0.012, 1)
+theme_override_font_sizes/font_size = 22
+theme_override_styles/disabled = SubResource("StyleBoxFlat_button_disabled")
+theme_override_styles/hover = SubResource("StyleBoxFlat_button_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_button_pressed")
+theme_override_styles/normal = SubResource("StyleBoxFlat_button_normal")
 text = "Continue"
 
-[node name="NewGameButton" type="Button" parent="CenterContainer/VBox"]
+[node name="NewGameButton" type="Button" parent="MenuPanel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 54)
 layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_disabled_color = Color(0.25, 0.19, 0.12, 0.72)
+theme_override_colors/font_hover_color = Color(0.08, 0.035, 0.012, 1)
+theme_override_colors/font_color = Color(0.11, 0.055, 0.02, 1)
+theme_override_colors/font_pressed_color = Color(0.08, 0.035, 0.012, 1)
+theme_override_font_sizes/font_size = 22
+theme_override_styles/disabled = SubResource("StyleBoxFlat_button_disabled")
+theme_override_styles/hover = SubResource("StyleBoxFlat_button_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_button_pressed")
+theme_override_styles/normal = SubResource("StyleBoxFlat_button_normal")
 text = "New Game"
 
-[node name="LoadButton" type="Button" parent="CenterContainer/VBox"]
+[node name="LoadButton" type="Button" parent="MenuPanel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 54)
 layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_disabled_color = Color(0.25, 0.19, 0.12, 0.72)
+theme_override_colors/font_hover_color = Color(0.08, 0.035, 0.012, 1)
+theme_override_colors/font_color = Color(0.11, 0.055, 0.02, 1)
+theme_override_colors/font_pressed_color = Color(0.08, 0.035, 0.012, 1)
+theme_override_font_sizes/font_size = 22
+theme_override_styles/disabled = SubResource("StyleBoxFlat_button_disabled")
+theme_override_styles/hover = SubResource("StyleBoxFlat_button_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_button_pressed")
+theme_override_styles/normal = SubResource("StyleBoxFlat_button_normal")
 text = "Load Game"
 
+[node name="ExitToDesktopButton" type="Button" parent="MenuPanel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 54)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_disabled_color = Color(0.25, 0.19, 0.12, 0.72)
+theme_override_colors/font_hover_color = Color(0.08, 0.035, 0.012, 1)
+theme_override_colors/font_color = Color(0.11, 0.055, 0.02, 1)
+theme_override_colors/font_pressed_color = Color(0.08, 0.035, 0.012, 1)
+theme_override_font_sizes/font_size = 22
+theme_override_styles/disabled = SubResource("StyleBoxFlat_button_disabled")
+theme_override_styles/hover = SubResource("StyleBoxFlat_button_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_button_pressed")
+theme_override_styles/normal = SubResource("StyleBoxFlat_button_normal")
+text = "Exit to desktop"
+
 [node name="NewGameTutorialPopup" type="Control" parent="."]
+visible = false
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -66,55 +244,78 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0, 0, 0, 0.55)
+color = Color(0.025, 0.018, 0.012, 0.62)
 
 [node name="Panel" type="PanelContainer" parent="NewGameTutorialPopup"]
-custom_minimum_size = Vector2(420, 0)
+custom_minimum_size = Vector2(520, 0)
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -210.0
-offset_top = -96.0
-offset_right = 210.0
-offset_bottom = 96.0
+offset_left = -260.0
+offset_top = -118.0
+offset_right = 260.0
+offset_bottom = 118.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_popup_panel")
 
 [node name="Margin" type="MarginContainer" parent="NewGameTutorialPopup/Panel"]
 layout_mode = 2
-theme_override_constants/margin_left = 16
-theme_override_constants/margin_top = 16
-theme_override_constants/margin_right = 16
-theme_override_constants/margin_bottom = 16
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
 
 [node name="VBox" type="VBoxContainer" parent="NewGameTutorialPopup/Panel/Margin"]
 layout_mode = 2
-theme_override_constants/separation = 12
+theme_override_constants/separation = 14
 
 [node name="Title" type="Label" parent="NewGameTutorialPopup/Panel/Margin/VBox"]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.12, 0.055, 0.018, 1)
+theme_override_font_sizes/font_size = 28
 text = "Start Tutorial?"
 horizontal_alignment = 1
 
 [node name="Body" type="Label" parent="NewGameTutorialPopup/Panel/Margin/VBox"]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.12, 0.055, 0.018, 1)
+theme_override_font_sizes/font_size = 18
 text = "Would you like to run through a quick tutorial?"
 horizontal_alignment = 1
 autowrap_mode = 3
 
 [node name="Actions" type="HBoxContainer" parent="NewGameTutorialPopup/Panel/Margin/VBox"]
 layout_mode = 2
-theme_override_constants/separation = 10
+theme_override_constants/separation = 12
 
 [node name="StartTutorialButton" type="Button" parent="NewGameTutorialPopup/Panel/Margin/VBox/Actions"]
+custom_minimum_size = Vector2(0, 50)
 layout_mode = 2
 size_flags_horizontal = 3
+theme_override_colors/font_hover_color = Color(0.08, 0.035, 0.012, 1)
+theme_override_colors/font_color = Color(0.11, 0.055, 0.02, 1)
+theme_override_colors/font_pressed_color = Color(0.08, 0.035, 0.012, 1)
+theme_override_font_sizes/font_size = 19
+theme_override_styles/disabled = SubResource("StyleBoxFlat_button_disabled")
+theme_override_styles/hover = SubResource("StyleBoxFlat_button_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_button_pressed")
+theme_override_styles/normal = SubResource("StyleBoxFlat_button_normal")
 text = "Start Tutorial"
 
 [node name="SkipTutorialButton" type="Button" parent="NewGameTutorialPopup/Panel/Margin/VBox/Actions"]
+custom_minimum_size = Vector2(0, 50)
 layout_mode = 2
 size_flags_horizontal = 3
+theme_override_colors/font_hover_color = Color(0.08, 0.035, 0.012, 1)
+theme_override_colors/font_color = Color(0.11, 0.055, 0.02, 1)
+theme_override_colors/font_pressed_color = Color(0.08, 0.035, 0.012, 1)
+theme_override_font_sizes/font_size = 19
+theme_override_styles/disabled = SubResource("StyleBoxFlat_button_disabled")
+theme_override_styles/hover = SubResource("StyleBoxFlat_button_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_button_pressed")
+theme_override_styles/normal = SubResource("StyleBoxFlat_button_normal")
 text = "Skip Tutorial"

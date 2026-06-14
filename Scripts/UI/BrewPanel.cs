@@ -46,6 +46,8 @@ public partial class BrewPanel : Control
 	[Export] public NodePath DataDbPath = new(AutoloadNodePaths.DataDb);
 	[Export] public NodePath GameStatePath = new(AutoloadNodePaths.GameState);
 	[Export] public NodePath ItemCatalogPath = new(AutoloadNodePaths.ItemCatalog);
+	[Export] public NodePath CauldronSmokeEffectPath = new("../CauldronSmoke");
+	[Export] public NodePath FireGlowEffectPath = new("../FireGlow");
 
 	private Button _closeButton = default!;
 	private BrewDropBox _brewBox = default!;
@@ -66,6 +68,8 @@ public partial class BrewPanel : Control
 	private DataDb _dataDb = default!;
 	private GameState _gameState = default!;
 	private ItemCatalogService _itemCatalog = default!;
+	private CauldronSmokeEffect? _cauldronSmokeEffect;
+	private BrewingStationFireGlow? _fireGlowEffect;
 	private readonly List<IngredientPortionDef> _queuedIngredients = new();
 	private readonly PotionRecipeLookup _predefinedPotionRecipes = new();
 	private readonly PotionBrewingService _brewingService = new();
@@ -132,6 +136,12 @@ public partial class BrewPanel : Control
 		_requestChecklistLabel = GetNode<RichTextLabel>(RequestChecklistLabelPath);
 		_brewButton = GetNode<Button>(BrewButtonPath);
 		_clearButton = GetNode<Button>(ClearButtonPath);
+		_cauldronSmokeEffect = GetNodeOrNull<CauldronSmokeEffect>(CauldronSmokeEffectPath);
+		if (_cauldronSmokeEffect is null)
+			GD.PushError($"BrewPanel: CauldronSmokeEffect was not found at '{CauldronSmokeEffectPath}'.");
+		_fireGlowEffect = GetNodeOrNull<BrewingStationFireGlow>(FireGlowEffectPath);
+		if (_fireGlowEffect is null)
+			GD.PushError($"BrewPanel: BrewingStationFireGlow was not found at '{FireGlowEffectPath}'.");
 		_requestChecklistLabel.BbcodeEnabled = true;
 
 		SetInteractiveCursor(_ingredientSlotOneContainer);
@@ -258,6 +268,7 @@ public partial class BrewPanel : Control
 
 			animation.Icon.QueueFree();
 			_dropAnimations.RemoveAt(i);
+			PlayCauldronSmokeBurst();
 		}
 
 		if (_dropAnimations.Count == 0)
@@ -316,7 +327,11 @@ public partial class BrewPanel : Control
 			return;
 
 		var endCenterGlobalPosition = GetDropEndPosition(startCenterGlobalPosition);
-		if (InventoryDragPreview.TryPlayBrewDropAnimation(item.IconPath, startCenterGlobalPosition, endCenterGlobalPosition))
+		if (InventoryDragPreview.TryPlayBrewDropAnimation(
+			item.IconPath,
+			startCenterGlobalPosition,
+			endCenterGlobalPosition,
+			PlayCauldronSmokeBurst))
 			return;
 
 		var texture = UiIconLoader.LoadIcon(item.IconPath);
@@ -349,6 +364,20 @@ public partial class BrewPanel : Control
 		icon.Position = animation.StartTopLeft;
 		_dropAnimations.Add(animation);
 		SetProcess(true);
+	}
+
+	private void PlayCauldronReactionBurst()
+	{
+		PlayCauldronSmokeBurst();
+
+		if (_fireGlowEffect is not null && GodotObject.IsInstanceValid(_fireGlowEffect))
+			_fireGlowEffect.PlayIgnitionBurst();
+	}
+
+	private void PlayCauldronSmokeBurst()
+	{
+		if (_cauldronSmokeEffect is not null && GodotObject.IsInstanceValid(_cauldronSmokeEffect))
+			_cauldronSmokeEffect.PlayRandomBurst();
 	}
 
 	private static CanvasLayer CreateDropAnimationLayer()
@@ -581,9 +610,11 @@ public partial class BrewPanel : Control
 		_runtimeContentDb.TrySetRuntimeItemBasePrice(potionItemId, potionBasePrice);
 
 		_gameState.RecordPotionRecipe(potionItemId, BuildIngredientIdList(_queuedIngredients));
+		_gameState.RecordIngredientPreparationKnowledge(_queuedIngredients);
 		_gameState.AddItem(potionItemId, BrewedPotionOutputQuantity);
 		_gameState.RecordPotionBatch(potionItemId, _queuedIngredients);
 		EmitSignal(SignalName.PotionBrewed, potionItemId);
+		PlayCauldronReactionBurst();
 		_queuedIngredients.Clear();
 		ResetSlotDragState();
 		RefreshIngredientIcons();
@@ -692,7 +723,7 @@ public partial class BrewPanel : Control
 			return;
 		}
 
-		if (!TryBuildIngredientDefs(_queuedIngredients, out var ingredientDefs, out _))
+		if (!TryBuildIngredientDefs(_queuedIngredients, out var ingredientDefs, out _, knownStatsOnly: true))
 		{
 			RefreshRequestChecklist(null);
 			return;
@@ -987,7 +1018,8 @@ public partial class BrewPanel : Control
 	private bool TryBuildIngredientDefs(
 		IReadOnlyList<IngredientPortionDef> ingredientPortions,
 		out List<IngredientDef> ingredients,
-		out string error)
+		out string error,
+		bool knownStatsOnly = false)
 	{
 		ingredients = new List<IngredientDef>();
 
@@ -1001,6 +1033,14 @@ public partial class BrewPanel : Control
 			}
 
 			var ingredient = IngredientDefFactory.FromItemDef(item);
+			if (knownStatsOnly &&
+				IngredientPreparationCatalog.TryGetPreparedIngredientInfo(item, out var baseIngredientId, out var preparationId) &&
+				!_gameState.KnowsIngredientPreparation(baseIngredientId, preparationId))
+			{
+				ingredient.Traits.Clear();
+				ingredient.Risks.Clear();
+				ingredient.IngredientEffects.Clear();
+			}
 
 			ingredients.Add(ingredient);
 		}

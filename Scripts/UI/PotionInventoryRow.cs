@@ -113,10 +113,11 @@ public partial class PotionInventoryRow : Control
 			IconPath = stack.IconPath,
 			Quantity = stack.Quantity
 		};
-		slot.AddThemeStyleboxOverride("normal", CreateSlotStyleBox(new Color(0.082f, 0.092f, 0.103f, 0.92f), new Color(0.24f, 0.26f, 0.29f, 0.94f)));
-		slot.AddThemeStyleboxOverride("hover", CreateSlotStyleBox(new Color(0.11f, 0.125f, 0.142f, 0.96f), new Color(0.34f, 0.37f, 0.41f, 0.98f)));
-		slot.AddThemeStyleboxOverride("pressed", CreateSlotStyleBox(new Color(0.06f, 0.069f, 0.079f, 0.98f), new Color(0.19f, 0.21f, 0.23f, 0.98f)));
-		slot.AddThemeStyleboxOverride("disabled", CreateSlotStyleBox(new Color(0.07f, 0.078f, 0.088f, 0.75f), new Color(0.18f, 0.2f, 0.22f, 0.78f)));
+		var normalStyle = CreateSlotStyleBox(new Color(0.08f, 0.055f, 0.035f, 0.08f), new Color(0.36f, 0.24f, 0.13f, 0.16f));
+		slot.AddThemeStyleboxOverride("normal", normalStyle);
+		slot.AddThemeStyleboxOverride("hover", normalStyle);
+		slot.AddThemeStyleboxOverride("pressed", normalStyle);
+		slot.AddThemeStyleboxOverride("disabled", CreateSlotStyleBox(new Color(0.05f, 0.04f, 0.034f, 0.12f), new Color(0.22f, 0.17f, 0.12f, 0.22f)));
 		slot.SlotActivated += ShowItemDetail;
 
 		var hoverOutline = new PanelContainer
@@ -146,8 +147,15 @@ public partial class PotionInventoryRow : Control
 				NameColor = stack.HasActiveRisk
 					? new Color(0.58f, 0.05f, 0.04f, 1.0f)
 					: new Color(0.13f, 0.075f, 0.032f, 1.0f),
-				NameFontSize = 9,
-				QuantityFontSize = 11
+				NameFontSize = 12,
+				MinimumNameFontSize = 9,
+				SingleLineCharacterLimit = 10,
+				QuantityFontSize = 16,
+				UseReadableNamePlaque = true,
+				UseGeneratedLabelTexture = true,
+				GeneratedLabelRectRatio = new Rect2(new Vector2(0.03f, 0.634f), new Vector2(0.94f, 0.34f)),
+				GeneratedNameRectRatio = new Rect2(new Vector2(0.08f, 0.657f), new Vector2(0.84f, 0.20f)),
+				GeneratedQuantityRectRatio = new Rect2(new Vector2(0.36f, 0.858f), new Vector2(0.28f, 0.17f))
 			}));
 
 		slot.AddChild(content);

@@ -136,9 +136,11 @@ internal static class RecipeAndPotionBookTests
             source.Contains("Unknown Ingredient") &&
             source.Contains("page.UnknownIcon.Visible = true") &&
             source.Contains("This ingredient has not been discovered yet."));
-        AssertTrue("IngredientBookPanel formats numeric trait and risk strengths",
-            source.Contains("BuildStatsText") &&
-            source.Contains("+{entry.Value}"));
+        AssertTrue("IngredientBookPanel masks locked preparation stats and reveals known prep rows",
+            source.Contains("FormatKnownPreparationTraitRows") &&
+            source.Contains("FormatKnownPreparationRiskRows") &&
+            source.Contains("_gameState.KnowsIngredientPreparation(item.Id, preparationId)") &&
+            source.Contains("_gameState.KnowsAnyIngredientPreparation(item.Id)"));
         AssertTrue("IngredientBookPanel formats per-page numbers as current over total",
             source.Contains("LeftPageNumberLabelPath") &&
             source.Contains("RightPageNumberLabelPath") &&

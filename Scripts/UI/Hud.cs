@@ -619,7 +619,7 @@ public partial class Hud : Control
 
 	private bool IsSceneNavigationBlocked()
 	{
-		return GetTree().CurrentScene is ForestGathering;
+		return GetTree().CurrentScene is ForestGathering or JuniperGathering;
 	}
 
 	private void RefreshShopState()

@@ -25,6 +25,8 @@ public partial class ForestGathering : Control
 	private const string PlantTexturePathPrefix = "res://Assets/Gathering/Plants/";
 	private const string InspectionPlantTexturePathPrefix = "res://Assets/Gathering/InspectionPlants/";
 	private const string InspectionPlantTextureFilePrefix = "inspection_";
+	private const string MintDecoyTextureFilePrefix = "mint_decoy_";
+	private const string PngTextureFileExtension = ".png";
 	private static readonly Vector2 CluePanelSize = new(340.0f, 318.0f);
 	private static readonly Vector2 CluePanelTopRightOffset = new(-358.0f, 52.0f);
 	private static readonly Vector2 ClueSketchSize = new(316.0f, 176.0f);
@@ -85,6 +87,7 @@ public partial class ForestGathering : Control
 	[Export] public NodePath InspectionImagePath = default!;
 	[Export] public NodePath InspectionTitleLabelPath = default!;
 	[Export] public NodePath InspectionHarvestButtonPath = default!;
+	[Export] public NodePath InspectionRemoveButtonPath = default!;
 	[Export] public NodePath InspectionKeepLookingButtonPath = default!;
 	[Export] public NodePath ReturnPromptPath = default!;
 	[Export] public NodePath ReturnPromptMessagePath = default!;
@@ -115,6 +118,7 @@ public partial class ForestGathering : Control
 	private TextureRect _inspectionImage = default!;
 	private Label _inspectionTitleLabel = default!;
 	private Button _inspectionHarvestButton = default!;
+	private Button _inspectionRemoveButton = default!;
 	private Button _inspectionKeepLookingButton = default!;
 	private Control _returnPrompt = default!;
 	private Label _returnPromptMessage = default!;
@@ -130,9 +134,13 @@ public partial class ForestGathering : Control
 	private readonly List<TextureRect> _plantVisuals = new();
 	private readonly List<Panel> _candidateDebugBorders = new();
 	private readonly List<Panel> _targetDebugHighlights = new();
+	private readonly Dictionary<int, TextureRect> _plantVisualsByPlantIndex = new();
+	private readonly Dictionary<int, Panel> _candidateDebugBordersByPlantIndex = new();
+	private readonly Dictionary<int, Panel> _targetDebugHighlightsByPlantIndex = new();
 	private readonly Dictionary<string, Texture2D> _plantTextureCache = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Dictionary<string, Rect2> _plantContentBoundsCache = new(StringComparer.OrdinalIgnoreCase);
 	private readonly HashSet<int> _harvestedPlantIndexes = new();
+	private readonly HashSet<int> _removedPlantIndexes = new();
 	private Texture2D? _magnifyingGlassCursorTexture;
 	private Texture2D? _inspectionSourceTexture;
 	private Image? _inspectionSourceImage;
@@ -157,11 +165,14 @@ public partial class ForestGathering : Control
 		_returnButton.Pressed += OnReturnPressed;
 		_clueToggleButton.Pressed += OnClueTogglePressed;
 		_inspectionHarvestButton.Pressed += OnHarvestPressed;
+		_inspectionRemoveButton.Pressed += OnRemovePressed;
 		_inspectionKeepLookingButton.Pressed += HideInspectionPanel;
 		_inspectionPanel.MouseEntered += OnInspectionPanelMouseEntered;
 		_inspectionPanel.MouseExited += OnInspectionPanelMouseExited;
 		_inspectionHarvestButton.MouseEntered += OnInspectionActionButtonMouseEntered;
 		_inspectionHarvestButton.MouseExited += OnInspectionActionButtonMouseExited;
+		_inspectionRemoveButton.MouseEntered += OnInspectionActionButtonMouseEntered;
+		_inspectionRemoveButton.MouseExited += OnInspectionActionButtonMouseExited;
 		_inspectionKeepLookingButton.MouseEntered += OnInspectionActionButtonMouseEntered;
 		_inspectionKeepLookingButton.MouseExited += OnInspectionActionButtonMouseExited;
 		MaxActions = Math.Max(1, MaxActions);
@@ -207,6 +218,8 @@ public partial class ForestGathering : Control
 			_clueToggleButton.Pressed -= OnClueTogglePressed;
 		if (_inspectionHarvestButton is not null)
 			_inspectionHarvestButton.Pressed -= OnHarvestPressed;
+		if (_inspectionRemoveButton is not null)
+			_inspectionRemoveButton.Pressed -= OnRemovePressed;
 		if (_inspectionKeepLookingButton is not null)
 			_inspectionKeepLookingButton.Pressed -= HideInspectionPanel;
 		if (_inspectionPanel is not null)
@@ -218,6 +231,11 @@ public partial class ForestGathering : Control
 		{
 			_inspectionHarvestButton.MouseEntered -= OnInspectionActionButtonMouseEntered;
 			_inspectionHarvestButton.MouseExited -= OnInspectionActionButtonMouseExited;
+		}
+		if (_inspectionRemoveButton is not null)
+		{
+			_inspectionRemoveButton.MouseEntered -= OnInspectionActionButtonMouseEntered;
+			_inspectionRemoveButton.MouseExited -= OnInspectionActionButtonMouseExited;
 		}
 		if (_inspectionKeepLookingButton is not null)
 		{
@@ -290,6 +308,8 @@ public partial class ForestGathering : Control
 		if (!NodeLookup.TryGetRequiredNode(this, InspectionTitleLabelPath, nameof(ForestGathering), nameof(InspectionTitleLabelPath), out _inspectionTitleLabel))
 			return false;
 		if (!NodeLookup.TryGetRequiredNode(this, InspectionHarvestButtonPath, nameof(ForestGathering), nameof(InspectionHarvestButtonPath), out _inspectionHarvestButton))
+			return false;
+		if (!NodeLookup.TryGetRequiredNode(this, InspectionRemoveButtonPath, nameof(ForestGathering), nameof(InspectionRemoveButtonPath), out _inspectionRemoveButton))
 			return false;
 		if (!NodeLookup.TryGetRequiredNode(this, InspectionKeepLookingButtonPath, nameof(ForestGathering), nameof(InspectionKeepLookingButtonPath), out _inspectionKeepLookingButton))
 			return false;
@@ -418,6 +438,10 @@ public partial class ForestGathering : Control
 		{
 			SetFeedback("That plant has already been harvested.");
 		}
+		else if (_removedPlantIndexes.Contains(plantIndex))
+		{
+			SetFeedback("That plant has already been removed.");
+		}
 		else
 		{
 			ShowInspection(plantIndex, entry);
@@ -429,12 +453,13 @@ public partial class ForestGathering : Control
 		_inspectedPlantIndex = plantIndex;
 		_inspectionTitleLabel.Text = "Inspection";
 		_inspectionHarvestButton.Disabled = _remainingActions <= 0;
+		_inspectionRemoveButton.Disabled = false;
 		RefreshInspectionImage(entry);
 		_inspectionPanel.Visible = true;
 		_inspectionPanel.MoveToFront();
 		_inspectionHarvestButton.GrabFocus();
 		RefreshInspectionMagnifierForMousePosition();
-		SetFeedback("Use the close-up to decide whether to harvest.");
+		SetFeedback("Use the close-up to decide whether to harvest, remove, or keep looking.");
 	}
 
 	private void OnHarvestPressed()
@@ -451,16 +476,44 @@ public partial class ForestGathering : Control
 			return;
 		}
 
+		RemovePlantFromArea(plantIndex);
 		_remainingActions -= 1;
 
 		if (IsTargetPlant(plantIndex))
 			CollectTargetPlant();
 		else
-			SetFeedback("Wrong plant. It does not match the clue closely enough.");
+			SetFeedback(BuildWrongPlantFeedback(_activePlantEntries[plantIndex]));
 
 		RefreshActionsRemaining();
 
-		if (_remainingActions <= 0)
+		if (_remainingActions <= 0 || !HasSelectablePlants())
+			FinishGathering();
+	}
+
+	private void OnRemovePressed()
+	{
+		if (_finished || _inspectedPlantIndex < 0 || _inspectedPlantIndex >= _activePlantEntries.Count)
+			return;
+
+		var plantIndex = _inspectedPlantIndex;
+		HideInspectionPanel();
+
+		if (_harvestedPlantIndexes.Contains(plantIndex))
+		{
+			SetFeedback("That plant has already been harvested.");
+			return;
+		}
+
+		if (!_removedPlantIndexes.Add(plantIndex))
+		{
+			SetFeedback("That plant has already been removed.");
+			return;
+		}
+
+		RemovePlantFromArea(plantIndex);
+		SetFeedback("Removed this plant from the area.");
+
+		if (!HasSelectablePlants())
 			FinishGathering();
 	}
 
@@ -640,8 +693,9 @@ public partial class ForestGathering : Control
 			return false;
 
 		var overHarvestButton = _inspectionHarvestButton is not null && _inspectionHarvestButton.GetGlobalRect().HasPoint(globalPosition);
+		var overRemoveButton = _inspectionRemoveButton is not null && _inspectionRemoveButton.GetGlobalRect().HasPoint(globalPosition);
 		var overKeepLookingButton = _inspectionKeepLookingButton is not null && _inspectionKeepLookingButton.GetGlobalRect().HasPoint(globalPosition);
-		return !overHarvestButton && !overKeepLookingButton;
+		return !overHarvestButton && !overRemoveButton && !overKeepLookingButton;
 	}
 
 	private void SetInspectionCursorActive(bool active)
@@ -781,6 +835,9 @@ public partial class ForestGathering : Control
 	{
 		for (var index = _activePlantEntries.Count - 1; index >= 0; index--)
 		{
+			if (IsPlantUnavailable(index))
+				continue;
+
 			var candidate = _activePlantEntries[index];
 			var candidateBounds = CalculateCandidateBounds(candidate, surfaceSize);
 			if (!candidateBounds.HasPoint(normalizedPosition))
@@ -814,6 +871,64 @@ public partial class ForestGathering : Control
 	private bool IsTargetEntry(GatheringPlantEntry entry)
 	{
 		return string.Equals(entry.ItemId, TargetItemId, StringComparison.OrdinalIgnoreCase);
+	}
+
+	private string BuildWrongPlantFeedback(GatheringPlantEntry entry)
+	{
+		var targetName = GetItemName(TargetItemId);
+		if (TryGetMintDecoyClueName(entry.TexturePath, out var decoyClueName))
+			return BuildMintDecoyFeedback(decoyClueName, targetName);
+
+		var plantName = GetItemName(entry.ItemId);
+		return $"That was {plantName}, not {targetName}.";
+	}
+
+	private static bool TryGetMintDecoyClueName(string texturePath, out string decoyClueName)
+	{
+		decoyClueName = string.Empty;
+		var slashIndex = texturePath.LastIndexOf('/');
+		var fileName = slashIndex >= 0 ? texturePath[(slashIndex + 1)..] : texturePath;
+		if (!fileName.StartsWith(MintDecoyTextureFilePrefix, StringComparison.OrdinalIgnoreCase))
+			return false;
+
+		var clueName = fileName[MintDecoyTextureFilePrefix.Length..];
+		if (clueName.EndsWith(PngTextureFileExtension, StringComparison.OrdinalIgnoreCase))
+			clueName = clueName[..^PngTextureFileExtension.Length];
+
+		decoyClueName = clueName.Replace('_', ' ');
+		return !string.IsNullOrWhiteSpace(decoyClueName);
+	}
+
+	private static string BuildMintDecoyFeedback(string decoyClueName, string targetName)
+	{
+		return decoyClueName switch
+		{
+			"alternate pairs" => $"Wrong plant: {decoyClueName}; {targetName} leaves should be even and opposite.",
+			"curved stem" => $"Wrong plant: {decoyClueName}; {targetName} stems should be crisp and straight.",
+			"extra tip" => $"Wrong plant: {decoyClueName}; the stem tip does not match {targetName}.",
+			"hidden bud" => $"Wrong plant: {decoyClueName}; {targetName} should not hide a bud.",
+			"offset leaf" => $"Wrong plant: {decoyClueName}; {targetName} leaves should sit in even pairs.",
+			"rounder leaf" => $"Wrong plant: {decoyClueName}; the leaves are too wide for {targetName}.",
+			"smooth edge" => $"Wrong plant: {decoyClueName}; {targetName} leaves should be lightly toothed.",
+			"wrong veins" => $"Wrong plant: {decoyClueName}; the leaf veins do not match {targetName}.",
+			_ => $"Wrong plant: {decoyClueName}; it does not match {targetName}."
+		};
+	}
+
+	private bool IsPlantUnavailable(int plantIndex)
+	{
+		return _harvestedPlantIndexes.Contains(plantIndex) || _removedPlantIndexes.Contains(plantIndex);
+	}
+
+	private bool HasSelectablePlants()
+	{
+		for (var index = 0; index < _activePlantEntries.Count; index++)
+		{
+			if (!IsPlantUnavailable(index))
+				return true;
+		}
+
+		return false;
 	}
 
 	private void FinishGathering()
@@ -908,6 +1023,7 @@ public partial class ForestGathering : Control
 	{
 		_activePlantEntries.Clear();
 		_harvestedPlantIndexes.Clear();
+		_removedPlantIndexes.Clear();
 
 		var random = new RandomNumberGenerator();
 		random.Randomize();
@@ -981,12 +1097,15 @@ public partial class ForestGathering : Control
 		foreach (var visual in _plantVisuals)
 			visual.QueueFree();
 		_plantVisuals.Clear();
+		_plantVisualsByPlantIndex.Clear();
 		foreach (var border in _candidateDebugBorders)
 			border.QueueFree();
 		_candidateDebugBorders.Clear();
+		_candidateDebugBordersByPlantIndex.Clear();
 		foreach (var highlight in _targetDebugHighlights)
 			highlight.QueueFree();
 		_targetDebugHighlights.Clear();
+		_targetDebugHighlightsByPlantIndex.Clear();
 		var hotspotSize = _plantHotspots.GetGlobalRect().Size;
 
 		for (var index = 0; index < _activePlantEntries.Count; index++)
@@ -1009,6 +1128,7 @@ public partial class ForestGathering : Control
 			SetNormalizedRect(visual, entry.Center, entry.Size);
 			_plantHotspots.AddChild(visual);
 			_plantVisuals.Add(visual);
+			_plantVisualsByPlantIndex[index] = visual;
 
 			if (!ShowCandidateDebugBorders && (!ShowTargetDebugHighlights || !IsTargetEntry(entry)))
 				continue;
@@ -1026,6 +1146,7 @@ public partial class ForestGathering : Control
 				SetNormalizedRect(border, candidateBounds.Position + (candidateBounds.Size * 0.5f), candidateBounds.Size);
 				_plantHotspots.AddChild(border);
 				_candidateDebugBorders.Add(border);
+				_candidateDebugBordersByPlantIndex[index] = border;
 			}
 
 			if (!ShowTargetDebugHighlights || !IsTargetEntry(entry))
@@ -1041,7 +1162,20 @@ public partial class ForestGathering : Control
 			SetNormalizedRect(highlight, candidateBounds.Position + (candidateBounds.Size * 0.5f), candidateBounds.Size);
 			_plantHotspots.AddChild(highlight);
 			_targetDebugHighlights.Add(highlight);
+			_targetDebugHighlightsByPlantIndex[index] = highlight;
 		}
+	}
+
+	private void RemovePlantFromArea(int plantIndex)
+	{
+		if (_plantVisualsByPlantIndex.TryGetValue(plantIndex, out var visual))
+			visual.Visible = false;
+
+		if (_candidateDebugBordersByPlantIndex.TryGetValue(plantIndex, out var border))
+			border.Visible = false;
+
+		if (_targetDebugHighlightsByPlantIndex.TryGetValue(plantIndex, out var highlight))
+			highlight.Visible = false;
 	}
 
 	private static StyleBoxFlat CreateCandidateDebugBorderStyleBox()

@@ -12,7 +12,7 @@ public partial class StationShelfInventory : Control
 	private const float SlotHeight = 160.0f;
 	private const float IngredientSlotWidth = 116.0f;
 	private const float IngredientSlotHeight = 160.0f;
-	private const int IngredientDefaultVisibleSlots = 12;
+	private const int IngredientDefaultVisibleSlots = 10;
 	private const int ConsumableDefaultVisibleSlots = 4;
 
 	[Export] public NodePath IngredientSlotsPath = default!;
@@ -242,8 +242,6 @@ public partial class StationShelfInventory : Control
 	{
 		if (string.IsNullOrWhiteSpace(_activeIngredientTraitFilter))
 			return true;
-		if (ItemFilterUtilities.ItemHasTrait(itemId, _activeIngredientTraitFilter, _itemCatalog))
-			return true;
 
 		return TryGetKnownIngredientBookItem(itemId, out var bookItem) &&
 			ItemHasIngredientBookTrait(bookItem, _activeIngredientTraitFilter);
@@ -277,16 +275,23 @@ public partial class StationShelfInventory : Control
 			bookItem.Treatment is null;
 	}
 
-	private static void AddIngredientBookTraitNames(ItemDef item, HashSet<string> traitNames)
+	private void AddIngredientBookTraitNames(ItemDef item, HashSet<string> traitNames)
 	{
-		if (item.Traits is not null)
+		if (!HasPreparationStats(item))
+		{
 			AddPositiveTraitNames(item.Traits, traitNames);
+			return;
+		}
 
 		if (item.Preparations is null)
 			return;
 
-		foreach (var preparation in item.Preparations.Values)
+		foreach (var option in IngredientPreparationCatalog.AllOptions)
 		{
+			if (!_gameState.KnowsIngredientPreparation(item.Id, option.Id))
+				continue;
+			if (!item.Preparations.TryGetValue(option.Id, out var preparation))
+				continue;
 			if (preparation is null || preparation.Traits is null)
 				continue;
 
@@ -294,18 +299,22 @@ public partial class StationShelfInventory : Control
 		}
 	}
 
-	private static bool ItemHasIngredientBookTrait(ItemDef item, string traitName)
+	private bool ItemHasIngredientBookTrait(ItemDef item, string traitName)
 	{
 		if (string.IsNullOrWhiteSpace(traitName))
 			return false;
-		if (DictionaryHasPositiveValue(item.Traits, traitName))
-			return true;
+
+		if (!HasPreparationStats(item))
+			return DictionaryHasPositiveValue(item.Traits, traitName);
+
 		if (item.Preparations is null)
 			return false;
 
-		foreach (var preparation in item.Preparations.Values)
+		foreach (var option in IngredientPreparationCatalog.AllOptions)
 		{
-			if (preparation is null)
+			if (!_gameState.KnowsIngredientPreparation(item.Id, option.Id))
+				continue;
+			if (!item.Preparations.TryGetValue(option.Id, out var preparation) || preparation is null)
 				continue;
 			if (DictionaryHasPositiveValue(preparation.Traits, traitName))
 				return true;
@@ -314,8 +323,16 @@ public partial class StationShelfInventory : Control
 		return false;
 	}
 
-	private static void AddPositiveTraitNames(Dictionary<string, int> values, HashSet<string> traitNames)
+	private static bool HasPreparationStats(ItemDef item)
 	{
+		return item.Preparations is not null && item.Preparations.Count > 0;
+	}
+
+	private static void AddPositiveTraitNames(Dictionary<string, int>? values, HashSet<string> traitNames)
+	{
+		if (values is null)
+			return;
+
 		foreach (var trait in values)
 		{
 			if (string.IsNullOrWhiteSpace(trait.Key) || trait.Value <= 0)
@@ -455,12 +472,15 @@ public partial class StationShelfInventory : Control
 			stack.Quantity,
 			new JarredInventorySlotLayout
 			{
+				ArtOffset = connectIngredientRequest ? new Vector2(0.0f, -4.0f) : Vector2.Zero,
 				ArtSize = new Vector2(slotSize.X, slotSize.Y),
-				NameFontSize = connectIngredientRequest ? 12 : 11,
-				MinimumNameFontSize = connectIngredientRequest ? 10 : 9,
+				NameFontSize = connectIngredientRequest ? 12 : 14,
+				MinimumNameFontSize = connectIngredientRequest ? 9 : 12,
 				PreserveParentheticalSuffix = connectIngredientRequest,
 				SingleLineCharacterLimit = connectIngredientRequest ? 18 : 12,
-				QuantityFontSize = 13
+				QuantityFontSize = connectIngredientRequest ? 16 : 14,
+				UseReadableNamePlaque = connectIngredientRequest,
+				UseGeneratedLabelTexture = true
 			}));
 		slot.AddChild(content);
 		slot.AddChild(hoverOutline);
