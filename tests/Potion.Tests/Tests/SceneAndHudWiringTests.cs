@@ -30,6 +30,7 @@ internal static class SceneAndHudWiringTests
         runner.Run("Scenario debugger fills base ingredient stacks only", TestScenarioDebuggerBaseIngredientFill);
         runner.Run("Persistent HUD owns global HUD visibility", TestPersistentHudOwnsGlobalHudVisibility);
         runner.Run("HUD map navigation is wired", TestHudMapNavigation);
+        runner.Run("HUD calendar is wired", TestHudCalendarIsWired);
         runner.Run("Map scene builds coordinate grid and modal outcomes", TestMapSceneCoordinateGridAndModalOutcomes);
         runner.Run("F12 forest gathering scene is wired", TestF12ForestGatheringScene);
         runner.Run("K17 juniper gathering scene is wired", TestK17JuniperGatheringScene);
@@ -50,6 +51,7 @@ internal static class SceneAndHudWiringTests
             ["OccultShop.UI.DraggablePanel"] = "PanelContainer",
             ["OccultShop.UI.EventModal"] = "Control",
             ["OccultShop.UI.Hud"] = "Control",
+            ["OccultShop.UI.CalendarPanel"] = "PanelContainer",
             ["OccultShop.UI.LoadGameMenu"] = "Control",
             ["OccultShop.UI.InventoryItemSlot"] = "Button",
             ["OccultShop.UI.StationShelfInventory"] = "Control",
@@ -1214,6 +1216,50 @@ internal static class SceneAndHudWiringTests
         AssertTrue("Hud return-to-menu handler exists", source.Contains("OnReturnToMainMenuPressed"));
         AssertTrue("Hud return-to-menu still changes scenes", source.Contains("ScenePaths.MainMenu") && scenePaths.Contains("res://MainMenu.tscn"));
         AssertTrue("Hud return-to-menu no longer auto-saves", !source.Contains("Could not save before returning to main menu"));
+    }
+
+    private static void TestHudCalendarIsWired()
+    {
+        var hudSource = ReadProjectFile("Scripts/UI/Hud.cs");
+        var hudScene = ReadProjectFile("Scenes/UI/Hud.tscn");
+        var calendarPanel = ReadProjectFile("Scripts/UI/CalendarPanel.cs");
+        var calendarScene = ReadProjectFile("Scenes/UI/CalendarPanel.tscn");
+        var calendarData = ReadProjectFile("Data/calendar_events_data.tres");
+        var authoredData = ReadProjectFile("Data/authored_data.tres");
+
+        AssertTrue("HUD date uses the existing status path as a button",
+            hudScene.Contains("[node name=\"Day\" type=\"Button\" parent=\"Content/Status\"]") &&
+            hudScene.Contains("text = \"26/03 Y1\"") &&
+            hudSource.Contains("DateButtonPath = new(\"Content/Status/Day\")") &&
+            hudSource.Contains("_dateButton.Text = GameCalendar.ToDate(_gameState.Day).ToHudText();"));
+        AssertTrue("HUD instances the calendar panel",
+            hudScene.Contains("path=\"res://Scenes/UI/CalendarPanel.tscn\"") &&
+            hudScene.Contains("[node name=\"CalendarPanel\" parent=\".\" instance=ExtResource(\"3_calendar\")]") &&
+            hudSource.Contains("CalendarPanelPath = new(\"CalendarPanel\")") &&
+            hudSource.Contains("_calendarPanel.TogglePanel();"));
+        AssertTrue("Calendar panel shows the current month and selected day details",
+            calendarScene.Contains("[node name=\"DayGrid\" type=\"GridContainer\"") &&
+            calendarScene.Contains("columns = 7") &&
+            calendarScene.Contains("[node name=\"EventDetails\" type=\"RichTextLabel\"") &&
+            calendarPanel.Contains("GameCalendar.DaysPerMonth") &&
+            calendarPanel.Contains("SelectDay(capturedDay)") &&
+            calendarPanel.Contains("GetVisibleEventsOnDate"));
+        AssertTrue("Calendar panel lists known upcoming events",
+            calendarPanel.Contains("GetVisibleUpcomingEvents") &&
+            calendarPanel.Contains("No known upcoming events.") &&
+            calendarPanel.Contains("UpcomingEventHorizonDays = GameCalendar.DaysPerYear"));
+        AssertTrue("Calendar closes from button, outside click, and Escape",
+            calendarScene.Contains("[node name=\"Close\" type=\"Button\"") &&
+            calendarPanel.Contains("_closeButton.Pressed += HidePanel") &&
+            hudSource.Contains("keyEvent.Keycode == Key.Escape") &&
+            hudSource.Contains("IsPointInsideVisibleControl(_calendarPanel, mouseButton.GlobalPosition)") &&
+            hudSource.Contains("HideHudPopups();"));
+        AssertTrue("Authored calendar data is wired with the requested example event",
+            authoredData.Contains("CalendarEventsPath = \"res://Data/calendar_events_data.tres\"") &&
+            calendarData.Contains("\"id\": \"example_april_market_notice\"") &&
+            calendarData.Contains("\"day\": 2") &&
+            calendarData.Contains("\"month\": 4") &&
+            calendarData.Contains("\"year\": 1"));
     }
 
     private static void TestHudSettingsPanelClosesOnOutsideClick()

@@ -52,7 +52,7 @@ ArtOffset = Vector2(0, -4)
 ArtSize = Vector2(0, 0)
 IconSizeRatio = 0.62
 IconCenterYRatio = 0.43
-NameFontSize = 12
+NameFontSize = 13
 MinimumNameFontSize = 9
 QuantityFontSize = 13
 NameColor = Color(0.055, 0.026, 0.012, 1)
@@ -62,7 +62,7 @@ SingleLineCharacterLimit = 18
 HideQuantityWhenOne = false
 UseReadableNamePlaque = true
 UseGeneratedLabelTexture = true
-GeneratedLabelRectRatio = Rect2(0, 0, 0, 0)
+GeneratedLabelRectRatio = Rect2(0.093945, 0.647182, 0.812109, 0.300065)
 GeneratedNameRectRatio = Rect2(0.18, 0.653, 0.64, 0.16)
 GeneratedQuantityRectRatio = Rect2(0, 0, 0, 0)
 

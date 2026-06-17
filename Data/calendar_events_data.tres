@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="AuthoredCalendarEventsResource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Models/AuthoredCalendarEventsResource.cs" id="1"]
+
+[resource]
+script = ExtResource("1")
+Entries = [{
+"id": "example_april_market_notice",
+"title": "April Market Notice",
+"text": "A trader is expected to arrive with unusual wares.",
+"day": 2,
+"month": 4,
+"year": 1,
+"repeatsYearly": false
+}]

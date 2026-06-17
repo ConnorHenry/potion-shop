@@ -63,9 +63,14 @@ internal static class RuntimeContentAndDataDbTests
         AssertTrue("Authored data resource stores item catalog", resource.Contains("ItemsPath = \"res://Data/items_data.tres\""));
         AssertTrue("Authored data resource stores rule catalog", resource.Contains("RulesPath = \"res://Data/rules_data.tres\""));
         AssertTrue("Authored data resource stores event catalog", resource.Contains("EventsPath = \"res://Data/events_data.tres\""));
+        AssertTrue("Authored data resource stores calendar event catalog", resource.Contains("CalendarEventsPath = \"res://Data/calendar_events_data.tres\""));
         AssertTrue("Authored data resource stores customer catalog",
             resource.Contains("CustomerInteractionsPath = \"res://Data/customers_data.tres\"") ||
             resource.Contains("CustomerInteractionsPath = \"res://Data/customers_tiered_test_data.tres\""));
+        AssertTrue("DataDb loads authored calendar events",
+            source.Contains("LoadSection<AuthoredCalendarEventsResource>") &&
+            source.Contains("CalendarEvents => _calendarEvents") &&
+            source.Contains("ParseCalendarEvents("));
         AssertTrue("DataDb does not register runtime items", !source.Contains("RegisterRuntimePotionItem"));
         AssertTrue("DataDb does not reference runtime catalog", !source.Contains("RuntimeContentDb"));
     }

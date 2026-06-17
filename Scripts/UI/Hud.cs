@@ -4,6 +4,7 @@ using OccultShop.Autoload;
 using OccultShop.Controllers;
 using OccultShop.Infrastructure;
 using OccultShop.Models;
+using OccultShop.Systems;
 
 namespace OccultShop.UI;
 
@@ -28,7 +29,8 @@ public partial class Hud : Control
 	private const double DefaultRainfallVolume = 0.7;
 
 	[Export] public NodePath GoldLabelPath = new("Content/Status/Gold");
-	[Export] public NodePath DayLabelPath = new("Content/Status/Day");
+	[Export] public NodePath DateButtonPath = new("Content/Status/Day");
+	[Export] public NodePath CalendarPanelPath = new("CalendarPanel");
 	[Export] public NodePath RequestAlertButtonPath = new("Content/Status/RequestAlert");
 	[Export] public NodePath RequestPanelPath = new("RequestPanel");
 	[Export] public NodePath RequestDescriptionLabelPath = new("RequestPanel/Margin/VBox/Description");
@@ -43,7 +45,8 @@ public partial class Hud : Control
 	[Export] public NodePath DayControllerPath = new("DayController");
 
 	private Label _gold = default!;
-	private Label _day = default!;
+	private Button _dateButton = default!;
+	private CalendarPanel _calendarPanel = default!;
 	private Button _requestAlertButton = default!;
 	private Button _serveCustomerButton = default!;
 	private Button _gardenButton = default!;
@@ -73,7 +76,8 @@ public partial class Hud : Control
 	public override void _Ready()
 	{
 		_gold = GetNode<Label>(GoldLabelPath);
-		_day = GetNode<Label>(DayLabelPath);
+		_dateButton = GetNode<Button>(DateButtonPath);
+		_calendarPanel = GetNode<CalendarPanel>(CalendarPanelPath);
 
 		_serveCustomerButton = GetNode<Button>(StartDayButtonPath);
 		_requestAlertButton = GetNode<Button>(RequestAlertButtonPath);
@@ -108,12 +112,14 @@ public partial class Hud : Control
 		_requestDescription.BbcodeEnabled = true;
 		_requestDesiredTraits.BbcodeEnabled = true;
 		_requestBadTraits.BbcodeEnabled = true;
+		_calendarPanel.ZIndex = RequestPanelZIndex;
 		LoadAmbientSettings();
 		ConfigureAmbientRainPlayer();
 		ApplyAmbientSettingsToControls();
 		SetProcessInput(true);
 
 		_serveCustomerButton.Pressed += OnStartDayPressed;
+		_dateButton.Pressed += OnDatePressed;
 		_requestAlertButton.Pressed += OnRequestAlertPressed;
 		_gardenButton.Pressed += OnGardenPressed;
 		_mapButton.Pressed += OnMapPressed;
@@ -131,6 +137,7 @@ public partial class Hud : Control
 
 		_toggleDebugPanelButton.Text = ImGuiGD.Visible ? "Debug Panel: On" : "Debug Panel: Off";
 		SetRequestPanelVisible(false);
+		_calendarPanel.HidePanel();
 		SetSettingsPanelVisible(false);
 		SetSettingsDetailsVisible(false);
 		RefreshSceneBindings();
@@ -147,6 +154,8 @@ public partial class Hud : Control
 		DisconnectSceneBindings();
 		if (_serveCustomerButton is not null)
 			_serveCustomerButton.Pressed -= OnStartDayPressed;
+		if (_dateButton is not null)
+			_dateButton.Pressed -= OnDatePressed;
 		if (_requestAlertButton is not null)
 			_requestAlertButton.Pressed -= OnRequestAlertPressed;
 		if (_gardenButton is not null)
@@ -176,6 +185,17 @@ public partial class Hud : Control
 		if (!IsHudPopupVisible())
 			return;
 
+		if (@event is InputEventKey keyEvent)
+		{
+			if (keyEvent.Pressed && !keyEvent.Echo && keyEvent.Keycode == Key.Escape)
+			{
+				AcceptEvent();
+				HideHudPopups();
+			}
+
+			return;
+		}
+
 		if (@event is not InputEventMouseButton mouseButton)
 			return;
 
@@ -185,13 +205,13 @@ public partial class Hud : Control
 		if (IsPointInsideVisibleControl(_settingsPanel, mouseButton.GlobalPosition)
 			|| IsPointInsideVisibleControl(_settingsDetailsPanel, mouseButton.GlobalPosition)
 			|| IsPointInsideVisibleControl(_requestPanel, mouseButton.GlobalPosition)
-			|| IsPointInsideVisibleControl(_requestAlertButton, mouseButton.GlobalPosition))
+			|| IsPointInsideVisibleControl(_requestAlertButton, mouseButton.GlobalPosition)
+			|| IsPointInsideVisibleControl(_calendarPanel, mouseButton.GlobalPosition)
+			|| IsPointInsideVisibleControl(_dateButton, mouseButton.GlobalPosition))
 			return;
 
 		AcceptEvent();
-		SetSettingsPanelVisible(false);
-		SetSettingsDetailsVisible(false);
-		SetRequestPanelVisible(false);
+		HideHudPopups();
 	}
 
 	public void RefreshSceneBindings()
@@ -199,6 +219,8 @@ public partial class Hud : Control
 		DisconnectSceneBindings();
 		if (_requestPanel is not null)
 			SetRequestPanelVisible(false);
+		if (_calendarPanel is not null)
+			_calendarPanel.HidePanel();
 
 		var currentScene = GetTree().CurrentScene;
 		if (currentScene is not null)
@@ -214,11 +236,7 @@ public partial class Hud : Control
 
 	public void HideSettingsPanel()
 	{
-		if (_settingsPanel is null)
-			return;
-
-		SetSettingsPanelVisible(false);
-		SetSettingsDetailsVisible(false);
+		HideHudPopups();
 	}
 
 	public void SetAmbientPlaybackAllowed(bool allowed)
@@ -245,7 +263,8 @@ public partial class Hud : Control
 		if (_gameState is not null)
 		{
 			_gold.Text = $"Gold: {_gameState.Gold}";
-			_day.Text = $"Day: {_gameState.Day}";
+			_dateButton.Text = GameCalendar.ToDate(_gameState.Day).ToHudText();
+			_calendarPanel.Refresh();
 		}
 
 		RefreshRequestAlert();
@@ -260,6 +279,17 @@ public partial class Hud : Control
 			return;
 
 		_dayController.StartShopDay();
+	}
+
+	private void OnDatePressed()
+	{
+		if (IsSceneNavigationBlocked())
+			return;
+
+		SetSettingsPanelVisible(false);
+		SetSettingsDetailsVisible(false);
+		SetRequestPanelVisible(false);
+		_calendarPanel.TogglePanel();
 	}
 
 	private void OnRequestAlertPressed()
@@ -310,7 +340,11 @@ public partial class Hud : Control
 		var shouldOpen = !_settingsPanel.Visible;
 		SetSettingsPanelVisible(shouldOpen);
 		if (shouldOpen)
+		{
+			_calendarPanel.HidePanel();
+			SetRequestPanelVisible(false);
 			SetSettingsDetailsVisible(false);
+		}
 	}
 
 	private void OnOpenSettingsPressed()
@@ -435,6 +469,18 @@ public partial class Hud : Control
 
 		if (visible)
 			_settingsDetailsPanel.MoveToFront();
+	}
+
+	private void HideHudPopups()
+	{
+		if (_settingsPanel is not null)
+			SetSettingsPanelVisible(false);
+		if (_settingsDetailsPanel is not null)
+			SetSettingsDetailsVisible(false);
+		if (_requestPanel is not null)
+			SetRequestPanelVisible(false);
+		if (_calendarPanel is not null)
+			_calendarPanel.HidePanel();
 	}
 
 	private void RefreshRequestAlert()
@@ -614,7 +660,10 @@ public partial class Hud : Control
 
 	private bool IsHudPopupVisible()
 	{
-		return _settingsPanel.Visible || _settingsDetailsPanel.Visible || _requestPanel.Visible;
+		return _settingsPanel.Visible
+			|| _settingsDetailsPanel.Visible
+			|| _requestPanel.Visible
+			|| _calendarPanel.Visible;
 	}
 
 	private bool IsSceneNavigationBlocked()
@@ -628,8 +677,7 @@ public partial class Hud : Control
 		var navigationBlocked = IsSceneNavigationBlocked();
 		if (navigationBlocked)
 		{
-			SetSettingsPanelVisible(false);
-			SetSettingsDetailsVisible(false);
+			HideHudPopups();
 		}
 
 		_serveCustomerButton.Text = isShopOpen ? "Shop Open" : "Start Day";

@@ -282,13 +282,14 @@ public partial class InventorySlotLayoutProfile : Resource
 			SlotSize = new Vector2(116.0f, 160.0f),
 			ArtOffset = new Vector2(0.0f, -4.0f),
 			IconSizeRatio = 0.62f,
-			NameFontSize = 12,
+			NameFontSize = 13,
 			MinimumNameFontSize = 9,
 			QuantityFontSize = 13,
 			PreserveParentheticalSuffix = true,
 			SingleLineCharacterLimit = 18,
 			UseReadableNamePlaque = true,
 			UseGeneratedLabelTexture = true,
+			GeneratedLabelRectRatio = new Rect2(new Vector2(0.093945f, 0.647182f), new Vector2(0.812109f, 0.300065f)),
 			GeneratedNameRectRatio = new Rect2(new Vector2(0.18f, 0.653f), new Vector2(0.64f, 0.16f))
 		};
 	}

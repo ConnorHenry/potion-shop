@@ -15,6 +15,9 @@ public partial class AuthoredDataResource : Resource
 	public string EventsPath { get; set; } = "res://Data/events_data.tres";
 
 	[Export]
+	public string CalendarEventsPath { get; set; } = "res://Data/calendar_events_data.tres";
+
+	[Export]
 	public string CustomerInteractionsPath { get; set; } = "res://Data/customers_data.tres";
 
 	[Export]

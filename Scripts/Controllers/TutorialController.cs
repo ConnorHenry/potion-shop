@@ -20,7 +20,7 @@ public partial class TutorialController : Node
 	[Export] public NodePath OpenBrewPanelButtonPath = new("../CanvasLayer/ShopFloor/Hotspots/InventoryShelf");
 	[Export] public NodePath HudStartDayButtonPath = new("Content/Actions/ServeCustomer");
 	[Export] public NodePath HudSettingsButtonPath = new("Content/Actions/MainMenu");
-	[Export] public NodePath HudDayLabelPath = new("Content/Status/Day");
+	[Export] public NodePath HudDateControlPath = new("Content/Status/Day");
 	[Export] public NodePath BrewPanelFramePath = new("Panel");
 	[Export] public TutorialContentResource TutorialContent = new();
 
@@ -33,7 +33,7 @@ public partial class TutorialController : Node
 
 	private Control? _hud;
 	private Control? _shopFloor;
-	private Label? _hudDayLabel;
+	private Control? _hudDateControl;
 	private BrewPanel? _brewPanel;
 	private Control? _brewPanelFrame;
 	private CustomerPanel? _customerPanel;
@@ -65,7 +65,7 @@ public partial class TutorialController : Node
 		_openBrewPanelButton = GetOptionalNode<Button>(OpenBrewPanelButtonPath, nameof(OpenBrewPanelButtonPath));
 		_startDayButton = GetOptionalHudButton(HudStartDayButtonPath, nameof(HudStartDayButtonPath));
 		_settingsButton = GetOptionalHudButton(HudSettingsButtonPath, nameof(HudSettingsButtonPath));
-		_hudDayLabel = GetOptionalHudLabel(HudDayLabelPath, nameof(HudDayLabelPath));
+		_hudDateControl = GetOptionalHudControl(HudDateControlPath, nameof(HudDateControlPath));
 
 		_tutorialContent = TutorialContent ?? new TutorialContentResource();
 		_stateMachine = new TutorialStateMachine(_tutorialContent);
@@ -394,7 +394,7 @@ public partial class TutorialController : Node
 			return false;
 
 		var hasHighlightRect = false;
-		foreach (var control in new Control?[] { _hud, _hudDayLabel })
+		foreach (var control in new Control?[] { _hud, _hudDateControl })
 		{
 			if (control is null)
 				continue;
@@ -521,7 +521,7 @@ public partial class TutorialController : Node
 		return button;
 	}
 
-	private Label? GetOptionalHudLabel(NodePath path, string exportName)
+	private Control? GetOptionalHudControl(NodePath path, string exportName)
 	{
 		if (_hud is null)
 			return null;
@@ -532,11 +532,11 @@ public partial class TutorialController : Node
 			return null;
 		}
 
-		var label = _hud.GetNodeOrNull<Label>(path);
-		if (label is null)
-			GD.PushError($"TutorialController: HUD label was not found at '{path}'.");
+		var control = _hud.GetNodeOrNull<Control>(path);
+		if (control is null)
+			GD.PushError($"TutorialController: HUD control was not found at '{path}'.");
 
-		return label;
+		return control;
 	}
 
 	private Control? GetOptionalBrewPanelControl(NodePath path, string exportName)

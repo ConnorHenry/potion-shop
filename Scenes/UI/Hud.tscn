@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=3 uid="uid://cikvfbes8y0kf"]
+[gd_scene load_steps=4 format=3 uid="uid://cikvfbes8y0kf"]
 
 [ext_resource type="Script" uid="uid://cpdo7gyxh2gvl" path="res://Scripts/UI/Hud.cs" id="1_khu2m"]
 [ext_resource type="Theme" uid="uid://bcxrpcn1ol80g" path="res://Assets/UI/BrewPanelTheme.tres" id="2_brew_theme"]
+[ext_resource type="PackedScene" path="res://Scenes/UI/CalendarPanel.tscn" id="3_calendar"]
 
 [node name="Hud" type="Control"]
 custom_minimum_size = Vector2(0, 50)
@@ -51,13 +52,16 @@ theme_override_font_sizes/font_size = 20
 text = "Gold:"
 vertical_alignment = 1
 
-[node name="Day" type="Label" parent="Content/Status"]
-custom_minimum_size = Vector2(100, 0)
+[node name="Day" type="Button" parent="Content/Status"]
+custom_minimum_size = Vector2(112, 0)
 layout_mode = 2
+tooltip_text = "Open calendar"
+theme_override_colors/font_hover_color = Color(1, 0.86, 0.05, 1)
 theme_override_colors/font_color = Color(1, 0.92, 0.72, 1)
+theme_override_colors/font_pressed_color = Color(1, 0.86, 0.05, 1)
 theme_override_font_sizes/font_size = 20
-text = "Day:"
-vertical_alignment = 1
+text = "26/03 Y1"
+flat = true
 
 [node name="RequestAlert" type="Button" parent="Content/Status"]
 visible = false
@@ -164,6 +168,12 @@ custom_minimum_size = Vector2(0, 72)
 layout_mode = 2
 fit_content = true
 scroll_active = false
+
+[node name="CalendarPanel" parent="." instance=ExtResource("3_calendar")]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
 
 [node name="SettingsPanel" type="PanelContainer" parent="."]
 visible = false

@@ -18,12 +18,14 @@ public partial class DataDb : Node
 	public IReadOnlyDictionary<string, ItemDef> Items => _items;
 	public IReadOnlyDictionary<string, RuleDef> Rules => _rules;
 	public IReadOnlyList<EventCardDef> Events => _events;
+	public IReadOnlyList<CalendarEventDef> CalendarEvents => _calendarEvents;
 	public IReadOnlyList<CustomerInteractionDef> CustomerInteractions => _customerInteractions;
 	public IReadOnlyList<PotionRecipeDef> PotionRecipes => _potionRecipes;
 
 	private Dictionary<string, ItemDef> _items = new();
 	private Dictionary<string, RuleDef> _rules = new();
 	private List<EventCardDef> _events = new();
+	private List<CalendarEventDef> _calendarEvents = new();
 	private List<CustomerInteractionDef> _customerInteractions = new();
 	private List<PotionRecipeDef> _potionRecipes = new();
 
@@ -44,6 +46,7 @@ public partial class DataDb : Node
 			_items = new Dictionary<string, ItemDef>();
 			_rules = new Dictionary<string, RuleDef>();
 			_events = new List<EventCardDef>();
+			_calendarEvents = new List<CalendarEventDef>();
 			_customerInteractions = new List<CustomerInteractionDef>();
 			_potionRecipes = new List<PotionRecipeDef>();
 			return;
@@ -52,6 +55,7 @@ public partial class DataDb : Node
 		var itemsResource = LoadSection<AuthoredItemsResource>(authoredData.ItemsPath, "items");
 		var rulesResource = LoadSection<AuthoredRulesResource>(authoredData.RulesPath, "rules");
 		var eventsResource = LoadSection<AuthoredEventsResource>(authoredData.EventsPath, "events");
+		var calendarEventsResource = LoadSection<AuthoredCalendarEventsResource>(authoredData.CalendarEventsPath, "calendar events");
 		var customerInteractionsResource = LoadSection<AuthoredCustomerInteractionsResource>(authoredData.CustomerInteractionsPath, "customer interactions");
 		var potionRecipesResource = LoadSection<AuthoredPotionRecipesResource>(authoredData.PotionRecipesPath, "potion recipes");
 
@@ -60,10 +64,11 @@ public partial class DataDb : Node
 		_rules = ParseRules(rulesResource?.Entries ?? new Godot.Collections.Array())
 			.ToDictionary(x => x.Id, x => x, StringComparer.OrdinalIgnoreCase);
 		_events = ParseEvents(eventsResource?.Entries ?? new Godot.Collections.Array());
+		_calendarEvents = ParseCalendarEvents(calendarEventsResource?.Entries ?? new Godot.Collections.Array());
 		_customerInteractions = ParseCustomerInteractions(customerInteractionsResource?.Entries ?? new Godot.Collections.Array());
 		_potionRecipes = ParsePotionRecipes(potionRecipesResource?.Entries ?? new Godot.Collections.Array());
 
-		AuthoredDataValidator.Validate(_items, _rules, _events, _customerInteractions, _potionRecipes);
+		AuthoredDataValidator.Validate(_items, _rules, _events, _calendarEvents, _customerInteractions, _potionRecipes);
 	}
 
 	private static TSection? LoadSection<TSection>(string path, string sectionName) where TSection : Resource
@@ -295,6 +300,38 @@ public partial class DataDb : Node
 		}
 
 		return events;
+	}
+
+	private static List<CalendarEventDef> ParseCalendarEvents(Godot.Collections.Array entries)
+	{
+		var calendarEvents = new List<CalendarEventDef>(entries.Count);
+		foreach (var entryValue in entries)
+		{
+			if (!TryReadDictionary(entryValue, out var entry))
+				continue;
+
+			var id = ReadString(entry, "id");
+			if (string.IsNullOrWhiteSpace(id))
+				continue;
+
+			var visibilityRequirementsEntry =
+				ReadDictionary(entry, "visibilityRequirements") ??
+				ReadDictionary(entry, "requires");
+
+			calendarEvents.Add(new CalendarEventDef
+			{
+				Id = id,
+				Title = ReadString(entry, "title"),
+				Text = ReadString(entry, "text"),
+				Day = ReadInt(entry, "day", 0),
+				Month = ReadInt(entry, "month", 0),
+				Year = ReadNullableInt(entry, "year"),
+				RepeatsYearly = ReadBool(entry, "repeatsYearly"),
+				VisibilityRequirements = ParseRequirements(visibilityRequirementsEntry)
+			});
+		}
+
+		return calendarEvents;
 	}
 
 	private static List<CustomerInteractionDef> ParseCustomerInteractions(Godot.Collections.Array entries)

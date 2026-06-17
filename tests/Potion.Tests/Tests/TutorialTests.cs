@@ -118,7 +118,7 @@ internal static class TutorialTests
         AssertTrue("TutorialController includes the close shop tutorial step", controller.Contains("TutorialStepId.CloseShop"));
         AssertTrue("TutorialController highlights the close shop button", controller.Contains("case TutorialStepId.CloseShop") && controller.Contains("GetNextCustomerButton()"));
         AssertTrue("TutorialController forces the final tutorial customer to end the shop day", controller.Contains("ForceCloseShopAfterCurrentCustomerForTutorial()"));
-        AssertTrue("TutorialController caches HUD day label for tutorial highlighting", controller.Contains("HudDayLabelPath = new(\"Content/Status/Day\")") && controller.Contains("_hudDayLabel = GetOptionalHudLabel(HudDayLabelPath"));
+        AssertTrue("TutorialController caches HUD date control for tutorial highlighting", controller.Contains("HudDateControlPath = new(\"Content/Status/Day\")") && controller.Contains("_hudDateControl = GetOptionalHudControl(HudDateControlPath"));
         AssertTrue("TutorialController does not cache a HUD shop timer label", !controller.Contains("HudShopTimerLabelPath") && !controller.Contains("_hudShopTimerLabel"));
         AssertTrue("TutorialController opens brewing from the shop floor hotspot", controller.Contains("OpenBrewPanelButtonPath = new(\"../CanvasLayer/ShopFloor/Hotspots/InventoryShelf\")") && controller.Contains("_openBrewPanelButton.Pressed += OnBrewButtonPressed"));
         AssertTrue("TutorialController highlights ingredient queue steps with the brew panel", controller.Contains("ShowIngredientQueueStep(stepContent, _tutorialContent.MintId)") && controller.Contains("ShowForTargets(") && controller.Contains("FocusTutorialBrewPanel()"));

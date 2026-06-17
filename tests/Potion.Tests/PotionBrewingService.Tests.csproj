@@ -20,7 +20,9 @@
     <Compile Include="..\..\Scripts\Models\PotionRecipeDef.cs" Link="Linked\PotionRecipeDef.cs" />
     <Compile Include="..\..\Scripts\Models\PotionResultDef.cs" Link="Linked\PotionResultDef.cs" />
     <Compile Include="..\..\Scripts\Models\RequirementsDef.cs" Link="Linked\RequirementsDef.cs" />
+    <Compile Include="..\..\Scripts\Models\CalendarEventDef.cs" Link="Linked\CalendarEventDef.cs" />
     <Compile Include="..\..\Scripts\Models\CustomerInteractionDef.cs" Link="Linked\CustomerInteractionDef.cs" />
+    <Compile Include="..\..\Scripts\Systems\GameCalendar.cs" Link="Linked\GameCalendar.cs" />
     <Compile Include="..\..\Scripts\Systems\PotionBrewingService.cs" Link="Linked\PotionBrewingService.cs" />
     <Compile Include="..\..\Scripts\Systems\BrewPricing.cs" Link="Linked\BrewPricing.cs" />
     <Compile Include="..\..\Scripts\Systems\CustomerSaleRules.cs" Link="Linked\CustomerSaleRules.cs" />

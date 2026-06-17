@@ -25,7 +25,7 @@ const PROFILE_DEFS := [
 			"ArtSize": Vector2.ZERO,
 			"IconSizeRatio": 0.62,
 			"IconCenterYRatio": 0.43,
-			"NameFontSize": 12,
+			"NameFontSize": 13,
 			"MinimumNameFontSize": 9,
 			"QuantityFontSize": 13,
 			"NameColor": Color(0.055, 0.026, 0.012, 1.0),
@@ -35,7 +35,7 @@ const PROFILE_DEFS := [
 			"HideQuantityWhenOne": false,
 			"UseReadableNamePlaque": true,
 			"UseGeneratedLabelTexture": true,
-			"GeneratedLabelRectRatio": Rect2(Vector2.ZERO, Vector2.ZERO),
+			"GeneratedLabelRectRatio": Rect2(Vector2(0.093945, 0.647182), Vector2(0.812109, 0.300065)),
 			"GeneratedNameRectRatio": Rect2(Vector2(0.18, 0.653), Vector2(0.64, 0.16)),
 			"GeneratedQuantityRectRatio": Rect2(Vector2.ZERO, Vector2.ZERO)
 		}

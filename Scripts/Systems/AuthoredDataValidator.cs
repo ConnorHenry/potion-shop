@@ -32,12 +32,14 @@ public static class AuthoredDataValidator
 		IReadOnlyDictionary<string, ItemDef> items,
 		IReadOnlyDictionary<string, RuleDef> rules,
 		IReadOnlyList<EventCardDef> events,
+		IReadOnlyList<CalendarEventDef> calendarEvents,
 		IReadOnlyList<CustomerInteractionDef> customerInteractions,
 		IReadOnlyList<PotionRecipeDef> potionRecipes)
 	{
 		ValidateItemDefinitions(items);
 		ValidatePotionRecipes(items, potionRecipes);
 		ValidateEventCards(items, rules, events);
+		ValidateCalendarEvents(items, calendarEvents);
 		ValidateCustomerInteractions(items, rules, customerInteractions);
 	}
 
@@ -380,6 +382,26 @@ public static class AuthoredDataValidator
 				ValidateRequirements(items, choice.Requires, $"{choiceContext} requirements");
 				ValidateEffects(items, rules, choice.Effects, $"{choiceContext} effects");
 			}
+		}
+	}
+
+	private static void ValidateCalendarEvents(
+		IReadOnlyDictionary<string, ItemDef> items,
+		IReadOnlyList<CalendarEventDef> calendarEvents)
+	{
+		foreach (var calendarEvent in calendarEvents)
+		{
+			var context = $"Calendar event '{calendarEvent.Id}'";
+			if (calendarEvent.Day is < 1 or > GameCalendar.DaysPerMonth)
+				PushDataWarning($"{context} has day {calendarEvent.Day}; expected 1-{GameCalendar.DaysPerMonth}.");
+			if (calendarEvent.Month is < 1 or > GameCalendar.MonthsPerYear)
+				PushDataWarning($"{context} has month {calendarEvent.Month}; expected 1-{GameCalendar.MonthsPerYear}.");
+			if (!calendarEvent.RepeatsYearly && calendarEvent.Year is null)
+				PushDataWarning($"{context} must define a year or set repeatsYearly.");
+			if (calendarEvent.Year is int year && year < 1)
+				PushDataWarning($"{context} has year {year}; expected 1 or greater.");
+
+			ValidateRequirements(items, calendarEvent.VisibilityRequirements, $"{context} visibility requirements");
 		}
 	}
 

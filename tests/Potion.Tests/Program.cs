@@ -10,6 +10,7 @@ static class Program
         CustomerFlowTests.Register(runner);
         RuntimeContentAndDataDbTests.Register(runner);
         PersistenceTests.Register(runner);
+        CalendarTests.Register(runner);
         GameStateTests.Register(runner);
         GardenTests.Register(runner);
         TutorialTests.Register(runner);

@@ -549,13 +549,12 @@ expand_mode = 1
 stretch_mode = 5
 
 [node name="FireGlow" type="Control" parent="PotionBrewingStationView"]
-visible = false
 z_index = 2
 anchors_preset = 0
-offset_left = 873.0
-offset_top = 483.0
-offset_right = 1273.0
-offset_bottom = 883.0
+offset_left = 869.0
+offset_top = 488.0
+offset_right = 1269.0
+offset_bottom = 888.0
 mouse_filter = 2
 script = ExtResource("46_fire_glow")
 
@@ -1525,6 +1524,7 @@ offset_bottom = 113.0
 text = "Clear"
 
 [node name="TreatmentTray" type="Control" parent="PotionBrewingStationView"]
+visible = false
 custom_minimum_size = Vector2(430, 286)
 layout_mode = 3
 anchors_preset = 0
