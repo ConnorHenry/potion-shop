@@ -7,6 +7,7 @@ using OccultShop.Controllers;
 using OccultShop.Autoload;
 using OccultShop.Models;
 using OccultShop.Systems;
+using OccultShop.UI;
 using Vector2 = System.Numerics.Vector2;
 
 namespace OccultShop.Debug;
@@ -27,6 +28,10 @@ public partial class RuntimeDebugImGui : Node
 	private DataDb _dataDb = default!;
 	private RuntimeContentDb _runtimeContentDb = default!;
 	private DayController? _dayController;
+	private CanvasLayer? _narrativePreviewLayer;
+	private PanelContainer? _narrativePreviewPanel;
+	private RichTextLabel? _narrativePreviewLabel;
+	private NarrativeTextPresenter? _narrativePreviewPresenter;
 
 	private int _goldInput;
 	private int _dreadInput;
@@ -53,8 +58,11 @@ public partial class RuntimeDebugImGui : Node
 	private int _runtimeItemBasePrice = 10;
 	private int _runtimeItemQuality = 50;
 	private int _runtimeItemStartingQuantity = 1;
+	private int _narrativePreviewSpeed = 45;
 	private bool _runtimeItemTagIngredient = true;
 	private bool _runtimeItemTagPotion;
+	private bool _narrativePreviewUseCustomerSpeaker;
+	private string _narrativePreviewInput = "Bridget keeps her hand over the {i|notebook}. {pause:0.25}The ink looks {shake|wrong}.";
 	[Export] public NodePath DayControllerPath = new("../DayController");
 
 	public override void _Ready()
@@ -95,6 +103,7 @@ public partial class RuntimeDebugImGui : Node
 
 		RebuildDebugCatalog();
 		_runtimeContentDb.Changed += OnRuntimeContentChanged;
+		CreateNarrativePreviewOverlay();
 
 		ImGuiGD.Connect(DrawDebugWindow);
 		ImGuiGD.Visible = true;
@@ -104,6 +113,8 @@ public partial class RuntimeDebugImGui : Node
 	{
 		if (_runtimeContentDb is not null)
 			_runtimeContentDb.Changed -= OnRuntimeContentChanged;
+		_narrativePreviewPresenter?.Dispose();
+		_narrativePreviewPresenter = null;
 	}
 
 	private void DrawDebugWindow()
@@ -129,6 +140,8 @@ public partial class RuntimeDebugImGui : Node
 		DrawTraitSection();
 		ImGui.Separator();
 		DrawRuntimeCatalogSection();
+		ImGui.Separator();
+		DrawNarrativeTextPreviewSection();
 
 		if (!string.IsNullOrWhiteSpace(_statusMessage))
 		{
@@ -137,6 +150,119 @@ public partial class RuntimeDebugImGui : Node
 		}
 
 		ImGui.End();
+	}
+
+	private void CreateNarrativePreviewOverlay()
+	{
+		_narrativePreviewLayer = new CanvasLayer
+		{
+			Name = "NarrativeTextPreviewLayer",
+			Layer = 200,
+			Visible = false
+		};
+		AddChild(_narrativePreviewLayer);
+
+		_narrativePreviewPanel = new PanelContainer
+		{
+			Name = "NarrativeTextPreviewPanel",
+			AnchorLeft = 0.5f,
+			AnchorRight = 0.5f,
+			AnchorTop = 1.0f,
+			AnchorBottom = 1.0f,
+			OffsetLeft = -430.0f,
+			OffsetRight = 430.0f,
+			OffsetTop = -190.0f,
+			OffsetBottom = -28.0f,
+			MouseFilter = Control.MouseFilterEnum.Ignore
+		};
+		_narrativePreviewLayer.AddChild(_narrativePreviewPanel);
+
+		var margin = new MarginContainer
+		{
+			Name = "Margin",
+			MouseFilter = Control.MouseFilterEnum.Ignore
+		};
+		margin.AddThemeConstantOverride("margin_left", 18);
+		margin.AddThemeConstantOverride("margin_top", 14);
+		margin.AddThemeConstantOverride("margin_right", 18);
+		margin.AddThemeConstantOverride("margin_bottom", 14);
+		_narrativePreviewPanel.AddChild(margin);
+
+		_narrativePreviewLabel = new RichTextLabel
+		{
+			Name = "PreviewText",
+			BbcodeEnabled = true,
+			ScrollActive = false,
+			ScrollFollowing = true,
+			FitContent = true,
+			CustomMinimumSize = new Godot.Vector2(800.0f, 120.0f),
+			MouseFilter = Control.MouseFilterEnum.Ignore
+		};
+		margin.AddChild(_narrativePreviewLabel);
+		_narrativePreviewPresenter = new NarrativeTextPresenter(this, _narrativePreviewLabel)
+		{
+			DefaultCharactersPerSecond = _narrativePreviewSpeed
+		};
+	}
+
+	private void DrawNarrativeTextPreviewSection()
+	{
+		if (!ImGui.CollapsingHeader("Narrative Text Preview"))
+			return;
+
+		ImGui.TextWrapped("Safe syntax: {i|text}, {b|text}, {color:gold|text}, {shake|text}, {wave|text}, {pause:0.25}, {speed:30}.");
+		ImGui.InputTextMultiline("Preview Line", ref _narrativePreviewInput, 4096, new Vector2(460.0f, 120.0f));
+		ImGui.InputInt("Characters Per Second", ref _narrativePreviewSpeed);
+		if (_narrativePreviewSpeed < 1)
+			_narrativePreviewSpeed = 1;
+
+		ImGui.Checkbox("Show Customer Speaker", ref _narrativePreviewUseCustomerSpeaker);
+
+		var converted = CustomerDialogueMarkupConverter.ConvertToBbCode(_narrativePreviewInput);
+		ImGui.Text("Converted BBCode:");
+		ImGui.TextWrapped(converted.BbCode);
+
+		if (converted.Warnings.Count > 0)
+		{
+			ImGui.Text("Warnings:");
+			foreach (var warning in converted.Warnings)
+				ImGui.BulletText(warning);
+		}
+
+		if (ImGui.Button("Play Preview"))
+			PlayNarrativePreview();
+
+		ImGui.SameLine();
+		if (ImGui.Button("Skip Current Line"))
+			_narrativePreviewPresenter?.AdvanceQueuedPresentation();
+
+		ImGui.SameLine();
+		if (ImGui.Button("Hide Preview"))
+			HideNarrativePreview();
+	}
+
+	private void PlayNarrativePreview()
+	{
+		if (_narrativePreviewLayer is null || _narrativePreviewPresenter is null)
+			return;
+
+		_narrativePreviewLayer.Visible = true;
+		_narrativePreviewPresenter.Clear();
+		_narrativePreviewPresenter.DefaultCharactersPerSecond = _narrativePreviewSpeed;
+		var speaker = _narrativePreviewUseCustomerSpeaker
+			? CustomerDialogueTextFormatter.CustomerSpeakerName
+			: null;
+		_narrativePreviewPresenter.QueueLine(new NarrativeTextLine(speaker, _narrativePreviewInput, allowMarkup: true));
+		_narrativePreviewPresenter.PlayQueued(null);
+		_statusMessage = "Playing narrative text preview.";
+	}
+
+	private void HideNarrativePreview()
+	{
+		_narrativePreviewPresenter?.Clear();
+		if (_narrativePreviewLayer is not null)
+			_narrativePreviewLayer.Visible = false;
+		_statusMessage = "Narrative text preview hidden.";
 	}
 
 	private void DrawStateSection()
@@ -199,7 +325,57 @@ public partial class RuntimeDebugImGui : Node
 		}
 
 		ImGui.Separator();
+		if (ImGui.Button("Refresh State"))
+			RefreshDebugState();
+
+		ImGui.Separator();
 		DrawShopDayControls();
+	}
+
+	private void RefreshDebugState()
+	{
+		_goldInput = _gameState.Gold;
+		_dreadInput = _gameState.Dread;
+		RebuildDebugCatalog();
+
+		var refreshedSlotViewCount = RefreshInventorySlotLayoutViews();
+		_statusMessage = refreshedSlotViewCount > 0
+			? $"Refreshed state and {refreshedSlotViewCount} inventory slot layout view(s)."
+			: "Refreshed state. No active inventory slot layout views were found in the current scene.";
+	}
+
+	private int RefreshInventorySlotLayoutViews()
+	{
+		var currentScene = GetTree().CurrentScene;
+		if (currentScene is null)
+			return 0;
+
+		return RefreshInventorySlotLayoutViews(currentScene);
+	}
+
+	private int RefreshInventorySlotLayoutViews(Node node)
+	{
+		var refreshedCount = 0;
+		if (node is StationShelfInventory stationShelfInventory)
+		{
+			stationShelfInventory.RefreshSlotLayoutSettings();
+			refreshedCount += 1;
+		}
+		else if (node is PotionInventoryRow potionInventoryRow)
+		{
+			potionInventoryRow.RefreshSlotLayoutSettings();
+			refreshedCount += 1;
+		}
+		else if (node is CustomerPanel customerPanel)
+		{
+			customerPanel.RefreshSlotLayoutSettings();
+			refreshedCount += 1;
+		}
+
+		foreach (var child in node.GetChildren())
+			refreshedCount += RefreshInventorySlotLayoutViews(child);
+
+		return refreshedCount;
 	}
 
 	private void DrawShopDayControls()

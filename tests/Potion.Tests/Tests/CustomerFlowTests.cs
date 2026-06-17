@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Text.Json;
 using OccultShop.Models;
 using OccultShop.Systems;
+using OccultShop.UI;
 using static ProjectFileTestHelper;
 using static TestAssert;
 using static UiReflectionTestHelper;
@@ -22,8 +23,10 @@ internal static class CustomerFlowTests
         runner.Run("Customer trait ranges are enforced", TestCustomerTraitRangesAreEnforced);
         runner.Run("Active customer catalog includes trait threshold requests", TestActiveCustomerCatalogIncludesTraitThresholdRequests);
         runner.Run("Tiered customer data is a day-one bounded trait catalog", TestTieredCustomerDataIsDayOneFlexibleTraitCatalog);
+        runner.Run("Customer dialogue markup converts safe syntax", TestCustomerDialogueMarkupConvertsSafeSyntax);
         runner.Run("Story customer dialogue trees support selling mode", TestStoryCustomerDialogueTreesSupportSellingMode);
         runner.Run("CustomerPanel renders dialogue node text as narration", TestCustomerPanelRendersDialogueNodeTextAsNarration);
+        runner.Run("Customer dialogue uses narrative text presenter", TestCustomerDialogueUsesNarrativeTextPresenter);
         runner.Run("CustomerPanel shows draggable potion sale slots", TestCustomerPanelShowsDraggablePotionSaleSlots);
         runner.Run("Customer drop box stays disabled until next customer", TestCustomerDropBoxDisablesAfterSale);
     }
@@ -79,6 +82,13 @@ internal static class CustomerFlowTests
         AssertTrue("CustomerEventController keeps a randomized order buffer", source.Contains("_customerOrder"));
         AssertTrue("CustomerEventController randomizes the customer order", source.Contains("_random.Next("));
         AssertTrue("CustomerEventController resets the order at the start of a shop day", source.Contains("BeginShopDay()"));
+        AssertTrue("CustomerEventController makes Bridget the first normal new-game customer",
+            source.Contains("NewGameWelcomeInteractionId = \"plot_bridget_visit_1\"") &&
+            source.Contains("TryDrawNewGameWelcomeInteraction") &&
+            source.Contains("GameState.BridgetWelcomePendingStoryFlag") &&
+            source.Contains("state.RemoveStoryFlag(GameState.BridgetWelcomePendingStoryFlag)") &&
+            ReadProjectFile("Scripts/Autoload/GameState.cs").Contains("StoryFlags.Add(BridgetWelcomePendingStoryFlag)") &&
+            source.IndexOf("TryDrawForcedInteraction", StringComparison.Ordinal) < source.IndexOf("TryDrawNewGameWelcomeInteraction", StringComparison.Ordinal));
         AssertTrue("DayController resets customer order when the shop opens", dayController.Contains("_customerEventController.BeginShopDay();"));
         AssertTrue("DayController caps shop-day customer arrivals at three",
             dayController.Contains("MaxCustomersPerShopDay = 3") &&
@@ -413,12 +423,34 @@ internal static class CustomerFlowTests
             catalog.Contains("multiple successful recipes"));
     }
 
+    private static void TestCustomerDialogueMarkupConvertsSafeSyntax()
+    {
+        var converted = CustomerDialogueMarkupConverter.ConvertToBbCode(
+            "Her {i|hand} is {shake|unsteady}. {pause:0.4}{speed:20}{color:gold|Listen.}");
+
+        AssertTrue("Safe italic syntax converts to BBCode", converted.BbCode.Contains("[i]hand[/i]"));
+        AssertTrue("Safe shake syntax converts to BBCode", converted.BbCode.Contains("[shake rate=18.0 level=3 connected=1]unsteady[/shake]"));
+        AssertTrue("Named color syntax converts to BBCode", converted.BbCode.Contains("[color=#F5D76E]Listen.[/color]"));
+        AssertEqual("Markup plain text strips style commands", "Her hand is unsteady. Listen.", converted.PlainText);
+        AssertEqual("Markup conversion records pause and speed commands", 2, converted.Commands.Count);
+        AssertTrue("First command is pause", converted.Commands[0].Kind == NarrativeTextCommandKind.Pause);
+        AssertTrue("Second command is speed", converted.Commands[1].Kind == NarrativeTextCommandKind.Speed);
+
+        var escaped = CustomerDialogueMarkupConverter.ConvertToBbCode("[shake]literal[/shake]");
+        AssertEqual("Raw BBCode is escaped", "[lb]shake[rb]literal[lb]/shake[rb]", escaped.BbCode);
+
+        var unknown = CustomerDialogueMarkupConverter.ConvertToBbCode("A {ghost|word} stays plain.");
+        AssertTrue("Unknown styles are preserved as visible text", unknown.PlainText.Contains("{ghost|word}"));
+        AssertTrue("Unknown styles produce a warning", unknown.Warnings.Count > 0);
+    }
+
     private static void TestStoryCustomerDialogueTreesSupportSellingMode()
     {
         var customerDef = ReadProjectFile("Scripts/Models/CustomerInteractionDef.cs");
         var dataDb = ReadProjectFile("Scripts/Autoload/DataDb.cs");
         var customerPanel = ReadProjectFile("Scripts/UI/CustomerPanel.cs");
         var customerTextFormatter = ReadProjectFile("Scripts/UI/CustomerDialogueTextFormatter.cs");
+        var presenter = ReadProjectFile("Scripts/UI/Text/NarrativeTextPresenter.cs");
         var validator = ReadProjectFile("Scripts/Systems/AuthoredDataValidator.cs");
         var dayController = ReadProjectFile("Scripts/Controllers/DayController.cs");
         var gameState = ReadProjectFile("Scripts/Autoload/GameState.cs");
@@ -450,6 +482,8 @@ internal static class CustomerFlowTests
         AssertTrue("Customer authored text supports structured narration and named speakers",
             customerDef.Contains("public sealed class CustomerDialogueLineDef") &&
             customerDef.Contains("public string Speaker") &&
+            customerDef.Contains("public string CharacterImageKey") &&
+            customerDef.Contains("CharacterImagePaths") &&
             customerDef.Contains("List<CustomerDialogueLineDef> Lines") &&
             customerDef.Contains("List<CustomerDialogueLineDef> ResponseLines") &&
             customerDef.Contains("List<CustomerDialogueLineDef> PotionRefusedLines"));
@@ -468,6 +502,8 @@ internal static class CustomerFlowTests
             dataDb.Contains("ParseCustomerPotionResponses(ReadArray(entry, \"potionResponses\"))"));
         AssertTrue("DataDb parses structured customer dialogue lines",
             dataDb.Contains("ParseCustomerDialogueLines(ReadArray(entry, \"lines\"))") &&
+            dataDb.Contains("CharacterImagePaths = ReadStringStringDictionary(entry, \"characterImagePaths\")") &&
+            dataDb.Contains("CharacterImageKey = ReadString(entry, \"characterImageKey\")") &&
             dataDb.Contains("ReadAuthoredLineArray(entry, \"responseLines\", \"lines\")") &&
             dataDb.Contains("PotionRefusedLines = ParseCustomerDialogueLines") &&
             dataDb.Contains("Lines = lines"));
@@ -489,21 +525,30 @@ internal static class CustomerFlowTests
             storyVisit.Contains("SelectedDialogueOptionIds") &&
             storyVisitState.Contains("CloneSelectedDialogueOptionIds"));
         AssertTrue("CustomerPanel keeps full scrollable conversation history",
-            customerPanel.Contains("_conversationHistory") &&
+            customerPanel.Contains("_dialoguePresenter") &&
+            presenter.Contains("AddHistoryLine") &&
             customerPanel.Contains("AppendCustomerLine") &&
             customerPanel.Contains("ScrollActive = true"));
         AssertTrue("CustomerPanel colors player and customer speaker names",
-            customerPanel.Contains("CustomerDialogueTextFormatter.FormatConversationLine") &&
+            presenter.Contains("CustomerDialogueTextFormatter.FormatSpeakerName") &&
             customerTextFormatter.Contains("PlayerSpeakerColorHex") &&
             customerTextFormatter.Contains("CustomerSpeakerColorHex") &&
             customerTextFormatter.Contains("FormatSpeakerName") &&
             customerTextFormatter.Contains("[b][color={colorHex}]{safeSpeaker}[/color][/b]"));
         AssertTrue("CustomerPanel reveals story dialogue one queued typed line at a time",
             customerPanel.Contains("DialogueTypewriterCharactersPerSecond") &&
-            customerPanel.Contains("_pendingDialogueLines") &&
+            presenter.Contains("QueueLine") &&
+            presenter.Contains("LineStarted") &&
+            presenter.Contains("VisibleCharacters") &&
             customerPanel.Contains("PlayQueuedDialogueLines") &&
             customerPanel.Contains("AdvanceQueuedDialoguePresentation") &&
             customerPanel.Contains("MouseButton.Left"));
+        AssertTrue("CustomerPanel can switch authored character portraits by dialogue line",
+            customerPanel.Contains("SetCurrentCustomerImageKey") &&
+            customerPanel.Contains("line.CharacterImageKey") &&
+            customerPanel.Contains("CustomerImageChangedEventHandler") &&
+            presenter.Contains("CharacterImageKey") &&
+            validator.Contains("ValidateCharacterImageKeys"));
         AssertTrue("CustomerPanel disables potion drops during dialogue",
             customerPanel.Contains("SetDialogueOptionState") &&
             customerPanel.Contains("SetDropBoxEnabled(false);"));
@@ -549,7 +594,9 @@ internal static class CustomerFlowTests
             dayController.Contains("_awaitingSaleResultClose = true;"));
         AssertTrue("Tiered customer data includes a sample plot customer dialogue tree",
             tieredCustomers.Contains("\"id\": \"plot_bridget_visit_1\"") &&
-            tieredCustomers.Contains("\"revealsRequest\": true") &&
+            tieredCustomers.Contains("\"text\": \"Bridget welcomes you to the village and recognizes that you carry The Knowledge.\"") &&
+            tieredCustomers.Contains("\"characterImagePaths\"") &&
+            tieredCustomers.Contains("\"characterImageKey\": \"sad\"") &&
             tieredCustomers.Contains("\"potionResponses\""));
     }
 
@@ -568,6 +615,41 @@ internal static class CustomerFlowTests
             customerPanel.Contains("QueueDialogueOptionResponse(option);") &&
             customerPanel.Contains("option.ResponseText") &&
             customerPanel.Contains("CustomerDialogueTextFormatter.CustomerSpeakerName"));
+    }
+
+    private static void TestCustomerDialogueUsesNarrativeTextPresenter()
+    {
+        var customerPanel = ReadProjectFile("Scripts/UI/CustomerPanel.cs");
+        var presenter = ReadProjectFile("Scripts/UI/Text/NarrativeTextPresenter.cs");
+        var converter = ReadProjectFile("Scripts/UI/Text/CustomerDialogueMarkupConverter.cs");
+        var debugPanel = ReadProjectFile("Scripts/Debug/RuntimeDebugImGui.cs");
+
+        AssertTrue("CustomerPanel creates a narrative text presenter for dialogue",
+            customerPanel.Contains("new NarrativeTextPresenter(this, _dialogue)") &&
+            customerPanel.Contains("_dialoguePresenter.PlayQueued(completedAction)") &&
+            customerPanel.Contains("_dialoguePresenter?.AdvanceQueuedPresentation()"));
+        AssertTrue("CustomerPanel no longer slices authored text during reveal",
+            !customerPanel.Contains("GetVisibleDialogueText(") &&
+            !customerPanel.Contains("_activeDialogueTextCharacters") &&
+            !customerPanel.Contains("_pendingDialogueLines"));
+        AssertTrue("NarrativeTextPresenter uses RichTextLabel visible character reveal",
+            presenter.Contains("_label.VisibleCharacters") &&
+            presenter.Contains("TotalVisibleCharacters") &&
+            presenter.Contains("InitialVisibleCharacters"));
+        AssertTrue("NarrativeTextPresenter supports current-line skip without draining the queue",
+            presenter.Contains("CompleteActiveLine();") &&
+            presenter.Contains("if (_pendingLines.Count > 0)") &&
+            !presenter.Contains("while (_pendingLines.Count > 0)"));
+        AssertTrue("Narrative markup converter supports safe writer syntax",
+            converter.Contains("CustomerDialogueMarkupConverter") &&
+            converter.Contains("TryBuildStyleTags") &&
+            converter.Contains("TryAppendInlineCommand") &&
+            converter.Contains("ConvertPlainText"));
+        AssertTrue("Runtime debug panel exposes a narrative preview tool",
+            debugPanel.Contains("DrawNarrativeTextPreviewSection") &&
+            debugPanel.Contains("PlayNarrativePreview") &&
+            debugPanel.Contains("NarrativeTextPreviewLayer") &&
+            debugPanel.Contains("InputTextMultiline"));
     }
 
     private static void TestCustomerDropBoxDisablesAfterSale()
@@ -617,6 +699,7 @@ internal static class CustomerFlowTests
         var customerPanel = ReadProjectFile("Scripts/UI/CustomerPanel.cs");
         var inventorySlot = ReadProjectFile("Scripts/UI/InventoryItemSlot.cs");
         var jarredSlot = ReadProjectFile("Scripts/UI/JarredInventorySlotView.cs");
+        var layoutSettings = ReadProjectFile("Assets/UI/InventorySlotLayoutSettings.tres");
 
         AssertTrue("CustomerPanel defines exactly four customer potion slots",
             customerPanel.Contains("CustomerPotionSlotCount = 4") &&
@@ -642,7 +725,9 @@ internal static class CustomerFlowTests
         AssertTrue("CustomerPanel shows potion slot quantity badges",
             jarredSlot.Contains("Name = \"Quantity\"") &&
             jarredSlot.Contains("PotionLiquidView") &&
-            customerPanel.Contains("QuantityFontSize = 10") &&
+            customerPanel.Contains("InventorySlotLayoutKind.CustomerPotion") &&
+            layoutSettings.Contains("CustomerPotionSlot = SubResource(\"Resource_customer_potion\")") &&
+            layoutSettings.Contains("QuantityFontSize = 10") &&
             customerPanel.Contains("slotView.Button.TooltipText = $\"{displayName} x{quantity}\""));
         AssertTrue("CustomerPanel shows potion slots only when a potion can be sold",
             customerPanel.Contains("SetPotionSlotRowVisible(true)") &&

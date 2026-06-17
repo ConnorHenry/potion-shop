@@ -10,6 +10,8 @@
 export.cfg
 export_credentials.cfg
 *.tmp
+tmp/
+ReferenceArt/
 
 # Imported translations (automatically generated from CSV files)
 *.translation

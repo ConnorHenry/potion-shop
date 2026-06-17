@@ -403,8 +403,50 @@ public static class AuthoredDataValidator
 			ValidateEffects(items, rules, interaction.OnFailureEffects, $"{context} failure effects");
 			ValidateEffects(items, rules, interaction.OnSkipEffects, $"{context} skip effects");
 			ValidateEffects(items, rules, interaction.OnPotionRefusedEffects, $"{context} potion refused effects");
+			ValidateCharacterImageKeys(interaction);
 			ValidatePotionResponses(items, rules, interaction);
 			ValidateDialogueTree(items, rules, interaction);
+		}
+	}
+
+	private static void ValidateCharacterImageKeys(CustomerInteractionDef interaction)
+	{
+		var knownImageKeys = new HashSet<string>(
+			interaction.CharacterImagePaths?.Keys
+				.Where(key => !string.IsNullOrWhiteSpace(key))
+				.Select(key => key.Trim()) ?? Enumerable.Empty<string>(),
+			StringComparer.OrdinalIgnoreCase);
+
+		var context = $"Customer interaction '{interaction.Id}'";
+		ValidateDialogueLineImageKeys(interaction.Lines, knownImageKeys, $"{context} lines");
+		ValidateDialogueLineImageKeys(interaction.PotionRefusedLines, knownImageKeys, $"{context} potion refused lines");
+		foreach (var response in interaction.PotionResponses)
+			ValidateDialogueLineImageKeys(response.Lines, knownImageKeys, $"{context} potion response '{response.Id}' lines");
+
+		foreach (var node in interaction.DialogueNodes)
+		{
+			ValidateDialogueLineImageKeys(node.Lines, knownImageKeys, $"{context} dialogue node '{node.Id}' lines");
+			foreach (var option in node.Options)
+				ValidateDialogueLineImageKeys(option.ResponseLines, knownImageKeys, $"{context} option '{option.Id}' response lines");
+		}
+	}
+
+	private static void ValidateDialogueLineImageKeys(
+		IReadOnlyList<CustomerDialogueLineDef>? lines,
+		HashSet<string> knownImageKeys,
+		string context)
+	{
+		if (lines is null || lines.Count == 0)
+			return;
+
+		foreach (var line in lines)
+		{
+			if (line is null || string.IsNullOrWhiteSpace(line.CharacterImageKey))
+				continue;
+
+			var imageKey = line.CharacterImageKey.Trim();
+			if (!knownImageKeys.Contains(imageKey))
+				PushDataWarning($"{context} references unknown character image key '{imageKey}'.");
 		}
 	}
 

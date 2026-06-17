@@ -14,6 +14,7 @@ public sealed class CustomerInteractionDef
     public string Text { get; set; } = "";
     public List<CustomerDialogueLineDef> Lines { get; set; } = new();
     public string? CharacterImagePath { get; set; }
+    public Dictionary<string, string> CharacterImagePaths { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public string Pool { get; set; } = "";
     public int Difficulty { get; set; } = 1;
     public string StoryCharacterId { get; set; } = "";
@@ -290,6 +291,7 @@ public sealed class CustomerDialogueLineDef
 {
     public string Speaker { get; set; } = "";
     public string Text { get; set; } = "";
+    public string CharacterImageKey { get; set; } = "";
 }
 
 public sealed class CustomerDialogueOptionDef

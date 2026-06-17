@@ -24,9 +24,13 @@ public partial class CustomerPanel : Control
 	public delegate void DialogueResolvedEventHandler();
 	[Signal]
 	public delegate void PlotConversationStartedEventHandler();
+	[Signal]
+	public delegate void CustomerImageChangedEventHandler(string imagePath);
 
 	public bool SuppressSaleResultPanel { get; set; }
-	public string? CurrentCustomerImagePath => _interaction?.CharacterImagePath;
+	public string? CurrentCustomerImagePath => !string.IsNullOrWhiteSpace(_currentCustomerImagePath)
+		? _currentCustomerImagePath
+		: _interaction?.CharacterImagePath;
 
 	[Export] public int DialogueTypewriterCharactersPerSecond = 45;
 	[Export] public NodePath TitlePath = default!;
@@ -41,6 +45,7 @@ public partial class CustomerPanel : Control
 	[Export] public NodePath CloseButtonPath = default!;
 	[Export] public NodePath GameStatePath = new(AutoloadNodePaths.GameState);
 	[Export] public NodePath ItemCatalogPath = new(AutoloadNodePaths.ItemCatalog);
+	[Export] public string SlotLayoutSettingsPath = InventorySlotLayoutSettings.DefaultResourcePath;
 
 	private Label? _title;
 	private RichTextLabel _desiredTraits = default!;
@@ -65,21 +70,18 @@ public partial class CustomerPanel : Control
 	private readonly PotionBrewingService _brewingService = new();
 	private readonly List<Button> _dialogueOptionButtons = new();
 	private readonly List<CustomerDialogueOptionDef> _visibleDialogueOptions = new();
-	private readonly List<string> _conversationHistory = new();
-	private readonly Queue<DialogueLine> _pendingDialogueLines = new();
 	private readonly List<PotionSlotView> _potionSlotViews = new();
 	private GameState _gameState = default!;
 	private ItemCatalogService _itemCatalog = default!;
-	private Godot.Timer? _dialogueTypewriterTimer;
+	private InventorySlotLayoutSettings _slotLayoutSettings = default!;
+	private NarrativeTextPresenter? _dialoguePresenter;
 	private Control.GuiInputEventHandler? _dialogueGuiInputHandler;
-	private DialogueLine? _activeDialogueLine;
-	private int _activeDialogueTextCharacters;
-	private Action? _dialogueQueueCompletedAction;
 	private bool _closeShopMode;
 	private bool _awaitingNextCustomer;
 	private bool _requestRevealed;
 	private bool _sellingMode;
 	private bool _interactionPresentationStarted;
+	private string _currentCustomerImagePath = string.Empty;
 	private string _activeDialogueNodeId = string.Empty;
 	private string _requestReturnDialogueNodeId = string.Empty;
 	private const int SuccessDreadChange = -2;
@@ -108,6 +110,7 @@ public partial class CustomerPanel : Control
 
 		_gameState = gameState;
 		_itemCatalog = itemCatalog;
+		_slotLayoutSettings = LoadSlotLayoutSettings();
 
 		_title = ResolveOptionalNode(TitlePath, "TitlePath", GetNodeOrNull<Label>);
 		_desiredTraits = GetNode<RichTextLabel>(DesiredTraitsPath);
@@ -127,16 +130,13 @@ public partial class CustomerPanel : Control
 		_dialogue.ScrollActive = true;
 		_dialogue.ScrollFollowing = true;
 		_dialogue.MouseFilter = MouseFilterEnum.Stop;
+		_dialoguePresenter = new NarrativeTextPresenter(this, _dialogue)
+		{
+			DefaultCharactersPerSecond = DialogueTypewriterCharactersPerSecond
+		};
+		_dialoguePresenter.LineStarted += OnDialogueLineStarted;
 
 		MouseFilter = MouseFilterEnum.Ignore;
-		_dialogueTypewriterTimer = new Godot.Timer
-		{
-			OneShot = false,
-			Autostart = false,
-			WaitTime = GetDialogueTypewriterIntervalSeconds()
-		};
-		AddChild(_dialogueTypewriterTimer);
-		_dialogueTypewriterTimer.Timeout += OnDialogueTypewriterTimeout;
 		_dialogueGuiInputHandler = OnDialogueGuiInput;
 		_dialogue.GuiInput += _dialogueGuiInputHandler;
 		//_closeButton.Pressed += HidePanel;
@@ -192,8 +192,10 @@ public partial class CustomerPanel : Control
 			_returnToDialogueButton.Pressed -= OnReturnToDialoguePressed;
 		if (_saleResultCloseButton is not null)
 			_saleResultCloseButton.Pressed -= OnSaleResultClosePressed;
-		if (_dialogueTypewriterTimer is not null)
-			_dialogueTypewriterTimer.Timeout -= OnDialogueTypewriterTimeout;
+		if (_dialoguePresenter is not null)
+			_dialoguePresenter.LineStarted -= OnDialogueLineStarted;
+		_dialoguePresenter?.Dispose();
+		_dialoguePresenter = null;
 		if (_dialogue is not null && _dialogueGuiInputHandler is not null)
 			_dialogue.GuiInput -= _dialogueGuiInputHandler;
 		if (_sellDropBox is not null)
@@ -216,6 +218,7 @@ public partial class CustomerPanel : Control
 	{
 		HideSaleResult();
 		_interaction = interaction;
+		SetCurrentCustomerImagePath(interaction.CharacterImagePath);
 		_interactionPresentationStarted = false;
 		_awaitingNextCustomer = false;
 		_activeDialogueNodeId = string.Empty;
@@ -297,6 +300,22 @@ public partial class CustomerPanel : Control
 
 	public bool HasActiveInteraction => _interaction is not null;
 
+	public void RefreshSlotLayoutSettings()
+	{
+		_slotLayoutSettings = LoadSlotLayoutSettings(forceReload: true);
+		var slotSize = GetCustomerPotionSlotSize();
+		if (_potionSlotsRow is not null)
+			_potionSlotsRow.CustomMinimumSize = new Vector2(0, slotSize.Y);
+
+		foreach (var slotView in _potionSlotViews)
+		{
+			slotView.Button.CustomMinimumSize = slotSize;
+			slotView.Button.Size = slotSize;
+		}
+
+		RefreshPotionSlotRow();
+	}
+
 	public void SetCloseShopMode(bool closeShopMode)
 	{
 		_closeShopMode = closeShopMode;
@@ -306,6 +325,7 @@ public partial class CustomerPanel : Control
 	public void HidePanel()
 	{
 		_interaction = null;
+		SetCurrentCustomerImagePath(null);
 		_gameState.ClearActiveCustomerRequest();
 		_desiredTraits.Text = "";
 		_badTraits.Text = "";
@@ -431,7 +451,7 @@ public partial class CustomerPanel : Control
 				SetConversationHistory(outcomeLines);
 		}
 		else if (HasActiveDialogueInteraction())
-			AppendCustomerLine(outcomeText);
+			AppendCustomerLine(outcomeText, allowMarkup: false);
 		else
 			SetConversationHistory(outcomeText);
 		_saleResultTitle.Text = "Sale Result";
@@ -504,9 +524,9 @@ public partial class CustomerPanel : Control
 	private bool TryBuildStructuredOutcomeConversation(
 		string itemId,
 		PotionResult brewResult,
-		out List<DialogueLine> outcomeLines)
+		out List<NarrativeTextLine> outcomeLines)
 	{
-		outcomeLines = new List<DialogueLine>();
+		outcomeLines = new List<NarrativeTextLine>();
 		var request = _interaction?.BuildRequest();
 		if (request is null)
 			return false;
@@ -517,8 +537,8 @@ public partial class CustomerPanel : Control
 			return false;
 
 		var itemName = DisplayName(itemId, _itemCatalog.GetItemName(itemId));
-		outcomeLines.Add(new DialogueLine(null, $"Potion: {itemName}"));
-		outcomeLines.Add(new DialogueLine(null, $"Sale: {(isSuccess ? "Success" : "Failure")}"));
+		outcomeLines.Add(new NarrativeTextLine(null, $"Potion: {itemName}", allowMarkup: false));
+		outcomeLines.Add(new NarrativeTextLine(null, $"Sale: {(isSuccess ? "Success" : "Failure")}", allowMarkup: false));
 		AddAuthoredDialogueLines(outcomeLines, authoredResponse.Lines);
 
 		return outcomeLines.Count > 2;
@@ -698,50 +718,45 @@ public partial class CustomerPanel : Control
 
 	private void ResetConversationHistory()
 	{
-		StopQueuedDialoguePresentation();
-		_conversationHistory.Clear();
-		_dialogue.Text = "";
+		_dialoguePresenter?.Clear();
+		if (_dialoguePresenter is null && _dialogue is not null)
+			_dialogue.Text = "";
 	}
 
 	private void SetConversationHistory(string text)
 	{
 		ResetConversationHistory();
 		if (!string.IsNullOrWhiteSpace(text))
-			_conversationHistory.Add(CustomerDialogueTextFormatter.EscapeBbCodeText(text));
-
-		RefreshConversationHistory();
+			_dialoguePresenter?.AddHistoryLine(new NarrativeTextLine(null, text, allowMarkup: false));
 	}
 
-	private void SetConversationHistory(IReadOnlyList<DialogueLine> lines)
+	private void SetConversationHistory(IReadOnlyList<NarrativeTextLine> lines)
 	{
 		ResetConversationHistory();
-		AddConversationLinesToHistory(lines);
-		RefreshConversationHistory();
+		_dialoguePresenter?.AddHistoryLines(lines);
 	}
 
-	private void AppendCustomerLine(string text)
+	private void AppendCustomerLine(string text, bool allowMarkup = true)
 	{
-		AppendConversationLine(CustomerDialogueTextFormatter.CustomerSpeakerName, text);
+		AppendConversationLine(CustomerDialogueTextFormatter.CustomerSpeakerName, text, allowMarkup);
 	}
 
 	private void AppendPlayerLine(string text)
 	{
-		AppendConversationLine(CustomerDialogueTextFormatter.PlayerSpeakerName, text);
+		AppendConversationLine(CustomerDialogueTextFormatter.PlayerSpeakerName, text, allowMarkup: false);
 	}
 
-	private void AppendConversationLine(string? speaker, string text)
+	private void AppendConversationLine(string? speaker, string text, bool allowMarkup = true)
 	{
 		if (string.IsNullOrWhiteSpace(text))
 			return;
 
-		AddConversationLineToHistory(speaker, text);
-		RefreshConversationHistory();
+		_dialoguePresenter?.AddHistoryLine(new NarrativeTextLine(speaker, text, allowMarkup));
 	}
 
-	private void AppendConversationLines(IReadOnlyList<DialogueLine> lines)
+	private void AppendConversationLines(IReadOnlyList<NarrativeTextLine> lines)
 	{
-		AddConversationLinesToHistory(lines);
-		RefreshConversationHistory();
+		_dialoguePresenter?.AddHistoryLines(lines);
 	}
 
 	private void AppendAuthoredLines(
@@ -752,52 +767,22 @@ public partial class CustomerPanel : Control
 		if (lines.Count > 0)
 		{
 			foreach (var line in lines)
-				AppendConversationLine(line.Speaker, line.Text);
+				AppendConversationLine(BuildNarrativeLine(line));
 
 			return;
 		}
 
-		AppendConversationLine(legacySpeaker, legacyText);
+		AppendConversationLine(legacySpeaker, legacyText, allowMarkup: true);
 	}
 
-	private void AddConversationLinesToHistory(IReadOnlyList<DialogueLine> lines)
+	private void QueueCustomerLine(string text, bool allowMarkup = true)
 	{
-		foreach (var line in lines)
-			AddConversationLineToHistory(line.Speaker, line.Text);
-	}
-
-	private void AddConversationLineToHistory(string? speaker, string text)
-	{
-		if (string.IsNullOrWhiteSpace(text))
-			return;
-
-		_conversationHistory.Add(CustomerDialogueTextFormatter.FormatConversationLine(speaker, text));
-	}
-
-	private void RefreshConversationHistory()
-	{
-		if (_activeDialogueLine is null)
-		{
-			_dialogue.Text = string.Join("\n\n", _conversationHistory);
-			return;
-		}
-
-		var visibleLines = new List<string>(_conversationHistory.Count + 1);
-		visibleLines.AddRange(_conversationHistory);
-		visibleLines.Add(CustomerDialogueTextFormatter.FormatConversationLine(
-			_activeDialogueLine.Speaker,
-			CustomerDialogueTextFormatter.GetVisibleDialogueText(_activeDialogueLine.Text, _activeDialogueTextCharacters)));
-		_dialogue.Text = string.Join("\n\n", visibleLines);
-	}
-
-	private void QueueCustomerLine(string text)
-	{
-		QueueConversationLine(CustomerDialogueTextFormatter.CustomerSpeakerName, text);
+		QueueConversationLine(CustomerDialogueTextFormatter.CustomerSpeakerName, text, allowMarkup);
 	}
 
 	private void QueuePlayerLine(string text)
 	{
-		QueueConversationLine(CustomerDialogueTextFormatter.PlayerSpeakerName, text);
+		QueueConversationLine(CustomerDialogueTextFormatter.PlayerSpeakerName, text, allowMarkup: false);
 	}
 
 	private void QueueAuthoredLines(
@@ -808,24 +793,49 @@ public partial class CustomerPanel : Control
 		if (lines.Count > 0)
 		{
 			foreach (var line in lines)
-				QueueConversationLine(line.Speaker, line.Text);
+				QueueConversationLine(BuildNarrativeLine(line));
 
 			return;
 		}
 
-		QueueConversationLine(legacySpeaker, legacyText);
+		QueueConversationLine(legacySpeaker, legacyText, allowMarkup: true);
 	}
 
-	private void QueueConversationLine(string? speaker, string text)
+	private void QueueConversationLine(string? speaker, string text, bool allowMarkup)
 	{
 		if (string.IsNullOrWhiteSpace(text))
 			return;
 
-		_pendingDialogueLines.Enqueue(new DialogueLine(speaker, text));
+		_dialoguePresenter?.QueueLine(new NarrativeTextLine(speaker, text, allowMarkup));
+	}
+
+	private void AppendConversationLine(NarrativeTextLine line)
+	{
+		if (string.IsNullOrWhiteSpace(line.Text))
+			return;
+
+		_dialoguePresenter?.AddHistoryLine(line);
+	}
+
+	private void QueueConversationLine(NarrativeTextLine line)
+	{
+		if (string.IsNullOrWhiteSpace(line.Text))
+			return;
+
+		_dialoguePresenter?.QueueLine(line);
+	}
+
+	private static NarrativeTextLine BuildNarrativeLine(CustomerDialogueLineDef line)
+	{
+		return new NarrativeTextLine(
+			line.Speaker,
+			line.Text,
+			allowMarkup: true,
+			line.CharacterImageKey);
 	}
 
 	private static void AddAuthoredDialogueLines(
-		List<DialogueLine> target,
+		List<NarrativeTextLine> target,
 		IReadOnlyList<CustomerDialogueLineDef> lines)
 	{
 		foreach (var line in lines)
@@ -833,58 +843,58 @@ public partial class CustomerPanel : Control
 			if (string.IsNullOrWhiteSpace(line.Text))
 				continue;
 
-			target.Add(new DialogueLine(line.Speaker, line.Text));
+			target.Add(BuildNarrativeLine(line));
 		}
+	}
+
+	private void OnDialogueLineStarted(NarrativeTextLine line)
+	{
+		if (string.IsNullOrWhiteSpace(line.CharacterImageKey))
+			return;
+
+		SetCurrentCustomerImageKey(line.CharacterImageKey);
+	}
+
+	private void SetCurrentCustomerImageKey(string characterImageKey)
+	{
+		if (_interaction is null)
+			return;
+
+		var trimmedKey = characterImageKey.Trim();
+		if (string.IsNullOrWhiteSpace(trimmedKey))
+			return;
+
+		if (_interaction.CharacterImagePaths.TryGetValue(trimmedKey, out var imagePath) &&
+			!string.IsNullOrWhiteSpace(imagePath))
+		{
+			SetCurrentCustomerImagePath(imagePath);
+			return;
+		}
+
+		GD.PushError($"CustomerPanel: Customer interaction '{_interaction.Id}' references unknown character image key '{trimmedKey}'.");
+		SetCurrentCustomerImagePath(_interaction.CharacterImagePath);
+	}
+
+	private void SetCurrentCustomerImagePath(string? imagePath)
+	{
+		var resolvedImagePath = imagePath ?? string.Empty;
+		if (string.Equals(_currentCustomerImagePath, resolvedImagePath, StringComparison.Ordinal))
+			return;
+
+		_currentCustomerImagePath = resolvedImagePath;
+		EmitSignal(SignalName.CustomerImageChanged, resolvedImagePath);
 	}
 
 	private void PlayQueuedDialogueLines(Action? completedAction)
 	{
-		_dialogueQueueCompletedAction = completedAction;
-		if (_activeDialogueLine is null && _pendingDialogueLines.Count > 0)
-			StartNextQueuedDialogueLine();
-
-		TryCompleteQueuedDialogueLines();
-	}
-
-	private void StartNextQueuedDialogueLine()
-	{
-		if (_pendingDialogueLines.Count == 0)
+		if (_dialoguePresenter is null)
 		{
-			TryCompleteQueuedDialogueLines();
+			completedAction?.Invoke();
 			return;
 		}
 
-		_activeDialogueLine = _pendingDialogueLines.Dequeue();
-		_activeDialogueTextCharacters = 0;
-		RefreshConversationHistory();
-
-		if (_dialogueTypewriterTimer is null)
-		{
-			CompleteActiveDialogueLine();
-			return;
-		}
-
-		_dialogueTypewriterTimer.WaitTime = GetDialogueTypewriterIntervalSeconds();
-		_dialogueTypewriterTimer.Start();
-	}
-
-	private void OnDialogueTypewriterTimeout()
-	{
-		if (_activeDialogueLine is null)
-		{
-			_dialogueTypewriterTimer?.Stop();
-			TryCompleteQueuedDialogueLines();
-			return;
-		}
-
-		_activeDialogueTextCharacters += 1;
-		if (_activeDialogueTextCharacters >= _activeDialogueLine.Text.Length)
-		{
-			CompleteActiveDialogueLine();
-			return;
-		}
-
-		RefreshConversationHistory();
+		_dialoguePresenter.DefaultCharactersPerSecond = DialogueTypewriterCharactersPerSecond;
+		_dialoguePresenter.PlayQueued(completedAction);
 	}
 
 	private void OnDialogueGuiInput(InputEvent @event)
@@ -900,52 +910,12 @@ public partial class CustomerPanel : Control
 
 	private void AdvanceQueuedDialoguePresentation()
 	{
-		if (_activeDialogueLine is not null)
-		{
-			CompleteActiveDialogueLine();
-			return;
-		}
-
-		if (_pendingDialogueLines.Count > 0)
-			StartNextQueuedDialogueLine();
-	}
-
-	private void CompleteActiveDialogueLine()
-	{
-		if (_activeDialogueLine is null)
-			return;
-
-		_dialogueTypewriterTimer?.Stop();
-		_conversationHistory.Add(CustomerDialogueTextFormatter.FormatConversationLine(_activeDialogueLine.Speaker, _activeDialogueLine.Text));
-		_activeDialogueLine = null;
-		_activeDialogueTextCharacters = 0;
-		RefreshConversationHistory();
-		TryCompleteQueuedDialogueLines();
-	}
-
-	private void TryCompleteQueuedDialogueLines()
-	{
-		if (_activeDialogueLine is not null || _pendingDialogueLines.Count > 0)
-			return;
-
-		var completedAction = _dialogueQueueCompletedAction;
-		_dialogueQueueCompletedAction = null;
-		completedAction?.Invoke();
+		_dialoguePresenter?.AdvanceQueuedPresentation();
 	}
 
 	private void StopQueuedDialoguePresentation()
 	{
-		_dialogueTypewriterTimer?.Stop();
-		_pendingDialogueLines.Clear();
-		_activeDialogueLine = null;
-		_activeDialogueTextCharacters = 0;
-		_dialogueQueueCompletedAction = null;
-	}
-
-	private double GetDialogueTypewriterIntervalSeconds()
-	{
-		var charactersPerSecond = Math.Max(1, DialogueTypewriterCharactersPerSecond);
-		return 1.0 / charactersPerSecond;
+		_dialoguePresenter?.StopQueuedPresentation();
 	}
 
 	private void OnComeBackTomorrowPressed()
@@ -1099,7 +1069,7 @@ public partial class CustomerPanel : Control
 		}
 		else
 		{
-			QueueCustomerLine("The customer leaves without a potion.");
+			QueueCustomerLine("The customer leaves without a potion.", allowMarkup: false);
 		}
 		var effects = _interaction.OnPotionRefusedEffects.Count > 0
 			? _interaction.OnPotionRefusedEffects
@@ -1331,6 +1301,7 @@ public partial class CustomerPanel : Control
 
 	private void BindOrCreatePotionSlotRow(VBoxContainer customerVBox)
 	{
+		var slotSize = GetCustomerPotionSlotSize();
 		_potionSlotsRow = customerVBox.GetNodeOrNull<HBoxContainer>("PotionSlots");
 		if (_potionSlotsRow is null)
 		{
@@ -1338,7 +1309,7 @@ public partial class CustomerPanel : Control
 			{
 				Name = "PotionSlots",
 				Visible = false,
-				CustomMinimumSize = new Vector2(0, CustomerPotionSlotHeight),
+				CustomMinimumSize = new Vector2(0, slotSize.Y),
 				SizeFlagsHorizontal = SizeFlags.ExpandFill
 			};
 			_potionSlotsRow.AddThemeConstantOverride("separation", 8);
@@ -1367,12 +1338,13 @@ public partial class CustomerPanel : Control
 
 	private InventoryItemSlot CreatePotionSlot(string name)
 	{
+		var slotSize = GetCustomerPotionSlotSize();
 		var slot = new InventoryItemSlot
 		{
 			Name = name,
 			Text = "",
-			CustomMinimumSize = new Vector2(CustomerPotionSlotWidth, CustomerPotionSlotHeight),
-			Size = new Vector2(CustomerPotionSlotWidth, CustomerPotionSlotHeight),
+			CustomMinimumSize = slotSize,
+			Size = slotSize,
 			SizeFlagsHorizontal = SizeFlags.Fill,
 			FocusMode = FocusModeEnum.None,
 			Disabled = true
@@ -1469,21 +1441,37 @@ public partial class CustomerPanel : Control
 		ClearPotionSlotContent(slotView.Button);
 	}
 
-	private static void SetPotionSlotContent(InventoryItemSlot slot, string displayName, string potionItemId, int quantity)
+	private void SetPotionSlotContent(InventoryItemSlot slot, string displayName, string potionItemId, int quantity)
 	{
+		var profile = GetCustomerPotionSlotProfile();
+		var slotSize = profile.ResolveSlotSize(new Vector2(CustomerPotionSlotWidth, CustomerPotionSlotHeight));
 		ClearPotionSlotContent(slot);
 		slot.AddChild(JarredInventorySlotView.CreatePotionContent(
-			new Vector2(CustomerPotionSlotWidth, CustomerPotionSlotHeight),
+			slotSize,
 			displayName,
 			potionItemId,
 			quantity,
-			new JarredInventorySlotLayout
-			{
-				ArtSize = new Vector2(CustomerPotionSlotWidth, CustomerPotionSlotHeight),
-				IconSizeRatio = 0.54f,
-				NameFontSize = 8,
-				QuantityFontSize = 10
-			}));
+			profile.CreateJarredLayout()));
+	}
+
+	private Vector2 GetCustomerPotionSlotSize()
+	{
+		return GetCustomerPotionSlotProfile().ResolveSlotSize(new Vector2(CustomerPotionSlotWidth, CustomerPotionSlotHeight));
+	}
+
+	private InventorySlotLayoutProfile GetCustomerPotionSlotProfile()
+	{
+		if (_slotLayoutSettings is null)
+			_slotLayoutSettings = LoadSlotLayoutSettings();
+
+		return _slotLayoutSettings.GetProfile(InventorySlotLayoutKind.CustomerPotion);
+	}
+
+	private InventorySlotLayoutSettings LoadSlotLayoutSettings(bool forceReload = false)
+	{
+		var settings = InventorySlotLayoutSettings.Load(SlotLayoutSettingsPath, forceReload);
+		settings.EnsureProfiles();
+		return settings;
 	}
 
 	private static void ClearPotionSlotContent(InventoryItemSlot slot)
@@ -1686,18 +1674,6 @@ public partial class CustomerPanel : Control
 
 		if (_nextCustomerButton is not null)
 			_nextCustomerButton.Text = buttonText;
-	}
-
-	private sealed class DialogueLine
-	{
-		public DialogueLine(string? speaker, string text)
-		{
-			Speaker = speaker;
-			Text = text;
-		}
-
-		public string? Speaker { get; }
-		public string Text { get; }
 	}
 
 	private sealed class PotionSlotView

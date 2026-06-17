@@ -160,12 +160,11 @@ internal static class InventoryAndBrewPanelTests
             source.Contains("var potionDisplayName = GetPreviewPotionName(combinationKey);"));
         AssertTrue("BrewPanel regenerates preview names from the combination key",
             source.Contains("GetPreviewPotionName(string combinationKey)"));
-        AssertTrue("BrewPanel scene uses a board and parchment treatment instead of the old potion preview board texture",
+        AssertTrue("BrewPanel scene uses the generated board art instead of the old potion preview board texture",
             !scene.Contains("path=\"res://art/Potion-Preview-Board.png\"") &&
-            scene.Contains("[node name=\"Board\" type=\"PanelContainer\" parent=\"PotionBrewingStationView/BrewPanel/Panel\"]") &&
-            scene.Contains("theme_override_styles/panel = SubResource(\"StyleBoxFlat_brew_info_panel\")") &&
-            scene.Contains("[node name=\"Paper\" type=\"PanelContainer\" parent=\"PotionBrewingStationView/BrewPanel/Panel\"]") &&
-            scene.Contains("theme_override_styles/panel = SubResource(\"StyleBoxFlat_brew_paper_panel\")") &&
+            scene.Contains("path=\"res://Assets/UI/brew_preview_panel_board_v2.png\"") &&
+            scene.Contains("[node name=\"BoardArt\" type=\"TextureRect\" parent=\"PotionBrewingStationView/BrewPanel/Panel\"]") &&
+            scene.Contains("texture = ExtResource(\"48_brew_board_v2\")") &&
             scene.Contains("[node name=\"Marker1\" type=\"PanelContainer\" parent=\"PotionBrewingStationView/BrewPanel/Panel/FormulaSlots\"]"));
         AssertTrue("BrewPanel scene labels the brew button like the mockup",
             scene.Contains("text = \"Brew\""));

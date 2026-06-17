@@ -15,11 +15,13 @@ public partial class PotionInventoryRow : Control
 	[Export] public NodePath ItemDetailPanelPath = new("../StationItemDetailPanel");
 	[Export] public NodePath GameStatePath = new(AutoloadNodePaths.GameState);
 	[Export] public NodePath ItemCatalogPath = new(AutoloadNodePaths.ItemCatalog);
+	[Export] public string SlotLayoutSettingsPath = InventorySlotLayoutSettings.DefaultResourcePath;
 
 	private GridContainer _potionSlots = default!;
 	private StationItemDetailPanel? _itemDetailPanel;
 	private GameState _gameState = default!;
 	private ItemCatalogService _itemCatalog = default!;
+	private InventorySlotLayoutSettings _slotLayoutSettings = default!;
 
 	public override void _Ready()
 	{
@@ -39,6 +41,7 @@ public partial class PotionInventoryRow : Control
 
 		_gameState = gameState;
 		_itemCatalog = itemCatalog;
+		_slotLayoutSettings = LoadSlotLayoutSettings();
 		_itemDetailPanel = GetNodeOrNull<StationItemDetailPanel>(ItemDetailPanelPath);
 		if (_itemDetailPanel is null)
 			GD.PushError($"PotionInventoryRow: StationItemDetailPanel was not found at '{ItemDetailPanelPath}'.");
@@ -67,9 +70,15 @@ public partial class PotionInventoryRow : Control
 		if (_gameState is null || _itemCatalog is null || _potionSlots is null)
 			return;
 
-		ClearContainer(_potionSlots);
+		InventorySlotVisuals.ClearChildren(_potionSlots);
 		foreach (var stack in BuildPotionStacks())
 			_potionSlots.AddChild(CreatePotionSlot(stack));
+	}
+
+	public void RefreshSlotLayoutSettings()
+	{
+		_slotLayoutSettings = LoadSlotLayoutSettings(forceReload: true);
+		Refresh();
 	}
 
 	private List<PotionStack> BuildPotionStacks()
@@ -101,10 +110,12 @@ public partial class PotionInventoryRow : Control
 
 	private InventoryItemSlot CreatePotionSlot(PotionStack stack)
 	{
+		var profile = GetPotionSlotProfile();
+		var slotSize = profile.ResolveSlotSize(new Vector2(SlotWidth, SlotHeight));
 		var slot = new InventoryItemSlot
 		{
-			CustomMinimumSize = new Vector2(SlotWidth, SlotHeight),
-			Size = new Vector2(SlotWidth, SlotHeight),
+			CustomMinimumSize = slotSize,
+			Size = slotSize,
 			TooltipText = stack.Name,
 			MouseFilter = MouseFilterEnum.Stop,
 			Flat = false,
@@ -113,54 +124,60 @@ public partial class PotionInventoryRow : Control
 			IconPath = stack.IconPath,
 			Quantity = stack.Quantity
 		};
-		var normalStyle = CreateSlotStyleBox(new Color(0.08f, 0.055f, 0.035f, 0.08f), new Color(0.36f, 0.24f, 0.13f, 0.16f));
+		var normalStyle = InventorySlotVisuals.CreateSlotStyleBox(
+			new Color(0.08f, 0.055f, 0.035f, 0.08f),
+			new Color(0.36f, 0.24f, 0.13f, 0.16f),
+			cornerRadius: 6);
 		slot.AddThemeStyleboxOverride("normal", normalStyle);
 		slot.AddThemeStyleboxOverride("hover", normalStyle);
 		slot.AddThemeStyleboxOverride("pressed", normalStyle);
-		slot.AddThemeStyleboxOverride("disabled", CreateSlotStyleBox(new Color(0.05f, 0.04f, 0.034f, 0.12f), new Color(0.22f, 0.17f, 0.12f, 0.22f)));
+		slot.AddThemeStyleboxOverride("disabled", InventorySlotVisuals.CreateSlotStyleBox(
+			new Color(0.05f, 0.04f, 0.034f, 0.12f),
+			new Color(0.22f, 0.17f, 0.12f, 0.22f),
+			cornerRadius: 6));
 		slot.SlotActivated += ShowItemDetail;
 
-		var hoverOutline = new PanelContainer
-		{
-			MouseFilter = MouseFilterEnum.Ignore,
-			Visible = false
-		};
-		hoverOutline.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-		hoverOutline.AddThemeStyleboxOverride("panel", CreateHoverOutlineStyleBox());
+		var hoverOutline = InventorySlotVisuals.CreateHoverOutline(
+			new Color(1.0f, 1.0f, 1.0f, 0.0f),
+			Colors.White,
+			cornerRadius: 6,
+			borderWidth: 2);
 		slot.SetHoverOutline(hoverOutline);
 
 		var content = new Control
 		{
-			CustomMinimumSize = new Vector2(SlotWidth, SlotHeight),
-			Size = new Vector2(SlotWidth, SlotHeight),
+			CustomMinimumSize = slotSize,
+			Size = slotSize,
 			MouseFilter = MouseFilterEnum.Ignore
 		};
 
 		content.AddChild(JarredInventorySlotView.CreatePotionContent(
-			new Vector2(SlotWidth, SlotHeight),
+			slotSize,
 			stack.Name,
 			stack.ItemId,
 			stack.Quantity,
-			new JarredInventorySlotLayout
-			{
-				ArtSize = new Vector2(SlotWidth, SlotHeight),
-				NameColor = stack.HasActiveRisk
-					? new Color(0.58f, 0.05f, 0.04f, 1.0f)
-					: new Color(0.13f, 0.075f, 0.032f, 1.0f),
-				NameFontSize = 12,
-				MinimumNameFontSize = 9,
-				SingleLineCharacterLimit = 10,
-				QuantityFontSize = 16,
-				UseReadableNamePlaque = true,
-				UseGeneratedLabelTexture = true,
-				GeneratedLabelRectRatio = new Rect2(new Vector2(0.03f, 0.634f), new Vector2(0.94f, 0.34f)),
-				GeneratedNameRectRatio = new Rect2(new Vector2(0.08f, 0.657f), new Vector2(0.84f, 0.20f)),
-				GeneratedQuantityRectRatio = new Rect2(new Vector2(0.36f, 0.858f), new Vector2(0.28f, 0.17f))
-			}));
+			profile.CreateJarredLayout(stack.HasActiveRisk
+				? new Color(0.58f, 0.05f, 0.04f, 1.0f)
+				: null)));
 
 		slot.AddChild(content);
 		slot.AddChild(hoverOutline);
 		return slot;
+	}
+
+	private InventorySlotLayoutProfile GetPotionSlotProfile()
+	{
+		if (_slotLayoutSettings is null)
+			_slotLayoutSettings = LoadSlotLayoutSettings();
+
+		return _slotLayoutSettings.GetProfile(InventorySlotLayoutKind.PotionInventory);
+	}
+
+	private InventorySlotLayoutSettings LoadSlotLayoutSettings(bool forceReload = false)
+	{
+		var settings = InventorySlotLayoutSettings.Load(SlotLayoutSettingsPath, forceReload);
+		settings.EnsureProfiles();
+		return settings;
 	}
 
 	private void ShowItemDetail(string itemId)
@@ -200,49 +217,6 @@ public partial class PotionInventoryRow : Control
 		}
 
 		return false;
-	}
-
-	private static void ClearContainer(Node container)
-	{
-		foreach (var child in container.GetChildren())
-		{
-			container.RemoveChild(child);
-			child.QueueFree();
-		}
-	}
-
-	private static StyleBoxFlat CreateSlotStyleBox(Color fillColor, Color borderColor)
-	{
-		return new StyleBoxFlat
-		{
-			BgColor = fillColor,
-			BorderWidthLeft = 1,
-			BorderWidthTop = 1,
-			BorderWidthRight = 1,
-			BorderWidthBottom = 1,
-			BorderColor = borderColor,
-			CornerRadiusTopLeft = 6,
-			CornerRadiusTopRight = 6,
-			CornerRadiusBottomRight = 6,
-			CornerRadiusBottomLeft = 6
-		};
-	}
-
-	private static StyleBoxFlat CreateHoverOutlineStyleBox()
-	{
-		return new StyleBoxFlat
-		{
-			BgColor = new Color(1.0f, 1.0f, 1.0f, 0.0f),
-			BorderWidthLeft = 2,
-			BorderWidthTop = 2,
-			BorderWidthRight = 2,
-			BorderWidthBottom = 2,
-			BorderColor = Colors.White,
-			CornerRadiusTopLeft = 6,
-			CornerRadiusTopRight = 6,
-			CornerRadiusBottomRight = 6,
-			CornerRadiusBottomLeft = 6
-		};
 	}
 
 	private readonly record struct PotionStack(

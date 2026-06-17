@@ -23,4 +23,4 @@ Files:
 - `ingredient_jar_overlay_bright.png`: transparent reusable gothic ingredient jar slot overlay.
 - `potion_card_overlay_bright.png`: transparent reusable gothic potion card slot overlay.
 
-Chroma-key sources are kept in `Sources/` so the alpha outputs can be regenerated if needed.
+Chroma-key sources are kept under `ReferenceArt/AssetSources/BrewingStationBright/` so the alpha outputs can be regenerated without putting source material in runtime art folders.

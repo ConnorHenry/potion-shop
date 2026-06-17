@@ -22,12 +22,23 @@
     <Compile Include="..\..\Scripts\Models\RequirementsDef.cs" Link="Linked\RequirementsDef.cs" />
     <Compile Include="..\..\Scripts\Models\CustomerInteractionDef.cs" Link="Linked\CustomerInteractionDef.cs" />
     <Compile Include="..\..\Scripts\Systems\PotionBrewingService.cs" Link="Linked\PotionBrewingService.cs" />
+    <Compile Include="..\..\Scripts\Systems\BrewPricing.cs" Link="Linked\BrewPricing.cs" />
     <Compile Include="..\..\Scripts\Systems\CustomerSaleRules.cs" Link="Linked\CustomerSaleRules.cs" />
+    <Compile Include="..\..\Scripts\Systems\GardenState.cs" Link="Linked\GardenState.cs" />
     <Compile Include="..\..\Scripts\Systems\IngredientPreparationCatalog.cs" Link="Linked\IngredientPreparationCatalog.cs" />
+    <Compile Include="..\..\Scripts\Systems\InventoryState.cs" Link="Linked\InventoryState.cs" />
+    <Compile Include="..\..\Scripts\Systems\PotionBatchStore.cs" Link="Linked\PotionBatchStore.cs" />
     <Compile Include="..\..\Scripts\Systems\PreparedIngredientFactory.cs" Link="Linked\PreparedIngredientFactory.cs" />
     <Compile Include="..\..\Scripts\Systems\PotionRecipeLookup.cs" Link="Linked\PotionRecipeLookup.cs" />
     <Compile Include="..\..\Scripts\Systems\PotionVariantIdBuilder.cs" Link="Linked\PotionVariantIdBuilder.cs" />
+    <Compile Include="..\..\Scripts\Systems\TutorialProgressState.cs" Link="Linked\TutorialProgressState.cs" />
+    <Compile Include="..\..\Scripts\Models\GardenCropDef.cs" Link="Linked\GardenCropDef.cs" />
+    <Compile Include="..\..\Scripts\Models\GardenPotState.cs" Link="Linked\GardenPotState.cs" />
+    <Compile Include="..\..\Scripts\Models\StoryCustomerVisitRecord.cs" Link="Linked\StoryCustomerVisitRecord.cs" />
+    <Compile Include="..\..\Scripts\Persistence\SaveData.cs" Link="Linked\SaveData.cs" />
+    <Compile Include="..\..\Scripts\Tutorial\TutorialStatus.cs" Link="Linked\TutorialStatus.cs" />
     <Compile Include="..\..\Scripts\UI\CustomerDialogueTextFormatter.cs" Link="Linked\CustomerDialogueTextFormatter.cs" />
+    <Compile Include="..\..\Scripts\UI\Text\CustomerDialogueMarkupConverter.cs" Link="Linked\CustomerDialogueMarkupConverter.cs" />
     <Compile Include="..\..\Scripts\UI\InventoryItemTextFormatter.cs" Link="Linked\InventoryItemTextFormatter.cs" />
   </ItemGroup>
 </Project>

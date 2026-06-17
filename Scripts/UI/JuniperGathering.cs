@@ -12,18 +12,25 @@ public partial class JuniperGathering : Control
 	private const float FreezeDurationSeconds = 2.0f;
 	private const float ShakeDistanceForBurst = 150.0f;
 	private const float ShakeBurstCooldownSeconds = 0.16f;
-	private const int BerriesPerBurst = 5;
-	private const int MaxActiveBerries = 34;
-	private const float BerryDiameter = 34.0f;
-	private const float BasketWidth = 184.0f;
-	private const float BasketHeight = 106.0f;
+	private const int BerriesPerBurst = 7;
+	private const int MaxActiveBerries = 56;
+	private const float BerryDiameter = 25.0f;
+	private const float BasketWidth = 60.0f;
+	private const float BasketHeight = 69.0f;
 	private const float CatchLineThickness = 3.0f;
 	private const float BasketBottomMargin = 86.0f;
 	private const float BushShakeReturnSeconds = 0.08f;
 	private const float BushTextureAspectRatio = 780.0f / 560.0f;
+	private const float BushVisibleHeightRatio = 0.36f;
+	private const float BushMinVisibleHeight = 260.0f;
+	private const float BushMaxVisibleHeight = 410.0f;
+	private const float BushCanopyYOffsetRatio = 0.08f;
+	private const float BushCanopyMinYOffset = 48.0f;
+	private const float BushCanopyMaxYOffset = 128.0f;
 
 	[Export] public NodePath PlayAreaPath = default!;
 	[Export] public NodePath BushPath = default!;
+	[Export] public NodePath BushCanopyPath = default!;
 	[Export] public NodePath BasketPath = default!;
 	[Export] public NodePath CatchLinePath = default!;
 	[Export] public NodePath TimerLabelPath = default!;
@@ -50,6 +57,7 @@ public partial class JuniperGathering : Control
 	private Texture2D[] _wrongBerryTextures = System.Array.Empty<Texture2D>();
 	private Control _playArea = default!;
 	private Control _bush = default!;
+	private TextureRect _bushCanopy = default!;
 	private Control _basket = default!;
 	private ColorRect _catchLine = default!;
 	private Label _timerLabel = default!;
@@ -66,6 +74,7 @@ public partial class JuniperGathering : Control
 	private Vector2 _basketDragOffset;
 	private Vector2 _lastShakeGlobalPosition;
 	private Vector2 _bushBasePosition;
+	private Vector2 _bushCanopyBasePosition;
 	private float _remainingTime = GatheringDurationSeconds;
 	private float _basketFreezeRemaining;
 	private float _shakeTravel;
@@ -157,6 +166,8 @@ public partial class JuniperGathering : Control
 		if (!NodeLookup.TryGetRequiredNode(this, PlayAreaPath, nameof(JuniperGathering), nameof(PlayAreaPath), out _playArea))
 			return false;
 		if (!NodeLookup.TryGetRequiredNode(this, BushPath, nameof(JuniperGathering), nameof(BushPath), out _bush))
+			return false;
+		if (!NodeLookup.TryGetRequiredNode(this, BushCanopyPath, nameof(JuniperGathering), nameof(BushCanopyPath), out _bushCanopy))
 			return false;
 		if (!NodeLookup.TryGetRequiredNode(this, BasketPath, nameof(JuniperGathering), nameof(BasketPath), out _basket))
 			return false;
@@ -255,14 +266,29 @@ public partial class JuniperGathering : Control
 		_catchLine.Position = new Vector2(0.0f, catchLineY);
 		_catchLine.Size = new Vector2(playAreaSize.X, CatchLineThickness);
 
-		var bushWidth = Math.Clamp(playAreaSize.X * 0.46f, 420.0f, 620.0f);
-		var bushHeight = bushWidth / BushTextureAspectRatio;
-		_bush.Size = new Vector2(bushWidth, bushHeight);
+		var bushWidth = playAreaSize.X;
+		var bushVisibleHeight = Mathf.Round(Math.Clamp(
+			playAreaSize.Y * BushVisibleHeightRatio,
+			BushMinVisibleHeight,
+			BushMaxVisibleHeight));
+		var bushTextureHeight = bushWidth / BushTextureAspectRatio;
+		var maxCanopyYOffset = Math.Max(0.0f, bushTextureHeight - bushVisibleHeight);
+		var preferredCanopyYOffset = Math.Clamp(
+			bushTextureHeight * BushCanopyYOffsetRatio,
+			BushCanopyMinYOffset,
+			BushCanopyMaxYOffset);
+		var canopyYOffset = Mathf.Round(Math.Min(preferredCanopyYOffset, maxCanopyYOffset));
+		_bush.Size = new Vector2(bushWidth, bushVisibleHeight);
 		_bushBasePosition = new Vector2(
-			Mathf.Round((playAreaSize.X - bushWidth) * 0.5f),
-			Mathf.Round(Math.Clamp(playAreaSize.Y * 0.02f, 12.0f, 42.0f)));
+			0.0f,
+			0.0f);
+		_bushCanopy.Size = new Vector2(bushWidth, bushTextureHeight);
+		_bushCanopyBasePosition = new Vector2(0.0f, -canopyYOffset);
 		if (_bushShakeReturnRemaining <= 0.0f)
+		{
 			_bush.Position = _bushBasePosition;
+			_bushCanopy.Position = _bushCanopyBasePosition;
+		}
 
 		_basket.Size = new Vector2(BasketWidth, BasketHeight);
 		var basketX = _basketInitialized
@@ -350,7 +376,7 @@ public partial class JuniperGathering : Control
 
 		_shakeTravel += distance;
 		_lastShakeGlobalPosition = mouseMotion.GlobalPosition;
-		_bush.Position = _bushBasePosition + new Vector2(
+		_bushCanopy.Position = _bushCanopyBasePosition + new Vector2(
 			Math.Clamp(mouseMotion.Relative.X * 0.22f, -10.0f, 10.0f),
 			Math.Clamp(mouseMotion.Relative.Y * 0.08f, -5.0f, 5.0f));
 		_bushShakeReturnRemaining = BushShakeReturnSeconds;
@@ -384,23 +410,29 @@ public partial class JuniperGathering : Control
 		var texture = isRipe
 			? _ripeBerryTexture
 			: _wrongBerryTextures[_random.RandiRange(0, _wrongBerryTextures.Length - 1)];
-		var berry = new TextureRect
+		var textureSize = texture.GetSize();
+		var largestTextureDimension = Math.Max(textureSize.X, textureSize.Y);
+		if (largestTextureDimension <= 0.0f)
+		{
+			GD.PushError($"JuniperGathering: Berry texture '{texture.ResourcePath}' has no drawable size.");
+			return;
+		}
+
+		var berryScale = BerryDiameter / largestTextureDimension;
+		var berry = new Sprite2D
 		{
 			Name = isRipe ? "RipeJuniperBerry" : "WrongJuniperBerry",
 			Texture = texture,
-			MouseFilter = MouseFilterEnum.Ignore,
-			Size = new Vector2(BerryDiameter, BerryDiameter),
-			ZIndex = 12,
-			ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
-			StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered
+			Centered = true,
+			Scale = new Vector2(berryScale, berryScale),
+			ZIndex = 12
 		};
 		_playArea.AddChild(berry);
 
-		var bushLeft = Math.Clamp(_bush.Position.X + BerryDiameter, BerryDiameter, playAreaSize.X - BerryDiameter);
-		var bushRight = Math.Clamp(_bush.Position.X + _bush.Size.X - BerryDiameter, bushLeft, playAreaSize.X - BerryDiameter);
-		var x = _random.RandfRange(bushLeft, bushRight);
+		var halfBerryDiameter = BerryDiameter * 0.5f;
+		var x = _random.RandfRange(halfBerryDiameter, playAreaSize.X - halfBerryDiameter);
 		var y = _random.RandfRange(
-			_bush.Position.Y + (BerryDiameter * 0.5f),
+			_bush.Position.Y + halfBerryDiameter,
 			_bush.Position.Y + (_bush.Size.Y * 0.85f));
 		var speed = _random.RandfRange(170.0f, 260.0f);
 		var berryState = new BerryState(berry, x, y, speed, isRipe);
@@ -439,7 +471,7 @@ public partial class JuniperGathering : Control
 
 		_bushShakeReturnRemaining = Math.Max(0.0f, _bushShakeReturnRemaining - deltaSeconds);
 		if (_bushShakeReturnRemaining <= 0.0f)
-			_bush.Position = _bushBasePosition;
+			_bushCanopy.Position = _bushCanopyBasePosition;
 	}
 
 	private void UpdateBerries(float deltaSeconds)
@@ -466,9 +498,7 @@ public partial class JuniperGathering : Control
 
 	private void PositionBerry(BerryState berry)
 	{
-		berry.Visual.Position = new Vector2(
-			berry.X - (BerryDiameter * 0.5f),
-			berry.Y - (BerryDiameter * 0.5f));
+		berry.Visual.Position = new Vector2(berry.X, berry.Y);
 	}
 
 	private bool IsBerryTouchingBasket(BerryState berry)
@@ -601,7 +631,7 @@ public partial class JuniperGathering : Control
 
 	private sealed class BerryState
 	{
-		public BerryState(Control visual, float x, float y, float speed, bool isRipe)
+		public BerryState(Sprite2D visual, float x, float y, float speed, bool isRipe)
 		{
 			Visual = visual;
 			X = x;
@@ -610,7 +640,7 @@ public partial class JuniperGathering : Control
 			IsRipe = isRipe;
 		}
 
-		public Control Visual { get; }
+		public Sprite2D Visual { get; }
 		public float X { get; }
 		public float Speed { get; }
 		public bool IsRipe { get; }

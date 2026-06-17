@@ -179,16 +179,13 @@ public static class JarredInventorySlotView
 
 	private static Rect2 ResolveGeneratedLabelRect(Vector2 artPosition, Vector2 artSize, JarredInventorySlotLayout layout)
 	{
-		if (HasCustomRatioRect(layout.GeneratedLabelRectRatio))
-			return ScaleRatioRect(artPosition, artSize, layout.GeneratedLabelRectRatio);
-
-		return new Rect2(
-			new Vector2(
-				artPosition.X + (artSize.X * LabelOverlayLeftRatio),
-				artPosition.Y + (artSize.Y * LabelOverlayTopRatio)),
-			new Vector2(
-				artSize.X * LabelOverlayWidthRatio,
-				artSize.Y * LabelOverlayHeightRatio));
+		var defaultRatioRect = new Rect2(
+			new Vector2(LabelOverlayLeftRatio, LabelOverlayTopRatio),
+			new Vector2(LabelOverlayWidthRatio, LabelOverlayHeightRatio));
+		return ScaleRatioRect(
+			artPosition,
+			artSize,
+			ResolveCustomRatioRect(layout.GeneratedLabelRectRatio, defaultRatioRect));
 	}
 
 	private static Control CreatePotionLiquid(string potionItemId, Vector2 artPosition, Vector2 artSize)
@@ -271,13 +268,13 @@ public static class JarredInventorySlotView
 		var heightRatio = NameHeightRatio;
 		if (layout.UseGeneratedLabelTexture)
 		{
-			if (HasCustomRatioRect(layout.GeneratedNameRectRatio))
-				return ScaleRatioRect(artPosition, artSize, layout.GeneratedNameRectRatio);
-
-			leftRatio = GeneratedNameLeftRatio;
-			topRatio = GeneratedNameTopRatio;
-			widthRatio = GeneratedNameWidthRatio;
-			heightRatio = GeneratedNameHeightRatio;
+			var defaultRatioRect = new Rect2(
+				new Vector2(GeneratedNameLeftRatio, GeneratedNameTopRatio),
+				new Vector2(GeneratedNameWidthRatio, GeneratedNameHeightRatio));
+			return ScaleRatioRect(
+				artPosition,
+				artSize,
+				ResolveCustomRatioRect(layout.GeneratedNameRectRatio, defaultRatioRect));
 		}
 		else if (layout.UseReadableNamePlaque)
 		{
@@ -485,6 +482,19 @@ public static class JarredInventorySlotView
 
 	private static Rect2 ResolveQuantityRect(Vector2 artPosition, Vector2 artSize, JarredInventorySlotLayout layout)
 	{
+		if (layout.UseGeneratedLabelTexture && HasCustomRatioRect(layout.GeneratedQuantityRectRatio))
+		{
+			var defaultRatioRect = layout.UseReadableNamePlaque
+				? BuildReadableQuantityRatioRect(generatedLabelTexture: true)
+				: new Rect2(
+					new Vector2(QuantityLeftRatio, QuantityTopRatio),
+					new Vector2(QuantityWidthRatio, QuantityHeightRatio));
+			return ScaleRatioRect(
+				artPosition,
+				artSize,
+				ResolveCustomRatioRect(layout.GeneratedQuantityRectRatio, defaultRatioRect));
+		}
+
 		if (!layout.UseReadableNamePlaque)
 		{
 			return new Rect2(
@@ -496,8 +506,6 @@ public static class JarredInventorySlotView
 		var centerYRatio = layout.UseGeneratedLabelTexture ? GeneratedQuantityCenterYRatio : ReadableQuantityCenterYRatio;
 		var widthRatio = layout.UseGeneratedLabelTexture ? GeneratedQuantityWidthRatio : ReadableQuantityWidthRatio;
 		var heightRatio = layout.UseGeneratedLabelTexture ? GeneratedQuantityHeightRatio : ReadableQuantityHeightRatio;
-		if (layout.UseGeneratedLabelTexture && HasCustomRatioRect(layout.GeneratedQuantityRectRatio))
-			return ScaleRatioRect(artPosition, artSize, layout.GeneratedQuantityRectRatio);
 
 		var quantitySize = new Vector2(artSize.X * widthRatio, artSize.Y * heightRatio);
 		var quantityCenter = new Vector2(
@@ -506,9 +514,32 @@ public static class JarredInventorySlotView
 		return new Rect2(quantityCenter - (quantitySize * 0.5f), quantitySize);
 	}
 
+	private static Rect2 BuildReadableQuantityRatioRect(bool generatedLabelTexture)
+	{
+		var centerXRatio = generatedLabelTexture ? GeneratedQuantityCenterXRatio : ReadableQuantityCenterXRatio;
+		var centerYRatio = generatedLabelTexture ? GeneratedQuantityCenterYRatio : ReadableQuantityCenterYRatio;
+		var widthRatio = generatedLabelTexture ? GeneratedQuantityWidthRatio : ReadableQuantityWidthRatio;
+		var heightRatio = generatedLabelTexture ? GeneratedQuantityHeightRatio : ReadableQuantityHeightRatio;
+		return new Rect2(
+			new Vector2(centerXRatio - (widthRatio * 0.5f), centerYRatio - (heightRatio * 0.5f)),
+			new Vector2(widthRatio, heightRatio));
+	}
+
 	private static bool HasCustomRatioRect(Rect2 rect)
 	{
-		return rect.Size != Vector2.Zero;
+		return rect.Position != Vector2.Zero || rect.Size != Vector2.Zero;
+	}
+
+	private static Rect2 ResolveCustomRatioRect(Rect2 customRatioRect, Rect2 defaultRatioRect)
+	{
+		if (!HasCustomRatioRect(customRatioRect))
+			return defaultRatioRect;
+
+		var customSize = customRatioRect.Size;
+		var resolvedSize = new Vector2(
+			customSize.X > 0.0f ? customSize.X : defaultRatioRect.Size.X,
+			customSize.Y > 0.0f ? customSize.Y : defaultRatioRect.Size.Y);
+		return new Rect2(customRatioRect.Position, resolvedSize);
 	}
 
 	private static Rect2 ScaleRatioRect(Vector2 artPosition, Vector2 artSize, Rect2 ratioRect)
@@ -629,6 +660,7 @@ public static class JarredInventorySlotView
 	}
 }
 
+[Tool]
 public partial class PotionLiquidView : Control
 {
 	private static readonly Color[] LiquidColors =

@@ -15,6 +15,7 @@ public partial class GameState : Node
 	public const string StoryCustomerOutcomeSuccess = "success";
 	public const string StoryCustomerOutcomeFailure = "failure";
 	public const string StoryCustomerOutcomeSkipped = "skipped";
+	public const string BridgetWelcomePendingStoryFlag = "bridget_welcome_pending";
 	public const int StartingGardenPotCount = GardenState.StartingPotCount;
 	public const int DefaultGardenHarvestYield = GardenState.DefaultHarvestYield;
 	public const int MaxUniquePotionInventoryQuantity = 4;
@@ -132,6 +133,7 @@ public partial class GameState : Node
 		_inventoryState.Clear();
 		ActiveRules.Clear();
 		StoryFlags.Clear();
+		StoryFlags.Add(BridgetWelcomePendingStoryFlag);
 		_storyCustomerVisitState.Clear();
 		_potionKnowledgeState.Clear();
 		_potionBatchStore.Clear();

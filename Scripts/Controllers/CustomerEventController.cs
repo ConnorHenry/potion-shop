@@ -10,6 +10,8 @@ namespace OccultShop.Controllers;
 
 public partial class CustomerEventController : Node
 {
+	private const string NewGameWelcomeInteractionId = "plot_bridget_visit_1";
+
 	private readonly Random _random = new();
 	private readonly List<string> _customerOrder = new();
 	private int _nextCustomerOrderIndex;
@@ -37,6 +39,9 @@ public partial class CustomerEventController : Node
 		if (TryDrawForcedInteraction(interactions, state, out var forcedInteraction))
 			return forcedInteraction;
 
+		if (TryDrawNewGameWelcomeInteraction(interactions, state, out var welcomeInteraction))
+			return welcomeInteraction;
+
 		var eligibleInteractions = interactions
 			.Where(interaction => Requirements.Met(state, interaction.Requires))
 			.Where(interaction => IsCustomerVisitAvailable(state, interaction))
@@ -63,6 +68,31 @@ public partial class CustomerEventController : Node
 	public CustomerInteractionDef? DrawShopDayCustomerInteraction(DataDb db, GameState state)
 	{
 		return DrawCustomerInteraction(db, state);
+	}
+
+	private bool TryDrawNewGameWelcomeInteraction(
+		IReadOnlyList<CustomerInteractionDef> interactions,
+		GameState state,
+		out CustomerInteractionDef? interaction)
+	{
+		interaction = null;
+		if (!state.HasStoryFlag(GameState.BridgetWelcomePendingStoryFlag))
+			return false;
+
+		foreach (var candidate in interactions)
+		{
+			if (!string.Equals(candidate.Id, NewGameWelcomeInteractionId, StringComparison.OrdinalIgnoreCase))
+				continue;
+
+			if (!Requirements.Met(state, candidate.Requires) || !IsCustomerVisitAvailable(state, candidate))
+				return false;
+
+			state.RemoveStoryFlag(GameState.BridgetWelcomePendingStoryFlag);
+			interaction = MarkCustomerArrival(candidate, state);
+			return true;
+		}
+
+		return false;
 	}
 
 	private bool TryDrawForcedInteraction(

@@ -23,6 +23,7 @@ internal static class SceneAndHudWiringTests
         runner.Run("Potion brewing station links to bedroom view", TestPotionBrewingStationLinksBedroom);
         runner.Run("Potion brewing station owns diegetic shelf inventory", TestPotionBrewingStationShelfInventory);
         runner.Run("Potion brewing station owns separate potion inventory row", TestPotionBrewingStationPotionInventoryRow);
+        runner.Run("Inventory slot layout editor plugin is wired", TestInventorySlotLayoutEditorPlugin);
         runner.Run("Brew entry points open the potion brewing station", TestBrewEntryPointsOpenPotionBrewingStation);
         runner.Run("Scenario debugger can close the active shop day", TestScenarioDebuggerShopDayControls);
         runner.Run("Scenario debugger can toggle book records", TestScenarioDebuggerBookRecordingControls);
@@ -137,10 +138,18 @@ internal static class SceneAndHudWiringTests
         AssertTrue("ShopFloor loads the customer closeup texture from customer data",
             shopFloor.Contains("CurrentCustomerImagePath") &&
             shopFloor.Contains("ResourceLoader.Load<Texture2D>(imagePath)"));
+        AssertTrue("ShopFloor refreshes the closeup when customer dialogue changes expression",
+            shopFloor.Contains("CustomerImageChanged += OnCustomerImageChanged") &&
+            shopFloor.Contains("CustomerImageChanged -= OnCustomerImageChanged") &&
+            shopFloor.Contains("private void OnCustomerImageChanged(string imagePath)") &&
+            shopFloor.Contains("RefreshCustomerCloseupImage();"));
         AssertTrue("CustomerPanel exposes the active customer image path",
-            customerPanel.Contains("CurrentCustomerImagePath => _interaction?.CharacterImagePath"));
-        AssertTrue("Tiered customer data includes the middleclass woman art path",
-            tieredCustomers.Contains("\"characterImagePath\": \"res://art/Middleclass-Woman.png\""));
+            customerPanel.Contains("CurrentCustomerImagePath => !string.IsNullOrWhiteSpace(_currentCustomerImagePath)") &&
+            customerPanel.Contains("CustomerImageChangedEventHandler"));
+        AssertTrue("Tiered customer data includes Bridget's happy and sad portrait paths",
+            tieredCustomers.Contains("\"characterImagePath\": \"res://Assets/Characters/old_rural_woman_sprite_happy.png\"") &&
+            tieredCustomers.Contains("\"happy\": \"res://Assets/Characters/old_rural_woman_sprite_happy.png\"") &&
+            tieredCustomers.Contains("\"sad\": \"res://Assets/Characters/old_rural_woman_sprite_sad.png\""));
     }
 
     private static void TestShopFloorShelfOpensPotionBrewingStation()
@@ -182,8 +191,8 @@ internal static class SceneAndHudWiringTests
         var scene = ReadProjectFile("Scenes/UI/GameUi.tscn");
         var shopFloor = ReadProjectFile("Scripts/UI/ShopFloor.cs");
 
-        AssertTrue("GameUi references the bedroom concept art",
-            scene.Contains("path=\"res://Assets/ConceptArt/Bedroom/rural_irish_bedroom_concept.png\""));
+        AssertTrue("GameUi references the runtime bedroom background art",
+            scene.Contains("path=\"res://Assets/Backgrounds/rural_irish_bedroom.png\""));
         AssertTrue("GameUi defines the bedroom view with its background",
             scene.Contains("[node name=\"BedroomView\" type=\"Control\" parent=\".\"]") &&
             scene.Contains("[node name=\"Background\" type=\"TextureRect\" parent=\"BedroomView\"]") &&
@@ -241,6 +250,8 @@ internal static class SceneAndHudWiringTests
         var scene = ReadProjectFile("Scenes/UI/GameUi.tscn");
         var shelf = ReadProjectFile("Scripts/UI/StationShelfInventory.cs");
         var jarredSlot = ReadProjectFile("Scripts/UI/JarredInventorySlotView.cs");
+        var slotVisuals = ReadProjectFile("Scripts/UI/InventorySlotVisuals.cs");
+        var layoutSettings = ReadProjectFile("Assets/UI/InventorySlotLayoutSettings.tres");
         var itemDetailPanel = ReadProjectFile("Scripts/UI/StationItemDetailPanel.cs");
         var outsideClickBoundsCheckIndex = itemDetailPanel.IndexOf("if (!GetGlobalRect().HasPoint(mouseButton.GlobalPosition))", StringComparison.Ordinal);
         var outsideClickBranch = outsideClickBoundsCheckIndex >= 0
@@ -271,8 +282,10 @@ internal static class SceneAndHudWiringTests
         AssertTrue("Station shelf preserves prepared ingredient methods on plaque labels",
             shelf.Contains("BuildShelfDisplayName") &&
             shelf.Contains("IngredientPreparationCatalog.GetDisplayName(preparationId)") &&
-            shelf.Contains("PreserveParentheticalSuffix = connectIngredientRequest") &&
-            shelf.Contains("SingleLineCharacterLimit = connectIngredientRequest ? 18 : 12") &&
+            shelf.Contains("InventorySlotLayoutKind.IngredientShelf") &&
+            shelf.Contains("InventorySlotLayoutKind.ConsumableShelf") &&
+            layoutSettings.Contains("PreserveParentheticalSuffix = true") &&
+            layoutSettings.Contains("SingleLineCharacterLimit = 18") &&
             jarredSlot.Contains("PreserveParentheticalSuffix") &&
             jarredSlot.Contains("ResolveNameFontSize"));
         AssertTrue("Station shelf exposes a trait filter below the ingredient slots",
@@ -326,12 +339,12 @@ internal static class SceneAndHudWiringTests
             !shelf.Contains("InventoryPanelPath") &&
             !shelf.Contains("OpenItemDetail"));
         AssertTrue("Station shelf slots keep button hover and pressed states visually neutral",
-            shelf.Contains("var normalStyle = CreateSlotStyleBox") &&
+            shelf.Contains("var normalStyle = InventorySlotVisuals.CreateSlotStyleBox") &&
             shelf.Contains("slot.AddThemeStyleboxOverride(\"hover\", normalStyle);") &&
             shelf.Contains("slot.AddThemeStyleboxOverride(\"pressed\", normalStyle);"));
         AssertTrue("Station shelf slots show a separate hover-only highlight overlay",
-            shelf.Contains("var hoverOutline = new PanelContainer") &&
-            shelf.Contains("hoverOutline.AddThemeStyleboxOverride(\"panel\", CreateHoverOutlineStyleBox());") &&
+            shelf.Contains("InventorySlotVisuals.CreateHoverOutline") &&
+            slotVisuals.Contains("hoverOutline.AddThemeStyleboxOverride(\"panel\", CreateSlotStyleBox(") &&
             shelf.Contains("slot.SetHoverOutline(hoverOutline);") &&
             shelf.Contains("slot.AddChild(hoverOutline);"));
         AssertTrue("Station shelf pages overflow instead of showing every item",
@@ -345,6 +358,7 @@ internal static class SceneAndHudWiringTests
         var scene = ReadProjectFile("Scenes/UI/GameUi.tscn");
         var row = ReadProjectFile("Scripts/UI/PotionInventoryRow.cs");
         var jarredSlot = ReadProjectFile("Scripts/UI/JarredInventorySlotView.cs");
+        var layoutSettings = ReadProjectFile("Assets/UI/InventorySlotLayoutSettings.tres");
 
         AssertTrue("GameUi defines a separate potion inventory row under the brewing station view",
             scene.Contains("[node name=\"PotionInventoryRow\" type=\"Control\" parent=\"PotionBrewingStationView\"]") &&
@@ -382,14 +396,85 @@ internal static class SceneAndHudWiringTests
             row.Contains("HasActiveRisk(item)") &&
             row.Contains("new Color(0.58f, 0.05f, 0.04f, 1.0f)"));
         AssertTrue("Potion row centers readable live text inside the generated bottle label",
-            row.Contains("SingleLineCharacterLimit = 10") &&
-            row.Contains("GeneratedLabelRectRatio = new Rect2(new Vector2(0.03f, 0.634f), new Vector2(0.94f, 0.34f))") &&
-            row.Contains("GeneratedNameRectRatio = new Rect2(new Vector2(0.08f, 0.657f), new Vector2(0.84f, 0.20f))") &&
-            row.Contains("GeneratedQuantityRectRatio = new Rect2(new Vector2(0.36f, 0.858f), new Vector2(0.28f, 0.17f))") &&
+            row.Contains("InventorySlotLayoutKind.PotionInventory") &&
+            row.Contains("profile.CreateJarredLayout(stack.HasActiveRisk") &&
+            layoutSettings.Contains("SingleLineCharacterLimit = 10") &&
+            layoutSettings.Contains("GeneratedLabelRectRatio = Rect2(0.03, 0.634, 0.94, 0.34)") &&
+            layoutSettings.Contains("GeneratedNameRectRatio = Rect2(0.08, 0.657, 0.84, 0.2)") &&
+            layoutSettings.Contains("GeneratedQuantityRectRatio = Rect2(0.36, 0.858, 0.28, 0.17)") &&
             jarredSlot.Contains("ResolveNameHorizontalInset") &&
             jarredSlot.Contains("TextOverrunBehavior = TextServer.OverrunBehavior.NoTrimming") &&
             jarredSlot.Contains("GetStringSize(text, HorizontalAlignment.Left, -1.0f, fontSize)") &&
             jarredSlot.Contains("NameFitSafetyPadding"));
+    }
+
+    private static void TestInventorySlotLayoutEditorPlugin()
+    {
+        var project = ReadProjectFile("project.godot");
+        var pluginCfg = ReadProjectFile("addons/inventory_slot_layout_editor/plugin.cfg");
+        var plugin = ReadProjectFile("addons/inventory_slot_layout_editor/plugin.gd");
+        var dockScene = ReadProjectFile("addons/inventory_slot_layout_editor/inventory_slot_layout_editor_dock.tscn");
+        var dock = ReadProjectFile("addons/inventory_slot_layout_editor/inventory_slot_layout_editor_dock.gd");
+        var settings = ReadProjectFile("Scripts/UI/InventorySlotLayoutSettings.cs");
+        var profile = ReadProjectFile("Scripts/UI/InventorySlotLayoutProfile.cs");
+        var settingsResource = ReadProjectFile("Assets/UI/InventorySlotLayoutSettings.tres");
+        var shelf = ReadProjectFile("Scripts/UI/StationShelfInventory.cs");
+        var row = ReadProjectFile("Scripts/UI/PotionInventoryRow.cs");
+        var customerPanel = ReadProjectFile("Scripts/UI/CustomerPanel.cs");
+
+        AssertTrue("Inventory slot editor plugin is enabled",
+            project.Contains("res://addons/inventory_slot_layout_editor/plugin.cfg") &&
+            pluginCfg.Contains("Inventory Slot Layout Editor") &&
+            pluginCfg.Contains("script=\"plugin.gd\""));
+        AssertTrue("Inventory slot editor plugin adds a Godot editor dock scene",
+            plugin.Contains("extends EditorPlugin") &&
+            plugin.Contains("add_control_to_dock(DOCK_SLOT_RIGHT_UL, _dock)") &&
+            dockScene.Contains("res://addons/inventory_slot_layout_editor/inventory_slot_layout_editor_dock.gd") &&
+            !dockScene.Contains("res://Scripts/Editor/InventorySlotLayoutEditorDock.cs"));
+        AssertTrue("Inventory slot editor dock previews and saves the shared layout resource",
+            dock.Contains("@tool") &&
+            dock.Contains("ResourceSaver.save(_settings, DEFAULT_SETTINGS_PATH)") &&
+            dock.Contains("_set_profile_value(def") &&
+            dock.Contains("Layout edits auto-save") &&
+            dock.Contains("TabContainer.new()") &&
+            dock.Contains("_create_profile_page(def)") &&
+            dock.Contains("_reset_profile(def)"));
+        AssertTrue("Generated rect X and Y values activate custom positioning without requiring custom size",
+            profile.Contains("GeneratedLabelRectRatio") &&
+            profile.Contains("GeneratedNameRectRatio") &&
+            profile.Contains("GeneratedQuantityRectRatio") &&
+            ReadProjectFile("Scripts/UI/JarredInventorySlotView.cs").Contains("rect.Position != Vector2.Zero || rect.Size != Vector2.Zero") &&
+            ReadProjectFile("Scripts/UI/JarredInventorySlotView.cs").Contains("customSize.X > 0.0f ? customSize.X : defaultRatioRect.Size.X") &&
+            ReadProjectFile("Scripts/UI/JarredInventorySlotView.cs").Contains("ResolveCustomRatioRect(layout.GeneratedNameRectRatio") &&
+            dock.Contains("_resolve_custom_ratio_rect") &&
+            dock.Contains("custom_rect.position == Vector2.ZERO and custom_rect.size == Vector2.ZERO"));
+        AssertTrue("Inventory slot layout resource exposes all generated slot families",
+            settings.Contains("DefaultResourcePath = \"res://Assets/UI/InventorySlotLayoutSettings.tres\"") &&
+            settings.Contains("IngredientShelfSlot") &&
+            settings.Contains("ConsumableShelfSlot") &&
+            settings.Contains("PotionInventorySlot") &&
+            settings.Contains("CustomerPotionSlot") &&
+            profile.Contains("CreateJarredLayout"));
+        AssertTrue("Default slot layout resource stores editable profile subresources",
+            settingsResource.Contains("IngredientShelfSlot = SubResource(\"Resource_ingredient_shelf\")") &&
+            settingsResource.Contains("ConsumableShelfSlot = SubResource(\"Resource_consumable_shelf\")") &&
+            settingsResource.Contains("PotionInventorySlot = SubResource(\"Resource_potion_inventory\")") &&
+            settingsResource.Contains("CustomerPotionSlot = SubResource(\"Resource_customer_potion\")"));
+        AssertTrue("Runtime inventory slot code loads the shared layout resource",
+            shelf.Contains("SlotLayoutSettingsPath = InventorySlotLayoutSettings.DefaultResourcePath") &&
+            row.Contains("SlotLayoutSettingsPath = InventorySlotLayoutSettings.DefaultResourcePath") &&
+            customerPanel.Contains("SlotLayoutSettingsPath = InventorySlotLayoutSettings.DefaultResourcePath") &&
+            shelf.Contains("InventorySlotLayoutSettings.Load(SlotLayoutSettingsPath, forceReload)") &&
+            row.Contains("InventorySlotLayoutSettings.Load(SlotLayoutSettingsPath, forceReload)") &&
+            customerPanel.Contains("InventorySlotLayoutSettings.Load(SlotLayoutSettingsPath, forceReload)") &&
+            !shelf.Contains("InventorySlotLayoutSettings? SlotLayoutSettings") &&
+            !row.Contains("InventorySlotLayoutSettings? SlotLayoutSettings") &&
+            !customerPanel.Contains("InventorySlotLayoutSettings? SlotLayoutSettings"));
+        var gameUiScene = ReadProjectFile("Scenes/UI/GameUi.tscn");
+        AssertTrue("GameUi keeps slot layout data in the shared resource instead of inline subresources",
+            !gameUiScene.Contains("SlotLayoutSettings = SubResource") &&
+            !gameUiScene.Contains("InventorySlotLayoutProfile.cs") &&
+            settingsResource.Contains("IconSizeRatio = 0.62"));
     }
 
     private static void TestBrewEntryPointsOpenPotionBrewingStation()
@@ -428,6 +513,10 @@ internal static class SceneAndHudWiringTests
     {
         var runtimeDebug = ReadProjectFile("Scripts/Debug/RuntimeDebugImGui.cs");
         var dayController = ReadProjectFile("Scripts/Controllers/DayController.cs");
+        var shelf = ReadProjectFile("Scripts/UI/StationShelfInventory.cs");
+        var row = ReadProjectFile("Scripts/UI/PotionInventoryRow.cs");
+        var customerPanel = ReadProjectFile("Scripts/UI/CustomerPanel.cs");
+        var layoutSettings = ReadProjectFile("Scripts/UI/InventorySlotLayoutSettings.cs");
 
         AssertTrue("Scenario debugger wires the day controller",
             runtimeDebug.Contains("DayControllerPath = new(\"../DayController\")"));
@@ -439,6 +528,19 @@ internal static class SceneAndHudWiringTests
         AssertTrue("Scenario debugger closes the active shop through DayController",
             runtimeDebug.Contains("TryCloseShopDay()") &&
             runtimeDebug.Contains("TryCloseShopDayFromDebug"));
+        AssertTrue("Scenario debugger can refresh runtime slot layout state from the editor resource",
+            runtimeDebug.Contains("Refresh State") &&
+            runtimeDebug.Contains("RefreshDebugState()") &&
+            runtimeDebug.Contains("RefreshInventorySlotLayoutViews()") &&
+            runtimeDebug.Contains("stationShelfInventory.RefreshSlotLayoutSettings()") &&
+            runtimeDebug.Contains("potionInventoryRow.RefreshSlotLayoutSettings()") &&
+            runtimeDebug.Contains("customerPanel.RefreshSlotLayoutSettings()") &&
+            shelf.Contains("public void RefreshSlotLayoutSettings()") &&
+            row.Contains("public void RefreshSlotLayoutSettings()") &&
+            customerPanel.Contains("public void RefreshSlotLayoutSettings()") &&
+            layoutSettings.Contains("LoadDefault(bool forceReload = false)") &&
+            layoutSettings.Contains("Load(string resourcePath, bool forceReload = false)") &&
+            layoutSettings.Contains("ResourceLoader.CacheMode.Ignore"));
         AssertTrue("Scenario debugger no longer exposes timer controls",
             !runtimeDebug.Contains("Stop Timer Seconds") &&
             !runtimeDebug.Contains("Pause Shop Timer") &&

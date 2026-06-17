@@ -30,6 +30,7 @@ public partial class StationShelfInventory : Control
 	[Export] public NodePath ItemCatalogPath = new(AutoloadNodePaths.ItemCatalog);
 	[Export] public int IngredientVisibleSlots = IngredientDefaultVisibleSlots;
 	[Export] public int ConsumableVisibleSlots = ConsumableDefaultVisibleSlots;
+	[Export] public string SlotLayoutSettingsPath = InventorySlotLayoutSettings.DefaultResourcePath;
 
 	private GridContainer _ingredientSlots = default!;
 	private GridContainer _consumableSlots = default!;
@@ -44,6 +45,7 @@ public partial class StationShelfInventory : Control
 	private StationItemDetailPanel? _itemDetailPanel;
 	private GameState _gameState = default!;
 	private ItemCatalogService _itemCatalog = default!;
+	private InventorySlotLayoutSettings _slotLayoutSettings = default!;
 	private int _ingredientPage;
 	private int _consumablePage;
 	private string? _activeIngredientTraitFilter;
@@ -74,6 +76,7 @@ public partial class StationShelfInventory : Control
 		_gameState = gameState;
 		_itemCatalog = itemCatalog;
 		_brewPanel = brewPanel;
+		_slotLayoutSettings = LoadSlotLayoutSettings();
 		_ingredientPreparationTray = GetNodeOrNull<IngredientPreparationTray>(IngredientPreparationTrayPath);
 		if (_ingredientPreparationTray is null)
 			GD.PushError($"StationShelfInventory: IngredientPreparationTray was not found at '{IngredientPreparationTrayPath}'.");
@@ -178,6 +181,12 @@ public partial class StationShelfInventory : Control
 		RenderPage(_consumableSlots, consumableStacks, _consumablePage, consumableVisibleSlots, connectIngredientRequest: false);
 		UpdatePageButtons(ingredientStacks.Count, ingredientVisibleSlots, _ingredientPage, _ingredientPreviousButton, _ingredientNextButton);
 		UpdatePageButtons(consumableStacks.Count, consumableVisibleSlots, _consumablePage, _consumablePreviousButton, _consumableNextButton);
+	}
+
+	public void RefreshSlotLayoutSettings()
+	{
+		_slotLayoutSettings = LoadSlotLayoutSettings(forceReload: true);
+		Refresh();
 	}
 
 	private List<ShelfStack> BuildVisibleIngredientStacks(bool refreshTraitOptions)
@@ -415,7 +424,7 @@ public partial class StationShelfInventory : Control
 		int visibleSlotCount,
 		bool connectIngredientRequest)
 	{
-		ClearContainer(container);
+		InventorySlotVisuals.ClearChildren(container);
 
 		var startIndex = page * visibleSlotCount;
 		var endIndex = Math.Min(stacks.Count, startIndex + visibleSlotCount);
@@ -425,9 +434,10 @@ public partial class StationShelfInventory : Control
 
 	private InventoryItemSlot CreateShelfSlot(ShelfStack stack, bool connectIngredientRequest)
 	{
-		var slotSize = connectIngredientRequest
+		var profile = GetSlotProfile(connectIngredientRequest);
+		var slotSize = profile.ResolveSlotSize(connectIngredientRequest
 			? new Vector2(IngredientSlotWidth, IngredientSlotHeight)
-			: new Vector2(SlotWidth, SlotHeight);
+			: new Vector2(SlotWidth, SlotHeight));
 		var slot = new InventoryItemSlot
 		{
 			CustomMinimumSize = slotSize,
@@ -440,22 +450,26 @@ public partial class StationShelfInventory : Control
 			IconPath = stack.IconPath,
 			Quantity = stack.Quantity
 		};
-		var normalStyle = CreateSlotStyleBox(new Color(0.08f, 0.055f, 0.035f, 0.08f), new Color(0.36f, 0.24f, 0.13f, 0.16f));
+		var normalStyle = InventorySlotVisuals.CreateSlotStyleBox(
+			new Color(0.08f, 0.055f, 0.035f, 0.08f),
+			new Color(0.36f, 0.24f, 0.13f, 0.16f),
+			cornerRadius: 5);
 		slot.AddThemeStyleboxOverride("normal", normalStyle);
 		slot.AddThemeStyleboxOverride("hover", normalStyle);
 		slot.AddThemeStyleboxOverride("pressed", normalStyle);
-		slot.AddThemeStyleboxOverride("disabled", CreateSlotStyleBox(new Color(0.05f, 0.04f, 0.034f, 0.12f), new Color(0.22f, 0.17f, 0.12f, 0.22f)));
+		slot.AddThemeStyleboxOverride("disabled", InventorySlotVisuals.CreateSlotStyleBox(
+			new Color(0.05f, 0.04f, 0.034f, 0.12f),
+			new Color(0.22f, 0.17f, 0.12f, 0.22f),
+			cornerRadius: 5));
 		slot.SlotActivated += ShowItemDetail;
 		if (connectIngredientRequest)
 			slot.IngredientRequested += QueueIngredientFromShelf;
 
-		var hoverOutline = new PanelContainer
-		{
-			MouseFilter = MouseFilterEnum.Ignore,
-			Visible = false
-		};
-		hoverOutline.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-		hoverOutline.AddThemeStyleboxOverride("panel", CreateHoverOutlineStyleBox());
+		var hoverOutline = InventorySlotVisuals.CreateHoverOutline(
+			new Color(0.16f, 0.1f, 0.055f, 0.24f),
+			new Color(0.74f, 0.48f, 0.2f, 0.72f),
+			cornerRadius: 5,
+			borderWidth: 1);
 		slot.SetHoverOutline(hoverOutline);
 
 		var content = new Control
@@ -470,21 +484,27 @@ public partial class StationShelfInventory : Control
 			stack.Name,
 			stack.IconPath,
 			stack.Quantity,
-			new JarredInventorySlotLayout
-			{
-				ArtOffset = connectIngredientRequest ? new Vector2(0.0f, -4.0f) : Vector2.Zero,
-				ArtSize = new Vector2(slotSize.X, slotSize.Y),
-				NameFontSize = connectIngredientRequest ? 12 : 14,
-				MinimumNameFontSize = connectIngredientRequest ? 9 : 12,
-				PreserveParentheticalSuffix = connectIngredientRequest,
-				SingleLineCharacterLimit = connectIngredientRequest ? 18 : 12,
-				QuantityFontSize = connectIngredientRequest ? 16 : 14,
-				UseReadableNamePlaque = connectIngredientRequest,
-				UseGeneratedLabelTexture = true
-			}));
+			profile.CreateJarredLayout()));
 		slot.AddChild(content);
 		slot.AddChild(hoverOutline);
 		return slot;
+	}
+
+	private InventorySlotLayoutProfile GetSlotProfile(bool connectIngredientRequest)
+	{
+		if (_slotLayoutSettings is null)
+			_slotLayoutSettings = LoadSlotLayoutSettings();
+
+		return _slotLayoutSettings.GetProfile(connectIngredientRequest
+			? InventorySlotLayoutKind.IngredientShelf
+			: InventorySlotLayoutKind.ConsumableShelf);
+	}
+
+	private InventorySlotLayoutSettings LoadSlotLayoutSettings(bool forceReload = false)
+	{
+		var settings = InventorySlotLayoutSettings.Load(SlotLayoutSettingsPath, forceReload);
+		settings.EnsureProfiles();
+		return settings;
 	}
 
 	private void ShowItemDetail(string itemId)
@@ -647,49 +667,6 @@ public partial class StationShelfInventory : Control
 	private static int GetSafeVisibleSlotCount(int configuredValue, int fallbackValue)
 	{
 		return configuredValue > 0 ? configuredValue : fallbackValue;
-	}
-
-	private static void ClearContainer(Node container)
-	{
-		foreach (var child in container.GetChildren())
-		{
-			container.RemoveChild(child);
-			child.QueueFree();
-		}
-	}
-
-	private static StyleBoxFlat CreateSlotStyleBox(Color fillColor, Color borderColor)
-	{
-		return new StyleBoxFlat
-		{
-			BgColor = fillColor,
-			BorderWidthLeft = 1,
-			BorderWidthTop = 1,
-			BorderWidthRight = 1,
-			BorderWidthBottom = 1,
-			BorderColor = borderColor,
-			CornerRadiusTopLeft = 5,
-			CornerRadiusTopRight = 5,
-			CornerRadiusBottomRight = 5,
-			CornerRadiusBottomLeft = 5
-		};
-	}
-
-	private static StyleBoxFlat CreateHoverOutlineStyleBox()
-	{
-		return new StyleBoxFlat
-		{
-			BgColor = new Color(0.16f, 0.1f, 0.055f, 0.24f),
-			BorderWidthLeft = 1,
-			BorderWidthTop = 1,
-			BorderWidthRight = 1,
-			BorderWidthBottom = 1,
-			BorderColor = new Color(0.74f, 0.48f, 0.2f, 0.72f),
-			CornerRadiusTopLeft = 5,
-			CornerRadiusTopRight = 5,
-			CornerRadiusBottomRight = 5,
-			CornerRadiusBottomLeft = 5
-		};
 	}
 
 	private readonly record struct ShelfStack(string ItemId, string Name, string? IconPath, int Quantity);

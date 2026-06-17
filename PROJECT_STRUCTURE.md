@@ -1,6 +1,6 @@
 # Project Structure
 
-This project targets **Godot 4.4 + C# (.NET 8)**.
+This project targets **Godot 4.4.1 + C# (.NET 8)**.
 
 ## Top-Level Layout
 
@@ -10,8 +10,11 @@ This project targets **Godot 4.4 + C# (.NET 8)**.
 - `Scenes/`: Scene files grouped by feature (currently `Scenes/UI`).
 - `Scripts/`: Runtime C# code split by responsibilities.
 - `Data/`: Authored gameplay content resources (`.tres`).
-- `Assets/`: Source art assets (SVG + Godot import metadata).
+- `Assets/`: Runtime art/audio/font/UI assets and Godot import metadata.
+- `ReferenceArt/`: Ignored-by-Godot concept art, prompts, mockups, and source-generation material.
+- `art/`: Legacy/mockup art still referenced by some scenes and tests.
 - `tests/`: Isolated .NET test harnesses.
+- `tmp/`: Ignored local scratch/generated files.
 
 ## Scripts Layout
 
@@ -47,6 +50,9 @@ Do not keep in version control:
 - `obj/`
 - `.vs/`
 - temporary caches/logs
+- `tmp/`
+
+Reference-only assets should live under `ReferenceArt/`, which contains a `.gdignore` file so Godot does not import it as game content.
 
 ## Maintenance
 

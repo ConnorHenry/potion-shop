@@ -36,4 +36,4 @@ project/assembly_name="OccultShop"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/imgui-godot/plugin.cfg")
+enabled=PackedStringArray("res://addons/imgui-godot/plugin.cfg", "res://addons/inventory_slot_layout_editor/plugin.cfg")

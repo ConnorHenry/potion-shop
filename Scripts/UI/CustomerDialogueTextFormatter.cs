@@ -470,7 +470,7 @@ public static class CustomerDialogueTextFormatter
 		return $"[color={colorHex}]{label}[/color] {EscapeBbCodeText(text)}";
 	}
 
-	private static string FormatSpeakerName(string speaker)
+	public static string FormatSpeakerName(string speaker)
 	{
 		var safeSpeaker = EscapeBbCodeText(speaker);
 		var colorHex = GetSpeakerColorHex(speaker);

@@ -1,0 +1,95 @@
+[gd_resource type="Resource" script_class="InventorySlotLayoutSettings" load_steps=7 format=3 uid="uid://1hc6u8lkeonc"]
+
+[ext_resource type="Script" uid="uid://dahcvwbo2xvw4" path="res://Scripts/UI/InventorySlotLayoutSettings.cs" id="1_settings"]
+[ext_resource type="Script" uid="uid://dlbj1pj6831n0" path="res://Scripts/UI/InventorySlotLayoutProfile.cs" id="2_profile"]
+
+[sub_resource type="Resource" id="Resource_consumable_shelf"]
+script = ExtResource("2_profile")
+SlotSize = Vector2(104, 160)
+ArtOffset = Vector2(0, 0)
+ArtSize = Vector2(0, 0)
+IconSizeRatio = 0.58
+IconCenterYRatio = 0.43
+NameFontSize = 14
+MinimumNameFontSize = 12
+QuantityFontSize = 14
+NameColor = Color(0.055, 0.026, 0.012, 1)
+QuantityColor = Color(0.13, 0.075, 0.032, 1)
+PreserveParentheticalSuffix = false
+SingleLineCharacterLimit = 12
+HideQuantityWhenOne = false
+UseReadableNamePlaque = false
+UseGeneratedLabelTexture = true
+GeneratedLabelRectRatio = Rect2(0, 0, 0, 0)
+GeneratedNameRectRatio = Rect2(0, 0, 0, 0)
+GeneratedQuantityRectRatio = Rect2(0, 0, 0, 0)
+
+[sub_resource type="Resource" id="Resource_customer_potion"]
+script = ExtResource("2_profile")
+SlotSize = Vector2(94, 132)
+ArtOffset = Vector2(0, 0)
+ArtSize = Vector2(0, 0)
+IconSizeRatio = 0.54
+IconCenterYRatio = 0.43
+NameFontSize = 8
+MinimumNameFontSize = 9
+QuantityFontSize = 10
+NameColor = Color(0.055, 0.026, 0.012, 1)
+QuantityColor = Color(0.13, 0.075, 0.032, 1)
+PreserveParentheticalSuffix = false
+SingleLineCharacterLimit = 12
+HideQuantityWhenOne = false
+UseReadableNamePlaque = false
+UseGeneratedLabelTexture = false
+GeneratedLabelRectRatio = Rect2(0, 0, 0, 0)
+GeneratedNameRectRatio = Rect2(0, 0, 0, 0)
+GeneratedQuantityRectRatio = Rect2(0, 0, 0, 0)
+
+[sub_resource type="Resource" id="Resource_ingredient_shelf"]
+script = ExtResource("2_profile")
+SlotSize = Vector2(116, 160)
+ArtOffset = Vector2(0, -4)
+ArtSize = Vector2(0, 0)
+IconSizeRatio = 0.62
+IconCenterYRatio = 0.43
+NameFontSize = 12
+MinimumNameFontSize = 9
+QuantityFontSize = 13
+NameColor = Color(0.055, 0.026, 0.012, 1)
+QuantityColor = Color(0.13, 0.075, 0.032, 1)
+PreserveParentheticalSuffix = true
+SingleLineCharacterLimit = 18
+HideQuantityWhenOne = false
+UseReadableNamePlaque = true
+UseGeneratedLabelTexture = true
+GeneratedLabelRectRatio = Rect2(0, 0, 0, 0)
+GeneratedNameRectRatio = Rect2(0.18, 0.653, 0.64, 0.16)
+GeneratedQuantityRectRatio = Rect2(0, 0, 0, 0)
+
+[sub_resource type="Resource" id="Resource_potion_inventory"]
+script = ExtResource("2_profile")
+SlotSize = Vector2(112, 168)
+ArtOffset = Vector2(0, 0)
+ArtSize = Vector2(0, 0)
+IconSizeRatio = 0.58
+IconCenterYRatio = 0.43
+NameFontSize = 12
+MinimumNameFontSize = 9
+QuantityFontSize = 16
+NameColor = Color(0.13, 0.075, 0.032, 1)
+QuantityColor = Color(0.13, 0.075, 0.032, 1)
+PreserveParentheticalSuffix = false
+SingleLineCharacterLimit = 10
+HideQuantityWhenOne = false
+UseReadableNamePlaque = true
+UseGeneratedLabelTexture = true
+GeneratedLabelRectRatio = Rect2(0.03, 0.634, 0.94, 0.34)
+GeneratedNameRectRatio = Rect2(0.08, 0.657, 0.84, 0.2)
+GeneratedQuantityRectRatio = Rect2(0.36, 0.858, 0.28, 0.17)
+
+[resource]
+script = ExtResource("1_settings")
+IngredientShelfSlot = SubResource("Resource_ingredient_shelf")
+ConsumableShelfSlot = SubResource("Resource_consumable_shelf")
+PotionInventorySlot = SubResource("Resource_potion_inventory")
+CustomerPotionSlot = SubResource("Resource_customer_potion")

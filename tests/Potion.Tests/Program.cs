@@ -13,6 +13,7 @@ static class Program
         GameStateTests.Register(runner);
         GardenTests.Register(runner);
         TutorialTests.Register(runner);
+        CoreSystemContractTests.Register(runner);
         SceneAndHudWiringTests.Register(runner);
 
         return runner.Finish();

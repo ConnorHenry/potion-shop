@@ -316,6 +316,7 @@ public partial class DataDb : Node
 				Text = ReadString(entry, "text"),
 				Lines = ParseCustomerDialogueLines(ReadArray(entry, "lines")),
 				CharacterImagePath = ReadNullableString(entry, "characterImagePath"),
+				CharacterImagePaths = ReadStringStringDictionary(entry, "characterImagePaths"),
 				Pool = ReadString(entry, "pool"),
 				Difficulty = Math.Max(1, ReadInt(entry, "difficulty", 1)),
 				StoryCharacterId = ReadString(entry, "storyCharacterId"),
@@ -453,7 +454,8 @@ public partial class DataDb : Node
 			lines.Add(new CustomerDialogueLineDef
 			{
 				Speaker = ReadString(entry, "speaker"),
-				Text = text
+				Text = text,
+				CharacterImageKey = ReadString(entry, "characterImageKey")
 			});
 		}
 
@@ -680,6 +682,28 @@ public partial class DataDb : Node
 				continue;
 
 			result[name] = amount;
+		}
+
+		return result;
+	}
+
+	private static Dictionary<string, string> ReadStringStringDictionary(Godot.Collections.Dictionary source, string key)
+	{
+		var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+		if (!source.ContainsKey(key))
+			return result;
+
+		if (!TryReadDictionary(source[key], out var dictionary))
+			return result;
+
+		foreach (var pair in dictionary)
+		{
+			var name = ReadVariantString(pair.Key).Trim();
+			var value = ReadVariantString(pair.Value).Trim();
+			if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(value))
+				continue;
+
+			result[name] = value;
 		}
 
 		return result;

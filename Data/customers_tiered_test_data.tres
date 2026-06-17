@@ -8,19 +8,25 @@ Entries = [
   {
     "id": "plot_bridget_visit_1",
     "title": "Bridget",
-    "text": "Bridget needs a potion that steadies her nerves and keeps her thoughts clear without sleepiness or taint.",
+    "text": "Bridget welcomes you to the village and recognizes that you carry The Knowledge.",
     "lines": [
       {
-        "text": "Bridget steps into the shop with a notebook pressed to her chest."
+        "text": "An old woman waits near the door, shawl pinned tight against the damp air.",
+        "characterImageKey": "happy"
       },
       {
         "speaker": "Bridget",
-        "text": "'My nerves are running ahead of me, and I need them brought to heel.'"
+        "text": "'You're the new one, then. Welcome to the village, my dear.'",
+        "characterImageKey": "happy"
       }
     ],
-    "characterImagePath": "res://art/Middleclass-Woman.png",
+    "characterImagePath": "res://Assets/Characters/old_rural_woman_sprite_happy.png",
+    "characterImagePaths": {
+      "happy": "res://Assets/Characters/old_rural_woman_sprite_happy.png",
+      "sad": "res://Assets/Characters/old_rural_woman_sprite_sad.png"
+    },
     "pool": "plot",
-    "difficulty": 2,
+    "difficulty": 1,
     "storyCharacterId": "bridget",
     "visitId": "visit_1",
     "dialogueStartNodeId": "intro",
@@ -28,138 +34,82 @@ Entries = [
       "dayMin": 1
     },
     "weight": 2,
-    "desiredTraits": {
-      "calm": { "min": 3, "max": 6 },
-      "clarity": { "min": 3, "max": 6 },
-      "cleanse": { "min": 2, "max": 5 }
-    },
-    "badTraits": {
-      "drowsiness": { "max": 0 },
-      "corruption": { "max": 0 }
-    },
-    "potionRefusedLines": [
-      {
-        "text": "Bridget closes her notebook with careful fingers."
-      },
-      {
-        "speaker": "Bridget",
-        "text": "'That's okay, dear. I knew it was a big ask.'"
-      }
-    ],
-    "onPotionRefusedEffects": [
-      {
-        "addStoryFlag": "bridget_refused_potion"
-      }
-    ],
-    "onSuccessEffects": [
-      {
-        "addStoryFlag": "bridget_helped"
-      }
-    ],
-    "onFailureEffects": [
-      {
-        "addStoryFlag": "bridget_given_bad_potion"
-      }
-    ],
-    "potionResponses": [
-      {
-        "id": "clean_success",
-        "success": true,
-        "minMatchedDesiredTraits": 2,
-        "maxMatchedBadTraits": 0,
-        "lines": [
-          {
-            "text": "Bridget holds the bottle against the lamplight and watches the liquid settle clear."
-          },
-          {
-            "speaker": "Bridget",
-            "text": "'Yes. Quiet enough for my hands, sharp enough for the page.'"
-          }
-        ]
-      },
-      {
-        "id": "risky_failure",
-        "success": false,
-        "lines": [
-          {
-            "text": "The mixture clings to the glass in slow, cloudy threads."
-          },
-          {
-            "speaker": "Bridget",
-            "text": "'No. This would slow me down or muddle the words. I cannot risk that.'"
-          }
-        ]
-      }
-    ],
+    "desiredTraits": {},
+    "badTraits": {},
     "dialogueNodes": [
       {
         "id": "intro",
         "lines": [
           {
-            "text": "Bridget lays the notebook on the counter, then keeps one hand over its cover."
+            "text": "She smiles as though she has known your family name longer than you have.",
+            "characterImageKey": "happy"
           },
           {
             "speaker": "Bridget",
-            "text": "'I was told you can settle a person without sending them to sleep.'"
+            "text": "'Bridget, that's me. If you need bread, gossip, or the name of a good thatcher, you come and find me.'",
+            "characterImageKey": "happy"
+          },
+          {
+            "text": "Her smile softens, and her eyes settle on your hands.",
+            "characterImageKey": "sad"
+          },
+          {
+            "speaker": "Bridget",
+            "text": "'And I know you have {i|The Knowledge}. In Ireland, that's what some call knowing the old properties of things: brewing, healing, and the uses hidden in leaf and root.'",
+            "characterImageKey": "sad"
           }
         ],
         "options": [
           {
-            "id": "intro_who_are_you",
-            "label": "Who are you?",
+            "id": "intro_ask_knowledge",
+            "label": "How did you know?",
             "responseLines": [
               {
-                "text": "She straightens as if the question has weight."
+                "text": "Bridget gives a small, knowing shrug.",
+                "characterImageKey": "happy"
               },
               {
                 "speaker": "Bridget",
-                "text": "'Bridget. I copy ledgers for people who dislike mistakes more than they dislike cruelty.'"
+                "text": "'You look at herbs the way a mason looks at stone. A body learns to notice.'",
+                "characterImageKey": "happy"
               }
             ],
             "nextNodeId": "hub"
           },
           {
-            "id": "intro_private_trouble",
-            "label": "What private trouble?",
+            "id": "intro_ask_village",
+            "label": "Tell me about the village.",
             "responseLines": [
               {
-                "text": "Her thumb traces the corner of the notebook."
+                "text": "She glances back toward the rain-slick lane.",
+                "characterImageKey": "happy"
               },
               {
                 "speaker": "Bridget",
-                "text": "'Numbers move when I look at them too long. Or I think they do, which is worse.'"
+                "text": "'Small enough to hear every kettle boil, large enough to keep secrets badly. You'll do fine if you listen before you answer.'",
+                "characterImageKey": "happy"
               }
             ],
             "nextNodeId": "hub"
           },
           {
-            "id": "intro_request",
-            "label": "What potion do you need?",
+            "id": "intro_accept",
+            "label": "Thank you, Bridget.",
             "responseLines": [
               {
-                "speaker": "Bridget",
-                "text": "'Calm and clarity, with enough cleansing to keep the work clean. No drowsiness, and nothing corrupting.'"
-              }
-            ],
-            "revealsRequest": true,
-            "returnNodeId": "hub"
-          },
-          {
-            "id": "intro_end",
-            "label": "Not tonight.",
-            "responseLines": [
-              {
-                "text": "Bridget gathers the notebook back to her chest."
+                "text": "Bridget pats your arm once, gentle but firm.",
+                "characterImageKey": "happy"
               },
               {
                 "speaker": "Bridget",
-                "text": "'Then I will try to keep my hand steady on my own.'"
+                "text": "'There's a welcome here for you. Mind you use that Knowledge kindly.'",
+                "characterImageKey": "happy"
               }
             ],
             "endsInteraction": true,
             "effects": [
               {
-                "addStoryFlag": "bridget_dismissed"
+                "addStoryFlag": "bridget_welcomed_player"
               }
             ]
           }
@@ -169,43 +119,47 @@ Entries = [
         "id": "hub",
         "lines": [
           {
-            "text": "Bridget opens the notebook only far enough to show columns of cramped figures."
+            "text": "Bridget waits, patient as a hearthstone.",
+            "characterImageKey": "happy"
           }
         ],
         "options": [
           {
-            "id": "hub_house",
-            "label": "Tell me about the office.",
+            "id": "hub_ask_knowledge",
+            "label": "What does The Knowledge mean?",
             "responseLines": [
               {
+                "text": "The warmth leaves Bridget's face for a moment.",
+                "characterImageKey": "sad"
+              },
+              {
                 "speaker": "Bridget",
-                "text": "'It is not a house, exactly. It is an office with too many locked drawers and not enough honest men.'"
+                "text": "'It means you know what helps, and what harms. Healing is part of it, but restraint is the greater part.'",
+                "characterImageKey": "sad"
               }
             ],
             "nextNodeId": "hub"
           },
           {
-            "id": "hub_request",
-            "label": "Tell me the potion again.",
+            "id": "hub_goodbye",
+            "label": "I'll remember that.",
             "responseLines": [
               {
-                "speaker": "Bridget",
-                "text": "'Calm, clarity, and a clean edge if you can manage it. Drowsiness and corruption would ruin everything.'"
-              }
-            ],
-            "revealsRequest": true,
-            "returnNodeId": "hub"
-          },
-          {
-            "id": "hub_leave",
-            "label": "That is all for now.",
-            "responseLines": [
+                "text": "Bridget's smile returns.",
+                "characterImageKey": "happy"
+              },
               {
                 "speaker": "Bridget",
-                "text": "'Then I will leave before I lose my nerve.'"
+                "text": "'Good. Then the village and yourself are off to a fair start.'",
+                "characterImageKey": "happy"
               }
             ],
-            "endsInteraction": true
+            "endsInteraction": true,
+            "effects": [
+              {
+                "addStoryFlag": "bridget_welcomed_player"
+              }
+            ]
           }
         ]
       }

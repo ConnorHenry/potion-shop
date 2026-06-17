@@ -121,6 +121,8 @@ public partial class ShopFloor : Control
 			_dayController.ShopStateChanged += UpdateBedroomEndDayHotspotState;
 			_dayController.ShopStateChanged += UpdateCustomerPresence;
 		}
+		if (_customerPanel is not null)
+			_customerPanel.CustomerImageChanged += OnCustomerImageChanged;
 
 		Callable.From(ApplyInitialPanelState).CallDeferred();
 		UpdateBedroomEndDayHotspotState();
@@ -148,6 +150,8 @@ public partial class ShopFloor : Control
 			_dayController.ShopStateChanged -= UpdateBedroomEndDayHotspotState;
 			_dayController.ShopStateChanged -= UpdateCustomerPresence;
 		}
+		if (_customerPanel is not null)
+			_customerPanel.CustomerImageChanged -= OnCustomerImageChanged;
 	}
 
 	private void ApplyInitialPanelState()
@@ -249,6 +253,14 @@ public partial class ShopFloor : Control
 
 		_customerCloseupCustomerImage.Texture = texture;
 		_customerCloseupCustomerImage.Visible = true;
+	}
+
+	private void OnCustomerImageChanged(string imagePath)
+	{
+		if (_customerCloseupView is null || !_customerCloseupView.Visible)
+			return;
+
+		RefreshCustomerCloseupImage();
 	}
 
 	private void SetFallbackCustomerCloseupImage()

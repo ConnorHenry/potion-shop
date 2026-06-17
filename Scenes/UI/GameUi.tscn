@@ -1,4 +1,4 @@
-[gd_scene load_steps=61 format=3 uid="uid://4hripc13we86"]
+[gd_scene load_steps=57 format=3 uid="uid://4hripc13we86"]
 
 [ext_resource type="Script" uid="uid://hkjdjmtp1abw" path="res://Scripts/UI/EventModal.cs" id="2_8y3f6"]
 [ext_resource type="Script" uid="uid://d0i82ek5gng47" path="res://Scripts/UI/CustomerPanel.cs" id="6_h1r0d"]
@@ -32,7 +32,7 @@
 [ext_resource type="Texture2D" uid="uid://8vnw7x6bqiyf" path="res://Assets/UI/scale_weight_5g.svg" id="39_weight_5g"]
 [ext_resource type="Texture2D" uid="uid://cpm5om610cwwu" path="res://Assets/UI/scale_weight_10g.svg" id="40_weight_10g"]
 [ext_resource type="PackedScene" uid="uid://dvn3xmx0rq7fp" path="res://Scenes/UI/IngredientBookPanel.tscn" id="41_ingredient_book"]
-[ext_resource type="Texture2D" uid="uid://dqrte4y4whylx" path="res://Assets/ConceptArt/Bedroom/rural_irish_bedroom_concept.png" id="42_bedroom"]
+[ext_resource type="Texture2D" uid="uid://dqrte4y4whylx" path="res://Assets/Backgrounds/rural_irish_bedroom.png" id="42_bedroom"]
 [ext_resource type="Script" uid="uid://b2ax8whg01r5p" path="res://Scripts/UI/PotionInventoryRow.cs" id="43_potion_row"]
 [ext_resource type="Script" uid="uid://dgsmk1i6kauvr" path="res://Scripts/UI/StationItemDetailPanel.cs" id="44_station_item_detail"]
 [ext_resource type="Script" uid="uid://cqd87y40qhdap" path="res://Scripts/UI/IngredientPreparationTray.cs" id="45_prep_tray"]
@@ -119,62 +119,6 @@ corner_radius_top_left = 8
 corner_radius_top_right = 8
 corner_radius_bottom_right = 8
 corner_radius_bottom_left = 8
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_brew_info_panel"]
-content_margin_left = 34.0
-content_margin_top = 34.0
-content_margin_right = 34.0
-content_margin_bottom = 34.0
-bg_color = Color(0.070588, 0.035294, 0.094118, 0.98)
-border_width_left = 10
-border_width_top = 10
-border_width_right = 10
-border_width_bottom = 10
-border_color = Color(0.070588, 0.035294, 0.094118, 1)
-corner_radius_top_left = 24
-corner_radius_top_right = 24
-corner_radius_bottom_right = 24
-corner_radius_bottom_left = 24
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_brew_paper_panel"]
-content_margin_left = 26.0
-content_margin_top = 26.0
-content_margin_right = 26.0
-content_margin_bottom = 26.0
-bg_color = Color(0.156863, 0.070588, 0.207843, 0.97)
-border_width_left = 5
-border_width_top = 5
-border_width_right = 5
-border_width_bottom = 5
-border_color = Color(0.427451, 0.121569, 0.168627, 0.95)
-corner_radius_top_left = 12
-corner_radius_top_right = 12
-corner_radius_bottom_right = 12
-corner_radius_bottom_left = 12
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_brew_clip"]
-bg_color = Color(0, 0, 0, 0)
-border_width_left = 5
-border_width_top = 5
-border_width_right = 5
-border_width_bottom = 5
-border_color = Color(0.070588, 0.035294, 0.094118, 1)
-corner_radius_top_left = 18
-corner_radius_top_right = 18
-corner_radius_bottom_right = 8
-corner_radius_bottom_left = 8
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_brew_pin"]
-bg_color = Color(0.541176, 0.384314, 0.196078, 1)
-border_width_left = 4
-border_width_top = 4
-border_width_right = 4
-border_width_bottom = 4
-border_color = Color(0.070588, 0.035294, 0.094118, 1)
-corner_radius_top_left = 20
-corner_radius_top_right = 20
-corner_radius_bottom_right = 20
-corner_radius_bottom_left = 20
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_brew_slot_marker"]
 content_margin_left = 8.0
@@ -605,6 +549,7 @@ expand_mode = 1
 stretch_mode = 5
 
 [node name="FireGlow" type="Control" parent="PotionBrewingStationView"]
+visible = false
 z_index = 2
 anchors_preset = 0
 offset_left = 873.0
@@ -1017,85 +962,6 @@ texture = ExtResource("48_brew_board_v2")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="Board" type="PanelContainer" parent="PotionBrewingStationView/BrewPanel/Panel"]
-visible = false
-layout_mode = 0
-offset_right = 1085.0
-offset_bottom = 1450.0
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_brew_info_panel")
-
-[node name="Paper" type="PanelContainer" parent="PotionBrewingStationView/BrewPanel/Panel"]
-visible = false
-layout_mode = 0
-offset_left = 56.0
-offset_top = 92.0
-offset_right = 1029.0
-offset_bottom = 1406.0
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_brew_paper_panel")
-
-[node name="Clip" type="PanelContainer" parent="PotionBrewingStationView/BrewPanel/Panel"]
-visible = false
-layout_mode = 0
-offset_left = 385.0
-offset_top = -8.0
-offset_right = 700.0
-offset_bottom = 116.0
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_brew_clip")
-
-[node name="ClipLoop" type="PanelContainer" parent="PotionBrewingStationView/BrewPanel/Panel"]
-visible = false
-custom_minimum_size = Vector2(72, 72)
-layout_mode = 0
-offset_left = 506.5
-offset_top = 10.0
-offset_right = 578.5
-offset_bottom = 82.0
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_brew_pin")
-
-[node name="PinTopLeft" type="PanelContainer" parent="PotionBrewingStationView/BrewPanel/Panel"]
-visible = false
-layout_mode = 0
-offset_left = 87.0
-offset_top = 118.0
-offset_right = 127.0
-offset_bottom = 158.0
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_brew_pin")
-
-[node name="PinTopRight" type="PanelContainer" parent="PotionBrewingStationView/BrewPanel/Panel"]
-visible = false
-layout_mode = 0
-offset_left = 958.0
-offset_top = 118.0
-offset_right = 998.0
-offset_bottom = 158.0
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_brew_pin")
-
-[node name="PinBottomLeft" type="PanelContainer" parent="PotionBrewingStationView/BrewPanel/Panel"]
-visible = false
-layout_mode = 0
-offset_left = 87.0
-offset_top = 1340.0
-offset_right = 127.0
-offset_bottom = 1380.0
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_brew_pin")
-
-[node name="PinBottomRight" type="PanelContainer" parent="PotionBrewingStationView/BrewPanel/Panel"]
-visible = false
-layout_mode = 0
-offset_left = 958.0
-offset_top = 1340.0
-offset_right = 998.0
-offset_bottom = 1380.0
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_brew_pin")
-
 [node name="Title" type="Label" parent="PotionBrewingStationView/BrewPanel/Panel"]
 layout_mode = 0
 offset_left = 145.0
@@ -1122,8 +988,10 @@ vertical_alignment = 1
 
 [node name="FormulaSlots" type="Control" parent="PotionBrewingStationView/BrewPanel/Panel"]
 anchors_preset = 0
-offset_right = 1085.0
-offset_bottom = 760.0
+offset_left = 15.4799
+offset_top = 12.9
+offset_right = 1100.48
+offset_bottom = 772.9
 mouse_filter = 2
 
 [node name="Marker1" type="PanelContainer" parent="PotionBrewingStationView/BrewPanel/Panel/FormulaSlots"]
@@ -1359,6 +1227,7 @@ theme_override_styles/panel = SubResource("StyleBoxFlat_bd6m8")
 script = ExtResource("10_odm4o")
 
 [node name="IngredientScales" type="Control" parent="PotionBrewingStationView"]
+visible = false
 anchors_preset = 0
 offset_left = 1227.0
 offset_top = 653.0

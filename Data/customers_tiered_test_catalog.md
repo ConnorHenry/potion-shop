@@ -31,7 +31,7 @@ For requests with three desired traits, the customer sale rules require at least
 
 | Customer ID | Desired Traits | Risk Limits | Notes |
 | --- | --- | --- | --- |
-| `plot_bridget_visit_1` | Calm, clarity, cleanse | No drowsiness or corruption | Plot customer with dialogue tree. |
+| `plot_bridget_visit_1` | None | None | Bridget welcome scene with happy/sad portrait keys. |
 | `plot_line_demo_visit_1` | Soothe, clarity, courage | No drowsiness, melancholy up to 1 | Plot customer with dialogue tree. |
 | `customer_requests_counterfeit_calm` | Calm, clarity, cleanse | No drowsiness or corruption | Multiple calm/clarity sources can solve it. |
 | `customer_requests_clean_blade_rinse` | Cleanse, soothe, clarity | No drowsiness or corruption | Cleanse can come from Mint or Thyme preps. |
