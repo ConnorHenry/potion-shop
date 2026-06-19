@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Godot;
 using OccultShop.Autoload;
 using OccultShop.Models;
@@ -7,6 +8,12 @@ namespace OccultShop.UI;
 
 public partial class StationItemDetailPanel : Control
 {
+	private const float DefaultPanelWidth = 350.0f;
+	private const float DefaultPanelHeight = 432.0f;
+	private const float CursorAnchorOffsetX = 28.0f;
+	private const float CursorAnchorOffsetY = 14.0f;
+	private const float CursorAnchorScreenPadding = 12.0f;
+
 	[Export] public NodePath IconPath = new("Panel/Margin/VBox/Header/Icon");
 	[Export] public NodePath NamePath = new("Panel/Margin/VBox/Header/NameBlock/Name");
 	[Export] public NodePath TypeTagPath = new("Panel/Margin/VBox/Header/NameBlock/Type");
@@ -24,8 +31,11 @@ public partial class StationItemDetailPanel : Control
 	private TextureRect _icon = default!;
 	private Label _name = default!;
 	private Label _typeTag = default!;
+	private Control? _meta;
 	private Label _owned = default!;
 	private Label _price = default!;
+	private GridContainer? _stats;
+	private Control? _traitsColumn;
 	private Label _traitsHeader = default!;
 	private RichTextLabel _traits = default!;
 	private Label _risksHeader = default!;
@@ -36,8 +46,184 @@ public partial class StationItemDetailPanel : Control
 	private ItemCatalogService _itemCatalog = default!;
 	private PotionInventoryBrewService _brewService = default!;
 	private string? _currentItemId;
+	private CustomerRequestDef? _comparisonRequest;
+	private PotionResult? _comparisonBrewResult;
+	private bool _showingCustomerComparison;
+	private Vector2? _customerComparisonFrameSize;
 	private bool _dragging;
 	private Vector2 _dragOffset;
+
+	public static StationItemDetailPanel CreateDefaultPanel(string name, Theme? theme)
+	{
+		var detailPanel = new StationItemDetailPanel
+		{
+			Name = name,
+			Visible = false,
+			ZIndex = 1800,
+			CustomMinimumSize = new Vector2(DefaultPanelWidth, DefaultPanelHeight),
+			ClipContents = true,
+			MouseFilter = MouseFilterEnum.Stop
+		};
+		if (theme is not null)
+			detailPanel.Theme = theme;
+
+		var panel = new PanelContainer
+		{
+			Name = "Panel",
+			AnchorRight = 1.0f,
+			AnchorBottom = 1.0f,
+			GrowHorizontal = GrowDirection.Both,
+			GrowVertical = GrowDirection.Both,
+			ThemeTypeVariation = "BrewRoot"
+		};
+		detailPanel.AddChild(panel);
+
+		var margin = new MarginContainer { Name = "Margin" };
+		margin.AddThemeConstantOverride("margin_left", 16);
+		margin.AddThemeConstantOverride("margin_top", 14);
+		margin.AddThemeConstantOverride("margin_right", 16);
+		margin.AddThemeConstantOverride("margin_bottom", 14);
+		panel.AddChild(margin);
+
+		var vbox = new VBoxContainer { Name = "VBox" };
+		vbox.AddThemeConstantOverride("separation", 10);
+		margin.AddChild(vbox);
+
+		var header = new HBoxContainer { Name = "Header" };
+		header.AddThemeConstantOverride("separation", 12);
+		vbox.AddChild(header);
+
+		header.AddChild(new TextureRect
+		{
+			Name = "Icon",
+			CustomMinimumSize = new Vector2(72, 72),
+			MouseFilter = MouseFilterEnum.Ignore,
+			ExpandMode = TextureRect.ExpandModeEnum.FitWidthProportional,
+			StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered
+		});
+
+		var nameBlock = new VBoxContainer
+		{
+			Name = "NameBlock",
+			SizeFlagsHorizontal = SizeFlags.ExpandFill
+		};
+		nameBlock.AddThemeConstantOverride("separation", 4);
+		header.AddChild(nameBlock);
+
+		var nameLabel = new Label
+		{
+			Name = "Name",
+			Text = "Item",
+			AutowrapMode = TextServer.AutowrapMode.WordSmart
+		};
+		nameLabel.AddThemeFontSizeOverride("font_size", 21);
+		nameBlock.AddChild(nameLabel);
+
+		var typeLabel = new Label
+		{
+			Name = "Type",
+			Text = "Type"
+		};
+		typeLabel.AddThemeColorOverride("font_color", new Color(0.709804f, 0.541176f, 0.352941f, 1.0f));
+		typeLabel.AddThemeFontSizeOverride("font_size", 14);
+		nameBlock.AddChild(typeLabel);
+
+		var meta = new HBoxContainer { Name = "Meta" };
+		meta.AddThemeConstantOverride("separation", 12);
+		vbox.AddChild(meta);
+
+		var owned = new Label
+		{
+			Name = "Owned",
+			Text = "Owned: 0",
+			SizeFlagsHorizontal = SizeFlags.ExpandFill
+		};
+		owned.AddThemeFontSizeOverride("font_size", 15);
+		meta.AddChild(owned);
+
+		var price = new Label
+		{
+			Name = "Price",
+			Text = "Value: 0 gold",
+			HorizontalAlignment = HorizontalAlignment.Right,
+			SizeFlagsHorizontal = SizeFlags.ExpandFill
+		};
+		price.AddThemeFontSizeOverride("font_size", 15);
+		meta.AddChild(price);
+
+		var stats = new GridContainer
+		{
+			Name = "Stats",
+			Columns = 2
+		};
+		stats.AddThemeConstantOverride("h_separation", 14);
+		vbox.AddChild(stats);
+
+		stats.AddChild(CreateStatsColumn("TraitsColumn", "TRAITS"));
+		stats.AddChild(CreateStatsColumn("RisksColumn", "RISKS"));
+
+		vbox.AddChild(new RichTextLabel
+		{
+			Name = "Description",
+			CustomMinimumSize = new Vector2(0, 118),
+			SizeFlagsVertical = SizeFlags.ExpandFill,
+			FitContent = true
+		});
+
+		var actions = new HBoxContainer
+		{
+			Name = "Actions",
+			Alignment = BoxContainer.AlignmentMode.End
+		};
+		vbox.AddChild(actions);
+
+		actions.AddChild(new Button
+		{
+			Name = "Close",
+			Text = "Close",
+			CustomMinimumSize = new Vector2(86, 34)
+		});
+
+		return detailPanel;
+	}
+
+	private static VBoxContainer CreateStatsColumn(string name, string headerText)
+	{
+		var column = new VBoxContainer
+		{
+			Name = name,
+			SizeFlagsHorizontal = SizeFlags.ExpandFill
+		};
+
+		var header = new Label
+		{
+			Name = "Header",
+			Text = headerText
+		};
+		header.AddThemeColorOverride("font_color", new Color(0.541176f, 0.384314f, 0.196078f, 1.0f));
+		header.AddThemeFontSizeOverride("font_size", 13);
+		column.AddChild(header);
+
+		column.AddChild(new RichTextLabel
+		{
+			Name = "Values",
+			CustomMinimumSize = new Vector2(0, 72),
+			FitContent = true
+		});
+
+		return column;
+	}
+
+	public void SetCustomerComparisonFrameSize(Vector2 size)
+	{
+		if (size.X <= 0.0f || size.Y <= 0.0f)
+			return;
+
+		_customerComparisonFrameSize = size;
+		ClipContents = true;
+		CustomMinimumSize = Vector2.Zero;
+		Size = size;
+	}
 
 	public override void _Ready()
 	{
@@ -61,9 +247,12 @@ public partial class StationItemDetailPanel : Control
 		_icon = GetNode<TextureRect>(IconPath);
 		_name = GetNode<Label>(NamePath);
 		_typeTag = GetNode<Label>(TypeTagPath);
+		_meta = GetNodeOrNull<Control>("Panel/Margin/VBox/Meta");
 		_owned = GetNode<Label>(OwnedPath);
 		_price = GetNode<Label>(PricePath);
 		_traitsHeader = GetNode<Label>(TraitsHeaderPath);
+		_stats = _traitsHeader.GetParent()?.GetParent() as GridContainer;
+		_traitsColumn = _traitsHeader.GetParent() as Control;
 		_traits = GetNode<RichTextLabel>(TraitsPath);
 		_risksHeader = GetNode<Label>(RisksHeaderPath);
 		_risks = GetNode<RichTextLabel>(RisksPath);
@@ -133,7 +322,9 @@ public partial class StationItemDetailPanel : Control
 		if (string.IsNullOrWhiteSpace(itemId))
 			return;
 
-		if (Visible && string.Equals(_currentItemId, itemId, System.StringComparison.OrdinalIgnoreCase))
+		if (Visible &&
+			!_showingCustomerComparison &&
+			string.Equals(_currentItemId, itemId, System.StringComparison.OrdinalIgnoreCase))
 		{
 			HidePanel();
 			return;
@@ -146,7 +337,84 @@ public partial class StationItemDetailPanel : Control
 		}
 
 		_currentItemId = itemId;
+		ClearCustomerComparison();
 		RefreshCurrentItemDetail();
+		Visible = true;
+		MoveToFront();
+	}
+
+	public void PositionNearGlobalPoint(Vector2 globalPoint)
+	{
+		var panelSize = ResolvePanelSizeForPositioning();
+		if (panelSize.X <= 0.0f || panelSize.Y <= 0.0f)
+			return;
+
+		Size = panelSize;
+
+		var viewport = GetViewport();
+		if (viewport is null)
+			return;
+
+		var viewportSize = viewport.GetVisibleRect().Size;
+		var position = globalPoint + new Vector2(CursorAnchorOffsetX, CursorAnchorOffsetY);
+		if (position.X + panelSize.X + CursorAnchorScreenPadding > viewportSize.X)
+			position.X = globalPoint.X - panelSize.X - CursorAnchorOffsetX;
+		if (position.Y + panelSize.Y + CursorAnchorScreenPadding > viewportSize.Y)
+			position.Y = globalPoint.Y - panelSize.Y - CursorAnchorOffsetY;
+
+		position.X = Mathf.Clamp(
+			position.X,
+			CursorAnchorScreenPadding,
+			Mathf.Max(CursorAnchorScreenPadding, viewportSize.X - panelSize.X - CursorAnchorScreenPadding));
+		position.Y = Mathf.Clamp(
+			position.Y,
+			CursorAnchorScreenPadding,
+			Mathf.Max(CursorAnchorScreenPadding, viewportSize.Y - panelSize.Y - CursorAnchorScreenPadding));
+
+		GlobalPosition = position;
+	}
+
+	public void ShowCustomerPotionComparison(
+		string itemId,
+		CustomerRequestDef request,
+		PotionResult brewResult)
+	{
+		if (string.IsNullOrWhiteSpace(itemId))
+			return;
+
+		if (request is null)
+		{
+			GD.PushError("StationItemDetailPanel: Cannot compare potion because no customer request was provided.");
+			return;
+		}
+
+		if (brewResult is null)
+		{
+			GD.PushError("StationItemDetailPanel: Cannot compare potion because no potion result was provided.");
+			return;
+		}
+
+		if (Visible &&
+			_showingCustomerComparison &&
+			string.Equals(_currentItemId, itemId, System.StringComparison.OrdinalIgnoreCase))
+		{
+			HidePanel();
+			return;
+		}
+
+		if (_itemCatalog is null || !_itemCatalog.TryGetItem(itemId, out _))
+		{
+			GD.PushError($"StationItemDetailPanel: Item '{itemId}' was not found in the item catalog.");
+			return;
+		}
+
+		_currentItemId = itemId;
+		_comparisonRequest = request;
+		_comparisonBrewResult = brewResult;
+		_showingCustomerComparison = true;
+		ApplyCustomerComparisonFrameSize();
+		RefreshCurrentItemDetail();
+		ApplyCustomerComparisonFrameSize();
 		Visible = true;
 		MoveToFront();
 	}
@@ -155,6 +423,7 @@ public partial class StationItemDetailPanel : Control
 	{
 		_dragging = false;
 		_currentItemId = null;
+		ClearCustomerComparison();
 		ClearPanel();
 		Visible = false;
 	}
@@ -194,6 +463,13 @@ public partial class StationItemDetailPanel : Control
 		SetItemTypeTag(item);
 		_owned.Text = $"Owned: {_gameState.Inventory.GetValueOrDefault(_currentItemId)}";
 		_price.Text = $"Value: {GetItemPrice(_currentItemId, item)} gold";
+		SetCustomerComparisonLayout(false);
+
+		if (_showingCustomerComparison)
+		{
+			RefreshCustomerPotionComparison(item);
+			return;
+		}
 
 		if (_itemCatalog.IsConsumable(_currentItemId))
 		{
@@ -221,6 +497,110 @@ public partial class StationItemDetailPanel : Control
 		}
 
 		SetDescriptionText(BuildDescription(_currentItemId, item));
+	}
+
+	private void RefreshCustomerPotionComparison(ItemDef item)
+	{
+		if (string.IsNullOrWhiteSpace(_currentItemId))
+			return;
+
+		if (_comparisonRequest is null || _comparisonBrewResult is null)
+		{
+			GD.PushError("StationItemDetailPanel: Customer potion comparison state is incomplete.");
+			HidePanel();
+			return;
+		}
+
+		if (!_itemCatalog.IsPotion(_currentItemId))
+		{
+			GD.PushError($"StationItemDetailPanel: Item '{_currentItemId}' is not a potion and cannot be compared to a customer request.");
+			HidePanel();
+			return;
+		}
+
+		SetCustomerComparisonLayout(true);
+		_name.Text = DisplayName(_currentItemId, item.Name);
+		_traitsHeader.Text = "POTION";
+		_risksHeader.Text = "REQUEST FIT";
+		_traits.Text = "";
+		_risks.Text = CustomerDialogueTextFormatter.BuildCustomerPotionRequestComparisonText(
+			_comparisonRequest,
+			_comparisonBrewResult.Traits,
+			_comparisonBrewResult.Risks,
+			GetPotionIngredientPortions(_currentItemId));
+		SetDescriptionText(string.Empty);
+	}
+
+	private IReadOnlyList<IngredientPortionDef>? GetPotionIngredientPortions(string itemId)
+	{
+		return _gameState.TryPeekPotionIngredientPortionBatch(itemId, out var ingredientPortions)
+			? ingredientPortions
+			: null;
+	}
+
+	private void SetCustomerComparisonLayout(bool active)
+	{
+		if (active)
+			ApplyCustomerComparisonFrameSize();
+		else
+			CustomMinimumSize = new Vector2(DefaultPanelWidth, DefaultPanelHeight);
+
+		if (_icon is not null)
+			_icon.Visible = !active;
+
+		if (_name is not null)
+		{
+			_name.AutowrapMode = active
+				? TextServer.AutowrapMode.Off
+				: TextServer.AutowrapMode.WordSmart;
+			_name.ClipText = active;
+		}
+
+		if (_traitsColumn is not null)
+			_traitsColumn.Visible = !active;
+
+		if (_meta is not null)
+			_meta.Visible = !active;
+
+		if (_stats is not null)
+			_stats.Columns = active ? 1 : 2;
+
+		if (_description is not null)
+			_description.CustomMinimumSize = active
+				? new Vector2(0, 58)
+				: new Vector2(0, 118);
+	}
+
+	private void ApplyCustomerComparisonFrameSize()
+	{
+		if (_customerComparisonFrameSize is not Vector2 size)
+			return;
+
+		CustomMinimumSize = Vector2.Zero;
+		Size = size;
+		ClipContents = true;
+	}
+
+	private void ClearCustomerComparison()
+	{
+		_comparisonRequest = null;
+		_comparisonBrewResult = null;
+		_showingCustomerComparison = false;
+	}
+
+	private Vector2 ResolvePanelSizeForPositioning()
+	{
+		var panelSize = Size;
+		if (panelSize.X <= 0.0f || panelSize.Y <= 0.0f)
+			panelSize = GetCombinedMinimumSize();
+		if (panelSize.X <= 0.0f || panelSize.Y <= 0.0f)
+			panelSize = CustomMinimumSize;
+		if (panelSize.X <= 0.0f)
+			panelSize.X = DefaultPanelWidth;
+		if (panelSize.Y <= 0.0f)
+			panelSize.Y = DefaultPanelHeight;
+
+		return panelSize;
 	}
 
 	private void SetItemTypeTag(ItemDef item)

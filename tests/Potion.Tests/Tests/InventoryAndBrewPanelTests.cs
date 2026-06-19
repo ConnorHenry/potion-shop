@@ -160,12 +160,19 @@ internal static class InventoryAndBrewPanelTests
             source.Contains("var potionDisplayName = GetPreviewPotionName(combinationKey);"));
         AssertTrue("BrewPanel regenerates preview names from the combination key",
             source.Contains("GetPreviewPotionName(string combinationKey)"));
-        AssertTrue("BrewPanel scene uses the generated board art instead of the old potion preview board texture",
+        AssertTrue("BrewPanel scene uses simple shape art instead of generated brew panel textures",
             !scene.Contains("path=\"res://art/Potion-Preview-Board.png\"") &&
-            scene.Contains("path=\"res://Assets/UI/brew_preview_panel_board_v2.png\"") &&
-            scene.Contains("[node name=\"BoardArt\" type=\"TextureRect\" parent=\"PotionBrewingStationView/BrewPanel/Panel\"]") &&
-            scene.Contains("texture = ExtResource(\"48_brew_board_v2\")") &&
-            scene.Contains("[node name=\"Marker1\" type=\"PanelContainer\" parent=\"PotionBrewingStationView/BrewPanel/Panel/FormulaSlots\"]"));
+            !scene.Contains("path=\"res://Assets/UI/brew_preview_panel_board_v2.png\"") &&
+            !scene.Contains("brew_preview_button_overlay_") &&
+            !scene.Contains("StyleBoxTexture_brew_button") &&
+            !scene.Contains("[node name=\"BoardArt\" type=\"TextureRect\" parent=\"PotionBrewingStationView/BrewPanel/Panel\"]") &&
+            scene.Contains("[node name=\"Background\" type=\"PanelContainer\" parent=\"PotionBrewingStationView/BrewPanel/Panel\"]") &&
+            scene.Contains("custom_minimum_size = Vector2(770, 340)") &&
+            scene.Contains("offset_left = -350.0") &&
+            scene.Contains("offset_right = 420.0") &&
+            scene.Contains("theme_override_styles/panel = SubResource(\"StyleBoxFlat_brew_panel_band\")") &&
+            scene.Contains("[node name=\"Marker1\" type=\"PanelContainer\" parent=\"PotionBrewingStationView/BrewPanel/Panel/FormulaSlots\"]") &&
+            scene.Contains("theme_type_variation = &\"BrewActionButton\""));
         AssertTrue("BrewPanel scene labels the brew button like the mockup",
             scene.Contains("text = \"Brew\""));
         AssertTrue("BrewPanel scene labels the clear button like the mockup",
@@ -186,23 +193,37 @@ internal static class InventoryAndBrewPanelTests
         var scene = ReadProjectFile("Scenes/UI/GameUi.tscn");
         AssertTrue("BrewPanel clears request checklist preview for an empty queue",
             source.Contains("if (ingredientCount == 0)") &&
-            source.Contains("RefreshRequestChecklist(null);"));
+            source.Contains("RefreshRequestChecklist(null);") &&
+            source.Contains("RefreshBrewTraitRiskPreview(null, showCarriedRisks: false);"));
         AssertTrue("BrewPanel calculates a live preview for request checklist matching",
             source.Contains("var previewResult = _brewingService.PreviewPotion(") &&
             source.Contains("knownStatsOnly: true") &&
             source.Contains("ingredient.Traits.Clear();") &&
             source.Contains("ingredient.Risks.Clear();") &&
             source.Contains("ingredient.IngredientEffects.Clear();") &&
-            source.Contains("RefreshRequestChecklist(previewResult);"));
-        AssertTrue("BrewPanel scene removes the requested current brew information fields",
+            source.Contains("RefreshRequestChecklist(previewResult);") &&
+            source.Contains("RefreshBrewTraitRiskPreview(previewResult, showCarriedRisks: false);"));
+        AssertTrue("BrewPanel renders current brew traits and carried risks in the enlarged panel",
+            source.Contains("PreviewTraitsLabelPath") &&
+            source.Contains("PreviewRisksLabelPath") &&
+            source.Contains("_previewTraitsLabel = GetNode<Label>(PreviewTraitsLabelPath);") &&
+            source.Contains("_previewRisksLabel = GetNode<Label>(PreviewRisksLabelPath);") &&
+            scene.Contains("PreviewTraitsLabelPath = NodePath(\"Panel/PreviewStats/TraitsPanel/Content/Lines\")") &&
+            scene.Contains("PreviewRisksLabelPath = NodePath(\"Panel/PreviewStats/RisksPanel/Content/Lines\")") &&
+            scene.Contains("[node name=\"PreviewStats\" type=\"Control\" parent=\"PotionBrewingStationView/BrewPanel/Panel\"]") &&
+            scene.Contains("[node name=\"TraitsPanel\" type=\"PanelContainer\" parent=\"PotionBrewingStationView/BrewPanel/Panel/PreviewStats\"]") &&
+            scene.Contains("[node name=\"RisksPanel\" type=\"PanelContainer\" parent=\"PotionBrewingStationView/BrewPanel/Panel/PreviewStats\"]"));
+        AssertTrue("BrewPanel keeps old removed preview fields absent",
             !scene.Contains("[node name=\"CurrentBrew\" type=\"Control\" parent=\"PotionBrewingStationView/BrewPanel/Panel\"]") &&
             !scene.Contains("[node name=\"KnownProperties\" type=\"Control\" parent=\"PotionBrewingStationView/BrewPanel/Panel\"]") &&
             !scene.Contains("[node name=\"KnownDangers\" type=\"Control\" parent=\"PotionBrewingStationView/BrewPanel/Panel\"]") &&
             !scene.Contains("[node name=\"Instability\" type=\"Control\" parent=\"PotionBrewingStationView/BrewPanel/Panel\"]") &&
             !scene.Contains("[node name=\"EstimatedValue\" type=\"Control\" parent=\"PotionBrewingStationView/BrewPanel/Panel\"]"));
-        AssertTrue("BrewPanel no longer renders removed live preview fields",
-            !source.Contains("BuildStatListText(previewResult.Traits, 3)") &&
-            !source.Contains("BuildRiskChanceListText(previewResult.PossibleRisks, 2)") &&
+        AssertTrue("BrewPanel displays only final carried risks instead of possible risk chances",
+            source.Contains("BrewPanelTextFormatter.BuildStatListText(previewResult.Traits, PreviewTraitLineCount)") &&
+            source.Contains("BrewPanelTextFormatter.BuildCarriedRiskListText(previewResult.Risks, PreviewRiskLineCount)") &&
+            source.Contains("RefreshBrewTraitRiskPreview(brewResult, showCarriedRisks: true);") &&
+            !source.Contains("BuildRiskChanceListText(previewResult.PossibleRisks") &&
             !source.Contains("BuildPreviewEffectText(previewResult)"));
     }
 
@@ -222,11 +243,12 @@ internal static class InventoryAndBrewPanelTests
             source.Contains("_gameState.ActiveCustomerRequest") &&
             source.Contains("previewResult?.PossibleRisks") &&
             source.Contains("_queuedIngredients"));
-        AssertTrue("BrewPanel scene places the request fit checklist on the preview board",
+        AssertTrue("BrewPanel scene keeps the request checklist binding hidden from the focused current brew panel",
             scene.Contains("RequestChecklistLabelPath = NodePath(\"Panel/RequestChecklist/Lines\")") &&
             scene.Contains("[node name=\"RequestChecklist\" type=\"Control\" parent=\"PotionBrewingStationView/BrewPanel/Panel\"]") &&
             scene.Contains("[node name=\"Lines\" type=\"RichTextLabel\" parent=\"PotionBrewingStationView/BrewPanel/Panel/RequestChecklist\"]") &&
-            scene.Contains("text = \"Requested Fit\""));
+            scene.Contains("visible = false") &&
+            !scene.Contains("text = \"Requested Fit\""));
         AssertTrue("Customer request formatter exposes brewing checklist output",
             formatter.Contains("BuildBrewingRequestChecklistText") &&
             formatter.Contains("AddDesiredTraitChecklistLines") &&
@@ -297,6 +319,19 @@ internal static class InventoryAndBrewPanelTests
             checklist.Contains("[color=#E64040]![/color] vigor 3 / <= 1"));
         AssertTrue("Checklist marks exact prepared ingredient requirements as satisfied",
             checklist.Contains("[color=#59D959]OK[/color] mint: Raw prep, 5g"));
+
+        var customerComparison = CustomerDialogueTextFormatter.BuildCustomerPotionRequestComparisonText(
+            request,
+            producedTraits,
+            possibleRisks,
+            queuedIngredients);
+
+        AssertTrue("Customer potion comparison uses green or red binary match text",
+            customerComparison.Contains("[color=#E64040]No match[/color] sleep 2 / >= 3") &&
+            customerComparison.Contains("[color=#59D959]Match[/color] calm 2 / >= 2") &&
+            customerComparison.Contains("[color=#E64040]No match[/color] insomnia 1 / <= 0") &&
+            customerComparison.Contains("[color=#E64040]No match[/color] vigor 3 / <= 1") &&
+            customerComparison.Contains("[color=#59D959]Match[/color] mint: Raw prep, 5g"));
     }
 
     private static void TestPotionInventoryCap()
@@ -467,6 +502,7 @@ internal static class InventoryAndBrewPanelTests
     private static void TestIngredientPreparationTrayPreviewWiring()
     {
         var tray = ReadProjectFile("Scripts/UI/IngredientPreparationTray.cs");
+        var stationShelf = ReadProjectFile("Scripts/UI/StationShelfInventory.cs");
         var scene = ReadProjectFile("Scenes/UI/GameUi.tscn");
 
         AssertTrue("IngredientPreparationTray builds prep button columns with preview labels",
@@ -492,6 +528,9 @@ internal static class InventoryAndBrewPanelTests
             tray.Contains("ReserveSelectedIngredient(itemId)") &&
             tray.Contains("ReturnSelectedIngredient()") &&
             tray.Contains("_gameState.AddItem(_selectedIngredientId, 1)"));
+        AssertTrue("Station shelf ingredient slots advertise the right-click prep action",
+            stationShelf.Contains("PrepTooltipText = \"Right click to prep\"") &&
+            stationShelf.Contains("TooltipText = connectIngredientRequest ? PrepTooltipText : stack.Name"));
         AssertTrue("IngredientPreparationTray formats both trait and risk preview lines",
             tray.Contains("InventoryItemTextFormatter.DisplayStatName(trait.Key)") &&
             tray.Contains("InventoryItemTextFormatter.DisplayStatName(risk.Key)") &&
@@ -500,7 +539,7 @@ internal static class InventoryAndBrewPanelTests
             !tray.Contains("Risk: {"));
         AssertTrue("Game UI reserves room for preparation preview labels under buttons",
             scene.Contains("custom_minimum_size = Vector2(430, 330)") &&
-            scene.Contains("offset_bottom = 1117.0") &&
+            scene.Contains("offset_bottom = 1147.0") &&
             scene.Contains("[node name=\"PreparationMethods\" type=\"HBoxContainer\" parent=\"PotionBrewingStationView/IngredientPreparationTray\"]"));
     }
 

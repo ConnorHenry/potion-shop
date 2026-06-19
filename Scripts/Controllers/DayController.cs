@@ -13,6 +13,7 @@ public partial class DayController : Node
 	[Export] public NodePath EventControllerPath = default!;
 	[Export] public NodePath CustomerEventControllerPath = default!;
 	[Export] public NodePath CustomerPanelPath = default!;
+	[Export] public NodePath StationCustomerPanelPath = default!;
 	[Export] public NodePath BrewPanelPath = default!;
 	[Export] public NodePath DaySummaryPanelPath = default!;
 	[Export] public NodePath DataDbPath = new(AutoloadNodePaths.DataDb);
@@ -22,6 +23,7 @@ public partial class DayController : Node
 	private EventController _eventController = default!;
 	private CustomerEventController _customerEventController = default!;
 	private UI.CustomerPanel _customerPanel = default!;
+	private UI.StationCustomerPanel _stationCustomerPanel = default!;
 	private UI.BrewPanel _brewPanel = default!;
 	private UI.DaySummaryPanel _daySummaryPanel = default!;
 	private readonly ShopDayStats _shopDayStats = new();
@@ -42,6 +44,7 @@ public partial class DayController : Node
 		_eventController = GetNode<EventController>(EventControllerPath);
 		_customerEventController = GetNode<CustomerEventController>(CustomerEventControllerPath);
 		_customerPanel = GetNode<UI.CustomerPanel>(CustomerPanelPath);
+		_stationCustomerPanel = GetNode<UI.StationCustomerPanel>(StationCustomerPanelPath);
 		_brewPanel = GetNode<UI.BrewPanel>(BrewPanelPath);
 		_daySummaryPanel = GetNode<UI.DaySummaryPanel>(DaySummaryPanelPath);
 		var dataDb = GetNodeOrNull<DataDb>(DataDbPath);
@@ -65,6 +68,10 @@ public partial class DayController : Node
 		_customerPanel.SaleResultClosed += OnCustomerSaleResultClosed;
 		_customerPanel.DialogueResolved += OnCustomerDialogueResolved;
 		_customerPanel.CustomerSkipped += OnCustomerSkipped;
+		_stationCustomerPanel.SaleResolved += OnStationCustomerSaleResolved;
+		_stationCustomerPanel.CustomerSkipped += OnStationCustomerSkipped;
+		_stationCustomerPanel.CustomerResolved += OnStationCustomerResolved;
+		_stationCustomerPanel.CustomerQueueEmptied += OnStationCustomerQueueEmptied;
 		_daySummaryPanel.ContinuePressed += OnSummaryContinuePressed;
 		_daySummaryPanel.HidePanel();
 		_customerPanel.SuppressSaleResultPanel = false;
@@ -82,6 +89,13 @@ public partial class DayController : Node
 			_customerPanel.SaleResultClosed -= OnCustomerSaleResultClosed;
 		if (_customerPanel != null)
 			_customerPanel.DialogueResolved -= OnCustomerDialogueResolved;
+		if (_stationCustomerPanel != null)
+		{
+			_stationCustomerPanel.SaleResolved -= OnStationCustomerSaleResolved;
+			_stationCustomerPanel.CustomerSkipped -= OnStationCustomerSkipped;
+			_stationCustomerPanel.CustomerResolved -= OnStationCustomerResolved;
+			_stationCustomerPanel.CustomerQueueEmptied -= OnStationCustomerQueueEmptied;
+		}
 		if (_daySummaryPanel != null)
 			_daySummaryPanel.ContinuePressed -= OnSummaryContinuePressed;
 	}
@@ -93,6 +107,7 @@ public partial class DayController : Node
 
 		_daySummaryPanel.HidePanel();
 		_customerPanel.HidePanel();
+		_stationCustomerPanel.ClearCustomers();
 		_customerPanel.SuppressSaleResultPanel = false;
 		_customerPanel.SetCloseShopMode(false);
 		_shopDayStats.Reset();
@@ -103,7 +118,7 @@ public partial class DayController : Node
 		EmitShopStateChanged();
 		_customerEventController.BeginShopDay();
 
-		if (!TryShowNextCustomer())
+		if (!TryShowQueuedCustomers())
 		{
 			CloseShopAndShowSummary();
 			return;
@@ -138,6 +153,7 @@ public partial class DayController : Node
 
 		_daySummaryPanel.HidePanel();
 		_customerPanel.HidePanel();
+		_stationCustomerPanel.ClearCustomers();
 		_brewPanel.HidePanel();
 
 		// Example of an escalating rule that modifies events.
@@ -183,6 +199,52 @@ public partial class DayController : Node
 
 		_awaitingSaleResultClose = true;
 		EmitShopStateChanged();
+	}
+
+	private void OnStationCustomerSaleResolved(bool success, int goldDelta, int dreadDelta, float finalScore, string grade)
+	{
+		if (!IsShopOpen)
+			return;
+
+		_shopDayStats.CustomersServed += 1;
+		_shopDayStats.GoldEarned += goldDelta;
+		_shopDayStats.DreadChange += dreadDelta;
+		if (success)
+			_shopDayStats.SuccessfulSales += 1;
+		else
+			_shopDayStats.FailedSales += 1;
+
+		EmitShopStateChanged();
+	}
+
+	private void OnStationCustomerSkipped()
+	{
+		if (!IsShopOpen)
+			return;
+
+		EmitShopStateChanged();
+	}
+
+	private void OnStationCustomerResolved()
+	{
+		if (!IsShopOpen)
+			return;
+
+		if (_closeShopAfterCurrentCustomer || !_stationCustomerPanel.HasQueuedCustomers)
+		{
+			CloseShopAndShowSummary();
+			return;
+		}
+
+		EmitShopStateChanged();
+	}
+
+	private void OnStationCustomerQueueEmptied()
+	{
+		if (!IsShopOpen)
+			return;
+
+		CloseShopAndShowSummary();
 	}
 
 	private void OnCustomerSaleResultClosed()
@@ -248,6 +310,34 @@ public partial class DayController : Node
 		return true;
 	}
 
+	private bool TryShowQueuedCustomers()
+	{
+		if (!IsShopOpen)
+			return false;
+
+		var customers = new System.Collections.Generic.List<OccultShop.Models.CustomerInteractionDef>();
+		while (_customersArrived < MaxCustomersPerShopDay)
+		{
+			var interaction = _customerEventController.DrawShopDayCustomerInteraction(_dataDb, _gameState);
+			if (interaction is null)
+				break;
+
+			customers.Add(interaction);
+			_customersArrived += 1;
+		}
+
+		if (customers.Count == 0)
+		{
+			_stationCustomerPanel.ClearCustomers();
+			return false;
+		}
+
+		_stationCustomerPanel.SetCustomers(customers);
+		_brewPanel.ShowPanel();
+		EmitShopStateChanged();
+		return true;
+	}
+
 	private void OnCustomerSkipped()
 	{
 		if (!IsShopOpen)
@@ -270,6 +360,7 @@ public partial class DayController : Node
 		_awaitingSaleResultClose = false;
 		_closeShopAfterCurrentCustomer = false;
 		_customerPanel.HidePanel();
+		_stationCustomerPanel.ClearCustomers();
 		_customerPanel.SuppressSaleResultPanel = false;
 		_customerPanel.SetCloseShopMode(false);
 		_brewPanel.HidePanel();

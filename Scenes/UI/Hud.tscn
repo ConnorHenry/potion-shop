@@ -78,6 +78,13 @@ size_flags_horizontal = 0
 theme_override_constants/separation = 10
 alignment = 2
 
+[node name="NextTrack" type="Button" parent="Content/Actions"]
+custom_minimum_size = Vector2(110, 34)
+layout_mode = 2
+tooltip_text = "Skip to next music track"
+theme_override_font_sizes/font_size = 18
+text = "Next track"
+
 [node name="ServeCustomer" type="Button" parent="Content/Actions"]
 custom_minimum_size = Vector2(120, 34)
 layout_mode = 2
@@ -174,6 +181,9 @@ layout_mode = 1
 anchors_preset = 5
 anchor_left = 0.5
 anchor_right = 0.5
+offset_top = 0.0
+offset_bottom = 520.0
+grow_horizontal = 2
 
 [node name="SettingsPanel" type="PanelContainer" parent="."]
 visible = false
@@ -224,7 +234,7 @@ anchor_right = 1.0
 offset_left = -380.0
 offset_top = 54.0
 offset_right = -16.0
-offset_bottom = 216.0
+offset_bottom = 292.0
 grow_horizontal = 0
 grow_vertical = 0
 
@@ -264,4 +274,30 @@ max_value = 1.0
 step = 0.01
 value = 0.7
 
+[node name="Music" type="CheckBox" parent="Settings/Margin/VBox"]
+layout_mode = 2
+text = "music"
+
+[node name="MusicVolumeRow" type="HBoxContainer" parent="Settings/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="MusicVolumeLabel" type="Label" parent="Settings/Margin/VBox/MusicVolumeRow"]
+custom_minimum_size = Vector2(112, 0)
+layout_mode = 2
+text = "Music volume"
+vertical_alignment = 1
+
+[node name="MusicVolume" type="HSlider" parent="Settings/Margin/VBox/MusicVolumeRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+max_value = 1.0
+step = 0.01
+value = 0.55
+
 [node name="AmbientRainPlayer" type="AudioStreamPlayer" parent="."]
+
+[node name="MusicPlayer" type="AudioStreamPlayer" parent="."]
+
+[node name="MusicFadeOutTimer" type="Timer" parent="."]
+one_shot = true

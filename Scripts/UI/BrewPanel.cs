@@ -28,6 +28,8 @@ public partial class BrewPanel : Control
 	private const float IngredientDropTargetBrewBoxHeightRatio = 0.68f;
 	private const float RightClickDropStartOffset = 120.0f;
 	private const float MinimumCursorDropDistance = 140.0f;
+	private const int PreviewTraitLineCount = 4;
+	private const int PreviewRiskLineCount = 4;
 
 	[Export] public NodePath BrewBoxPath = default!;
 	[Export] public NodePath IngredientSlotOnePath = default!;
@@ -40,6 +42,8 @@ public partial class BrewPanel : Control
 	[Export] public NodePath IngredientSlotTwoLabelPath = default!;
 	[Export] public NodePath IngredientSlotThreeLabelPath = default!;
 	[Export] public NodePath RequestChecklistLabelPath = default!;
+	[Export] public NodePath PreviewTraitsLabelPath = default!;
+	[Export] public NodePath PreviewRisksLabelPath = default!;
 	[Export] public NodePath BrewButtonPath = default!;
 	[Export] public NodePath ClearButtonPath = default!;
 	[Export] public NodePath RuntimeContentDbPath = new(AutoloadNodePaths.RuntimeContentDb);
@@ -62,6 +66,8 @@ public partial class BrewPanel : Control
 	private Label _ingredientSlotTwoLabel = default!;
 	private Label _ingredientSlotThreeLabel = default!;
 	private RichTextLabel _requestChecklistLabel = default!;
+	private Label _previewTraitsLabel = default!;
+	private Label _previewRisksLabel = default!;
 	private Button _brewButton = default!;
 	private Button _clearButton = default!;
 	private RuntimeContentDb _runtimeContentDb = default!;
@@ -134,6 +140,8 @@ public partial class BrewPanel : Control
 		_ingredientSlotTwoLabel = GetNode<Label>(IngredientSlotTwoLabelPath);
 		_ingredientSlotThreeLabel = GetNode<Label>(IngredientSlotThreeLabelPath);
 		_requestChecklistLabel = GetNode<RichTextLabel>(RequestChecklistLabelPath);
+		_previewTraitsLabel = GetNode<Label>(PreviewTraitsLabelPath);
+		_previewRisksLabel = GetNode<Label>(PreviewRisksLabelPath);
 		_brewButton = GetNode<Button>(BrewButtonPath);
 		_clearButton = GetNode<Button>(ClearButtonPath);
 		_cauldronSmokeEffect = GetNodeOrNull<CauldronSmokeEffect>(CauldronSmokeEffectPath);
@@ -152,6 +160,7 @@ public partial class BrewPanel : Control
 		_brewBox.ItemDroppedAt += TryQueueDroppedIngredient;
 		_brewButton.Pressed += TryBrew;
 		_clearButton.Pressed += ClearQueue;
+		_gameState.Changed += OnGameStateChanged;
 		_slotOneGuiInputHandler = @event => HandleIngredientSlotGuiInput(0, @event);
 		_slotTwoGuiInputHandler = @event => HandleIngredientSlotGuiInput(1, @event);
 		_slotThreeGuiInputHandler = @event => HandleIngredientSlotGuiInput(2, @event);
@@ -171,6 +180,8 @@ public partial class BrewPanel : Control
 			_brewButton.Pressed -= TryBrew;
 		if (_clearButton is not null)
 			_clearButton.Pressed -= ClearQueue;
+		if (_gameState is not null)
+			_gameState.Changed -= OnGameStateChanged;
 		if (_slotOneGuiInputHandler is not null)
 			_ingredientSlotOneContainer.GuiInput -= _slotOneGuiInputHandler;
 		if (_slotTwoGuiInputHandler is not null)
@@ -509,6 +520,11 @@ public partial class BrewPanel : Control
 		RefreshIngredientIcons();
 	}
 
+	private void OnGameStateChanged()
+	{
+		RefreshBrewPreview();
+	}
+
 	private void TryBrew()
 	{
 		if (_queuedIngredients.Count != 3)
@@ -618,6 +634,7 @@ public partial class BrewPanel : Control
 		_queuedIngredients.Clear();
 		ResetSlotDragState();
 		RefreshIngredientIcons();
+		RefreshBrewTraitRiskPreview(brewResult, showCarriedRisks: true);
 		ShowBrewFeedback(BrewPanelTextFormatter.BuildBrewResultToastText(
 			PotionDisplayName(potionItemId, DefaultItemName(potionItemId)),
 			brewResult));
@@ -720,12 +737,14 @@ public partial class BrewPanel : Control
 		if (ingredientCount == 0)
 		{
 			RefreshRequestChecklist(null);
+			RefreshBrewTraitRiskPreview(null, showCarriedRisks: false);
 			return;
 		}
 
 		if (!TryBuildIngredientDefs(_queuedIngredients, out var ingredientDefs, out _, knownStatsOnly: true))
 		{
 			RefreshRequestChecklist(null);
+			RefreshBrewTraitRiskPreview(null, showCarriedRisks: false);
 			return;
 		}
 
@@ -733,6 +752,7 @@ public partial class BrewPanel : Control
 			ingredientDefs,
 			null);
 		RefreshRequestChecklist(previewResult);
+		RefreshBrewTraitRiskPreview(previewResult, showCarriedRisks: false);
 	}
 
 	private void RefreshRequestChecklist(PotionResult? previewResult)
@@ -742,6 +762,17 @@ public partial class BrewPanel : Control
 			previewResult?.Traits,
 			previewResult?.PossibleRisks,
 			_queuedIngredients);
+	}
+
+	private void RefreshBrewTraitRiskPreview(PotionResult? previewResult, bool showCarriedRisks)
+	{
+		_previewTraitsLabel.Text = previewResult is null
+			? BrewPanelTextFormatter.BuildStatListText(new Dictionary<string, int>(), PreviewTraitLineCount)
+			: BrewPanelTextFormatter.BuildStatListText(previewResult.Traits, PreviewTraitLineCount);
+
+		_previewRisksLabel.Text = previewResult is null || !showCarriedRisks
+			? BrewPanelTextFormatter.BuildCarriedRiskListText(new Dictionary<string, int>(), PreviewRiskLineCount)
+			: BrewPanelTextFormatter.BuildCarriedRiskListText(previewResult.Risks, PreviewRiskLineCount);
 	}
 
 	private string GetPreviewPotionName(string combinationKey)

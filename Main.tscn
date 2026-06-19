@@ -28,6 +28,7 @@ EventModalPath = NodePath("../CanvasLayer/EventModal")
 EventControllerPath = NodePath("../EventController")
 CustomerEventControllerPath = NodePath("../CustomerEventController")
 CustomerPanelPath = NodePath("../CanvasLayer/CustomerPanel")
+StationCustomerPanelPath = NodePath("../CanvasLayer/PotionBrewingStationView/StationCustomerPanel")
 BrewPanelPath = NodePath("../CanvasLayer/PotionBrewingStationView/BrewPanel")
 DaySummaryPanelPath = NodePath("../CanvasLayer/DaySummaryPanel")
 

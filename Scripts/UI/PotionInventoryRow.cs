@@ -7,6 +7,9 @@ namespace OccultShop.UI;
 
 public partial class PotionInventoryRow : Control
 {
+	[Signal]
+	public delegate void PotionQuickServeRequestedEventHandler(string itemId);
+
 	private const float SlotWidth = 112.0f;
 	private const float SlotHeight = 168.0f;
 	private const int VisiblePotionSlots = GameState.MaxUniquePotionInventoryQuantity;
@@ -81,6 +84,24 @@ public partial class PotionInventoryRow : Control
 		Refresh();
 	}
 
+	public Control? GetVisiblePotionSlot(string itemId)
+	{
+		if (string.IsNullOrWhiteSpace(itemId) || _potionSlots is null)
+			return null;
+
+		foreach (var child in _potionSlots.GetChildren())
+		{
+			if (child is not InventoryItemSlot slot)
+				continue;
+			if (!slot.Visible || slot.Disabled)
+				continue;
+			if (string.Equals(slot.ItemId, itemId, System.StringComparison.OrdinalIgnoreCase))
+				return slot;
+		}
+
+		return null;
+	}
+
 	private List<PotionStack> BuildPotionStacks()
 	{
 		var stacks = new List<PotionStack>();
@@ -136,6 +157,7 @@ public partial class PotionInventoryRow : Control
 			new Color(0.22f, 0.17f, 0.12f, 0.22f),
 			cornerRadius: 6));
 		slot.SlotActivated += ShowItemDetail;
+		slot.IngredientRequested += OnPotionQuickServeRequested;
 
 		var hoverOutline = InventorySlotVisuals.CreateHoverOutline(
 			new Color(1.0f, 1.0f, 1.0f, 0.0f),
@@ -165,6 +187,11 @@ public partial class PotionInventoryRow : Control
 		return slot;
 	}
 
+	private void OnPotionQuickServeRequested(string itemId)
+	{
+		EmitSignal(SignalName.PotionQuickServeRequested, itemId);
+	}
+
 	private InventorySlotLayoutProfile GetPotionSlotProfile()
 	{
 		if (_slotLayoutSettings is null)
@@ -192,6 +219,8 @@ public partial class PotionInventoryRow : Control
 		}
 
 		_itemDetailPanel.ShowItem(itemId);
+		if (_itemDetailPanel.Visible)
+			_itemDetailPanel.PositionNearGlobalPoint(GetGlobalMousePosition());
 	}
 
 	private string DisplayName(string itemId, string fallbackName)

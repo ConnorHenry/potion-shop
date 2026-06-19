@@ -76,7 +76,6 @@ public partial class PersistentHud : CanvasLayer
 		if (_hud is not null)
 		{
 			_hud.Visible = false;
-			_hud.SetAmbientPlaybackAllowed(false);
 			_hud.HideSettingsPanel();
 			_hud.RefreshSceneBindings();
 		}
@@ -101,6 +100,15 @@ public partial class PersistentHud : CanvasLayer
 			return;
 
 		var currentScene = GetTree().CurrentScene;
+		if (currentScene is null)
+		{
+			_currentScene = null;
+			_hud.Visible = false;
+			_hud.HideSettingsPanel();
+			_hud.RefreshSceneBindings();
+			return;
+		}
+
 		_currentScene = currentScene;
 		_hud.RefreshSceneBindings();
 		var shouldShowHud = ShouldShowHud(currentScene);

@@ -20,13 +20,34 @@ public partial class Hud : Control
 	private const string AmbientSettingsSection = "audio";
 	private const string AmbientSoundsEnabledKey = "ambient_sounds_enabled";
 	private const string RainfallVolumeKey = "rainfall_volume";
+	private const string MusicEnabledKey = "music_enabled";
+	private const string MusicVolumeKey = "music_volume";
 	private const int RequestPanelZIndex = SettingsPanelZIndex;
 	private const float RequestPanelTopOffset = 54.0f;
 	private const float RequestPanelHorizontalMargin = 16.0f;
 	private const float RequestPanelFallbackWidth = 340.0f;
 	private const float RequestPanelMinimumHeight = 0.0f;
+	private const double MusicFadeSeconds = 5.0;
+	private const float SilentMusicVolumeDb = -80.0f;
 	private const bool DefaultAmbientSoundsEnabled = true;
 	private const double DefaultRainfallVolume = 0.7;
+	private const bool DefaultMusicEnabled = true;
+	private const double DefaultMusicVolume = 0.55;
+	private static readonly string[] SoundtrackAudioPaths =
+	[
+		"res://Assets/Audio/Music/almost_bliss.mp3",
+		"res://Assets/Audio/Music/healing.mp3",
+		"res://Assets/Audio/Music/silver_blue_light.mp3",
+		"res://Assets/Audio/Music/when_the_wind_blows.mp3",
+		"res://Assets/Audio/Music/windswept.mp3",
+	];
+
+	private enum MusicFadeState
+	{
+		None,
+		FadeIn,
+		FadeOut
+	}
 
 	[Export] public NodePath GoldLabelPath = new("Content/Status/Gold");
 	[Export] public NodePath DateButtonPath = new("Content/Status/Day");
@@ -52,6 +73,7 @@ public partial class Hud : Control
 	private Button _gardenButton = default!;
 	private Button _mapButton = default!;
 	private Button _settingsButton = default!;
+	private Button _nextTrackButton = default!;
 	private Button _returnToMainMenuButton = default!;
 	private Button _saveGameButton = default!;
 	private Button _openSettingsButton = default!;
@@ -59,6 +81,10 @@ public partial class Hud : Control
 	private CheckBox _ambientSoundsToggle = default!;
 	private HSlider _rainfallVolumeSlider = default!;
 	private AudioStreamPlayer _ambientRainPlayer = default!;
+	private CheckBox _musicToggle = default!;
+	private HSlider _musicVolumeSlider = default!;
+	private AudioStreamPlayer _musicPlayer = default!;
+	private Godot.Timer _musicFadeOutTimer = default!;
 	private Control _requestPanel = default!;
 	private RichTextLabel _requestDescription = default!;
 	private RichTextLabel _requestDesiredTraits = default!;
@@ -72,6 +98,13 @@ public partial class Hud : Control
 	private bool _ambientSoundsEnabled = DefaultAmbientSoundsEnabled;
 	private bool _ambientPlaybackAllowed;
 	private double _rainfallVolume = DefaultRainfallVolume;
+	private bool _musicEnabled = DefaultMusicEnabled;
+	private double _musicVolume = DefaultMusicVolume;
+	private readonly Random _soundtrackRandom = new();
+	private int[] _soundtrackOrder = [];
+	private int _soundtrackOrderIndex;
+	private Tween? _musicFadeTween;
+	private MusicFadeState _musicFadeState = MusicFadeState.None;
 
 	public override void _Ready()
 	{
@@ -84,6 +117,7 @@ public partial class Hud : Control
 		_gardenButton = GetNode<Button>(GardenButtonPath);
 		_mapButton = GetNode<Button>(MapButtonPath);
 		_settingsButton = GetNode<Button>(SettingsButtonPath);
+		_nextTrackButton = GetNode<Button>("Content/Actions/NextTrack");
 		_returnToMainMenuButton = GetNode<Button>("SettingsPanel/Margin/VBox/ReturnToMainMenu");
 		_saveGameButton = GetNode<Button>("SettingsPanel/Margin/VBox/SaveGame");
 		_openSettingsButton = GetNode<Button>("SettingsPanel/Margin/VBox/OpenSettings");
@@ -93,6 +127,10 @@ public partial class Hud : Control
 		_ambientSoundsToggle = GetNode<CheckBox>("Settings/Margin/VBox/AmbientSounds");
 		_rainfallVolumeSlider = GetNode<HSlider>("Settings/Margin/VBox/RainfallVolumeRow/RainfallVolume");
 		_ambientRainPlayer = GetNode<AudioStreamPlayer>("AmbientRainPlayer");
+		_musicToggle = GetNode<CheckBox>("Settings/Margin/VBox/Music");
+		_musicVolumeSlider = GetNode<HSlider>("Settings/Margin/VBox/MusicVolumeRow/MusicVolume");
+		_musicPlayer = GetNode<AudioStreamPlayer>("MusicPlayer");
+		_musicFadeOutTimer = GetNode<Godot.Timer>("MusicFadeOutTimer");
 		_requestPanel = GetNode<Control>(RequestPanelPath);
 		_requestDescription = GetNode<RichTextLabel>(RequestDescriptionLabelPath);
 		_requestDesiredTraits = GetNode<RichTextLabel>(RequestDesiredTraitsLabelPath);
@@ -113,9 +151,10 @@ public partial class Hud : Control
 		_requestDesiredTraits.BbcodeEnabled = true;
 		_requestBadTraits.BbcodeEnabled = true;
 		_calendarPanel.ZIndex = RequestPanelZIndex;
-		LoadAmbientSettings();
+		LoadAudioSettings();
 		ConfigureAmbientRainPlayer();
-		ApplyAmbientSettingsToControls();
+		ConfigureSoundtrackPlayer();
+		ApplyAudioSettingsToControls();
 		SetProcessInput(true);
 
 		_serveCustomerButton.Pressed += OnStartDayPressed;
@@ -124,13 +163,17 @@ public partial class Hud : Control
 		_gardenButton.Pressed += OnGardenPressed;
 		_mapButton.Pressed += OnMapPressed;
 		_settingsButton.Pressed += OnSettingsPressed;
+		_nextTrackButton.Pressed += OnNextTrackPressed;
 		_returnToMainMenuButton.Pressed += OnReturnToMainMenuPressed;
 		_saveGameButton.Pressed += OnSaveGamePressed;
 		_openSettingsButton.Pressed += OnOpenSettingsPressed;
 		_toggleDebugPanelButton.Pressed += OnToggleDebugPanelPressed;
 		_ambientSoundsToggle.Toggled += OnAmbientSoundsToggled;
 		_rainfallVolumeSlider.ValueChanged += OnRainfallVolumeChanged;
-		_ambientRainPlayer.Finished += OnAmbientRainFinished;
+		_musicToggle.Toggled += OnMusicToggled;
+		_musicVolumeSlider.ValueChanged += OnMusicVolumeChanged;
+		_musicPlayer.Finished += OnMusicFinished;
+		_musicFadeOutTimer.Timeout += OnMusicFadeOutTimerTimeout;
 
 		if (_gameState is not null)
 			_gameState.Changed += Refresh;
@@ -164,6 +207,8 @@ public partial class Hud : Control
 			_mapButton.Pressed -= OnMapPressed;
 		if (_settingsButton is not null)
 			_settingsButton.Pressed -= OnSettingsPressed;
+		if (_nextTrackButton is not null)
+			_nextTrackButton.Pressed -= OnNextTrackPressed;
 		if (_returnToMainMenuButton is not null)
 			_returnToMainMenuButton.Pressed -= OnReturnToMainMenuPressed;
 		if (_saveGameButton is not null)
@@ -176,8 +221,15 @@ public partial class Hud : Control
 			_ambientSoundsToggle.Toggled -= OnAmbientSoundsToggled;
 		if (_rainfallVolumeSlider is not null)
 			_rainfallVolumeSlider.ValueChanged -= OnRainfallVolumeChanged;
-		if (_ambientRainPlayer is not null)
-			_ambientRainPlayer.Finished -= OnAmbientRainFinished;
+		if (_musicToggle is not null)
+			_musicToggle.Toggled -= OnMusicToggled;
+		if (_musicVolumeSlider is not null)
+			_musicVolumeSlider.ValueChanged -= OnMusicVolumeChanged;
+		if (_musicPlayer is not null)
+			_musicPlayer.Finished -= OnMusicFinished;
+		if (_musicFadeOutTimer is not null)
+			_musicFadeOutTimer.Timeout -= OnMusicFadeOutTimerTimeout;
+		_musicFadeTween?.Kill();
 	}
 
 	public override void _Input(InputEvent @event)
@@ -243,6 +295,7 @@ public partial class Hud : Control
 	{
 		_ambientPlaybackAllowed = allowed;
 		RefreshAmbientRainPlayback();
+		RefreshSoundtrackPlayback();
 	}
 
 	private void DisconnectSceneBindings()
@@ -412,21 +465,51 @@ public partial class Hud : Control
 	private void OnAmbientSoundsToggled(bool enabled)
 	{
 		_ambientSoundsEnabled = enabled;
-		SaveAmbientSettings();
+		SaveAudioSettings();
 		RefreshAmbientRainPlayback();
 	}
 
 	private void OnRainfallVolumeChanged(double value)
 	{
 		_rainfallVolume = ClampNormalizedVolume(value);
-		SaveAmbientSettings();
+		SaveAudioSettings();
 		RefreshAmbientRainPlayback();
 	}
 
-	private void OnAmbientRainFinished()
+	private void OnMusicToggled(bool enabled)
 	{
-		if (ShouldPlayAmbientRain())
-			_ambientRainPlayer.Play();
+		_musicEnabled = enabled;
+		SaveAudioSettings();
+		RefreshSoundtrackPlayback();
+	}
+
+	private void OnMusicVolumeChanged(double value)
+	{
+		_musicVolume = ClampNormalizedVolume(value);
+		SaveAudioSettings();
+		RefreshSoundtrackVolume();
+	}
+
+	private void OnMusicFinished()
+	{
+		if (ShouldPlaySoundtrack())
+			PlayNextSoundtrackTrack();
+	}
+
+	private void OnMusicFadeOutTimerTimeout()
+	{
+		if (!ShouldPlaySoundtrack() || !_musicPlayer.Playing)
+			return;
+
+		StartMusicFade(MusicFadeState.FadeOut, SilentMusicVolumeDb, MusicFadeSeconds);
+	}
+
+	private void OnNextTrackPressed()
+	{
+		if (!ShouldPlaySoundtrack())
+			return;
+
+		PlayNextSoundtrackTrack();
 	}
 
 	private void FinishSaveGame(bool saveSucceeded)
@@ -561,7 +644,7 @@ public partial class Hud : Control
 		return panelHeight;
 	}
 
-	private void LoadAmbientSettings()
+	private void LoadAudioSettings()
 	{
 		var config = new ConfigFile();
 		Error error = config.Load(AmbientSettingsPath);
@@ -569,7 +652,7 @@ public partial class Hud : Control
 			return;
 		if (error != Error.Ok)
 		{
-			GD.PushError($"Hud: Failed to load ambient audio settings. Error: {error}");
+			GD.PushError($"Hud: Failed to load audio settings. Error: {error}");
 			return;
 		}
 
@@ -579,17 +662,25 @@ public partial class Hud : Control
 		_rainfallVolume = ClampNormalizedVolume(config
 			.GetValue(AmbientSettingsSection, RainfallVolumeKey, DefaultRainfallVolume)
 			.AsDouble());
+		_musicEnabled = config
+			.GetValue(AmbientSettingsSection, MusicEnabledKey, DefaultMusicEnabled)
+			.AsBool();
+		_musicVolume = ClampNormalizedVolume(config
+			.GetValue(AmbientSettingsSection, MusicVolumeKey, DefaultMusicVolume)
+			.AsDouble());
 	}
 
-	private void SaveAmbientSettings()
+	private void SaveAudioSettings()
 	{
 		var config = new ConfigFile();
 		config.SetValue(AmbientSettingsSection, AmbientSoundsEnabledKey, _ambientSoundsEnabled);
 		config.SetValue(AmbientSettingsSection, RainfallVolumeKey, _rainfallVolume);
+		config.SetValue(AmbientSettingsSection, MusicEnabledKey, _musicEnabled);
+		config.SetValue(AmbientSettingsSection, MusicVolumeKey, _musicVolume);
 
 		Error error = config.Save(AmbientSettingsPath);
 		if (error != Error.Ok)
-			GD.PushError($"Hud: Failed to save ambient audio settings. Error: {error}");
+			GD.PushError($"Hud: Failed to save audio settings. Error: {error}");
 	}
 
 	private void ConfigureAmbientRainPlayer()
@@ -605,10 +696,28 @@ public partial class Hud : Control
 		_ambientRainPlayer.VolumeDb = GetRainfallVolumeDb();
 	}
 
-	private void ApplyAmbientSettingsToControls()
+	private void ConfigureSoundtrackPlayer()
+	{
+		BuildShuffledSoundtrackOrder();
+		if (_soundtrackOrder.Length == 0)
+		{
+			GD.PushError("Hud: No soundtrack tracks are configured.");
+			UpdateNextTrackButtonState();
+			return;
+		}
+
+		_soundtrackOrderIndex = 0;
+		TryLoadSoundtrackTrack(_soundtrackOrder[_soundtrackOrderIndex]);
+		_musicPlayer.VolumeDb = SilentMusicVolumeDb;
+		UpdateNextTrackButtonState();
+	}
+
+	private void ApplyAudioSettingsToControls()
 	{
 		_ambientSoundsToggle.ButtonPressed = _ambientSoundsEnabled;
 		_rainfallVolumeSlider.Value = _rainfallVolume;
+		_musicToggle.ButtonPressed = _musicEnabled;
+		_musicVolumeSlider.Value = _musicVolume;
 	}
 
 	private void RefreshAmbientRainPlayback()
@@ -636,11 +745,191 @@ public partial class Hud : Control
 			&& _ambientRainPlayer.Stream is not null;
 	}
 
+	private void RefreshSoundtrackPlayback()
+	{
+		if (_musicPlayer is null)
+			return;
+
+		UpdateNextTrackButtonState();
+		if (ShouldPlaySoundtrack())
+		{
+			if (_musicPlayer.Stream is null && !TryLoadCurrentSoundtrackTrack())
+				return;
+			if (!_musicPlayer.Playing)
+				StartCurrentSoundtrackTrack();
+			else
+				RefreshSoundtrackVolume();
+			return;
+		}
+
+		StopSoundtrackPlayback();
+	}
+
+	private bool ShouldPlaySoundtrack()
+	{
+		return _ambientPlaybackAllowed
+			&& _musicEnabled
+			&& _musicPlayer is not null
+			&& _soundtrackOrder.Length > 0;
+	}
+
+	private void PlayNextSoundtrackTrack()
+	{
+		if (_soundtrackOrder.Length == 0)
+			return;
+
+		_soundtrackOrderIndex += 1;
+		if (_soundtrackOrderIndex >= _soundtrackOrder.Length)
+			_soundtrackOrderIndex = 0;
+
+		if (!TryLoadCurrentSoundtrackTrack())
+			return;
+
+		StartCurrentSoundtrackTrack();
+	}
+
+	private bool TryLoadCurrentSoundtrackTrack()
+	{
+		if (_soundtrackOrderIndex < 0 || _soundtrackOrderIndex >= _soundtrackOrder.Length)
+			_soundtrackOrderIndex = 0;
+
+		return TryLoadSoundtrackTrack(_soundtrackOrder[_soundtrackOrderIndex]);
+	}
+
+	private void StartCurrentSoundtrackTrack()
+	{
+		if (_musicPlayer.Stream is null)
+			return;
+
+		CancelMusicFade();
+		_musicPlayer.VolumeDb = SilentMusicVolumeDb;
+		_musicPlayer.Play();
+		StartMusicFade(MusicFadeState.FadeIn, GetMusicVolumeDb(), MusicFadeSeconds);
+		ScheduleMusicFadeOut();
+	}
+
+	private void StopSoundtrackPlayback()
+	{
+		CancelMusicFade();
+		if (_musicPlayer.Playing)
+			_musicPlayer.Stop();
+		_musicPlayer.VolumeDb = SilentMusicVolumeDb;
+	}
+
+	private void RefreshSoundtrackVolume()
+	{
+		if (_musicPlayer is null)
+			return;
+
+		if (_musicFadeState == MusicFadeState.FadeIn)
+		{
+			StartMusicFade(MusicFadeState.FadeIn, GetMusicVolumeDb(), MusicFadeSeconds);
+			return;
+		}
+
+		if (_musicFadeState == MusicFadeState.FadeOut)
+			return;
+
+		_musicPlayer.VolumeDb = _musicPlayer.Playing
+			? GetMusicVolumeDb()
+			: SilentMusicVolumeDb;
+	}
+
+	private void ScheduleMusicFadeOut()
+	{
+		if (_musicFadeOutTimer is null || _musicPlayer.Stream is null)
+			return;
+
+		var trackLengthSeconds = _musicPlayer.Stream.GetLength();
+		if (trackLengthSeconds <= MusicFadeSeconds)
+			return;
+
+		_musicFadeOutTimer.WaitTime = trackLengthSeconds - MusicFadeSeconds;
+		_musicFadeOutTimer.Start();
+	}
+
+	private void StartMusicFade(MusicFadeState fadeState, float targetVolumeDb, double durationSeconds)
+	{
+		_musicFadeTween?.Kill();
+		_musicFadeState = fadeState;
+		_musicFadeTween = CreateTween();
+		_musicFadeTween.SetTrans(Tween.TransitionType.Sine);
+		_musicFadeTween.SetEase(fadeState == MusicFadeState.FadeOut
+			? Tween.EaseType.In
+			: Tween.EaseType.Out);
+		_musicFadeTween.TweenProperty(_musicPlayer, "volume_db", targetVolumeDb, durationSeconds);
+		_musicFadeTween.Finished += OnMusicFadeFinished;
+	}
+
+	private void OnMusicFadeFinished()
+	{
+		_musicFadeTween = null;
+		if (_musicFadeState == MusicFadeState.FadeIn)
+			_musicFadeState = MusicFadeState.None;
+	}
+
+	private void CancelMusicFade()
+	{
+		_musicFadeOutTimer?.Stop();
+		_musicFadeTween?.Kill();
+		_musicFadeTween = null;
+		_musicFadeState = MusicFadeState.None;
+	}
+
+	private bool TryLoadSoundtrackTrack(int trackIndex)
+	{
+		if (trackIndex < 0 || trackIndex >= SoundtrackAudioPaths.Length)
+		{
+			GD.PushError($"Hud: Soundtrack track index '{trackIndex}' is out of range.");
+			return false;
+		}
+
+		var path = SoundtrackAudioPaths[trackIndex];
+		var stream = ResourceLoader.Load<AudioStream>(path);
+		if (stream is null)
+		{
+			GD.PushError($"Hud: Soundtrack audio stream could not be loaded from '{path}'.");
+			return false;
+		}
+
+		_musicPlayer.Stream = stream;
+		_musicPlayer.VolumeDb = GetMusicVolumeDb();
+		return true;
+	}
+
+	private void BuildShuffledSoundtrackOrder()
+	{
+		_soundtrackOrder = new int[SoundtrackAudioPaths.Length];
+		for (var index = 0; index < _soundtrackOrder.Length; index += 1)
+			_soundtrackOrder[index] = index;
+
+		for (var index = 0; index < _soundtrackOrder.Length - 1; index += 1)
+		{
+			var swapIndex = _soundtrackRandom.Next(index, _soundtrackOrder.Length);
+			(_soundtrackOrder[index], _soundtrackOrder[swapIndex]) = (_soundtrackOrder[swapIndex], _soundtrackOrder[index]);
+		}
+	}
+
+	private void UpdateNextTrackButtonState()
+	{
+		if (_nextTrackButton is null)
+			return;
+
+		_nextTrackButton.Disabled = !_musicEnabled || _soundtrackOrder.Length <= 1;
+	}
+
 	private float GetRainfallVolumeDb()
 	{
 		return _rainfallVolume <= 0.0001
 			? -80.0f
 			: Mathf.LinearToDb((float)_rainfallVolume);
+	}
+
+	private float GetMusicVolumeDb()
+	{
+		return _musicVolume <= 0.0001
+			? -80.0f
+			: Mathf.LinearToDb((float)_musicVolume);
 	}
 
 	private static double ClampNormalizedVolume(double value)

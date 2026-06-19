@@ -19,7 +19,8 @@ public static class CustomerDialogueTextFormatter
 	public static string FormatTraitListWithMatches(
 		Dictionary<string, CustomerTraitRangeDef> requiredValues,
 		IReadOnlyDictionary<string, int>? producedValues,
-		string matchedColorHex)
+		string matchedColorHex,
+		string missingColorHex)
 	{
 		if (requiredValues is null || requiredValues.Count == 0)
 			return "None";
@@ -29,7 +30,7 @@ public static class CustomerDialogueTextFormatter
 			requiredValues
 				.OrderByDescending(x => GetTraitRangeSortValue(x.Value))
 				.ThenBy(x => x.Key)
-				.Select(pair => FormatDesiredTraitLine(pair.Key, pair.Value, producedValues, matchedColorHex)));
+				.Select(pair => FormatDesiredTraitLine(pair.Key, pair.Value, producedValues, matchedColorHex, missingColorHex)));
 	}
 
 	public static string BuildDesiredRequestText(
@@ -40,7 +41,8 @@ public static class CustomerDialogueTextFormatter
 		var desiredTraitText = FormatTraitListWithMatches(
 			request.DesiredTraits,
 			producedTraits,
-			MatchedDesiredColorHex);
+			MatchedDesiredColorHex,
+			MatchedRiskColorHex);
 		if (!string.Equals(desiredTraitText, "None", System.StringComparison.Ordinal))
 			lines.Add(desiredTraitText);
 
@@ -78,6 +80,27 @@ public static class CustomerDialogueTextFormatter
 			: string.Join("\n", lines);
 	}
 
+	public static string BuildCustomerPotionRequestComparisonText(
+		CustomerRequestDef request,
+		IReadOnlyDictionary<string, int>? producedTraits,
+		IReadOnlyDictionary<string, int>? producedRisks,
+		IReadOnlyList<IngredientPortionDef>? potionIngredients)
+	{
+		if (request is null)
+			return "No active request.";
+
+		var lines = new List<string>();
+		AddDesiredTraitComparisonLines(lines, request.DesiredTraits, producedTraits);
+		AddRequiredMinTraitComparisonLines(lines, request.RequiredMinTraits, producedTraits);
+		AddBadTraitComparisonLines(lines, request.BadTraits, producedTraits, producedRisks);
+		AddRequiredMaxTraitComparisonLines(lines, request.RequiredMaxTraits, producedTraits);
+		AddIngredientRequirementComparisonLines(lines, request.RequiredIngredientAmounts, potionIngredients);
+
+		return lines.Count == 0
+			? "No specific request."
+			: string.Join("\n", lines);
+	}
+
 	public static string BuildBadRequestText(
 		CustomerRequestDef request,
 		IReadOnlyDictionary<string, int>? producedTraits,
@@ -88,6 +111,7 @@ public static class CustomerDialogueTextFormatter
 			request.BadTraits,
 			producedTraits,
 			producedRisks,
+			MatchedDesiredColorHex,
 			MatchedRiskColorHex);
 		if (!string.Equals(badTraitText, "None", System.StringComparison.Ordinal))
 			lines.Add(badTraitText);
@@ -146,7 +170,9 @@ public static class CustomerDialogueTextFormatter
 					pair.Value,
 					producedValues,
 					producedValue => producedValue >= pair.Value,
-					MatchedDesiredColorHex)));
+					MatchedDesiredColorHex,
+					MatchedRiskColorHex,
+					colorFailedValueOnly: false)));
 	}
 
 	public static string FormatMaxTraitThresholdsWithViolations(
@@ -165,14 +191,17 @@ public static class CustomerDialogueTextFormatter
 					"<=",
 					pair.Value,
 					producedValues,
-					producedValue => producedValue > pair.Value,
-					MatchedRiskColorHex)));
+					producedValue => producedValue <= pair.Value,
+					MatchedDesiredColorHex,
+					MatchedRiskColorHex,
+					colorFailedValueOnly: false)));
 	}
 
 	public static string FormatBadTraitListWithViolations(
 		Dictionary<string, CustomerTraitRangeDef> requiredValues,
 		IReadOnlyDictionary<string, int>? producedTraits,
 		IReadOnlyDictionary<string, int>? producedRisks,
+		string safeColorHex,
 		string violationColorHex)
 	{
 		if (requiredValues is null || requiredValues.Count == 0)
@@ -183,7 +212,7 @@ public static class CustomerDialogueTextFormatter
 			requiredValues
 				.OrderByDescending(x => GetTraitRangeSortValue(x.Value))
 				.ThenBy(x => x.Key)
-				.Select(pair => FormatBadTraitLine(pair.Key, pair.Value, producedTraits, producedRisks, violationColorHex)));
+				.Select(pair => FormatBadTraitLine(pair.Key, pair.Value, producedTraits, producedRisks, safeColorHex, violationColorHex)));
 	}
 
 	public static string GetVisibleDialogueText(string text, int visibleCharacters)
@@ -217,18 +246,20 @@ public static class CustomerDialogueTextFormatter
 		string key,
 		CustomerTraitRangeDef? requiredRange,
 		IReadOnlyDictionary<string, int>? producedValues,
-		string matchedColorHex)
+		string matchedColorHex,
+		string missingColorHex)
 	{
 		var safeKey = EscapeBbCodeText(key);
-		var line = $"{safeKey}: {FormatTraitRange(requiredRange)}";
+		var requestText = $"{safeKey}: {FormatTraitRange(requiredRange)}";
 		if (producedValues is null)
-			return line;
+			return requestText;
 
 		TryGetValueIgnoreCase(producedValues, key, out var producedValue);
-		if (!IsValueWithinRange(producedValue, requiredRange))
-			return line;
+		var line = $"{requestText} ({producedValue})";
+		if (IsValueWithinRange(producedValue, requiredRange))
+			return $"[color={matchedColorHex}]{line}[/color]";
 
-		return $"[color={matchedColorHex}]{line}[/color]";
+		return $"[color={missingColorHex}]{line}[/color]";
 	}
 
 	private static string FormatBadTraitLine(
@@ -236,18 +267,21 @@ public static class CustomerDialogueTextFormatter
 		CustomerTraitRangeDef? requiredRange,
 		IReadOnlyDictionary<string, int>? producedTraits,
 		IReadOnlyDictionary<string, int>? producedRisks,
+		string safeColorHex,
 		string violationColorHex)
 	{
 		var safeKey = EscapeBbCodeText(key);
-		var line = $"{safeKey}: {FormatTraitRange(requiredRange)}";
+		var requestText = $"{safeKey}: {FormatTraitRange(requiredRange)}";
 		if (producedTraits is null && producedRisks is null)
-			return line;
+			return requestText;
 
 		var producedValue = GetCombinedProducedValue(key, producedTraits, producedRisks);
-		if (IsValueWithinRange(producedValue, requiredRange))
-			return line;
+		var line = $"{requestText} ({producedValue})";
+		var colorHex = IsValueWithinRange(producedValue, requiredRange)
+			? safeColorHex
+			: violationColorHex;
 
-		return $"[color={violationColorHex}]{line}[/color]";
+		return $"[color={colorHex}]{line}[/color]";
 	}
 
 	private static string FormatTraitThresholdLine(
@@ -255,19 +289,24 @@ public static class CustomerDialogueTextFormatter
 		string comparison,
 		int thresholdValue,
 		IReadOnlyDictionary<string, int>? producedValues,
-		System.Func<int, bool> shouldHighlight,
-		string highlightColorHex)
+		System.Func<int, bool> isSatisfied,
+		string satisfiedColorHex,
+		string failedColorHex,
+		bool colorFailedValueOnly)
 	{
 		var safeKey = EscapeBbCodeText(key);
-		var line = $"{safeKey} {comparison} {thresholdValue}";
+		var requestText = $"{safeKey} {comparison} {thresholdValue}";
 		if (producedValues is null)
-			return line;
+			return requestText;
 
 		TryGetValueIgnoreCase(producedValues, key, out var producedValue);
-		if (!shouldHighlight(producedValue))
-			return line;
+		var line = $"{requestText} ({producedValue})";
+		if (isSatisfied(producedValue))
+			return $"[color={satisfiedColorHex}]{line}[/color]";
 
-		return $"[color={highlightColorHex}]{line}[/color]";
+		return colorFailedValueOnly
+			? $"{requestText} ([color={failedColorHex}]{producedValue}[/color])"
+			: $"[color={failedColorHex}]{line}[/color]";
 	}
 
 	private static void AddDesiredTraitChecklistLines(
@@ -377,6 +416,100 @@ public static class CustomerDialogueTextFormatter
 		}
 	}
 
+	private static void AddDesiredTraitComparisonLines(
+		List<string> lines,
+		Dictionary<string, CustomerTraitRangeDef> desiredTraits,
+		IReadOnlyDictionary<string, int>? producedTraits)
+	{
+		if (desiredTraits is null || desiredTraits.Count == 0)
+			return;
+
+		foreach (var desired in desiredTraits
+			.Where(x => !string.IsNullOrWhiteSpace(x.Key))
+			.OrderByDescending(x => GetTraitRangeSortValue(x.Value))
+			.ThenBy(x => x.Key))
+		{
+			var producedValue = GetProducedValue(producedTraits, desired.Key);
+			var text = $"{desired.Key} {producedValue} / {FormatTraitRange(desired.Value)}";
+			lines.Add(FormatBinaryComparisonLine(IsValueWithinRange(producedValue, desired.Value), text));
+		}
+	}
+
+	private static void AddRequiredMinTraitComparisonLines(
+		List<string> lines,
+		Dictionary<string, int> requiredMinTraits,
+		IReadOnlyDictionary<string, int>? producedTraits)
+	{
+		if (requiredMinTraits is null || requiredMinTraits.Count == 0)
+			return;
+
+		foreach (var required in requiredMinTraits
+			.Where(x => !string.IsNullOrWhiteSpace(x.Key))
+			.OrderByDescending(x => x.Value)
+			.ThenBy(x => x.Key))
+		{
+			var producedValue = GetProducedValue(producedTraits, required.Key);
+			var text = $"{required.Key} {producedValue} / >= {required.Value}";
+			lines.Add(FormatBinaryComparisonLine(producedValue >= required.Value, text));
+		}
+	}
+
+	private static void AddBadTraitComparisonLines(
+		List<string> lines,
+		Dictionary<string, CustomerTraitRangeDef> badTraits,
+		IReadOnlyDictionary<string, int>? producedTraits,
+		IReadOnlyDictionary<string, int>? producedRisks)
+	{
+		if (badTraits is null || badTraits.Count == 0)
+			return;
+
+		foreach (var badTrait in badTraits
+			.Where(x => !string.IsNullOrWhiteSpace(x.Key))
+			.OrderByDescending(x => GetTraitRangeSortValue(x.Value))
+			.ThenBy(x => x.Key))
+		{
+			var producedValue = GetCombinedProducedValue(badTrait.Key, producedTraits, producedRisks);
+			var text = $"{badTrait.Key} {producedValue} / {FormatTraitRange(badTrait.Value)}";
+			lines.Add(FormatBinaryComparisonLine(IsValueWithinRange(producedValue, badTrait.Value), text));
+		}
+	}
+
+	private static void AddRequiredMaxTraitComparisonLines(
+		List<string> lines,
+		Dictionary<string, int> requiredMaxTraits,
+		IReadOnlyDictionary<string, int>? producedTraits)
+	{
+		if (requiredMaxTraits is null || requiredMaxTraits.Count == 0)
+			return;
+
+		foreach (var required in requiredMaxTraits
+			.Where(x => !string.IsNullOrWhiteSpace(x.Key))
+			.OrderBy(x => x.Key))
+		{
+			var producedValue = GetProducedValue(producedTraits, required.Key);
+			var text = $"{required.Key} {producedValue} / <= {required.Value}";
+			lines.Add(FormatBinaryComparisonLine(producedValue <= required.Value, text));
+		}
+	}
+
+	private static void AddIngredientRequirementComparisonLines(
+		List<string> lines,
+		IReadOnlyList<IngredientPortionDef>? requiredIngredientAmounts,
+		IReadOnlyList<IngredientPortionDef>? potionIngredients)
+	{
+		if (requiredIngredientAmounts is null || requiredIngredientAmounts.Count == 0)
+			return;
+
+		foreach (var requiredIngredient in requiredIngredientAmounts
+			.Where(IsSpecificIngredientRequirement)
+			.OrderBy(x => x.IngredientId))
+		{
+			lines.Add(FormatBinaryComparisonLine(
+				IsIngredientRequirementMet(requiredIngredient, potionIngredients),
+				FormatIngredientChecklistRequirement(requiredIngredient)));
+		}
+	}
+
 	private static ChecklistStatus GetDesiredChecklistStatus(int producedValue, CustomerTraitRangeDef? requiredRange)
 	{
 		if (IsValueWithinRange(producedValue, requiredRange))
@@ -467,6 +600,13 @@ public static class CustomerDialogueTextFormatter
 			_ => ("-", ChecklistMissingColorHex)
 		};
 
+		return $"[color={colorHex}]{label}[/color] {EscapeBbCodeText(text)}";
+	}
+
+	private static string FormatBinaryComparisonLine(bool matches, string text)
+	{
+		var label = matches ? "Match" : "No match";
+		var colorHex = matches ? MatchedDesiredColorHex : MatchedRiskColorHex;
 		return $"[color={colorHex}]{label}[/color] {EscapeBbCodeText(text)}";
 	}
 

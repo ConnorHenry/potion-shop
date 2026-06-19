@@ -371,6 +371,11 @@ public partial class RuntimeDebugImGui : Node
 			customerPanel.RefreshSlotLayoutSettings();
 			refreshedCount += 1;
 		}
+		else if (node is StationCustomerPanel stationCustomerPanel)
+		{
+			stationCustomerPanel.RefreshSlotLayoutSettings();
+			refreshedCount += 1;
+		}
 
 		foreach (var child in node.GetChildren())
 			refreshedCount += RefreshInventorySlotLayoutViews(child);

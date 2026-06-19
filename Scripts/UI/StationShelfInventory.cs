@@ -14,6 +14,7 @@ public partial class StationShelfInventory : Control
 	private const float IngredientSlotHeight = 160.0f;
 	private const int IngredientDefaultVisibleSlots = 10;
 	private const int ConsumableDefaultVisibleSlots = 4;
+	private const string PrepTooltipText = "Right click to prep";
 
 	[Export] public NodePath IngredientSlotsPath = default!;
 	[Export] public NodePath ConsumableSlotsPath = default!;
@@ -444,7 +445,7 @@ public partial class StationShelfInventory : Control
 			Size = slotSize,
 			MouseFilter = MouseFilterEnum.Stop,
 			Flat = false,
-			TooltipText = stack.Name,
+			TooltipText = connectIngredientRequest ? PrepTooltipText : stack.Name,
 			ItemId = stack.ItemId,
 			ItemName = stack.Name,
 			IconPath = stack.IconPath,
@@ -519,6 +520,8 @@ public partial class StationShelfInventory : Control
 		}
 
 		_itemDetailPanel.ShowItem(itemId);
+		if (_itemDetailPanel.Visible)
+			_itemDetailPanel.PositionNearGlobalPoint(GetGlobalMousePosition());
 	}
 
 	private void QueueIngredientFromShelf(string itemId)

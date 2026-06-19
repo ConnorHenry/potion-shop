@@ -1,10 +1,10 @@
-[gd_scene load_steps=57 format=3 uid="uid://4hripc13we86"]
+[gd_scene load_steps=50 format=3 uid="uid://4hripc13we86"]
 
 [ext_resource type="Script" uid="uid://hkjdjmtp1abw" path="res://Scripts/UI/EventModal.cs" id="2_8y3f6"]
 [ext_resource type="Script" uid="uid://d0i82ek5gng47" path="res://Scripts/UI/CustomerPanel.cs" id="6_h1r0d"]
 [ext_resource type="Script" uid="uid://co7ips8h5sgbl" path="res://Scripts/UI/CustomerSellDropBox.cs" id="8_74p2s"]
 [ext_resource type="Script" uid="uid://bygqfctik8rwk" path="res://Scripts/UI/BrewPanel.cs" id="9_em5ve"]
-[ext_resource type="Texture2D" uid="uid://dng5c6qa12f3n" path="res://Assets/Art/BrewingStationBright/brewing_station_background_bright_shelf_v2.png" id="10_2eyk8"]
+[ext_resource type="Texture2D" uid="uid://bcf48ilgrbmxp" path="res://Assets/Art/BrewingStationBright/brewing_station_background2.png" id="9_jopkj"]
 [ext_resource type="Texture2D" uid="uid://w34j6h6f1v8k" path="res://Assets/Art/BrewingStationBright/book_closed_bright.png" id="10_bd6m8"]
 [ext_resource type="Script" uid="uid://bqfhng15wnpg8" path="res://Scripts/UI/BrewDropBox.cs" id="10_odm4o"]
 [ext_resource type="Script" uid="uid://c3rwxxxuopfiy" path="res://Scripts/UI/CauldronSmokeEffect.cs" id="11_smoke"]
@@ -32,17 +32,13 @@
 [ext_resource type="Texture2D" uid="uid://8vnw7x6bqiyf" path="res://Assets/UI/scale_weight_5g.svg" id="39_weight_5g"]
 [ext_resource type="Texture2D" uid="uid://cpm5om610cwwu" path="res://Assets/UI/scale_weight_10g.svg" id="40_weight_10g"]
 [ext_resource type="PackedScene" uid="uid://dvn3xmx0rq7fp" path="res://Scenes/UI/IngredientBookPanel.tscn" id="41_ingredient_book"]
-[ext_resource type="Texture2D" uid="uid://dqrte4y4whylx" path="res://Assets/Backgrounds/rural_irish_bedroom.png" id="42_bedroom"]
 [ext_resource type="Script" uid="uid://b2ax8whg01r5p" path="res://Scripts/UI/PotionInventoryRow.cs" id="43_potion_row"]
 [ext_resource type="Script" uid="uid://dgsmk1i6kauvr" path="res://Scripts/UI/StationItemDetailPanel.cs" id="44_station_item_detail"]
 [ext_resource type="Script" uid="uid://cqd87y40qhdap" path="res://Scripts/UI/IngredientPreparationTray.cs" id="45_prep_tray"]
 [ext_resource type="Script" uid="uid://d25l16ki30jte" path="res://Scripts/UI/BrewingStationFireGlow.cs" id="46_fire_glow"]
 [ext_resource type="Script" uid="uid://61ri84pvvrwd" path="res://Scripts/UI/BrewingStationPropHoverEffect.cs" id="47_prop_hover"]
-[ext_resource type="Texture2D" uid="uid://qglpkgsrrimb" path="res://Assets/UI/brew_preview_panel_board_v2.png" id="48_brew_board_v2"]
-[ext_resource type="Texture2D" uid="uid://d05qjq8dveq4n" path="res://Assets/UI/brew_preview_button_overlay_normal.png" id="49_brew_button_normal"]
-[ext_resource type="Texture2D" uid="uid://dj21rw63jkns4" path="res://Assets/UI/brew_preview_button_overlay_hover.png" id="50_brew_button_hover"]
-[ext_resource type="Texture2D" uid="uid://bfgd6p2knsxnw" path="res://Assets/UI/brew_preview_button_overlay_pressed.png" id="51_brew_button_pressed"]
-[ext_resource type="Texture2D" uid="uid://biwjj8o8fyx33" path="res://Assets/UI/brew_preview_button_overlay_disabled.png" id="52_brew_button_disabled"]
+[ext_resource type="Texture2D" uid="uid://d0yyrix6cjwbs" path="res://Assets/UI/cauldron_placeholder.png" id="48_cauldron_placeholder"]
+[ext_resource type="Script" uid="uid://fr081tqi5wx8" path="res://Scripts/UI/StationCustomerPanel.cs" id="53_station_customer"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_navigation_hotspot_focus"]
 bg_color = Color(0, 0, 0, 0)
@@ -120,25 +116,45 @@ corner_radius_top_right = 8
 corner_radius_bottom_right = 8
 corner_radius_bottom_left = 8
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_brew_panel_band"]
+bg_color = Color(0.070588, 0.035294, 0.094118, 0.18)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.709804, 0.541176, 0.352941, 0.68)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_brew_slot_marker"]
-content_margin_left = 8.0
-content_margin_top = 8.0
-content_margin_right = 8.0
-content_margin_bottom = 8.0
-bg_color = Color(0, 0, 0, 0)
-border_color = Color(0, 0, 0, 0)
-corner_radius_top_left = 42
-corner_radius_top_right = 42
-corner_radius_bottom_right = 42
-corner_radius_bottom_left = 42
+content_margin_left = 4.0
+content_margin_top = 4.0
+content_margin_right = 4.0
+content_margin_bottom = 4.0
+bg_color = Color(0.070588, 0.035294, 0.094118, 0.38)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.709804, 0.541176, 0.352941, 0.72)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_brew_slot_panel"]
-content_margin_left = 22.0
-content_margin_top = 12.0
-content_margin_right = 22.0
-content_margin_bottom = 12.0
-bg_color = Color(0, 0, 0, 0)
-border_color = Color(0, 0, 0, 0)
+content_margin_left = 10.0
+content_margin_top = 8.0
+content_margin_right = 10.0
+content_margin_bottom = 8.0
+bg_color = Color(0.070588, 0.035294, 0.094118, 0.32)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.709804, 0.541176, 0.352941, 0.62)
 corner_radius_top_left = 8
 corner_radius_top_right = 8
 corner_radius_bottom_right = 8
@@ -156,40 +172,13 @@ corner_radius_top_right = 10
 corner_radius_bottom_right = 10
 corner_radius_bottom_left = 10
 
-[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_brew_button_hover"]
-content_margin_left = 24.0
-content_margin_top = 16.0
-content_margin_right = 24.0
-content_margin_bottom = 16.0
-texture = ExtResource("50_brew_button_hover")
-
-[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_brew_button_disabled"]
-content_margin_left = 24.0
-content_margin_top = 16.0
-content_margin_right = 24.0
-content_margin_bottom = 16.0
-texture = ExtResource("52_brew_button_disabled")
-
-[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_brew_button_pressed"]
-content_margin_left = 24.0
-content_margin_top = 16.0
-content_margin_right = 24.0
-content_margin_bottom = 16.0
-texture = ExtResource("51_brew_button_pressed")
-
-[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_brew_button_normal"]
-content_margin_left = 24.0
-content_margin_top = 16.0
-content_margin_right = 24.0
-content_margin_bottom = 16.0
-texture = ExtResource("49_brew_button_normal")
-
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bd6m8"]
 bg_color = Color(0.427451, 0.121569, 0.168627, 1)
 
 [node name="CanvasLayer" type="CanvasLayer"]
 
 [node name="ShopFloor" type="Control" parent="."]
+visible = false
 clip_contents = true
 layout_mode = 3
 anchors_preset = 15
@@ -544,11 +533,12 @@ offset_bottom = 58.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-texture = ExtResource("10_2eyk8")
+texture = ExtResource("9_jopkj")
 expand_mode = 1
 stretch_mode = 5
 
 [node name="FireGlow" type="Control" parent="PotionBrewingStationView"]
+visible = false
 z_index = 2
 anchors_preset = 0
 offset_left = 869.0
@@ -557,6 +547,19 @@ offset_right = 1269.0
 offset_bottom = 888.0
 mouse_filter = 2
 script = ExtResource("46_fire_glow")
+FrameRate = 6.0
+
+[node name="CauldronPlaceholder" type="TextureRect" parent="PotionBrewingStationView"]
+z_index = 3
+layout_mode = 0
+offset_left = 839.0
+offset_top = 547.0
+offset_right = 1260.0
+offset_bottom = 851.0
+mouse_filter = 2
+texture = ExtResource("48_cauldron_placeholder")
+expand_mode = 1
+stretch_mode = 5
 
 [node name="CauldronSmoke" type="Control" parent="PotionBrewingStationView"]
 z_index = 3
@@ -568,69 +571,13 @@ offset_bottom = 710.0
 mouse_filter = 2
 script = ExtResource("11_smoke")
 
-[node name="ReturnHotspotLeft" type="Button" parent="PotionBrewingStationView"]
-z_index = 50
-custom_minimum_size = Vector2(132, 52)
-layout_mode = 1
-anchors_preset = -1
-anchor_top = 0.5
-anchor_bottom = 0.5
-offset_left = 20.0
-offset_top = -26.0
-offset_right = 152.0
-offset_bottom = 26.0
-grow_horizontal = 0
-grow_vertical = 2
-tooltip_text = "Return to shop floor"
-mouse_default_cursor_shape = 2
-theme_override_colors/font_disabled_color = Color(0.541176, 0.384314, 0.196078, 0.72)
-theme_override_colors/font_hover_color = Color(0.709804, 0.541176, 0.352941, 1)
-theme_override_colors/font_color = Color(0.709804, 0.541176, 0.352941, 1)
-theme_override_colors/font_pressed_color = Color(0.541176, 0.384314, 0.196078, 1)
-theme_override_font_sizes/font_size = 18
-theme_override_styles/focus = SubResource("StyleBoxFlat_navigation_hotspot_focus")
-theme_override_styles/disabled = SubResource("StyleBoxFlat_navigation_hotspot_disabled")
-theme_override_styles/hover = SubResource("StyleBoxFlat_navigation_hotspot_hover")
-theme_override_styles/pressed = SubResource("StyleBoxFlat_navigation_hotspot_pressed")
-theme_override_styles/normal = SubResource("StyleBoxFlat_navigation_hotspot_normal")
-text = "< Shop"
-
-[node name="BedroomHotspotRight" type="Button" parent="PotionBrewingStationView"]
-z_index = 50
-custom_minimum_size = Vector2(140, 52)
-layout_mode = 1
-anchors_preset = -1
-anchor_left = 1.0
-anchor_top = 0.5
-anchor_right = 1.0
-anchor_bottom = 0.5
-offset_left = -160.0
-offset_top = -26.0
-offset_right = -20.0
-offset_bottom = 26.0
-grow_horizontal = 0
-grow_vertical = 2
-tooltip_text = "Bedroom"
-mouse_default_cursor_shape = 2
-theme_override_colors/font_disabled_color = Color(0.541176, 0.384314, 0.196078, 0.72)
-theme_override_colors/font_hover_color = Color(0.709804, 0.541176, 0.352941, 1)
-theme_override_colors/font_color = Color(0.709804, 0.541176, 0.352941, 1)
-theme_override_colors/font_pressed_color = Color(0.541176, 0.384314, 0.196078, 1)
-theme_override_font_sizes/font_size = 18
-theme_override_styles/focus = SubResource("StyleBoxFlat_navigation_hotspot_focus")
-theme_override_styles/disabled = SubResource("StyleBoxFlat_navigation_hotspot_disabled")
-theme_override_styles/hover = SubResource("StyleBoxFlat_navigation_hotspot_hover")
-theme_override_styles/pressed = SubResource("StyleBoxFlat_navigation_hotspot_pressed")
-theme_override_styles/normal = SubResource("StyleBoxFlat_navigation_hotspot_normal")
-text = "Bedroom >"
-
 [node name="Book" type="TextureRect" parent="PotionBrewingStationView"]
 z_index = 30
 layout_mode = 0
-offset_left = 876.0
-offset_top = 849.0
-offset_right = 1140.0
-offset_bottom = 1057.0
+offset_left = 1024.0
+offset_top = 848.0
+offset_right = 1288.0
+offset_bottom = 1056.0
 mouse_filter = 2
 texture = ExtResource("10_bd6m8")
 expand_mode = 1
@@ -757,10 +704,10 @@ text = ">"
 
 [node name="PotionInventoryRow" type="Control" parent="PotionBrewingStationView"]
 anchors_preset = 0
-offset_left = 696.0
-offset_top = 116.0
-offset_right = 1228.0
-offset_bottom = 284.0
+offset_left = 104.0
+offset_top = 521.0
+offset_right = 636.0
+offset_bottom = 689.0
 mouse_filter = 2
 theme = ExtResource("16_brew_theme")
 script = ExtResource("43_potion_row")
@@ -776,6 +723,20 @@ mouse_filter = 2
 theme_override_constants/h_separation = 28
 theme_override_constants/v_separation = 0
 columns = 4
+
+[node name="StationCustomerPanel" type="Control" parent="PotionBrewingStationView"]
+visible = false
+z_index = 80
+layout_mode = 1
+anchor_left = 0.72
+anchor_top = 0.03
+anchor_right = 0.985
+anchor_bottom = 0.76
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme = ExtResource("16_brew_theme")
+script = ExtResource("53_station_customer")
 
 [node name="StationItemDetailPanel" type="Control" parent="PotionBrewingStationView"]
 visible = false
@@ -914,13 +875,12 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 936.0
-offset_top = 102.0
-offset_right = 407.0
-offset_bottom = 102.0
+offset_left = 40.0
+offset_top = -6.0
+offset_right = 13.0
+offset_bottom = -6.0
 grow_horizontal = 2
 grow_vertical = 2
-scale = Vector2(0.76, 0.76)
 mouse_filter = 2
 theme = ExtResource("16_brew_theme")
 script = ExtResource("9_em5ve")
@@ -935,97 +895,84 @@ IngredientSlotOneLabelPath = NodePath("Panel/FormulaSlots/Slot1/Content/Name")
 IngredientSlotTwoLabelPath = NodePath("Panel/FormulaSlots/Slot2/Content/Name")
 IngredientSlotThreeLabelPath = NodePath("Panel/FormulaSlots/Slot3/Content/Name")
 RequestChecklistLabelPath = NodePath("Panel/RequestChecklist/Lines")
+PreviewTraitsLabelPath = NodePath("Panel/PreviewStats/TraitsPanel/Content/Lines")
+PreviewRisksLabelPath = NodePath("Panel/PreviewStats/RisksPanel/Content/Lines")
 BrewButtonPath = NodePath("Panel/Brew")
 ClearButtonPath = NodePath("Panel/Clear")
 
 [node name="Panel" type="Control" parent="PotionBrewingStationView/BrewPanel"]
-custom_minimum_size = Vector2(1085, 1450)
+custom_minimum_size = Vector2(770, 340)
 layout_mode = 1
-anchors_preset = 1
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -750.421
-offset_top = -40.7895
-offset_right = 334.579
-offset_bottom = 1409.21
-grow_horizontal = 0
-scale = Vector2(0.51, 0.51)
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -350.0
+offset_top = 2.0
+offset_right = 420.0
+offset_bottom = 342.0
+grow_horizontal = 2
 mouse_filter = 2
 
-[node name="BoardArt" type="TextureRect" parent="PotionBrewingStationView/BrewPanel/Panel"]
+[node name="Background" type="PanelContainer" parent="PotionBrewingStationView/BrewPanel/Panel"]
 layout_mode = 0
-offset_right = 1085.0
-offset_bottom = 1450.0
+offset_right = 770.0
+offset_bottom = 340.0
 mouse_filter = 2
-texture = ExtResource("48_brew_board_v2")
-expand_mode = 1
-stretch_mode = 5
+theme_override_styles/panel = SubResource("StyleBoxFlat_brew_panel_band")
 
 [node name="Title" type="Label" parent="PotionBrewingStationView/BrewPanel/Panel"]
 layout_mode = 0
-offset_left = 145.0
-offset_top = 184.0
-offset_right = 940.0
-offset_bottom = 258.0
-theme_override_colors/font_color = Color(0.070588, 0.035294, 0.094118, 1)
-theme_override_font_sizes/font_size = 70
+offset_left = 20.0
+offset_top = 10.0
+offset_right = 750.0
+offset_bottom = 40.0
+theme_override_colors/font_color = Color(0.709804, 0.541176, 0.352941, 1)
+theme_override_font_sizes/font_size = 24
 text = "CURRENT BREW"
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="Subtitle" type="Label" parent="PotionBrewingStationView/BrewPanel/Panel"]
-layout_mode = 0
-offset_left = 145.0
-offset_top = 266.0
-offset_right = 940.0
-offset_bottom = 320.0
-theme_override_colors/font_color = Color(0.427451, 0.121569, 0.168627, 1)
-theme_override_font_sizes/font_size = 44
-text = "Requested Fit"
 horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="FormulaSlots" type="Control" parent="PotionBrewingStationView/BrewPanel/Panel"]
 anchors_preset = 0
-offset_left = 15.4799
-offset_top = 12.9
-offset_right = 1100.48
-offset_bottom = 772.9
+offset_left = 18.0
+offset_top = 56.0
+offset_right = 752.0
+offset_bottom = 154.0
 mouse_filter = 2
 
 [node name="Marker1" type="PanelContainer" parent="PotionBrewingStationView/BrewPanel/Panel/FormulaSlots"]
-custom_minimum_size = Vector2(102, 102)
+custom_minimum_size = Vector2(28, 28)
 layout_mode = 0
-offset_left = 179.0
-offset_top = 384.0
-offset_right = 281.0
-offset_bottom = 486.0
+offset_left = 4.0
+offset_top = 8.0
+offset_right = 32.0
+offset_bottom = 36.0
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_brew_slot_marker")
 
 [node name="Number" type="Label" parent="PotionBrewingStationView/BrewPanel/Panel/FormulaSlots/Marker1"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.070588, 0.035294, 0.094118, 1)
-theme_override_font_sizes/font_size = 58
+theme_override_colors/font_color = Color(0.709804, 0.541176, 0.352941, 1)
+theme_override_font_sizes/font_size = 16
 text = "1"
 horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="Slot1" type="PanelContainer" parent="PotionBrewingStationView/BrewPanel/Panel/FormulaSlots"]
-custom_minimum_size = Vector2(610, 104)
+custom_minimum_size = Vector2(200, 78)
 layout_mode = 0
-offset_left = 310.0
-offset_top = 388.0
-offset_right = 920.0
-offset_bottom = 492.0
+offset_left = 38.0
+offset_top = 8.0
+offset_right = 238.0
+offset_bottom = 86.0
 theme_override_styles/panel = SubResource("StyleBoxFlat_brew_slot_panel")
 
 [node name="Content" type="HBoxContainer" parent="PotionBrewingStationView/BrewPanel/Panel/FormulaSlots/Slot1"]
 layout_mode = 2
-theme_override_constants/separation = 20
+theme_override_constants/separation = 8
 
 [node name="Icon" type="TextureRect" parent="PotionBrewingStationView/BrewPanel/Panel/FormulaSlots/Slot1/Content"]
-custom_minimum_size = Vector2(84, 84)
+custom_minimum_size = Vector2(48, 48)
 layout_mode = 2
 expand_mode = 1
 stretch_mode = 5
@@ -1033,44 +980,44 @@ stretch_mode = 5
 [node name="Name" type="Label" parent="PotionBrewingStationView/BrewPanel/Panel/FormulaSlots/Slot1/Content"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.070588, 0.035294, 0.094118, 1)
-theme_override_font_sizes/font_size = 40
+theme_override_colors/font_color = Color(1, 0.941176, 0.811765, 1)
+theme_override_font_sizes/font_size = 15
 vertical_alignment = 1
 autowrap_mode = 3
 
 [node name="Marker2" type="PanelContainer" parent="PotionBrewingStationView/BrewPanel/Panel/FormulaSlots"]
-custom_minimum_size = Vector2(102, 102)
+custom_minimum_size = Vector2(28, 28)
 layout_mode = 0
-offset_left = 179.0
-offset_top = 509.0
-offset_right = 281.0
-offset_bottom = 611.0
+offset_left = 254.0
+offset_top = 8.0
+offset_right = 282.0
+offset_bottom = 36.0
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_brew_slot_marker")
 
 [node name="Number" type="Label" parent="PotionBrewingStationView/BrewPanel/Panel/FormulaSlots/Marker2"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.070588, 0.035294, 0.094118, 1)
-theme_override_font_sizes/font_size = 58
+theme_override_colors/font_color = Color(0.709804, 0.541176, 0.352941, 1)
+theme_override_font_sizes/font_size = 16
 text = "2"
 horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="Slot2" type="PanelContainer" parent="PotionBrewingStationView/BrewPanel/Panel/FormulaSlots"]
-custom_minimum_size = Vector2(610, 104)
+custom_minimum_size = Vector2(200, 78)
 layout_mode = 0
-offset_left = 310.0
-offset_top = 513.0
-offset_right = 920.0
-offset_bottom = 617.0
+offset_left = 288.0
+offset_top = 8.0
+offset_right = 488.0
+offset_bottom = 86.0
 theme_override_styles/panel = SubResource("StyleBoxFlat_brew_slot_panel")
 
 [node name="Content" type="HBoxContainer" parent="PotionBrewingStationView/BrewPanel/Panel/FormulaSlots/Slot2"]
 layout_mode = 2
-theme_override_constants/separation = 20
+theme_override_constants/separation = 8
 
 [node name="Icon" type="TextureRect" parent="PotionBrewingStationView/BrewPanel/Panel/FormulaSlots/Slot2/Content"]
-custom_minimum_size = Vector2(84, 84)
+custom_minimum_size = Vector2(48, 48)
 layout_mode = 2
 expand_mode = 1
 stretch_mode = 5
@@ -1078,44 +1025,44 @@ stretch_mode = 5
 [node name="Name" type="Label" parent="PotionBrewingStationView/BrewPanel/Panel/FormulaSlots/Slot2/Content"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.070588, 0.035294, 0.094118, 1)
-theme_override_font_sizes/font_size = 40
+theme_override_colors/font_color = Color(1, 0.941176, 0.811765, 1)
+theme_override_font_sizes/font_size = 15
 vertical_alignment = 1
 autowrap_mode = 3
 
 [node name="Marker3" type="PanelContainer" parent="PotionBrewingStationView/BrewPanel/Panel/FormulaSlots"]
-custom_minimum_size = Vector2(102, 102)
+custom_minimum_size = Vector2(28, 28)
 layout_mode = 0
-offset_left = 179.0
-offset_top = 634.0
-offset_right = 281.0
-offset_bottom = 736.0
+offset_left = 504.0
+offset_top = 8.0
+offset_right = 532.0
+offset_bottom = 36.0
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_brew_slot_marker")
 
 [node name="Number" type="Label" parent="PotionBrewingStationView/BrewPanel/Panel/FormulaSlots/Marker3"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.070588, 0.035294, 0.094118, 1)
-theme_override_font_sizes/font_size = 58
+theme_override_colors/font_color = Color(0.709804, 0.541176, 0.352941, 1)
+theme_override_font_sizes/font_size = 16
 text = "3"
 horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="Slot3" type="PanelContainer" parent="PotionBrewingStationView/BrewPanel/Panel/FormulaSlots"]
-custom_minimum_size = Vector2(610, 104)
+custom_minimum_size = Vector2(200, 78)
 layout_mode = 0
-offset_left = 310.0
-offset_top = 638.0
-offset_right = 920.0
-offset_bottom = 742.0
+offset_left = 538.0
+offset_top = 8.0
+offset_right = 738.0
+offset_bottom = 86.0
 theme_override_styles/panel = SubResource("StyleBoxFlat_brew_slot_panel")
 
 [node name="Content" type="HBoxContainer" parent="PotionBrewingStationView/BrewPanel/Panel/FormulaSlots/Slot3"]
 layout_mode = 2
-theme_override_constants/separation = 20
+theme_override_constants/separation = 8
 
 [node name="Icon" type="TextureRect" parent="PotionBrewingStationView/BrewPanel/Panel/FormulaSlots/Slot3/Content"]
-custom_minimum_size = Vector2(84, 84)
+custom_minimum_size = Vector2(48, 48)
 layout_mode = 2
 expand_mode = 1
 stretch_mode = 5
@@ -1123,105 +1070,134 @@ stretch_mode = 5
 [node name="Name" type="Label" parent="PotionBrewingStationView/BrewPanel/Panel/FormulaSlots/Slot3/Content"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.070588, 0.035294, 0.094118, 1)
-theme_override_font_sizes/font_size = 40
+theme_override_colors/font_color = Color(1, 0.941176, 0.811765, 1)
+theme_override_font_sizes/font_size = 15
 vertical_alignment = 1
 autowrap_mode = 3
 
-[node name="RequestChecklist" type="Control" parent="PotionBrewingStationView/BrewPanel/Panel"]
+[node name="PreviewStats" type="Control" parent="PotionBrewingStationView/BrewPanel/Panel"]
 anchors_preset = 0
-offset_left = 155.0
-offset_top = 760.0
-offset_right = 930.0
-offset_bottom = 1198.0
+offset_left = 18.0
+offset_top = 162.0
+offset_right = 752.0
+offset_bottom = 282.0
+mouse_filter = 2
+
+[node name="TraitsPanel" type="PanelContainer" parent="PotionBrewingStationView/BrewPanel/Panel/PreviewStats"]
+custom_minimum_size = Vector2(360, 118)
+layout_mode = 0
+offset_right = 360.0
+offset_bottom = 118.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_brew_slot_panel")
+
+[node name="Content" type="VBoxContainer" parent="PotionBrewingStationView/BrewPanel/Panel/PreviewStats/TraitsPanel"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 4
+
+[node name="Title" type="Label" parent="PotionBrewingStationView/BrewPanel/Panel/PreviewStats/TraitsPanel/Content"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.709804, 0.541176, 0.352941, 1)
+theme_override_font_sizes/font_size = 15
+text = "Traits"
+
+[node name="Lines" type="Label" parent="PotionBrewingStationView/BrewPanel/Panel/PreviewStats/TraitsPanel/Content"]
+custom_minimum_size = Vector2(0, 76)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_colors/font_color = Color(1, 0.941176, 0.811765, 1)
+theme_override_font_sizes/font_size = 14
+text = "None detected"
+autowrap_mode = 3
+
+[node name="RisksPanel" type="PanelContainer" parent="PotionBrewingStationView/BrewPanel/Panel/PreviewStats"]
+custom_minimum_size = Vector2(360, 118)
+layout_mode = 0
+offset_left = 374.0
+offset_right = 734.0
+offset_bottom = 118.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_brew_slot_panel")
+
+[node name="Content" type="VBoxContainer" parent="PotionBrewingStationView/BrewPanel/Panel/PreviewStats/RisksPanel"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 4
+
+[node name="Title" type="Label" parent="PotionBrewingStationView/BrewPanel/Panel/PreviewStats/RisksPanel/Content"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.709804, 0.541176, 0.352941, 1)
+theme_override_font_sizes/font_size = 15
+text = "Risks"
+
+[node name="Lines" type="Label" parent="PotionBrewingStationView/BrewPanel/Panel/PreviewStats/RisksPanel/Content"]
+custom_minimum_size = Vector2(0, 76)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_colors/font_color = Color(1, 0.941176, 0.811765, 1)
+theme_override_font_sizes/font_size = 14
+text = "None carried"
+autowrap_mode = 3
+
+[node name="RequestChecklist" type="Control" parent="PotionBrewingStationView/BrewPanel/Panel"]
+visible = false
+anchors_preset = 0
+offset_left = 18.0
+offset_top = 154.0
+offset_right = 672.0
+offset_bottom = 155.0
 mouse_filter = 2
 
 [node name="Frame" type="PanelContainer" parent="PotionBrewingStationView/BrewPanel/Panel/RequestChecklist"]
 layout_mode = 0
-offset_right = 775.0
-offset_bottom = 438.0
+offset_right = 1.0
+offset_bottom = 1.0
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_brew_checklist_panel")
 
-[node name="Title" type="Label" parent="PotionBrewingStationView/BrewPanel/Panel/RequestChecklist"]
-layout_mode = 0
-offset_left = 24.0
-offset_top = 28.0
-offset_right = 751.0
-offset_bottom = 95.0
-theme_override_colors/font_color = Color(0.070588, 0.035294, 0.094118, 1)
-theme_override_font_sizes/font_size = 54
-text = "Requested Fit"
-horizontal_alignment = 1
-vertical_alignment = 1
-
 [node name="Lines" type="RichTextLabel" parent="PotionBrewingStationView/BrewPanel/Panel/RequestChecklist"]
-custom_minimum_size = Vector2(705, 290)
+custom_minimum_size = Vector2(1, 1)
 layout_mode = 0
-offset_left = 50.0
-offset_top = 120.0
-offset_right = 755.0
-offset_bottom = 410.0
+offset_right = 1.0
+offset_bottom = 1.0
 mouse_filter = 2
-theme_override_colors/default_color = Color(0.427451, 0.121569, 0.168627, 1)
-theme_override_font_sizes/normal_font_size = 42
 bbcode_enabled = true
 text = "No active request."
 
 [node name="Brew" type="Button" parent="PotionBrewingStationView/BrewPanel/Panel"]
 layout_mode = 0
-offset_left = 96.0
-offset_top = 1240.0
-offset_right = 512.0
-offset_bottom = 1358.0
+offset_left = 494.0
+offset_top = 290.0
+offset_right = 618.0
+offset_bottom = 330.0
 tooltip_text = "Brew potion"
 mouse_default_cursor_shape = 2
-theme_override_colors/font_disabled_color = Color(0.541176, 0.384314, 0.196078, 0.85)
-theme_override_colors/font_hover_color = Color(0.070588, 0.035294, 0.094118, 1)
-theme_override_colors/font_color = Color(0.070588, 0.035294, 0.094118, 1)
-theme_override_colors/font_pressed_color = Color(0.709804, 0.541176, 0.352941, 1)
-theme_override_font_sizes/font_size = 58
-theme_override_styles/focus = SubResource("StyleBoxTexture_brew_button_hover")
-theme_override_styles/disabled = SubResource("StyleBoxTexture_brew_button_disabled")
-theme_override_styles/hover = SubResource("StyleBoxTexture_brew_button_hover")
-theme_override_styles/pressed = SubResource("StyleBoxTexture_brew_button_pressed")
-theme_override_styles/normal = SubResource("StyleBoxTexture_brew_button_normal")
+theme_type_variation = &"BrewActionButton"
+theme_override_font_sizes/font_size = 18
 text = "Brew"
 
 [node name="Clear" type="Button" parent="PotionBrewingStationView/BrewPanel/Panel"]
 layout_mode = 0
-offset_left = 572.0
-offset_top = 1240.0
-offset_right = 988.0
-offset_bottom = 1358.0
+offset_left = 628.0
+offset_top = 290.0
+offset_right = 752.0
+offset_bottom = 330.0
 tooltip_text = "Clear ingredients"
 mouse_default_cursor_shape = 2
-theme_override_colors/font_disabled_color = Color(0.541176, 0.384314, 0.196078, 0.85)
-theme_override_colors/font_hover_color = Color(0.070588, 0.035294, 0.094118, 1)
-theme_override_colors/font_color = Color(0.070588, 0.035294, 0.094118, 1)
-theme_override_colors/font_pressed_color = Color(0.709804, 0.541176, 0.352941, 1)
-theme_override_font_sizes/font_size = 58
-theme_override_styles/focus = SubResource("StyleBoxTexture_brew_button_hover")
-theme_override_styles/disabled = SubResource("StyleBoxTexture_brew_button_disabled")
-theme_override_styles/hover = SubResource("StyleBoxTexture_brew_button_hover")
-theme_override_styles/pressed = SubResource("StyleBoxTexture_brew_button_pressed")
-theme_override_styles/normal = SubResource("StyleBoxTexture_brew_button_normal")
+theme_type_variation = &"BrewActionButton"
+theme_override_font_sizes/font_size = 18
 text = "Clear"
 
 [node name="BrewBox" type="PanelContainer" parent="PotionBrewingStationView/BrewPanel"]
 self_modulate = Color(1, 1, 1, 0)
-layout_mode = 1
-anchors_preset = -1
-anchor_left = 0.47
-anchor_top = 0.287
-anchor_right = 0.58
-anchor_bottom = 0.76
-offset_left = -659.461
-offset_top = 248.071
-offset_right = -604.981
-offset_bottom = 42.4445
-grow_horizontal = 2
-grow_vertical = 2
+layout_mode = 0
+offset_left = 877.0
+offset_top = 394.0
+offset_right = 1192.0
+offset_bottom = 754.0
 theme_override_styles/panel = SubResource("StyleBoxFlat_bd6m8")
 script = ExtResource("10_odm4o")
 
@@ -1443,10 +1419,10 @@ text = "Clear"
 custom_minimum_size = Vector2(430, 330)
 layout_mode = 3
 anchors_preset = 0
-offset_left = 141.0
-offset_top = 787.0
-offset_right = 571.0
-offset_bottom = 1117.0
+offset_left = 499.0
+offset_top = 790.0
+offset_right = 929.0
+offset_bottom = 1147.0
 theme = ExtResource("16_brew_theme")
 script = ExtResource("45_prep_tray")
 IngredientDropBoxPath = NodePath("PreparationDropBox")
@@ -1588,88 +1564,6 @@ custom_minimum_size = Vector2(82, 0)
 layout_mode = 2
 text = "Clear"
 
-[node name="BedroomView" type="Control" parent="."]
-visible = false
-clip_contents = true
-layout_mode = 3
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_top = 50.0
-grow_horizontal = 2
-grow_vertical = 2
-
-[node name="Background" type="TextureRect" parent="BedroomView"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -130.0
-offset_right = 136.0
-offset_bottom = 139.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-texture = ExtResource("42_bedroom")
-expand_mode = 1
-stretch_mode = 5
-
-[node name="ReturnHotspotLeft" type="Button" parent="BedroomView"]
-z_index = 50
-custom_minimum_size = Vector2(188, 52)
-layout_mode = 1
-anchors_preset = -1
-anchor_top = 0.5
-anchor_bottom = 0.5
-offset_left = 20.0
-offset_top = -26.0
-offset_right = 208.0
-offset_bottom = 26.0
-grow_horizontal = 0
-grow_vertical = 2
-tooltip_text = "Return to potion brewing station"
-mouse_default_cursor_shape = 2
-theme_override_colors/font_disabled_color = Color(0.541176, 0.384314, 0.196078, 0.72)
-theme_override_colors/font_hover_color = Color(0.709804, 0.541176, 0.352941, 1)
-theme_override_colors/font_color = Color(0.709804, 0.541176, 0.352941, 1)
-theme_override_colors/font_pressed_color = Color(0.541176, 0.384314, 0.196078, 1)
-theme_override_font_sizes/font_size = 18
-theme_override_styles/focus = SubResource("StyleBoxFlat_navigation_hotspot_focus")
-theme_override_styles/disabled = SubResource("StyleBoxFlat_navigation_hotspot_disabled")
-theme_override_styles/hover = SubResource("StyleBoxFlat_navigation_hotspot_hover")
-theme_override_styles/pressed = SubResource("StyleBoxFlat_navigation_hotspot_pressed")
-theme_override_styles/normal = SubResource("StyleBoxFlat_navigation_hotspot_normal")
-text = "< Brewing Station"
-
-[node name="EndDayHotspot" type="Button" parent="BedroomView"]
-z_index = 50
-custom_minimum_size = Vector2(112, 48)
-layout_mode = 1
-anchors_preset = -1
-anchor_left = 0.56
-anchor_top = 0.66
-anchor_right = 0.56
-anchor_bottom = 0.66
-offset_left = -56.0
-offset_top = -24.0
-offset_right = 56.0
-offset_bottom = 24.0
-grow_horizontal = 2
-grow_vertical = 2
-tooltip_text = "End day"
-mouse_default_cursor_shape = 2
-theme_override_colors/font_disabled_color = Color(0.541176, 0.384314, 0.196078, 0.72)
-theme_override_colors/font_hover_color = Color(0.709804, 0.541176, 0.352941, 1)
-theme_override_colors/font_color = Color(0.709804, 0.541176, 0.352941, 1)
-theme_override_colors/font_pressed_color = Color(0.541176, 0.384314, 0.196078, 1)
-theme_override_font_sizes/font_size = 18
-theme_override_styles/focus = SubResource("StyleBoxFlat_navigation_hotspot_focus")
-theme_override_styles/disabled = SubResource("StyleBoxFlat_navigation_hotspot_disabled")
-theme_override_styles/hover = SubResource("StyleBoxFlat_navigation_hotspot_hover")
-theme_override_styles/pressed = SubResource("StyleBoxFlat_navigation_hotspot_pressed")
-theme_override_styles/normal = SubResource("StyleBoxFlat_navigation_hotspot_normal")
-text = "Sleep"
-
 [node name="CustomerPanel" type="Control" parent="."]
 visible = false
 layout_mode = 3
@@ -1678,10 +1572,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = 313.0
-offset_top = -457.0
-offset_right = 938.0
-offset_bottom = 490.0
+offset_left = 201.0
+offset_top = -327.0
+offset_right = 826.0
+offset_bottom = 620.0
 grow_horizontal = 2
 grow_vertical = 2
 theme = ExtResource("16_brew_theme")
@@ -1780,10 +1674,10 @@ custom_minimum_size = Vector2(0, 34)
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="ComeBackTomorrow" type="Button" parent="CustomerPanel/Panel/Margin/VBox/CustomerActions"]
+[node name="BrewingStation" type="Button" parent="CustomerPanel/Panel/Margin/VBox/CustomerActions"]
 layout_mode = 2
 size_flags_horizontal = 3
-text = "Come back tomorrow"
+text = "Brewing Station"
 
 [node name="SorryCantHelpYou" type="Button" parent="CustomerPanel/Panel/Margin/VBox/CustomerActions"]
 layout_mode = 2

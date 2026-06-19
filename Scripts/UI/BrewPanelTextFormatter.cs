@@ -24,10 +24,11 @@ public static class BrewPanelTextFormatter
 			return "None detected";
 
 		var lines = values
+			.Where(x => !string.IsNullOrWhiteSpace(x.Key) && x.Value > 0)
 			.OrderByDescending(x => x.Value)
 			.ThenBy(x => x.Key)
 			.Take(maxCount)
-			.Select(x => $"{x.Key} +{x.Value}")
+			.Select(x => $"{InventoryItemTextFormatter.DisplayStatName(x.Key)} +{x.Value}")
 			.ToList();
 
 		if (lines.Count == 0)
@@ -42,16 +43,32 @@ public static class BrewPanelTextFormatter
 			return "None detected";
 
 		var lines = values
+			.Where(x => !string.IsNullOrWhiteSpace(x.Key) && x.Value > 0)
 			.OrderByDescending(x => x.Value)
 			.ThenBy(x => x.Key)
 			.Take(maxCount)
-			.Select(x => $"{x.Key} {GetRiskChancePercent(x.Value)}%")
+			.Select(x => $"{InventoryItemTextFormatter.DisplayStatName(x.Key)} {GetRiskChancePercent(x.Value)}%")
 			.ToList();
 
 		if (lines.Count == 0)
 			return "None detected";
 
 		return string.Join("\n", lines);
+	}
+
+	public static string BuildCarriedRiskListText(IReadOnlyDictionary<string, int> values, int maxCount)
+	{
+		if (values.Count == 0)
+			return "None carried";
+
+		var lines = values
+			.Where(x => !string.IsNullOrWhiteSpace(x.Key) && x.Value > 0)
+			.OrderBy(x => x.Key)
+			.Take(maxCount)
+			.Select(x => InventoryItemTextFormatter.DisplayStatName(x.Key))
+			.ToList();
+
+		return lines.Count == 0 ? "None carried" : string.Join("\n", lines);
 	}
 
 	public static int GetRiskChancePercent(int chanceValue)

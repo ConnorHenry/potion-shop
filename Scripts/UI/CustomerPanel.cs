@@ -26,6 +26,8 @@ public partial class CustomerPanel : Control
 	public delegate void PlotConversationStartedEventHandler();
 	[Signal]
 	public delegate void CustomerImageChangedEventHandler(string imagePath);
+	[Signal]
+	public delegate void BrewingStationRequestedEventHandler();
 
 	public bool SuppressSaleResultPanel { get; set; }
 	public string? CurrentCustomerImagePath => !string.IsNullOrWhiteSpace(_currentCustomerImagePath)
@@ -43,11 +45,14 @@ public partial class CustomerPanel : Control
 	[Export] public NodePath SaleResultBodyPath = default!;
 	[Export] public NodePath SaleResultCloseButtonPath = default!;
 	[Export] public NodePath CloseButtonPath = default!;
+	[Export] public NodePath CustomerPotionDetailPanelPath = new("../CustomerCloseupView/CustomerPotionDetailPanel");
+	[Export] public NodePath CustomerCloseupViewPath = new("../CustomerCloseupView");
 	[Export] public NodePath GameStatePath = new(AutoloadNodePaths.GameState);
 	[Export] public NodePath ItemCatalogPath = new(AutoloadNodePaths.ItemCatalog);
 	[Export] public string SlotLayoutSettingsPath = InventorySlotLayoutSettings.DefaultResourcePath;
 
 	private Label? _title;
+	private Control? _requestTraits;
 	private RichTextLabel _desiredTraits = default!;
 	private RichTextLabel _badTraits = default!;
 	private RichTextLabel _dialogue = default!;
@@ -61,16 +66,18 @@ public partial class CustomerPanel : Control
 	private HBoxContainer _customerActions = default!;
 	private VBoxContainer _dialogueOptionsContainer = default!;
 	private HBoxContainer _sellingActions = default!;
-	private Button _comeBackTomorrowButton = default!;
+	private Button _brewingStationButton = default!;
 	private Button _sorryCantHelpYouButton = default!;
 	private Button _nextCustomerButton = default!;
 	private Button _refusePotionButton = default!;
 	private Button _returnToDialogueButton = default!;
+	private StationItemDetailPanel? _customerPotionDetailPanel;
 	private CustomerInteractionDef? _interaction;
 	private readonly PotionBrewingService _brewingService = new();
 	private readonly List<Button> _dialogueOptionButtons = new();
 	private readonly List<CustomerDialogueOptionDef> _visibleDialogueOptions = new();
 	private readonly List<PotionSlotView> _potionSlotViews = new();
+	private string _selectedPotionComparisonItemId = string.Empty;
 	private GameState _gameState = default!;
 	private ItemCatalogService _itemCatalog = default!;
 	private InventorySlotLayoutSettings _slotLayoutSettings = default!;
@@ -89,8 +96,15 @@ public partial class CustomerPanel : Control
 	private const int CustomerPotionSlotCount = 4;
 	private const float CustomerPotionSlotWidth = 94.0f;
 	private const float CustomerPotionSlotHeight = 132.0f;
+	private const float CustomerPotionDetailPanelLeft = 143.0f;
+	private const float CustomerPotionDetailPanelTop = 127.0f;
+	private const float CustomerPotionDetailPanelWidth = 348.0f;
+	private const float CustomerPotionDetailPanelHeight = 284.0f;
 	private static readonly Color SeenDialogueOptionModulate = new(0.58f, 0.58f, 0.58f, 1f);
 	private static readonly Color DefaultButtonModulate = new(1f, 1f, 1f, 1f);
+	private static readonly Color SelectedPotionSlotBackgroundColor = new(0.10f, 0.15f, 0.11f, 0.92f);
+	private static readonly Color SelectedPotionSlotBorderColor = new(0.43f, 0.83f, 0.48f, 1f);
+	private static readonly Color SelectedPotionSlotHoverBorderColor = new(0.66f, 0.94f, 0.70f, 1f);
 
 	public override void _Ready()
 	{
@@ -115,6 +129,7 @@ public partial class CustomerPanel : Control
 		_title = ResolveOptionalNode(TitlePath, "TitlePath", GetNodeOrNull<Label>);
 		_desiredTraits = GetNode<RichTextLabel>(DesiredTraitsPath);
 		_badTraits = GetNode<RichTextLabel>(BadTraitsPath);
+		_requestTraits = ResolveRequestTraitsContainer();
 		_dialogue = GetNode<RichTextLabel>(DialoguePath);
 		_sellDropBox = GetNode<CustomerSellDropBox>(SellDropBoxPath);
 		_saleResultPanel = GetNode<Control>(SaleResultPanelPath);
@@ -123,6 +138,7 @@ public partial class CustomerPanel : Control
 		_saleResultCloseButton = GetNode<Button>(SaleResultCloseButtonPath);
 		_closeButton = ResolveOptionalNode(CloseButtonPath, "CloseButtonPath", GetNodeOrNull<Button>);
 		BindOrCreateSkipButtons();
+		_customerPotionDetailPanel = ResolveOrCreateCustomerPotionDetailPanel();
 
 		_desiredTraits.BbcodeEnabled = true;
 		_badTraits.BbcodeEnabled = true;
@@ -140,8 +156,8 @@ public partial class CustomerPanel : Control
 		_dialogueGuiInputHandler = OnDialogueGuiInput;
 		_dialogue.GuiInput += _dialogueGuiInputHandler;
 		//_closeButton.Pressed += HidePanel;
-		if (_comeBackTomorrowButton is not null)
-			_comeBackTomorrowButton.Pressed += OnComeBackTomorrowPressed;
+		if (_brewingStationButton is not null)
+			_brewingStationButton.Pressed += OnBrewingStationPressed;
 
 		if (_sorryCantHelpYouButton is not null)
 			_sorryCantHelpYouButton.Pressed += OnSorryCantHelpYouPressed;
@@ -176,12 +192,65 @@ public partial class CustomerPanel : Control
 		return node;
 	}
 
+	private Control? ResolveRequestTraitsContainer()
+	{
+		var desiredColumn = _desiredTraits.GetParent();
+		if (desiredColumn?.GetParent() is Control requestTraits)
+			return requestTraits;
+
+		GD.PushError("CustomerPanel: Request traits container was not found from DesiredTraitsPath.");
+		return null;
+	}
+
+	private StationItemDetailPanel? ResolveOrCreateCustomerPotionDetailPanel()
+	{
+		if (!string.IsNullOrWhiteSpace(CustomerPotionDetailPanelPath.ToString()))
+		{
+			var existingPanel = GetNodeOrNull<StationItemDetailPanel>(CustomerPotionDetailPanelPath);
+			if (existingPanel is not null)
+			{
+				PositionCustomerPotionDetailPanel(existingPanel);
+				return existingPanel;
+			}
+		}
+
+		var closeupView = GetNodeOrNull<Control>(CustomerCloseupViewPath);
+		if (closeupView is null)
+		{
+			GD.PushError($"CustomerPanel: CustomerCloseupView was not found at '{CustomerCloseupViewPath}'.");
+			return null;
+		}
+
+		var detailPanel = StationItemDetailPanel.CreateDefaultPanel("CustomerPotionDetailPanel", Theme);
+		PositionCustomerPotionDetailPanel(detailPanel);
+		closeupView.AddChild(detailPanel);
+		return detailPanel;
+	}
+
+	private static void PositionCustomerPotionDetailPanel(StationItemDetailPanel detailPanel)
+	{
+		detailPanel.SetCustomerComparisonFrameSize(new Vector2(
+			CustomerPotionDetailPanelWidth,
+			CustomerPotionDetailPanelHeight));
+		detailPanel.AnchorLeft = 0.0f;
+		detailPanel.AnchorTop = 0.0f;
+		detailPanel.AnchorRight = 0.0f;
+		detailPanel.AnchorBottom = 0.0f;
+		detailPanel.OffsetLeft = CustomerPotionDetailPanelLeft;
+		detailPanel.OffsetTop = CustomerPotionDetailPanelTop;
+		detailPanel.OffsetRight = CustomerPotionDetailPanelLeft + CustomerPotionDetailPanelWidth;
+		detailPanel.OffsetBottom = CustomerPotionDetailPanelTop + CustomerPotionDetailPanelHeight;
+		detailPanel.CustomMinimumSize = new Vector2(CustomerPotionDetailPanelWidth, CustomerPotionDetailPanelHeight);
+		detailPanel.Size = new Vector2(CustomerPotionDetailPanelWidth, CustomerPotionDetailPanelHeight);
+		detailPanel.ZIndex = 1800;
+	}
+
 	public override void _ExitTree()
 	{
 		if (_closeButton is not null)
 			_closeButton.Pressed -= HidePanel;
-		if (_comeBackTomorrowButton is not null)
-			_comeBackTomorrowButton.Pressed -= OnComeBackTomorrowPressed;
+		if (_brewingStationButton is not null)
+			_brewingStationButton.Pressed -= OnBrewingStationPressed;
 		if (_sorryCantHelpYouButton is not null)
 			_sorryCantHelpYouButton.Pressed -= OnSorryCantHelpYouPressed;
 		if (_nextCustomerButton is not null)
@@ -204,6 +273,8 @@ public partial class CustomerPanel : Control
 			_sellDropBox.ItemHoverPreview -= OnSellDropHoverPreview;
 			_sellDropBox.HoverPreviewCleared -= OnSellDropHoverPreviewCleared;
 		}
+		foreach (var slotView in _potionSlotViews)
+			slotView.Button.SlotActivated -= OnPotionSlotActivated;
 		if (_gameState is not null)
 			_gameState.Changed -= RefreshPotionSlotRow;
 	}
@@ -216,6 +287,8 @@ public partial class CustomerPanel : Control
 
 	public void PrepareInteraction(CustomerInteractionDef interaction)
 	{
+		HideCustomerPotionDetailPanel();
+		ClearSelectedPotionComparison(resetRequestText: false);
 		HideSaleResult();
 		_interaction = interaction;
 		SetCurrentCustomerImagePath(interaction.CharacterImagePath);
@@ -226,6 +299,7 @@ public partial class CustomerPanel : Control
 		_requestRevealed = false;
 		_sellingMode = false;
 		_gameState.ClearActiveCustomerRequest();
+		RefreshRequestTraitsVisibility();
 		Visible = false;
 	}
 
@@ -238,6 +312,7 @@ public partial class CustomerPanel : Control
 			return;
 		}
 
+		HideCustomerPotionDetailPanel();
 		if (_interactionPresentationStarted)
 		{
 			Visible = true;
@@ -262,6 +337,7 @@ public partial class CustomerPanel : Control
 		if (!HasActiveDialogueInteraction())
 			AppendAuthoredLines(interaction.Lines, interaction.Text, CustomerDialogueTextFormatter.CustomerSpeakerName);
 		SetRequestTraits(request);
+		RefreshRequestTraitsVisibility();
 		if (TryShowDialogueStart())
 		{
 			EmitSignal(SignalName.PlotConversationStarted);
@@ -324,6 +400,8 @@ public partial class CustomerPanel : Control
 
 	public void HidePanel()
 	{
+		HideCustomerPotionDetailPanel();
+		ClearSelectedPotionComparison(resetRequestText: false);
 		_interaction = null;
 		SetCurrentCustomerImagePath(null);
 		_gameState.ClearActiveCustomerRequest();
@@ -364,6 +442,8 @@ public partial class CustomerPanel : Control
 		if (HasActiveDialogueInteraction())
 			AppendPlayerLine($"Give {DisplayName(itemId, _itemCatalog.GetItemName(itemId))}");
 
+		HideCustomerPotionDetailPanel();
+		ClearSelectedPotionComparison(resetRequestText: false);
 		var saleResult = ApplySale(itemId, brewResult);
 
 		if (SuppressSaleResultPanel)
@@ -439,6 +519,7 @@ public partial class CustomerPanel : Control
 
 	private void ShowSaleResult(string itemId, PotionResult brewResult)
 	{
+		ClearSelectedPotionComparison(resetRequestText: false);
 		_gameState.ClearActiveCustomerRequest();
 		_requestRevealed = false;
 		_sellingMode = false;
@@ -472,6 +553,8 @@ public partial class CustomerPanel : Control
 		if (!_awaitingNextCustomer && !_saleResultPanel.Visible)
 			return;
 
+		HideCustomerPotionDetailPanel();
+		ClearSelectedPotionComparison(resetRequestText: false);
 		_awaitingNextCustomer = false;
 		HideSaleResult();
 		_interaction = null;
@@ -597,6 +680,30 @@ public partial class CustomerPanel : Control
 		_badTraits.Text = CustomerDialogueTextFormatter.BuildBadRequestText(request, producedTraits, producedRisks);
 	}
 
+	private void HideCustomerPotionDetailPanel()
+	{
+		_customerPotionDetailPanel?.HidePanel();
+	}
+
+	private void RefreshRequestTraitsVisibility()
+	{
+		if (_requestTraits is null)
+			return;
+
+		_requestTraits.Visible = ShouldShowRequestTraits();
+	}
+
+	private bool ShouldShowRequestTraits()
+	{
+		if (_interaction is null)
+			return false;
+
+		if (!HasActiveDialogueInteraction())
+			return true;
+
+		return _requestRevealed && _sellingMode;
+	}
+
 	private bool IsPotionItem(string itemId)
 	{
 		return _itemCatalog.IsPotion(itemId);
@@ -673,7 +780,70 @@ public partial class CustomerPanel : Control
 		if (HasActiveDialogueInteraction() && !_requestRevealed)
 			return;
 
-		SetRequestTraits(_interaction.BuildRequest());
+		RestoreSelectedPotionComparisonOrRequest();
+	}
+
+	private void OnPotionSlotActivated(string itemId)
+	{
+		if (_interaction is null)
+			return;
+
+		if (HasActiveDialogueInteraction() && !_sellingMode)
+			return;
+
+		if (string.IsNullOrWhiteSpace(itemId))
+			return;
+
+		if (!IsPotionItem(itemId))
+			return;
+
+		if (!TryResolvePotionScore(itemId, out var brewResult) || brewResult is null)
+			return;
+
+		var request = _interaction.BuildRequest();
+		HideCustomerPotionDetailPanel();
+		SetSelectedPotionComparison(itemId, request, brewResult);
+	}
+
+	private void SetSelectedPotionComparison(string itemId, CustomerRequestDef request, PotionResult brewResult)
+	{
+		_selectedPotionComparisonItemId = itemId;
+		SetRequestTraits(request, brewResult.Traits, brewResult.Risks);
+		RefreshPotionSlotSelection();
+	}
+
+	private void RestoreSelectedPotionComparisonOrRequest()
+	{
+		if (_interaction is null)
+			return;
+
+		var request = _interaction.BuildRequest();
+		if (!string.IsNullOrWhiteSpace(_selectedPotionComparisonItemId) &&
+			_gameState.HasItem(_selectedPotionComparisonItemId, 1) &&
+			TryResolvePotionScore(_selectedPotionComparisonItemId, out var brewResult) &&
+			brewResult is not null)
+		{
+			SetRequestTraits(request, brewResult.Traits, brewResult.Risks);
+			return;
+		}
+
+		ClearSelectedPotionComparison(resetRequestText: false);
+		SetRequestTraits(request);
+	}
+
+	private void ClearSelectedPotionComparison(bool resetRequestText)
+	{
+		if (string.IsNullOrWhiteSpace(_selectedPotionComparisonItemId))
+		{
+			if (resetRequestText && _interaction is not null)
+				SetRequestTraits(_interaction.BuildRequest());
+			return;
+		}
+
+		_selectedPotionComparisonItemId = string.Empty;
+		RefreshPotionSlotSelection();
+		if (resetRequestText && _interaction is not null)
+			SetRequestTraits(_interaction.BuildRequest());
 	}
 
 	private bool IsRequestSatisfiedByPotion(string potionItemId, CustomerRequestDef request, PotionResult brewResult)
@@ -918,9 +1088,13 @@ public partial class CustomerPanel : Control
 		_dialoguePresenter?.StopQueuedPresentation();
 	}
 
-	private void OnComeBackTomorrowPressed()
+	private void OnBrewingStationPressed()
 	{
-		OnSkipCustomerPressed();
+		if (_interaction is null)
+			return;
+
+		HideCustomerPotionDetailPanel();
+		EmitSignal(SignalName.BrewingStationRequested);
 	}
 
 	private void OnSorryCantHelpYouPressed()
@@ -1058,6 +1232,8 @@ public partial class CustomerPanel : Control
 		if (_interaction is null)
 			return;
 
+		HideCustomerPotionDetailPanel();
+		ClearSelectedPotionComparison(resetRequestText: false);
 		SetDialoguePresentationState();
 		QueuePlayerLine(_refusePotionButton.Text);
 		if (_interaction.PotionRefusedLines.Count > 0 || !string.IsNullOrWhiteSpace(_interaction.PotionRefusedText))
@@ -1083,11 +1259,14 @@ public partial class CustomerPanel : Control
 		if (!HasActiveDialogueInteraction())
 			return;
 
+		HideCustomerPotionDetailPanel();
+		ClearSelectedPotionComparison(resetRequestText: false);
 		SetDialoguePresentationState();
 		QueuePlayerLine(_returnToDialogueButton.Text);
 		_gameState.ClearActiveCustomerRequest();
 		_requestRevealed = false;
 		_sellingMode = false;
+		RefreshRequestTraitsVisibility();
 
 		var fallbackNode = _interaction?.GetDialogueNode(_activeDialogueNodeId);
 		var returnNode = _interaction?.GetDialogueNode(_requestReturnDialogueNodeId) ?? fallbackNode;
@@ -1157,6 +1336,8 @@ public partial class CustomerPanel : Control
 		if (_interaction is null)
 			return;
 
+		HideCustomerPotionDetailPanel();
+		ClearSelectedPotionComparison(resetRequestText: false);
 		_gameState.RecordStoryCustomerInteractionOutcome(_interaction, outcome);
 		_gameState.ClearActiveCustomerRequest();
 		_activeDialogueNodeId = string.Empty;
@@ -1191,7 +1372,7 @@ public partial class CustomerPanel : Control
 
 	private void BindOrCreateSkipButtons()
 	{
-		_comeBackTomorrowButton = GetNodeOrNull<Button>("Panel/Margin/VBox/CustomerActions/ComeBackTomorrow");
+		_brewingStationButton = GetNodeOrNull<Button>("Panel/Margin/VBox/CustomerActions/BrewingStation");
 		_sorryCantHelpYouButton = GetNodeOrNull<Button>("Panel/Margin/VBox/CustomerActions/SorryCantHelpYou");
 		var customerVBox = GetNodeOrNull<VBoxContainer>("Panel/Margin/VBox");
 		if (customerVBox is null)
@@ -1212,16 +1393,16 @@ public partial class CustomerPanel : Control
 
 		BindOrCreatePotionSlotRow(customerVBox);
 
-		_comeBackTomorrowButton = _customerActions.GetNodeOrNull<Button>("ComeBackTomorrow");
-		if (_comeBackTomorrowButton is null)
+		_brewingStationButton = _customerActions.GetNodeOrNull<Button>("BrewingStation");
+		if (_brewingStationButton is null)
 		{
-			_comeBackTomorrowButton = new Button
+			_brewingStationButton = new Button
 			{
-				Name = "ComeBackTomorrow",
-				Text = "Come back tomorrow",
+				Name = "BrewingStation",
+				Text = "Brewing Station",
 				SizeFlagsHorizontal = SizeFlags.ExpandFill
 			};
-			_customerActions.AddChild(_comeBackTomorrowButton);
+			_customerActions.AddChild(_brewingStationButton);
 		}
 
 		_sorryCantHelpYouButton = _customerActions.GetNodeOrNull<Button>("SorryCantHelpYou");
@@ -1330,6 +1511,8 @@ public partial class CustomerPanel : Control
 				_potionSlotsRow.AddChild(slot);
 			}
 
+			slot.SlotActivated -= OnPotionSlotActivated;
+			slot.SlotActivated += OnPotionSlotActivated;
 			_potionSlotViews.Add(new PotionSlotView(slot));
 		}
 
@@ -1379,6 +1562,33 @@ public partial class CustomerPanel : Control
 		return style;
 	}
 
+	private static StyleBoxFlat CreatePotionSlotSelectedStyleBox()
+	{
+		var style = CreatePotionSlotStyleBox();
+		style.BgColor = SelectedPotionSlotBackgroundColor;
+		style.BorderColor = SelectedPotionSlotBorderColor;
+		style.BorderWidthLeft = 2;
+		style.BorderWidthTop = 2;
+		style.BorderWidthRight = 2;
+		style.BorderWidthBottom = 2;
+		return style;
+	}
+
+	private static StyleBoxFlat CreatePotionSlotSelectedHoverStyleBox()
+	{
+		var style = CreatePotionSlotSelectedStyleBox();
+		style.BorderColor = SelectedPotionSlotHoverBorderColor;
+		return style;
+	}
+
+	private static void SetPotionSlotSelectedVisual(InventoryItemSlot slot, bool selected)
+	{
+		slot.AddThemeStyleboxOverride("normal", selected ? CreatePotionSlotSelectedStyleBox() : CreatePotionSlotStyleBox());
+		slot.AddThemeStyleboxOverride("hover", selected ? CreatePotionSlotSelectedHoverStyleBox() : CreatePotionSlotHoverStyleBox());
+		slot.AddThemeStyleboxOverride("pressed", selected ? CreatePotionSlotSelectedStyleBox() : CreatePotionSlotHoverStyleBox());
+		slot.AddThemeStyleboxOverride("disabled", CreatePotionSlotStyleBox());
+	}
+
 	private void SetPotionSlotRowVisible(bool visible)
 	{
 		if (_potionSlotsRow is null)
@@ -1394,6 +1604,14 @@ public partial class CustomerPanel : Control
 		if (_potionSlotsRow is null || _potionSlotViews.Count == 0)
 			return;
 
+		var selectedPotionWasCleared = false;
+		if (!string.IsNullOrWhiteSpace(_selectedPotionComparisonItemId) &&
+			(!_gameState.HasItem(_selectedPotionComparisonItemId, 1) || !IsPotionItem(_selectedPotionComparisonItemId)))
+		{
+			_selectedPotionComparisonItemId = string.Empty;
+			selectedPotionWasCleared = true;
+		}
+
 		var potionStacks = _gameState.Inventory
 			.Where(stack => IsPotionItem(stack.Key) && stack.Value > 0)
 			.OrderBy(stack => DisplayName(stack.Key, _itemCatalog.GetItemName(stack.Key)))
@@ -1408,6 +1626,9 @@ public partial class CustomerPanel : Control
 			else
 				ClearPotionSlot(_potionSlotViews[index]);
 		}
+
+		if (selectedPotionWasCleared && _interaction is not null && ShouldShowRequestTraits())
+			SetRequestTraits(_interaction.BuildRequest());
 	}
 
 	private void SetPotionSlot(PotionSlotView slotView, string itemId, int quantity)
@@ -1427,6 +1648,7 @@ public partial class CustomerPanel : Control
 		slotView.Button.Text = "";
 		slotView.Button.TooltipText = $"{displayName} x{quantity}";
 		SetPotionSlotContent(slotView.Button, displayName, itemId, quantity);
+		SetPotionSlotSelectedVisual(slotView.Button, IsSelectedPotionComparisonItem(itemId));
 	}
 
 	private static void ClearPotionSlot(PotionSlotView slotView)
@@ -1438,7 +1660,20 @@ public partial class CustomerPanel : Control
 		slotView.Button.Disabled = true;
 		slotView.Button.Text = "";
 		slotView.Button.TooltipText = "";
+		SetPotionSlotSelectedVisual(slotView.Button, false);
 		ClearPotionSlotContent(slotView.Button);
+	}
+
+	private bool IsSelectedPotionComparisonItem(string itemId)
+	{
+		return !string.IsNullOrWhiteSpace(itemId) &&
+			string.Equals(itemId, _selectedPotionComparisonItemId, StringComparison.OrdinalIgnoreCase);
+	}
+
+	private void RefreshPotionSlotSelection()
+	{
+		foreach (var slotView in _potionSlotViews)
+			SetPotionSlotSelectedVisual(slotView.Button, IsSelectedPotionComparisonItem(slotView.Button.ItemId));
 	}
 
 	private void SetPotionSlotContent(InventoryItemSlot slot, string displayName, string potionItemId, int quantity)
@@ -1509,12 +1744,12 @@ public partial class CustomerPanel : Control
 			_sellingActions.Visible = false;
 		SetPotionSlotRowVisible(true);
 
-		if (_comeBackTomorrowButton is not null)
+		if (_brewingStationButton is not null)
 		{
-			_comeBackTomorrowButton.Text = "Come back tomorrow";
-			_comeBackTomorrowButton.Visible = true;
-			_comeBackTomorrowButton.Modulate = DefaultButtonModulate;
-			_comeBackTomorrowButton.Disabled = false;
+			_brewingStationButton.Text = "Brewing Station";
+			_brewingStationButton.Visible = true;
+			_brewingStationButton.Modulate = DefaultButtonModulate;
+			_brewingStationButton.Disabled = false;
 		}
 
 		if (_sorryCantHelpYouButton is not null)
@@ -1529,6 +1764,7 @@ public partial class CustomerPanel : Control
 			_nextCustomerButton.Visible = false;
 
 		SetDropBoxEnabled(true);
+		RefreshRequestTraitsVisibility();
 	}
 
 	private void SetDialogueOptionState(CustomerDialogueNodeDef node)
@@ -1565,6 +1801,7 @@ public partial class CustomerPanel : Control
 			_nextCustomerButton.Visible = false;
 
 		SetDropBoxEnabled(false);
+		RefreshRequestTraitsVisibility();
 	}
 
 	private void SetDialoguePresentationState()
@@ -1579,6 +1816,7 @@ public partial class CustomerPanel : Control
 			button.Visible = false;
 		SetPotionSlotRowVisible(false);
 		SetDropBoxEnabled(false);
+		RefreshRequestTraitsVisibility();
 	}
 
 	private void SetDialogueOptionButton(Button? button, int optionIndex)
@@ -1627,6 +1865,7 @@ public partial class CustomerPanel : Control
 		}
 
 		SetDropBoxEnabled(true);
+		RefreshRequestTraitsVisibility();
 	}
 
 	private void SetSaleResolvedState()
@@ -1639,8 +1878,8 @@ public partial class CustomerPanel : Control
 			_sellingActions.Visible = false;
 		SetPotionSlotRowVisible(false);
 
-		if (_comeBackTomorrowButton is not null)
-			_comeBackTomorrowButton.Visible = false;
+		if (_brewingStationButton is not null)
+			_brewingStationButton.Visible = false;
 
 		if (_sorryCantHelpYouButton is not null)
 			_sorryCantHelpYouButton.Visible = false;
@@ -1652,6 +1891,7 @@ public partial class CustomerPanel : Control
 			button.Visible = false;
 
 		SetDropBoxEnabled(false);
+		RefreshRequestTraitsVisibility();
 	}
 
 	private void SetDropBoxEnabled(bool enabled)
