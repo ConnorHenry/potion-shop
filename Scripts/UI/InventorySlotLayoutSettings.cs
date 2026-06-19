@@ -10,7 +10,6 @@ public partial class InventorySlotLayoutSettings : Resource
 	[Export] public InventorySlotLayoutProfile IngredientShelfSlot { get; set; } = InventorySlotLayoutProfile.CreateIngredientShelfDefault();
 	[Export] public InventorySlotLayoutProfile ConsumableShelfSlot { get; set; } = InventorySlotLayoutProfile.CreateConsumableShelfDefault();
 	[Export] public InventorySlotLayoutProfile PotionInventorySlot { get; set; } = InventorySlotLayoutProfile.CreatePotionInventoryDefault();
-	[Export] public InventorySlotLayoutProfile CustomerPotionSlot { get; set; } = InventorySlotLayoutProfile.CreateCustomerPotionDefault();
 
 	public static InventorySlotLayoutSettings LoadDefault(bool forceReload = false)
 	{
@@ -54,7 +53,6 @@ public partial class InventorySlotLayoutSettings : Resource
 		IngredientShelfSlot = InventorySlotLayoutProfile.CreateIngredientShelfDefault();
 		ConsumableShelfSlot = InventorySlotLayoutProfile.CreateConsumableShelfDefault();
 		PotionInventorySlot = InventorySlotLayoutProfile.CreatePotionInventoryDefault();
-		CustomerPotionSlot = InventorySlotLayoutProfile.CreateCustomerPotionDefault();
 		EmitChanged();
 	}
 
@@ -63,7 +61,6 @@ public partial class InventorySlotLayoutSettings : Resource
 		IngredientShelfSlot ??= InventorySlotLayoutProfile.CreateIngredientShelfDefault();
 		ConsumableShelfSlot ??= InventorySlotLayoutProfile.CreateConsumableShelfDefault();
 		PotionInventorySlot ??= InventorySlotLayoutProfile.CreatePotionInventoryDefault();
-		CustomerPotionSlot ??= InventorySlotLayoutProfile.CreateCustomerPotionDefault();
 	}
 
 	public InventorySlotLayoutProfile GetProfile(InventorySlotLayoutKind kind)
@@ -74,7 +71,6 @@ public partial class InventorySlotLayoutSettings : Resource
 			InventorySlotLayoutKind.IngredientShelf => IngredientShelfSlot,
 			InventorySlotLayoutKind.ConsumableShelf => ConsumableShelfSlot,
 			InventorySlotLayoutKind.PotionInventory => PotionInventorySlot,
-			InventorySlotLayoutKind.CustomerPotion => CustomerPotionSlot,
 			_ => IngredientShelfSlot
 		};
 	}
@@ -87,7 +83,6 @@ public partial class InventorySlotLayoutSettings : Resource
 			InventorySlotLayoutKind.IngredientShelf => InventorySlotLayoutProfile.CreateIngredientShelfDefault(),
 			InventorySlotLayoutKind.ConsumableShelf => InventorySlotLayoutProfile.CreateConsumableShelfDefault(),
 			InventorySlotLayoutKind.PotionInventory => InventorySlotLayoutProfile.CreatePotionInventoryDefault(),
-			InventorySlotLayoutKind.CustomerPotion => InventorySlotLayoutProfile.CreateCustomerPotionDefault(),
 			_ => InventorySlotLayoutProfile.CreateIngredientShelfDefault()
 		});
 		EmitChanged();

@@ -6,7 +6,6 @@
 script = ExtResource("1")
 ItemsPath = "res://Data/items_data.tres"
 RulesPath = "res://Data/rules_data.tres"
-EventsPath = "res://Data/events_data.tres"
 CalendarEventsPath = "res://Data/calendar_events_data.tres"
 CustomerInteractionsPath = "res://Data/customers_tiered_test_data.tres"
 PotionRecipesPath = "res://Data/potion_recipes_data.tres"

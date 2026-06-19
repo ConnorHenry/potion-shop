@@ -70,7 +70,6 @@ public partial class InventorySlotLayoutEditorDock : ScrollContainer
 		tabs.AddChild(CreateProfilePage(InventorySlotLayoutKind.IngredientShelf, "Ingredient Shelf", true));
 		tabs.AddChild(CreateProfilePage(InventorySlotLayoutKind.ConsumableShelf, "Consumable Shelf", false));
 		tabs.AddChild(CreateProfilePage(InventorySlotLayoutKind.PotionInventory, "Potion Inventory", true));
-		tabs.AddChild(CreateProfilePage(InventorySlotLayoutKind.CustomerPotion, "Customer Potion", false));
 
 		_statusLabel = new Label
 		{
@@ -535,7 +534,7 @@ public partial class InventorySlotLayoutEditorDock : ScrollContainer
 
 		return kind switch
 		{
-			InventorySlotLayoutKind.PotionInventory or InventorySlotLayoutKind.CustomerPotion =>
+			InventorySlotLayoutKind.PotionInventory =>
 				JarredInventorySlotView.CreatePotionContent(
 					slotSize,
 					sampleName,
@@ -566,7 +565,6 @@ public partial class InventorySlotLayoutEditorDock : ScrollContainer
 			InventorySlotLayoutKind.IngredientShelf => new Vector2(116.0f, 160.0f),
 			InventorySlotLayoutKind.ConsumableShelf => new Vector2(104.0f, 160.0f),
 			InventorySlotLayoutKind.PotionInventory => new Vector2(112.0f, 168.0f),
-			InventorySlotLayoutKind.CustomerPotion => new Vector2(94.0f, 132.0f),
 			_ => new Vector2(112.0f, 168.0f)
 		};
 	}

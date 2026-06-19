@@ -4,6 +4,5 @@ public enum InventorySlotLayoutKind
 {
 	IngredientShelf,
 	ConsumableShelf,
-	PotionInventory,
-	CustomerPotion
+	PotionInventory
 }

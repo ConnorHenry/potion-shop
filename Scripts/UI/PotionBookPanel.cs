@@ -179,6 +179,12 @@ public partial class PotionBookPanel : Control
 		if (!Visible)
 			return;
 
+		ShowPanel();
+	}
+
+	public void ShowPanel()
+	{
+		Visible = true;
 		var currentPotionId = GetVisiblePotionId();
 		RebuildRecipePages();
 		_currentPageIndex = ResolveSpreadStart(currentPotionId);

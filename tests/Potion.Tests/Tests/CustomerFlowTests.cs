@@ -15,10 +15,10 @@ internal static class CustomerFlowTests
 {
     public static void Register(TestRunner runner)
     {
-        runner.Run("CustomerPanel creates detached ingredient snapshots", TestCustomerPanelBuildPotionIngredientDef);
+        runner.Run("Customer flow creates detached ingredient snapshots", TestCustomerPanelBuildPotionIngredientDef);
         runner.Run("Customer events randomize shop-day order", TestCustomerEventControllerRandomizesOrder);
-        runner.Run("Shop summary clears customer presentation", TestShopSummaryClearsCustomerPresentation);
-        runner.Run("Active customer request keeps shop front customer clickable", TestActiveCustomerRequestKeepsShopFrontCustomerClickable);
+        runner.Run("Shop summary clears station customer presentation", TestShopSummaryClearsCustomerPresentation);
+        runner.Run("Active customer request is owned by station panel", TestActiveCustomerRequestKeepsShopFrontCustomerClickable);
         runner.Run("Forced customer fallback resolves legacy ids deterministically", TestForcedCustomerFallbackResolvesLegacyIdsDeterministically);
         runner.Run("Customer events respect scheduling and story outcomes", TestCustomerEventSchedulingAndStoryOutcomes);
         runner.Run("Customer trait thresholds are enforced", TestCustomerTraitThresholdsAreEnforced);
@@ -27,9 +27,9 @@ internal static class CustomerFlowTests
         runner.Run("Tiered customer data is a day-one bounded trait catalog", TestTieredCustomerDataIsDayOneFlexibleTraitCatalog);
         runner.Run("Customer dialogue markup converts safe syntax", TestCustomerDialogueMarkupConvertsSafeSyntax);
         runner.Run("Story customer dialogue trees support selling mode", TestStoryCustomerDialogueTreesSupportSellingMode);
-        runner.Run("CustomerPanel renders dialogue node text as narration", TestCustomerPanelRendersDialogueNodeTextAsNarration);
+        runner.Run("StationCustomerPanel renders dialogue node text as narration", TestCustomerPanelRendersDialogueNodeTextAsNarration);
         runner.Run("Customer dialogue uses narrative text presenter", TestCustomerDialogueUsesNarrativeTextPresenter);
-        runner.Run("CustomerPanel shows draggable potion sale slots", TestCustomerPanelShowsDraggablePotionSaleSlots);
+        runner.Run("StationCustomerPanel exposes station potion sale slots", TestCustomerPanelShowsDraggablePotionSaleSlots);
         runner.Run("Customer request comparison text shows selected potion values", TestCustomerRequestComparisonTextShowsSelectedPotionValues);
         runner.Run("Customer drop box stays disabled until next customer", TestCustomerDropBoxDisablesAfterSale);
     }
@@ -79,7 +79,7 @@ internal static class CustomerFlowTests
     {
         var source = ReadProjectFile("Scripts/Controllers/CustomerEventController.cs");
         var dayController = ReadProjectFile("Scripts/Controllers/DayController.cs");
-        var customerPanel = ReadProjectFile("Scripts/UI/CustomerPanel.cs");
+        var stationCustomerPanel = ReadProjectFile("Scripts/UI/StationCustomerPanel.cs");
 
         AssertTrue("CustomerEventController no longer uses a fixed index walk", !source.Contains("_nextCustomerIndex"));
         AssertTrue("CustomerEventController keeps a randomized order buffer", source.Contains("_customerOrder"));
@@ -101,61 +101,42 @@ internal static class CustomerFlowTests
         AssertTrue("DayController closes the shop after the current final customer is resolved",
             dayController.Contains("ShouldCloseShopAfterCurrentCustomer()") &&
             dayController.Contains("CloseShopAndShowSummary();"));
-        AssertTrue("CustomerPanel exposes active interaction state", customerPanel.Contains("HasActiveInteraction => _interaction is not null"));
-        AssertTrue("CustomerPanel can switch the next button to Close Shop", customerPanel.Contains("SetCloseShopMode(bool closeShopMode)"));
-        AssertTrue("CustomerPanel exposes close shop mode state", customerPanel.Contains("IsCloseShopMode => _closeShopMode"));
+        AssertTrue("StationCustomerPanel exposes active interaction state", stationCustomerPanel.Contains("HasActiveInteraction => ActiveCustomer is not null"));
+        AssertTrue("StationCustomerPanel exposes queue state", stationCustomerPanel.Contains("HasQueuedCustomers => _customers.Count > 0"));
+        AssertTrue("StationCustomerPanel exposes the next customer button for tutorial flow", stationCustomerPanel.Contains("public Button? GetNextCustomerButton()"));
     }
 
     private static void TestShopSummaryClearsCustomerPresentation()
     {
         var dayController = ReadProjectFile("Scripts/Controllers/DayController.cs");
-        var shopFloor = ReadProjectFile("Scripts/UI/ShopFloor.cs");
-        var hideCustomerPresentationIndex = shopFloor.IndexOf(
-            "private void HideCustomerPresentationForClosedShop()",
-            StringComparison.Ordinal);
-        var hideCustomerPresentationBody = string.Empty;
-        if (hideCustomerPresentationIndex >= 0)
-        {
-            var nextMethodIndex = shopFloor.IndexOf(
-                "private bool ShowPotionBrewingStation()",
-                hideCustomerPresentationIndex,
-                StringComparison.Ordinal);
-            if (nextMethodIndex > hideCustomerPresentationIndex)
-                hideCustomerPresentationBody = shopFloor.Substring(
-                    hideCustomerPresentationIndex,
-                    nextMethodIndex - hideCustomerPresentationIndex);
-        }
+        var stationCustomerPanel = ReadProjectFile("Scripts/UI/StationCustomerPanel.cs");
 
         AssertTrue("DayController emits shop state changes after showing the day summary",
             dayController.Contains("_daySummaryPanel.ShowSummary(") &&
             dayController.Contains("EmitShopStateChanged();"));
-        AssertTrue("ShopFloor listens for shop state changes to refresh customer presence",
-            shopFloor.Contains("_dayController.ShopStateChanged += UpdateCustomerPresence;") &&
-            shopFloor.Contains("_dayController.ShopStateChanged -= UpdateCustomerPresence;"));
-        AssertTrue("ShopFloor keeps the retired shop floor hidden and hides customer presentation when the shop is closed",
-            shopFloor.Contains("if (_dayController is not null && !_dayController.IsShopOpen)") &&
-            shopFloor.Contains("HideCustomerPresentationForClosedShop();") &&
-            hideCustomerPresentationBody.Contains("Visible = false;") &&
-            hideCustomerPresentationBody.Contains("_customerCloseupView.Visible = false;") &&
-            hideCustomerPresentationBody.Contains("_customerPanel.Visible = false;"));
+        AssertTrue("DayController clears station customer state when the shop closes",
+            dayController.Contains("_stationCustomerPanel.ClearCustomers();") &&
+            dayController.Contains("_brewPanel.HidePanel();"));
+        AssertTrue("StationCustomerPanel clears active request and serving controls when empty",
+            stationCustomerPanel.Contains("_gameState.ClearActiveCustomerRequest();") &&
+            stationCustomerPanel.Contains("_title.Text = \"No customer waiting\"") &&
+            stationCustomerPanel.Contains("SetServingControlsEnabled(false);"));
     }
 
     private static void TestActiveCustomerRequestKeepsShopFrontCustomerClickable()
     {
-        var shopFloor = ReadProjectFile("Scripts/UI/ShopFloor.cs");
+        var stationCustomerPanel = ReadProjectFile("Scripts/UI/StationCustomerPanel.cs");
 
-        AssertTrue("ShopFloor observes active customer request changes",
-            shopFloor.Contains("GameStatePath = new(AutoloadNodePaths.GameState)") &&
-            shopFloor.Contains("_gameState = GetOptionalNode<GameState>(GameStatePath, nameof(GameStatePath));") &&
-            shopFloor.Contains("_gameState.Changed += UpdateCustomerPresenceFromGameState;") &&
-            shopFloor.Contains("_gameState.Changed -= UpdateCustomerPresenceFromGameState;"));
-        AssertTrue("ShopFloor keeps the customer hotspot visible while a request is active",
-            shopFloor.Contains("private void UpdateCustomerPresenceFromGameState()") &&
-            shopFloor.Contains("UpdateCustomerPresence(hideClosedShopPresentation: false);") &&
-            shopFloor.Contains("hasActiveCustomerRequest") &&
-            shopFloor.Contains("_gameState.ActiveCustomerRequest is not null") &&
-            shopFloor.Contains("hasActiveInteraction || hasActiveCustomerRequest") &&
-            shopFloor.Contains("_customerButton.Disabled = !customerVisible;"));
+        AssertTrue("StationCustomerPanel publishes normal customer requests to GameState",
+            stationCustomerPanel.Contains("_gameState.SetActiveCustomerRequest(request);") &&
+            stationCustomerPanel.Contains("interaction.BuildRequest()"));
+        AssertTrue("StationCustomerPanel clears active requests for dialogue and empty states",
+            stationCustomerPanel.Contains("TryShowDialogueStart(interaction)") &&
+            stationCustomerPanel.Contains("_gameState.ClearActiveCustomerRequest();") &&
+            stationCustomerPanel.Contains("EnterPotionSellingMode"));
+        AssertTrue("StationCustomerPanel gates serving while plot dialogue is active",
+            stationCustomerPanel.Contains("private bool CanServeActiveCustomer()") &&
+            stationCustomerPanel.Contains("return !HasActiveDialogueInteraction() || _sellingMode;"));
     }
 
     private static void TestForcedCustomerFallbackResolvesLegacyIdsDeterministically()
@@ -191,7 +172,8 @@ internal static class CustomerFlowTests
         var saveData = ReadProjectFile("Scripts/Persistence/SaveData.cs");
         var requirements = ReadProjectFile("Scripts/Systems/Requirements.cs");
         var effects = ReadProjectFile("Scripts/Systems/EffectApplier.cs");
-        var customerPanel = ReadProjectFile("Scripts/UI/CustomerPanel.cs");
+        var stationCustomerPanel = ReadProjectFile("Scripts/UI/StationCustomerPanel.cs");
+        var saleService = ReadProjectFile("Scripts/Systems/CustomerSaleService.cs");
         var storyVisit = ReadProjectFile("Scripts/Models/StoryCustomerVisitRecord.cs");
         var customers = ReadProjectFile("Data/customers_data.tres");
 
@@ -215,10 +197,10 @@ internal static class CustomerFlowTests
             effects.Contains("state.ConsumeEachIngredient(ingredientQty)") &&
             gameState.Contains("public int ConsumeEachIngredient(int qty)") &&
             dataDb.Contains("ConsumeEachIngredientQty = ReadNullableInt(entry, \"consumeEachIngredientQty\")"));
-        AssertTrue("CustomerPanel applies success and failure effects", customerPanel.Contains("ApplyOutcomeEffects(isSuccess ? _interaction?.OnSuccessEffects : _interaction?.OnFailureEffects)"));
-        AssertTrue("CustomerPanel applies skip effects", customerPanel.Contains("ApplyOutcomeEffects(_interaction.OnSkipEffects)"));
-        AssertTrue("CustomerPanel records story sale outcomes", customerPanel.Contains("StoryCustomerOutcomeSuccess") && customerPanel.Contains("StoryCustomerOutcomeFailure"));
-        AssertTrue("CustomerPanel records story skip outcomes", customerPanel.Contains("StoryCustomerOutcomeSkipped"));
+        AssertTrue("CustomerSaleService applies success and failure effects", saleService.Contains("ApplyOutcomeEffects(isSuccess ? interaction.OnSuccessEffects : interaction.OnFailureEffects)"));
+        AssertTrue("CustomerSaleService applies refusal effects", saleService.Contains("interaction.OnPotionRefusedEffects.Count > 0") && saleService.Contains("interaction.OnSkipEffects"));
+        AssertTrue("CustomerSaleService records story sale outcomes", saleService.Contains("StoryCustomerOutcomeSuccess") && saleService.Contains("StoryCustomerOutcomeFailure"));
+        AssertTrue("StationCustomerPanel records terminal dialogue choices as story outcomes", stationCustomerPanel.Contains("RecordStoryCustomerInteractionOutcome(interaction, outcome)"));
         AssertTrue("Authored customer data includes early pool", customers.Contains("\"pool\": \"early\""));
         AssertTrue("Authored customer data gates early customers by day", customers.Contains("\"dayMax\": 4"));
         AssertTrue("Authored customer data includes recipe pool", customers.Contains("\"pool\": \"recipe\""));
@@ -375,7 +357,7 @@ internal static class CustomerFlowTests
         var customerDef = ReadProjectFile("Scripts/Models/CustomerInteractionDef.cs");
         var dataDb = ReadProjectFile("Scripts/Autoload/DataDb.cs");
         var saleRules = ReadProjectFile("Scripts/Systems/CustomerSaleRules.cs");
-        var customerPanel = ReadProjectFile("Scripts/UI/CustomerPanel.cs");
+        var stationCustomerPanel = ReadProjectFile("Scripts/UI/StationCustomerPanel.cs");
         var formatter = ReadProjectFile("Scripts/UI/CustomerDialogueTextFormatter.cs");
         var customers = ReadProjectFile("Data/customers_data.tres");
         var tieredCustomers = ReadProjectFile("Data/customers_tiered_test_data.tres");
@@ -398,9 +380,8 @@ internal static class CustomerFlowTests
             saleRules.Contains("AreRequiredMinTraitsSatisfied") &&
             saleRules.Contains("AreRequiredMaxTraitsSatisfied") &&
             saleRules.Contains("AreBadTraitRangesSatisfied"));
-        AssertTrue("Customer panel displays hard trait thresholds and ranges",
-            customerPanel.Contains("BuildDesiredRequestText") &&
-            customerPanel.Contains("BuildBadRequestText") &&
+        AssertTrue("StationCustomerPanel displays hard trait thresholds and ranges through the shared formatter",
+            stationCustomerPanel.Contains("BuildCustomerPotionRequestComparisonText") &&
             formatter.Contains("FormatTraitRange") &&
             formatter.Contains("FormatBadTraitListWithViolations") &&
             formatter.Contains("FormatMinTraitThresholdsWithMatches") &&
@@ -503,11 +484,12 @@ internal static class CustomerFlowTests
     {
         var customerDef = ReadProjectFile("Scripts/Models/CustomerInteractionDef.cs");
         var dataDb = ReadProjectFile("Scripts/Autoload/DataDb.cs");
-        var customerPanel = ReadProjectFile("Scripts/UI/CustomerPanel.cs");
+        var stationCustomerPanel = ReadProjectFile("Scripts/UI/StationCustomerPanel.cs");
         var customerTextFormatter = ReadProjectFile("Scripts/UI/CustomerDialogueTextFormatter.cs");
         var presenter = ReadProjectFile("Scripts/UI/Text/NarrativeTextPresenter.cs");
         var validator = ReadProjectFile("Scripts/Systems/AuthoredDataValidator.cs");
         var dayController = ReadProjectFile("Scripts/Controllers/DayController.cs");
+        var saleService = ReadProjectFile("Scripts/Systems/CustomerSaleService.cs");
         var gameState = ReadProjectFile("Scripts/Autoload/GameState.cs");
         var storyVisitState = ReadProjectFile("Scripts/Systems/StoryCustomerVisitState.cs");
         var storyVisit = ReadProjectFile("Scripts/Models/StoryCustomerVisitRecord.cs");
@@ -563,99 +545,97 @@ internal static class CustomerFlowTests
             dataDb.Contains("PotionRefusedLines = ParseCustomerDialogueLines") &&
             dataDb.Contains("Lines = lines"));
 
-        AssertTrue("CustomerPanel starts story dialogue instead of sale pending state",
-            customerPanel.Contains("TryShowDialogueStart()"));
-        AssertTrue("CustomerPanel creates a dynamic vertical dialogue option list",
-            customerPanel.Contains("_dialogueOptionsContainer") &&
-            customerPanel.Contains("CustomerInteractionDef.MaxDialogueOptionsPerNode") &&
-            customerPanel.Contains("TrySelectDialogueOption(optionIndex)"));
-        AssertTrue("CustomerPanel renders visible dialogue options from authored labels",
-            customerPanel.Contains("SetDialogueOptionButton") &&
-            customerPanel.Contains("button.Text = option.Label"));
-        AssertTrue("CustomerPanel records and greys repeatable seen dialogue options",
-            customerPanel.Contains("RecordStoryCustomerDialogueOptionSelected") &&
-            customerPanel.Contains("HasStoryCustomerDialogueOptionSelected") &&
-            customerPanel.Contains("SeenDialogueOptionModulate"));
+        AssertTrue("StationCustomerPanel starts story dialogue instead of serving controls",
+            stationCustomerPanel.Contains("TryShowDialogueStart(interaction)") &&
+            stationCustomerPanel.Contains("SetServingControlsVisible(false);"));
+        AssertTrue("StationCustomerPanel creates a dynamic vertical dialogue option list",
+            stationCustomerPanel.Contains("_dialogueOptionsContainer") &&
+            stationCustomerPanel.Contains("CustomerInteractionDef.MaxDialogueOptionsPerNode") &&
+            stationCustomerPanel.Contains("TrySelectDialogueOption(optionIndex)"));
+        AssertTrue("StationCustomerPanel renders visible dialogue options from authored labels",
+            stationCustomerPanel.Contains("SetDialogueOptionButton") &&
+            stationCustomerPanel.Contains("button.Text = option.Label"));
+        AssertTrue("StationCustomerPanel records and greys repeatable seen dialogue options",
+            stationCustomerPanel.Contains("RecordStoryCustomerDialogueOptionSelected") &&
+            stationCustomerPanel.Contains("HasStoryCustomerDialogueOptionSelected") &&
+            stationCustomerPanel.Contains("SeenDialogueOptionModulate"));
         AssertTrue("Story visit records persist selected dialogue option ids",
             storyVisit.Contains("SelectedDialogueOptionIds") &&
             storyVisitState.Contains("CloneSelectedDialogueOptionIds"));
-        AssertTrue("CustomerPanel keeps full scrollable conversation history",
-            customerPanel.Contains("_dialoguePresenter") &&
+        AssertTrue("StationCustomerPanel keeps full scrollable conversation history",
+            stationCustomerPanel.Contains("_dialoguePresenter") &&
             presenter.Contains("AddHistoryLine") &&
-            customerPanel.Contains("AppendCustomerLine") &&
-            customerPanel.Contains("ScrollActive = true"));
-        AssertTrue("CustomerPanel colors player and customer speaker names",
+            stationCustomerPanel.Contains("BuildAuthoredNarrativeLines") &&
+            stationCustomerPanel.Contains("ScrollActive = true"));
+        AssertTrue("StationCustomerPanel colors player and customer speaker names",
             presenter.Contains("CustomerDialogueTextFormatter.FormatSpeakerName") &&
             customerTextFormatter.Contains("PlayerSpeakerColorHex") &&
             customerTextFormatter.Contains("CustomerSpeakerColorHex") &&
             customerTextFormatter.Contains("FormatSpeakerName") &&
             customerTextFormatter.Contains("[b][color={colorHex}]{safeSpeaker}[/color][/b]"));
-        AssertTrue("CustomerPanel reveals story dialogue one queued typed line at a time",
-            customerPanel.Contains("DialogueTypewriterCharactersPerSecond") &&
+        AssertTrue("StationCustomerPanel reveals story dialogue one queued typed line at a time",
+            stationCustomerPanel.Contains("DialogueTypewriterCharactersPerSecond") &&
             presenter.Contains("QueueLine") &&
             presenter.Contains("LineStarted") &&
             presenter.Contains("VisibleCharacters") &&
-            customerPanel.Contains("PlayQueuedDialogueLines") &&
-            customerPanel.Contains("AdvanceQueuedDialoguePresentation") &&
-            customerPanel.Contains("MouseButton.Left"));
-        AssertTrue("CustomerPanel can switch authored character portraits by dialogue line",
-            customerPanel.Contains("SetCurrentCustomerImageKey") &&
-            customerPanel.Contains("line.CharacterImageKey") &&
-            customerPanel.Contains("CustomerImageChangedEventHandler") &&
+            stationCustomerPanel.Contains("PlayQueuedDialogueLines") &&
+            stationCustomerPanel.Contains("AdvanceQueuedDialoguePresentation") &&
+            stationCustomerPanel.Contains("MouseButton.Left"));
+        AssertTrue("StationCustomerPanel can switch authored character portraits by dialogue line",
+            stationCustomerPanel.Contains("RefreshCustomerImage(interaction, line.CharacterImageKey)") &&
+            stationCustomerPanel.Contains("line.CharacterImageKey") &&
             presenter.Contains("CharacterImageKey") &&
             validator.Contains("ValidateCharacterImageKeys"));
-        AssertTrue("CustomerPanel disables potion drops during dialogue",
-            customerPanel.Contains("SetDialogueOptionState") &&
-            customerPanel.Contains("SetDropBoxEnabled(false);"));
-        AssertTrue("CustomerPanel switches request reveal into selling mode",
-            customerPanel.Contains("EnterPotionSellingMode") &&
-            customerPanel.Contains("SetSellingModeState") &&
-            customerPanel.Contains("OnReturnToDialoguePressed"));
-        AssertTrue("CustomerPanel shows request traits immediately for normal customers and after reveal for story customers",
-            customerPanel.Contains("ResolveRequestTraitsContainer") &&
-            customerPanel.Contains("RefreshRequestTraitsVisibility") &&
-            customerPanel.Contains("if (!HasActiveDialogueInteraction())") &&
-            customerPanel.Contains("return _requestRevealed && _sellingMode;"));
-        AssertTrue("CustomerPanel does not create a give-potion dialogue action",
-            !customerPanel.Contains("GivePotion") &&
-            !customerPanel.Contains("Give potion") &&
-            !customerPanel.Contains("OnGivePotionPressed"));
-        AssertTrue("CustomerPanel supports refusing requested plot potions",
-            customerPanel.Contains("OnRefusePotionPressed") &&
-            customerPanel.Contains("PotionRefusedText"));
-        AssertTrue("CustomerPanel applies authored potion response rules",
-            customerPanel.Contains("FindPotionResponse") &&
-            customerPanel.Contains("PotionResponseMatches") &&
-            customerPanel.Contains("ApplyOutcomeEffects(response?.Effects)"));
-        AssertTrue("CustomerPanel renders structured customer dialogue lines",
-            customerPanel.Contains("AppendAuthoredLines") &&
-            customerPanel.Contains("QueueAuthoredLines") &&
-            customerPanel.Contains("QueueDialogueOptionResponse") &&
-            customerPanel.Contains("TryBuildStructuredOutcomeConversation") &&
-            customerPanel.Contains("AddAuthoredDialogueLines"));
+        AssertTrue("StationCustomerPanel disables potion drops during dialogue",
+            stationCustomerPanel.Contains("SetDialogueOptionState") &&
+            stationCustomerPanel.Contains("SetServingControlsEnabled(false);") &&
+            stationCustomerPanel.Contains("_servingDropBox.SetAcceptDrops(enabled);"));
+        AssertTrue("StationCustomerPanel switches request reveal into selling mode",
+            stationCustomerPanel.Contains("EnterPotionSellingMode") &&
+            stationCustomerPanel.Contains("SetSellingModeState") &&
+            stationCustomerPanel.Contains("OnReturnToDialoguePressed"));
+        AssertTrue("StationCustomerPanel shows request details immediately for normal customers and after reveal for story customers",
+            stationCustomerPanel.Contains("_gameState.SetActiveCustomerRequest(request);") &&
+            stationCustomerPanel.Contains("_gameState.SetActiveCustomerRequest(interaction.BuildRequest());") &&
+            stationCustomerPanel.Contains("private bool CanServeActiveCustomer()") &&
+            stationCustomerPanel.Contains("return !HasActiveDialogueInteraction() || _sellingMode;"));
+        AssertTrue("StationCustomerPanel does not create a give-potion dialogue action",
+            !stationCustomerPanel.Contains("GivePotion") &&
+            !stationCustomerPanel.Contains("Give potion") &&
+            !stationCustomerPanel.Contains("OnGivePotionPressed"));
+        AssertTrue("StationCustomerPanel supports refusing requested plot potions",
+            stationCustomerPanel.Contains("OnRefusePressed") &&
+            saleService.Contains("PotionRefusedText") &&
+            saleService.Contains("ApplyRefusal"));
+        AssertTrue("CustomerSaleService applies authored potion response rules",
+            saleService.Contains("FindPotionResponse") &&
+            saleService.Contains("CustomerSaleRules.PotionResponseMatches") &&
+            saleService.Contains("ApplyOutcomeEffects(response?.Effects)"));
+        AssertTrue("StationCustomerPanel renders structured customer dialogue lines",
+            stationCustomerPanel.Contains("BuildAuthoredNarrativeLines") &&
+            stationCustomerPanel.Contains("QueueAuthoredLines") &&
+            stationCustomerPanel.Contains("QueueDialogueOptionResponse") &&
+            saleService.Contains("FormatPlainAuthoredLine"));
         AssertTrue("Authored data validation accepts structured option responses",
             validator.Contains("option.ResponseLines.Count == 0"));
-        AssertTrue("CustomerPanel restores customer action labels for regular customers",
-            customerPanel.Contains("_brewingStationButton.Text = \"Brewing Station\"") &&
-            customerPanel.Contains("_sorryCantHelpYouButton.Text = \"Sorry can't help you\""));
-        AssertTrue("CustomerPanel requests the brewing station without resolving the active customer",
-            customerPanel.Contains("BrewingStationRequestedEventHandler") &&
-            customerPanel.Contains("EmitSignal(SignalName.BrewingStationRequested)") &&
-            customerPanel.Contains("private void OnBrewingStationPressed()"));
-        AssertTrue("CustomerPanel records terminal dialogue choices as story outcomes",
-            customerPanel.Contains("RecordStoryCustomerInteractionOutcome(_interaction, outcome)") &&
-            customerPanel.Contains("dialogue:"));
-        AssertTrue("CustomerPanel signals completed dialogue flow",
-            customerPanel.Contains("DialogueResolvedEventHandler") &&
-            customerPanel.Contains("EmitSignal(SignalName.DialogueResolved)"));
-        AssertTrue("DayController waits for completed dialogue to be closed",
-            dayController.Contains("_customerPanel.DialogueResolved += OnCustomerDialogueResolved") &&
-            dayController.Contains("private void OnCustomerDialogueResolved()") &&
-            dayController.Contains("_awaitingSaleResultClose = true;"));
-        AssertTrue("DayController closes final dialogue customers through the shared customer-limit path",
-            dayController.Contains("private void OnCustomerDialogueResolved()") &&
-            dayController.Contains("ShouldCloseShopAfterCurrentCustomer()") &&
-            dayController.Contains("_awaitingSaleResultClose = true;"));
+        AssertTrue("StationCustomerPanel keeps regular customer serving controls visible",
+            stationCustomerPanel.Contains("SetServingControlsVisible(true);") &&
+            stationCustomerPanel.Contains("SetServingControlsEnabled(true);"));
+        AssertTrue("StationCustomerPanel accepts station potion quick-serve requests",
+            stationCustomerPanel.Contains("PotionQuickServeRequested += OnPotionQuickServeRequested") &&
+            stationCustomerPanel.Contains("private void OnPotionQuickServeRequested(string itemId)") &&
+            stationCustomerPanel.Contains("TrySelectPotion(itemId);"));
+        AssertTrue("StationCustomerPanel records terminal dialogue choices as story outcomes",
+            stationCustomerPanel.Contains("RecordStoryCustomerInteractionOutcome(interaction, outcome)") &&
+            stationCustomerPanel.Contains("dialogue:"));
+        AssertTrue("StationCustomerPanel signals and resolves completed dialogue flow",
+            stationCustomerPanel.Contains("DialogueResolvedEventHandler") &&
+            stationCustomerPanel.Contains("EmitSignal(SignalName.DialogueResolved)") &&
+            stationCustomerPanel.Contains("BeginResolveActiveCustomer();"));
+        AssertTrue("DayController closes resolved dialogue customers through the station queue path",
+            dayController.Contains("_stationCustomerPanel.CustomerResolved += OnStationCustomerResolved") &&
+            dayController.Contains("_stationCustomerPanel.CustomerQueueEmptied += OnStationCustomerQueueEmptied") &&
+            dayController.Contains("CloseShopAndShowSummary();"));
         AssertTrue("Tiered customer data includes a sample plot customer dialogue tree",
             tieredCustomers.Contains("\"id\": \"plot_bridget_visit_1\"") &&
             tieredCustomers.Contains("\"text\": \"Bridget welcomes you to the village and recognizes that you carry The Knowledge.\"") &&
@@ -666,36 +646,36 @@ internal static class CustomerFlowTests
 
     private static void TestCustomerPanelRendersDialogueNodeTextAsNarration()
     {
-        var customerPanel = ReadProjectFile("Scripts/UI/CustomerPanel.cs");
+        var stationCustomerPanel = ReadProjectFile("Scripts/UI/StationCustomerPanel.cs");
         var formatter = ReadProjectFile("Scripts/UI/CustomerDialogueTextFormatter.cs");
 
         AssertTrue("Conversation formatter supports headerless narration",
             formatter.Contains("FormatNarrationLine") &&
             formatter.Contains("string.IsNullOrWhiteSpace(speaker)") &&
             formatter.Contains("return FormatNarrationLine(text);"));
-        AssertTrue("CustomerPanel queues dialogue node text as narration",
-            customerPanel.Contains("QueueAuthoredLines(node.Lines, node.Text, null);"));
-        AssertTrue("CustomerPanel keeps legacy option responses under customer speaker",
-            customerPanel.Contains("QueueDialogueOptionResponse(option);") &&
-            customerPanel.Contains("option.ResponseText") &&
-            customerPanel.Contains("CustomerDialogueTextFormatter.CustomerSpeakerName"));
+        AssertTrue("StationCustomerPanel queues dialogue node text as narration",
+            stationCustomerPanel.Contains("QueueAuthoredLines(node.Lines, node.Text, null);"));
+        AssertTrue("StationCustomerPanel keeps legacy option responses under customer speaker",
+            stationCustomerPanel.Contains("QueueDialogueOptionResponse(option);") &&
+            stationCustomerPanel.Contains("option.ResponseText") &&
+            stationCustomerPanel.Contains("CustomerDialogueTextFormatter.CustomerSpeakerName"));
     }
 
     private static void TestCustomerDialogueUsesNarrativeTextPresenter()
     {
-        var customerPanel = ReadProjectFile("Scripts/UI/CustomerPanel.cs");
+        var stationCustomerPanel = ReadProjectFile("Scripts/UI/StationCustomerPanel.cs");
         var presenter = ReadProjectFile("Scripts/UI/Text/NarrativeTextPresenter.cs");
         var converter = ReadProjectFile("Scripts/UI/Text/CustomerDialogueMarkupConverter.cs");
         var debugPanel = ReadProjectFile("Scripts/Debug/RuntimeDebugImGui.cs");
 
-        AssertTrue("CustomerPanel creates a narrative text presenter for dialogue",
-            customerPanel.Contains("new NarrativeTextPresenter(this, _dialogue)") &&
-            customerPanel.Contains("_dialoguePresenter.PlayQueued(completedAction)") &&
-            customerPanel.Contains("_dialoguePresenter?.AdvanceQueuedPresentation()"));
-        AssertTrue("CustomerPanel no longer slices authored text during reveal",
-            !customerPanel.Contains("GetVisibleDialogueText(") &&
-            !customerPanel.Contains("_activeDialogueTextCharacters") &&
-            !customerPanel.Contains("_pendingDialogueLines"));
+        AssertTrue("StationCustomerPanel creates a narrative text presenter for dialogue",
+            stationCustomerPanel.Contains("new NarrativeTextPresenter(this, _dialogue)") &&
+            stationCustomerPanel.Contains("_dialoguePresenter.PlayQueued(completedAction)") &&
+            stationCustomerPanel.Contains("_dialoguePresenter?.AdvanceQueuedPresentation()"));
+        AssertTrue("StationCustomerPanel no longer slices authored text during reveal",
+            !stationCustomerPanel.Contains("GetVisibleDialogueText(") &&
+            !stationCustomerPanel.Contains("_activeDialogueTextCharacters") &&
+            !stationCustomerPanel.Contains("_pendingDialogueLines"));
         AssertTrue("NarrativeTextPresenter uses RichTextLabel visible character reveal",
             presenter.Contains("_label.VisibleCharacters") &&
             presenter.Contains("TotalVisibleCharacters") &&
@@ -718,34 +698,24 @@ internal static class CustomerFlowTests
 
     private static void TestCustomerDropBoxDisablesAfterSale()
     {
-        var customerPanel = ReadProjectFile("Scripts/UI/CustomerPanel.cs");
+        var stationCustomerPanel = ReadProjectFile("Scripts/UI/StationCustomerPanel.cs");
         var dropBox = ReadProjectFile("Scripts/UI/CustomerSellDropBox.cs");
 
-        AssertTrue("CustomerPanel enables dropbox during pending sale state",
-            customerPanel.Contains("SetDropBoxEnabled(true);"));
-        AssertTrue("CustomerPanel disables dropbox during resolved sale state",
-            customerPanel.Contains("SetDropBoxEnabled(false);"));
-        AssertTrue("CustomerPanel only highlights valid potion hover previews",
-            customerPanel.Contains("_sellDropBox.SetHoverHighlight(true);") &&
-            customerPanel.Contains("IsPotionItem(itemId)"));
-        AssertTrue("CustomerPanel clears the sell drop highlight on hover exit",
-            customerPanel.Contains("_sellDropBox.SetHoverHighlight(false);"));
-        AssertTrue("CustomerPanel fades the sell box while the sale is resolved",
-            customerPanel.Contains("_sellDropBox.SetDisabledVisual(!enabled);"));
-        AssertTrue("CustomerPanel restores the sell box when a new customer is prepared",
-            customerPanel.Contains("SetDropBoxEnabled(true);"));
-        var closeSaleResultBody = string.Empty;
-        var closeSaleResultIndex = customerPanel.IndexOf("private void OnSaleResultClosePressed()", StringComparison.Ordinal);
-        if (closeSaleResultIndex >= 0)
-        {
-            var nextMethodIndex = customerPanel.IndexOf("private string BuildOutcomeText", closeSaleResultIndex, StringComparison.Ordinal);
-            if (nextMethodIndex > closeSaleResultIndex)
-                closeSaleResultBody = customerPanel.Substring(closeSaleResultIndex, nextMethodIndex - closeSaleResultIndex);
-        }
-        AssertTrue("CustomerPanel keeps the sell box faded until the next customer appears",
-            closeSaleResultBody.Contains("HideSaleResult();") &&
-            closeSaleResultBody.Contains("_interaction = null;") &&
-            !closeSaleResultBody.Contains("SetSalePendingState();"));
+        AssertTrue("StationCustomerPanel enables dropbox during serving state",
+            stationCustomerPanel.Contains("SetServingControlsEnabled(true);"));
+        AssertTrue("StationCustomerPanel disables dropbox while dialogue or resolution is active",
+            stationCustomerPanel.Contains("SetServingControlsEnabled(false);") &&
+            stationCustomerPanel.Contains("_servingDropBox.SetAcceptDrops(false);"));
+        AssertTrue("StationCustomerPanel only highlights valid potion hover previews",
+            stationCustomerPanel.Contains("_servingDropBox.SetHoverHighlight(true);") &&
+            stationCustomerPanel.Contains("_itemCatalog.IsPotion(itemId)"));
+        AssertTrue("StationCustomerPanel clears the sell drop highlight on hover exit",
+            stationCustomerPanel.Contains("_servingDropBox.SetHoverHighlight(false);"));
+        AssertTrue("StationCustomerPanel fades the sell box while drops are disabled",
+            stationCustomerPanel.Contains("_servingDropBox.SetDisabledVisual(!enabled);"));
+        AssertTrue("StationCustomerPanel restores the sell box when a new customer is prepared",
+            stationCustomerPanel.Contains("RefreshActiveCustomer(emitShownSignal:") &&
+            stationCustomerPanel.Contains("SetServingControlsEnabled(true);"));
         AssertTrue("CustomerSellDropBox exposes an explicit accept-drops toggle",
             dropBox.Contains("SetAcceptDrops(bool acceptDrops)"));
         AssertTrue("CustomerSellDropBox exposes a hover highlight toggle",
@@ -760,68 +730,45 @@ internal static class CustomerFlowTests
 
     private static void TestCustomerPanelShowsDraggablePotionSaleSlots()
     {
-        var customerPanel = ReadProjectFile("Scripts/UI/CustomerPanel.cs");
-        var detailPanel = ReadProjectFile("Scripts/UI/StationItemDetailPanel.cs");
+        var stationCustomerPanel = ReadProjectFile("Scripts/UI/StationCustomerPanel.cs");
+        var potionRow = ReadProjectFile("Scripts/UI/PotionInventoryRow.cs");
         var formatter = ReadProjectFile("Scripts/UI/CustomerDialogueTextFormatter.cs");
         var inventorySlot = ReadProjectFile("Scripts/UI/InventoryItemSlot.cs");
         var jarredSlot = ReadProjectFile("Scripts/UI/JarredInventorySlotView.cs");
         var layoutSettings = ReadProjectFile("Assets/UI/InventorySlotLayoutSettings.tres");
 
-        AssertTrue("CustomerPanel defines exactly four customer potion slots",
-            customerPanel.Contains("CustomerPotionSlotCount = 4") &&
-            customerPanel.Contains("for (var index = 0; index < CustomerPotionSlotCount; index += 1)"));
-        AssertTrue("CustomerPanel places a potion slot row above customer action buttons",
-            customerPanel.Contains("Name = \"PotionSlots\"") &&
-            customerPanel.Contains("customerVBox.MoveChild(_potionSlotsRow, _customerActions.GetIndex())"));
-        AssertTrue("CustomerPanel uses inventory slots so customer potion slots drag item ids",
-            customerPanel.Contains("InventoryItemSlot") &&
+        AssertTrue("PotionInventoryRow caps visible station potion slots to inventory capacity",
+            potionRow.Contains("VisiblePotionSlots = GameState.MaxUniquePotionInventoryQuantity") &&
+            potionRow.Contains("if (stacks.Count >= VisiblePotionSlots)"));
+        AssertTrue("PotionInventoryRow uses inventory slots so station potion slots drag item ids",
+            potionRow.Contains("InventoryItemSlot") &&
             inventorySlot.Contains("return Variant.CreateFrom(ItemId);"));
-        AssertTrue("CustomerPanel exposes visible potion slots for tutorial highlighting without the removed inventory panel",
-            customerPanel.Contains("public Control? GetVisiblePotionSlot(string itemId)") &&
-            !customerPanel.Contains("InventoryPanelPath") &&
-            !customerPanel.Contains("OpenItemDetail"));
-        AssertTrue("CustomerPanel fills potion slots from current potion inventory",
-            customerPanel.Contains("_gameState.Inventory") &&
-            customerPanel.Contains("Where(stack => IsPotionItem(stack.Key) && stack.Value > 0)") &&
-            customerPanel.Contains("SetPotionSlotContent(slotView.Button, displayName, itemId, quantity)"));
-        AssertTrue("CustomerPanel leaves empty potion slots visible but disabled",
-            customerPanel.Contains("ClearPotionSlot") &&
-            customerPanel.Contains("slotView.Button.Disabled = true") &&
-            customerPanel.Contains("ClearPotionSlotContent(slotView.Button)"));
-        AssertTrue("CustomerPanel shows potion slot quantity badges",
+        AssertTrue("StationCustomerPanel exposes visible potion slots for tutorial highlighting without the removed inventory panel",
+            stationCustomerPanel.Contains("public Control? GetVisiblePotionSlot(string itemId)") &&
+            stationCustomerPanel.Contains("return _potionInventoryRow?.GetVisiblePotionSlot(itemId);") &&
+            !stationCustomerPanel.Contains("InventoryPanelPath") &&
+            !stationCustomerPanel.Contains("OpenItemDetail"));
+        AssertTrue("PotionInventoryRow fills potion slots from current potion inventory",
+            potionRow.Contains("foreach (var stack in _gameState.Inventory)") &&
+            potionRow.Contains("if (!IsPotion(item))") &&
+            potionRow.Contains("CreatePotionSlot(stack)"));
+        AssertTrue("PotionInventoryRow shows potion slot quantity badges",
             jarredSlot.Contains("Name = \"Quantity\"") &&
             jarredSlot.Contains("PotionLiquidView") &&
-            customerPanel.Contains("InventorySlotLayoutKind.CustomerPotion") &&
-            layoutSettings.Contains("CustomerPotionSlot = SubResource(\"Resource_customer_potion\")") &&
-            layoutSettings.Contains("QuantityFontSize = 10") &&
-            customerPanel.Contains("slotView.Button.TooltipText = $\"{displayName} x{quantity}\""));
-        AssertTrue("CustomerPanel shows potion slots only when a potion can be sold",
-            customerPanel.Contains("SetPotionSlotRowVisible(true)") &&
-            customerPanel.Contains("SetPotionSlotRowVisible(false)") &&
-            customerPanel.Contains("SetDialogueOptionState") &&
-            customerPanel.Contains("SetSellingModeState"));
-        AssertTrue("CustomerPanel refreshes potion slots when inventory changes",
-            customerPanel.Contains("_gameState.Changed += RefreshPotionSlotRow") &&
-            customerPanel.Contains("_gameState.Changed -= RefreshPotionSlotRow"));
-        AssertTrue("CustomerPanel selects a potion slot and updates request comparison text",
-            customerPanel.Contains("CustomerPotionDetailPanelPath") &&
-            customerPanel.Contains("ResolveOrCreateCustomerPotionDetailPanel") &&
-            customerPanel.Contains("slot.SlotActivated += OnPotionSlotActivated") &&
-            customerPanel.Contains("SetSelectedPotionComparison") &&
-            customerPanel.Contains("SetRequestTraits(request, brewResult.Traits, brewResult.Risks)") &&
-            customerPanel.Contains("RestoreSelectedPotionComparisonOrRequest"));
-        AssertTrue("CustomerPanel disables the old customer potion detail overlay on slot clicks",
-            !customerPanel.Contains(".ShowCustomerPotionComparison("));
-        AssertTrue("CustomerPanel highlights the selected customer potion slot",
-            customerPanel.Contains("_selectedPotionComparisonItemId") &&
-            customerPanel.Contains("SetPotionSlotSelectedVisual") &&
-            customerPanel.Contains("SelectedPotionSlotBorderColor"));
-        AssertTrue("Customer potion details reuse the station detail panel and compare request fit",
-            detailPanel.Contains("CreateDefaultPanel") &&
-            detailPanel.Contains("BuildCustomerPotionRequestComparisonText") &&
-            detailPanel.Contains("SetCustomerComparisonLayout(true)") &&
-            detailPanel.Contains("_meta.Visible = !active") &&
-            detailPanel.Contains("TextServer.AutowrapMode.Off") &&
+            potionRow.Contains("InventorySlotLayoutKind.PotionInventory") &&
+            layoutSettings.Contains("PotionInventorySlot = SubResource(\"Resource_potion_inventory\")") &&
+            potionRow.Contains("Quantity = stack.Quantity"));
+        AssertTrue("StationCustomerPanel accepts quick-serve slot requests only when a potion can be sold",
+            stationCustomerPanel.Contains("PotionQuickServeRequested += OnPotionQuickServeRequested") &&
+            stationCustomerPanel.Contains("TrySelectPotion(itemId)") &&
+            stationCustomerPanel.Contains("private bool CanServeActiveCustomer()"));
+        AssertTrue("PotionInventoryRow refreshes potion slots when inventory changes",
+            potionRow.Contains("_gameState.Changed += Refresh") &&
+            potionRow.Contains("_gameState.Changed -= Refresh"));
+        AssertTrue("StationCustomerPanel updates request comparison text for selected potion values",
+            stationCustomerPanel.Contains("SetRequestFitText") &&
+            stationCustomerPanel.Contains("BuildCustomerPotionRequestComparisonText") &&
+            stationCustomerPanel.Contains("_saleService.GetPotionIngredientPortions(potionItemId)") &&
             formatter.Contains("BuildCustomerPotionRequestComparisonText"));
     }
 

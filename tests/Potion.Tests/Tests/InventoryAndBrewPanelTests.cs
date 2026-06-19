@@ -473,7 +473,7 @@ internal static class InventoryAndBrewPanelTests
         var dataDb = ReadProjectFile("Scripts/Autoload/DataDb.cs");
         var recipeDef = ReadProjectFile("Scripts/Models/PotionRecipeDef.cs");
         var customerDef = ReadProjectFile("Scripts/Models/CustomerInteractionDef.cs");
-        var customerPanel = ReadProjectFile("Scripts/UI/CustomerPanel.cs");
+        var saleService = ReadProjectFile("Scripts/Systems/CustomerSaleService.cs");
 
         AssertTrue("BrewPanel stores queued ingredients as portions",
             brewPanel.Contains("private readonly List<IngredientPortionDef> _queuedIngredients = new();") &&
@@ -493,10 +493,10 @@ internal static class InventoryAndBrewPanelTests
             customerDef.Contains("RequiredIngredientAmounts") &&
             dataDb.Contains("ParseIngredientPortions(ReadArray(entry, \"ingredientAmounts\"))") &&
             dataDb.Contains("ParseIngredientPortions(ReadArray(entry, \"requiredIngredientAmounts\"))"));
-        AssertTrue("CustomerPanel checks exact gram requirements against the potion batch",
-            customerPanel.Contains("DoesPotionBatchSatisfyIngredientAmountRequirements") &&
-            customerPanel.Contains("TryPeekPotionIngredientPortionBatch") &&
-            customerPanel.Contains("portion.Grams == requiredIngredientAmount.Grams"));
+        AssertTrue("CustomerSaleService checks exact gram requirements against the potion batch",
+            saleService.Contains("DoesPotionBatchSatisfyIngredientAmountRequirements") &&
+            saleService.Contains("TryPeekPotionIngredientPortionBatch") &&
+            saleService.Contains("portion.Grams == requiredIngredientAmount.Grams"));
     }
 
     private static void TestIngredientPreparationTrayPreviewWiring()
@@ -602,8 +602,7 @@ internal static class InventoryAndBrewPanelTests
             !hudScene.Contains("text = \"Treatment Tray\""));
         AssertTrue("Game UI defines the Treatment Tray sprite drop target and inline actions",
             gameUiScene.Contains("[node name=\"TreatmentTray\" type=\"Control\" parent=\"PotionBrewingStationView\"]") &&
-            !gameUiScene.Contains("[node name=\"TreatmentTray\" type=\"TextureRect\" parent=\"ShopFloor/Art\"]") &&
-            !gameUiScene.Contains("[node name=\"TreatmentTray\" type=\"Button\" parent=\"ShopFloor/Hotspots\"]") &&
+            !gameUiScene.Contains("ShopFloor") &&
             gameUiScene.Contains("custom_minimum_size = Vector2(430, 286)") &&
             gameUiScene.Contains("TrayDropBoxPath = NodePath(\"TreatmentDropBox\")") &&
             gameUiScene.Contains("HelperLabelPath = NodePath(\"TreatmentHelper\")") &&

@@ -95,7 +95,7 @@ public partial class TutorialContentResource : Resource
 			{
 				StepId = (int)TutorialStepId.OpenBrewPanel,
 				Title = "Open the Brew Panel",
-				Body = "Click the brewing station shelf to open the cauldron controls.",
+				Body = "Use the cauldron controls in the brewing station.",
 				ShowNextButton = false,
 				PanelAtTop = false,
 				LockOtherButtons = true
@@ -140,7 +140,7 @@ public partial class TutorialContentResource : Resource
 			{
 				StepId = (int)TutorialStepId.StartDay,
 				Title = "Open the Shop",
-				Body = "Click Start Day, then click the customer in the shop front to read their request.",
+				Body = "Click Start Day to bring the first customer to the station.",
 				ShowNextButton = false,
 				PanelAtTop = false,
 				LockOtherButtons = true
@@ -193,7 +193,7 @@ public partial class TutorialContentResource : Resource
 			{
 				StepId = (int)TutorialStepId.CloseShop,
 				Title = "Close the Shop",
-				Body = "It is night time. Close the shop to end the day.",
+				Body = "Close the shop to end the day.",
 				ShowNextButton = false,
 				PanelAtTop = true,
 				LockOtherButtons = true
@@ -202,7 +202,7 @@ public partial class TutorialContentResource : Resource
 			{
 				StepId = (int)TutorialStepId.DaySummary,
 				Title = "End of Day Summary",
-				Body = "This is the end of day summary. This will show you how your day has gone. Click on the Continue to Night button.",
+				Body = "This is the end of day summary. It shows how your day has gone. Click Continue to start the next day.",
 				ShowNextButton = false,
 				PanelAtTop = false,
 				LockOtherButtons = true

@@ -18,8 +18,8 @@ internal static class SceneAndHudWiringTests
         runner.Run("Main menu exposes start and load flows", TestMainMenuLoadFlow);
         runner.Run("Load menu scene is wired for saved game browsing", TestLoadGameMenuScene);
         runner.Run("Game UI omits the removed inventory panel", TestGameUiOmitsInventoryPanel);
-        runner.Run("Customer closeup uses split art and customer data image paths", TestCustomerCloseupUsesSplitArt);
-        runner.Run("Shop floor shelf opens potion brewing station view", TestShopFloorShelfOpensPotionBrewingStation);
+        runner.Run("Station customer panel uses authored customer image paths", TestCustomerCloseupUsesSplitArt);
+        runner.Run("Potion brewing station is the primary game view", TestShopFloorShelfOpensPotionBrewingStation);
         runner.Run("Potion brewing station omits bedroom view", TestPotionBrewingStationOmitsBedroom);
         runner.Run("Potion brewing station owns diegetic shelf inventory", TestPotionBrewingStationShelfInventory);
         runner.Run("Potion brewing station owns separate potion inventory row", TestPotionBrewingStationPotionInventoryRow);
@@ -46,11 +46,10 @@ internal static class SceneAndHudWiringTests
         {
             ["OccultShop.UI.BrewPanel"] = "Control",
             ["OccultShop.UI.BrewDropBox"] = "PanelContainer",
-            ["OccultShop.UI.CustomerPanel"] = "Control",
             ["OccultShop.UI.CustomerSellDropBox"] = "PanelContainer",
+            ["OccultShop.UI.StationBookController"] = "Control",
             ["OccultShop.UI.StationCustomerPanel"] = "Control",
             ["OccultShop.UI.DraggablePanel"] = "PanelContainer",
-            ["OccultShop.UI.EventModal"] = "Control",
             ["OccultShop.UI.Hud"] = "Control",
             ["OccultShop.UI.CalendarPanel"] = "PanelContainer",
             ["OccultShop.UI.LoadGameMenu"] = "Control",
@@ -124,31 +123,20 @@ internal static class SceneAndHudWiringTests
     private static void TestCustomerCloseupUsesSplitArt()
     {
         var scene = ReadProjectFile("Scenes/UI/GameUi.tscn");
-        var shopFloor = ReadProjectFile("Scripts/UI/ShopFloor.cs");
-        var customerPanel = ReadProjectFile("Scripts/UI/CustomerPanel.cs");
+        var stationCustomerPanel = ReadProjectFile("Scripts/UI/StationCustomerPanel.cs");
         var tieredCustomers = ReadProjectFile("Data/customers_tiered_test_data.tres");
 
-        AssertTrue("Customer closeup no longer uses the combined customer/background image",
-            !scene.Contains("res://art/Customer-Closeup.png"));
-        AssertTrue("Customer closeup uses the evening background as a separate image",
-            scene.Contains("path=\"res://art/Background - Evening.png\"") &&
-            scene.Contains("texture = ExtResource(\"22_shop_background\")"));
-        AssertTrue("Customer closeup has a separate customer texture node",
-            scene.Contains("[node name=\"Customer\" type=\"TextureRect\" parent=\"CustomerCloseupView\"]") &&
-            scene.Contains("texture = ExtResource(\"24_shop_customer\")"));
-        AssertTrue("ShopFloor exposes the customer closeup image node path",
-            shopFloor.Contains("CustomerCloseupCustomerImagePath"));
-        AssertTrue("ShopFloor loads the customer closeup texture from customer data",
-            shopFloor.Contains("CurrentCustomerImagePath") &&
-            shopFloor.Contains("ResourceLoader.Load<Texture2D>(imagePath)"));
-        AssertTrue("ShopFloor refreshes the closeup when customer dialogue changes expression",
-            shopFloor.Contains("CustomerImageChanged += OnCustomerImageChanged") &&
-            shopFloor.Contains("CustomerImageChanged -= OnCustomerImageChanged") &&
-            shopFloor.Contains("private void OnCustomerImageChanged(string imagePath)") &&
-            shopFloor.Contains("RefreshCustomerCloseupImage();"));
-        AssertTrue("CustomerPanel exposes the active customer image path",
-            customerPanel.Contains("CurrentCustomerImagePath => !string.IsNullOrWhiteSpace(_currentCustomerImagePath)") &&
-            customerPanel.Contains("CustomerImageChangedEventHandler"));
+        AssertTrue("GameUi no longer defines the removed customer closeup surface",
+            !scene.Contains("CustomerCloseupView") &&
+            !scene.Contains("res://art/Customer-Closeup.png") &&
+            !scene.Contains("res://art/Background - Evening.png"));
+        AssertTrue("StationCustomerPanel builds an inline customer image frame",
+            stationCustomerPanel.Contains("Name = \"CustomerImageFrame\"") &&
+            stationCustomerPanel.Contains("Name = \"CustomerImage\""));
+        AssertTrue("StationCustomerPanel loads customer portrait textures from customer data",
+            stationCustomerPanel.Contains("RefreshCustomerImage(interaction)") &&
+            stationCustomerPanel.Contains("RefreshCustomerImage(interaction, line.CharacterImageKey)") &&
+            stationCustomerPanel.Contains("ResourceLoader.Load<Texture2D>(imagePath)"));
         AssertTrue("Tiered customer data includes Bridget's happy and sad portrait paths",
             tieredCustomers.Contains("\"characterImagePath\": \"res://Assets/Characters/old_rural_woman_sprite_happy.png\"") &&
             tieredCustomers.Contains("\"happy\": \"res://Assets/Characters/old_rural_woman_sprite_happy.png\"") &&
@@ -158,42 +146,39 @@ internal static class SceneAndHudWiringTests
     private static void TestShopFloorShelfOpensPotionBrewingStation()
     {
         var scene = ReadProjectFile("Scenes/UI/GameUi.tscn");
-        var shopFloor = ReadProjectFile("Scripts/UI/ShopFloor.cs");
+        var main = ReadProjectFile("Main.tscn");
+        var stationBookController = ReadProjectFile("Scripts/UI/StationBookController.cs");
 
         AssertTrue("GameUi references the potion brewing station art",
             scene.Contains("path=\"res://Assets/Art/BrewingStationBright/brewing_station_background2.png\""));
         AssertTrue("GameUi defines the potion brewing station view",
-            scene.Contains("[node name=\"PotionBrewingStationView\" type=\"Control\" parent=\".\"]"));
+            scene.Contains("[node name=\"PotionBrewingStationView\" type=\"Control\" parent=\".\"]") &&
+            scene.Contains("script = ExtResource(\"54_station_book\")"));
         AssertTrue("GameUi draws the potion brewing station image",
             scene.Contains("[node name=\"Background\" type=\"TextureRect\" parent=\"PotionBrewingStationView\"]") &&
             scene.Contains("texture = ExtResource(\"9_jopkj\")"));
-        AssertTrue("GameUi no longer defines a return-to-shop tab on the potion brewing station view",
-            !scene.Contains("[node name=\"ReturnHotspotLeft\" type=\"Button\" parent=\"PotionBrewingStationView\"]") &&
-            !scene.Contains("text = \"< Shop\""));
-        AssertTrue("GameUi defines a compact visible shop-front tab to the potion brewing station",
-            scene.Contains("[node name=\"InventoryShelf\" type=\"Button\" parent=\"ShopFloor/Hotspots\"]") &&
-            scene.Contains("custom_minimum_size = Vector2(192, 52)") &&
-            scene.Contains("tooltip_text = \"Potion brewing station\"") &&
-            scene.Contains("text = \"Brewing Station >\""));
-        AssertTrue("ShopFloor maps the right shelf hotspot to the potion brewing station",
-            shopFloor.Contains("PotionBrewingStationButtonPath = new(\"Hotspots/InventoryShelf\")"));
-        AssertTrue("ShopFloor connects the shelf hotspot to the station handler",
-            shopFloor.Contains("ConnectButton(_potionBrewingStationButton, OnPotionBrewingStationPressed)"));
-        AssertTrue("ShopFloor no longer exposes station return-to-shop wiring",
-            !shopFloor.Contains("PotionBrewingStationReturnButtonPath") &&
-            !shopFloor.Contains("_potionBrewingStationReturnButton"));
-        AssertTrue("Customer dialog exposes a brewing station action that opens the station view",
-            scene.Contains("[node name=\"BrewingStation\" type=\"Button\" parent=\"CustomerPanel/Panel/Margin/VBox/CustomerActions\"]") &&
-            scene.Contains("text = \"Brewing Station\"") &&
-            shopFloor.Contains("_customerPanel.BrewingStationRequested += OnCustomerBrewingStationRequested") &&
-            shopFloor.Contains("private void OnCustomerBrewingStationRequested()") &&
-            shopFloor.Contains("OpenPotionBrewingStation();"));
+        AssertTrue("GameUi removes the old shop-front and closeup surfaces",
+            !scene.Contains("[node name=\"ShopFloor\"") &&
+            !scene.Contains("CustomerCloseupView") &&
+            !scene.Contains("PotionBookCloseupView") &&
+            !scene.Contains("[node name=\"CustomerPanel\"") &&
+            !scene.Contains("[node name=\"EventModal\""));
+        AssertTrue("Station book controls open both book panels from the brewing station",
+            scene.Contains("[node name=\"Book\" type=\"TextureRect\" parent=\"PotionBrewingStationView\"]") &&
+            scene.Contains("[node name=\"BookHotspot\" type=\"Button\" parent=\"PotionBrewingStationView/Book\"]") &&
+            scene.Contains("[node name=\"BookSwitch\" type=\"Button\" parent=\"PotionBrewingStationView/Book\"]") &&
+            stationBookController.Contains("BookButtonPath = new(\"Book/BookHotspot\")") &&
+            stationBookController.Contains("BookSwitchButtonPath = new(\"Book/BookSwitch\")") &&
+            stationBookController.Contains("PotionBookPanelPath = new(\"../PotionBookPanel\")") &&
+            stationBookController.Contains("IngredientBookPanelPath = new(\"../IngredientBookPanel\")"));
+        AssertTrue("Main scene wires shop flow directly to the station customer panel",
+            main.Contains("StationCustomerPanelPath = NodePath(\"../CanvasLayer/PotionBrewingStationView/StationCustomerPanel\")") &&
+            !main.Contains("\nCustomerPanelPath = NodePath("));
     }
 
     private static void TestPotionBrewingStationOmitsBedroom()
     {
         var scene = ReadProjectFile("Scenes/UI/GameUi.tscn");
-        var shopFloor = ReadProjectFile("Scripts/UI/ShopFloor.cs");
 
         AssertTrue("GameUi no longer references bedroom art or nodes",
             !scene.Contains("rural_irish_bedroom") &&
@@ -201,14 +186,10 @@ internal static class SceneAndHudWiringTests
             !scene.Contains("BedroomHotspotRight") &&
             !scene.Contains("text = \"Bedroom >\"") &&
             !scene.Contains("text = \"Sleep\""));
-        AssertTrue("ShopFloor no longer exposes bedroom navigation paths or handlers",
-            !shopFloor.Contains("BedroomButtonPath") &&
-            !shopFloor.Contains("BedroomViewPath") &&
-            !shopFloor.Contains("BedroomReturnButtonPath") &&
-            !shopFloor.Contains("BedroomEndDayButtonPath") &&
-            !shopFloor.Contains("OnBedroomPressed") &&
-            !shopFloor.Contains("ShowBedroom") &&
-            !shopFloor.Contains("ReturnFromBedroomToPotionBrewingStation"));
+        AssertTrue("GameUi no longer references shop-floor navigation nodes",
+            !scene.Contains("ShopFloor") &&
+            !scene.Contains("ReturnHotspot") &&
+            !scene.Contains("text = \"< Shop\""));
         AssertTrue("DaySummaryPanel still comes to the front when shown",
             ReadProjectFile("Scripts/UI/DaySummaryPanel.cs").Contains("MoveToFront();"));
     }
@@ -388,7 +369,7 @@ internal static class SceneAndHudWiringTests
         var settingsResource = ReadProjectFile("Assets/UI/InventorySlotLayoutSettings.tres");
         var shelf = ReadProjectFile("Scripts/UI/StationShelfInventory.cs");
         var row = ReadProjectFile("Scripts/UI/PotionInventoryRow.cs");
-        var customerPanel = ReadProjectFile("Scripts/UI/CustomerPanel.cs");
+        var stationCustomerPanel = ReadProjectFile("Scripts/UI/StationCustomerPanel.cs");
 
         AssertTrue("Inventory slot editor plugin is enabled",
             project.Contains("res://addons/inventory_slot_layout_editor/plugin.cfg") &&
@@ -416,28 +397,26 @@ internal static class SceneAndHudWiringTests
             ReadProjectFile("Scripts/UI/JarredInventorySlotView.cs").Contains("ResolveCustomRatioRect(layout.GeneratedNameRectRatio") &&
             dock.Contains("_resolve_custom_ratio_rect") &&
             dock.Contains("custom_rect.position == Vector2.ZERO and custom_rect.size == Vector2.ZERO"));
-        AssertTrue("Inventory slot layout resource exposes all generated slot families",
+        AssertTrue("Inventory slot layout resource exposes all active generated slot families",
             settings.Contains("DefaultResourcePath = \"res://Assets/UI/InventorySlotLayoutSettings.tres\"") &&
             settings.Contains("IngredientShelfSlot") &&
             settings.Contains("ConsumableShelfSlot") &&
             settings.Contains("PotionInventorySlot") &&
-            settings.Contains("CustomerPotionSlot") &&
+            !settings.Contains("CustomerPotionSlot") &&
             profile.Contains("CreateJarredLayout"));
         AssertTrue("Default slot layout resource stores editable profile subresources",
             settingsResource.Contains("IngredientShelfSlot = SubResource(\"Resource_ingredient_shelf\")") &&
             settingsResource.Contains("ConsumableShelfSlot = SubResource(\"Resource_consumable_shelf\")") &&
             settingsResource.Contains("PotionInventorySlot = SubResource(\"Resource_potion_inventory\")") &&
-            settingsResource.Contains("CustomerPotionSlot = SubResource(\"Resource_customer_potion\")"));
+            !settingsResource.Contains("CustomerPotionSlot = SubResource(\"Resource_customer_potion\")"));
         AssertTrue("Runtime inventory slot code loads the shared layout resource",
             shelf.Contains("SlotLayoutSettingsPath = InventorySlotLayoutSettings.DefaultResourcePath") &&
             row.Contains("SlotLayoutSettingsPath = InventorySlotLayoutSettings.DefaultResourcePath") &&
-            customerPanel.Contains("SlotLayoutSettingsPath = InventorySlotLayoutSettings.DefaultResourcePath") &&
             shelf.Contains("InventorySlotLayoutSettings.Load(SlotLayoutSettingsPath, forceReload)") &&
             row.Contains("InventorySlotLayoutSettings.Load(SlotLayoutSettingsPath, forceReload)") &&
-            customerPanel.Contains("InventorySlotLayoutSettings.Load(SlotLayoutSettingsPath, forceReload)") &&
             !shelf.Contains("InventorySlotLayoutSettings? SlotLayoutSettings") &&
             !row.Contains("InventorySlotLayoutSettings? SlotLayoutSettings") &&
-            !customerPanel.Contains("InventorySlotLayoutSettings? SlotLayoutSettings"));
+            stationCustomerPanel.Contains("_potionInventoryRow?.RefreshSlotLayoutSettings();"));
         var gameUiScene = ReadProjectFile("Scenes/UI/GameUi.tscn");
         AssertTrue("GameUi keeps slot layout data in the shared resource instead of inline subresources",
             !gameUiScene.Contains("SlotLayoutSettings = SubResource") &&
@@ -447,20 +426,17 @@ internal static class SceneAndHudWiringTests
 
     private static void TestBrewEntryPointsOpenPotionBrewingStation()
     {
-        var shopFloor = ReadProjectFile("Scripts/UI/ShopFloor.cs");
         var hud = ReadProjectFile("Scripts/UI/Hud.cs");
         var hudScene = ReadProjectFile("Scenes/UI/Hud.tscn");
         var scene = ReadProjectFile("Scenes/UI/GameUi.tscn");
+        var dayController = ReadProjectFile("Scripts/Controllers/DayController.cs");
 
-        AssertTrue("ShopFloor exposes an explicit station open method",
-            shopFloor.Contains("public void OpenPotionBrewingStation()") &&
-            shopFloor.Contains("ShowPotionBrewingStation();"));
-        AssertTrue("ShopFloor counter brew hotspot opens the station",
-            shopFloor.Contains("private void OnBrewPressed()") &&
-            shopFloor.Contains("OpenPotionBrewingStation();"));
-        AssertTrue("ShopFloor shows the brew panel on the station without hiding queued ingredients on return",
-            shopFloor.Contains("_brewPanel.ShowPanel();") &&
-            shopFloor.Contains("_brewPanel.Visible = _brewWasVisible;"));
+        AssertTrue("GameUi starts directly on the potion brewing station view",
+            scene.Contains("[node name=\"PotionBrewingStationView\" type=\"Control\" parent=\".\"]") &&
+            !scene.Contains("[node name=\"ShopFloor\""));
+        AssertTrue("DayController shows and hides the station brew panel for shop days",
+            dayController.Contains("_brewPanel.ShowPanel();") &&
+            dayController.Contains("_brewPanel.HidePanel();"));
         AssertTrue("HUD no longer exposes a brew button",
             !hud.Contains("BrewPanelPath") &&
             !hud.Contains("ShopFloorPath") &&
@@ -483,7 +459,7 @@ internal static class SceneAndHudWiringTests
         var dayController = ReadProjectFile("Scripts/Controllers/DayController.cs");
         var shelf = ReadProjectFile("Scripts/UI/StationShelfInventory.cs");
         var row = ReadProjectFile("Scripts/UI/PotionInventoryRow.cs");
-        var customerPanel = ReadProjectFile("Scripts/UI/CustomerPanel.cs");
+        var stationCustomerPanel = ReadProjectFile("Scripts/UI/StationCustomerPanel.cs");
         var layoutSettings = ReadProjectFile("Scripts/UI/InventorySlotLayoutSettings.cs");
 
         AssertTrue("Scenario debugger wires the day controller",
@@ -502,10 +478,10 @@ internal static class SceneAndHudWiringTests
             runtimeDebug.Contains("RefreshInventorySlotLayoutViews()") &&
             runtimeDebug.Contains("stationShelfInventory.RefreshSlotLayoutSettings()") &&
             runtimeDebug.Contains("potionInventoryRow.RefreshSlotLayoutSettings()") &&
-            runtimeDebug.Contains("customerPanel.RefreshSlotLayoutSettings()") &&
+            runtimeDebug.Contains("stationCustomerPanel.RefreshSlotLayoutSettings()") &&
             shelf.Contains("public void RefreshSlotLayoutSettings()") &&
             row.Contains("public void RefreshSlotLayoutSettings()") &&
-            customerPanel.Contains("public void RefreshSlotLayoutSettings()") &&
+            stationCustomerPanel.Contains("public void RefreshSlotLayoutSettings()") &&
             layoutSettings.Contains("LoadDefault(bool forceReload = false)") &&
             layoutSettings.Contains("Load(string resourcePath, bool forceReload = false)") &&
             layoutSettings.Contains("ResourceLoader.CacheMode.Ignore"));
@@ -567,7 +543,6 @@ internal static class SceneAndHudWiringTests
         var autoload = ReadProjectFile("Scripts/Autoload/PersistentHud.cs");
         var visibility = ReadProjectFile("Scripts/UI/PersistentHudVisibility.cs");
         var hud = ReadProjectFile("Scripts/UI/Hud.cs");
-        var shopFloor = ReadProjectFile("Scripts/UI/ShopFloor.cs");
         var main = ReadProjectFile("Main.tscn");
         var gameUi = ReadProjectFile("Scenes/UI/GameUi.tscn");
         var hudScene = ReadProjectFile("Scenes/UI/Hud.tscn");
@@ -589,7 +564,10 @@ internal static class SceneAndHudWiringTests
             autoload.Contains("if (currentScene is null)") &&
             autoload.Contains("return;") &&
             autoload.IndexOf("if (currentScene is null)", StringComparison.Ordinal) < autoload.IndexOf("SetAmbientPlaybackAllowed(shouldShowHud)", StringComparison.Ordinal));
-        AssertTrue("ShopFloor no longer hides HUD for close-up views", !shopFloor.Contains("_hud.Visible = false") && !shopFloor.Contains("HudPath"));
+        AssertTrue("GameUi no longer includes close-up views that hide the HUD",
+            !gameUi.Contains("CustomerCloseupView") &&
+            !gameUi.Contains("PotionBookCloseupView") &&
+            !gameUi.Contains("ShopFloor"));
         AssertTrue("HUD is a full-width warm top bar capped at 50px",
             hudScene.Contains("custom_minimum_size = Vector2(0, 50)") &&
             hudScene.Contains("offset_bottom = 50.0") &&
@@ -600,7 +578,7 @@ internal static class SceneAndHudWiringTests
             !hudScene.Contains("[node name=\"Dread\"") &&
             !hudScene.Contains("text = \"Dread:\""));
         AssertTrue("Gameplay scenes reserve the HUD height",
-            gameUi.Contains("[node name=\"ShopFloor\" type=\"Control\" parent=\".\"]") &&
+            gameUi.Contains("[node name=\"PotionBrewingStationView\" type=\"Control\" parent=\".\"]") &&
             gameUi.Contains("offset_top = 50.0") &&
             gameUi.Contains("clip_contents = true") &&
             gardenScene.Contains("offset_top = 50.0") &&
@@ -1391,7 +1369,7 @@ internal static class SceneAndHudWiringTests
     {
         var source = ReadProjectFile("Scripts/UI/Hud.cs");
         var scene = ReadProjectFile("Scenes/UI/Hud.tscn");
-        var customerPanel = ReadProjectFile("Scripts/UI/CustomerPanel.cs");
+        var stationCustomerPanel = ReadProjectFile("Scripts/UI/StationCustomerPanel.cs");
         var formatter = ReadProjectFile("Scripts/UI/CustomerDialogueTextFormatter.cs");
 
         AssertTrue("Hud scene places the request alert in the status row without a shop timer",
@@ -1423,10 +1401,10 @@ internal static class SceneAndHudWiringTests
             source.Contains("IsPointInsideVisibleControl(_requestAlertButton, mouseButton.GlobalPosition)") &&
             source.Contains("SetRequestPanelVisible(false);") &&
             source.Contains("public void RefreshSceneBindings()"));
-        AssertTrue("Hud and CustomerPanel share request detail formatting",
+        AssertTrue("Hud and StationCustomerPanel share request detail formatting",
             source.Contains("CustomerDialogueTextFormatter.BuildDesiredRequestText") &&
             source.Contains("CustomerDialogueTextFormatter.BuildBadRequestText") &&
-            customerPanel.Contains("CustomerDialogueTextFormatter.BuildDesiredRequestText") &&
+            stationCustomerPanel.Contains("CustomerDialogueTextFormatter.BuildCustomerPotionRequestComparisonText") &&
             formatter.Contains("public static string BuildDesiredRequestText") &&
             formatter.Contains("public static string BuildBadRequestText"));
     }

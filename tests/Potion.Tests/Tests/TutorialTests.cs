@@ -112,7 +112,7 @@ internal static class TutorialTests
         AssertTrue("TutorialController uses extracted overlay presenter", controller.Contains("private TutorialOverlayPresenter _overlayPresenter"));
         AssertTrue("TutorialController uses extracted interaction gate", controller.Contains("private readonly TutorialInteractionGate _interactionGate"));
         AssertTrue("TutorialController consumes tutorial content resource", controller.Contains("[Export] public TutorialContentResource TutorialContent"));
-        AssertTrue("TutorialController uses potion sold events for the sale review step", controller.Contains("_customerPanel.PotionSold += OnPotionSold;"));
+        AssertTrue("TutorialController uses station potion sold events for the sale review step", controller.Contains("_stationCustomerPanel.PotionSold += OnPotionSold;"));
         AssertTrue("TutorialController no longer caches sale score details for tutorial feedback", !controller.Contains("_lastTutorialSaleScore") && !controller.Contains("_lastTutorialSaleGrade"));
         AssertTrue("TutorialController resolves step-specific button locks", controller.Contains("UpdateTutorialButtonLock("));
         AssertTrue("TutorialController includes the close shop tutorial step", controller.Contains("TutorialStepId.CloseShop"));
@@ -120,9 +120,9 @@ internal static class TutorialTests
         AssertTrue("TutorialController forces the final tutorial customer to end the shop day", controller.Contains("ForceCloseShopAfterCurrentCustomerForTutorial()"));
         AssertTrue("TutorialController caches HUD date control for tutorial highlighting", controller.Contains("HudDateControlPath = new(\"Content/Status/Day\")") && controller.Contains("_hudDateControl = GetOptionalHudControl(HudDateControlPath"));
         AssertTrue("TutorialController does not cache a HUD shop timer label", !controller.Contains("HudShopTimerLabelPath") && !controller.Contains("_hudShopTimerLabel"));
-        AssertTrue("TutorialController opens brewing from the shop floor hotspot", controller.Contains("OpenBrewPanelButtonPath = new(\"../CanvasLayer/ShopFloor/Hotspots/InventoryShelf\")") && controller.Contains("_openBrewPanelButton.Pressed += OnBrewButtonPressed"));
+        AssertTrue("TutorialController starts with the brewing station view already available", !controller.Contains("OpenBrewPanelButtonPath") && !controller.Contains("_openBrewPanelButton"));
         AssertTrue("TutorialController highlights ingredient queue steps with the brew panel", controller.Contains("ShowIngredientQueueStep(stepContent, _tutorialContent.MintId)") && controller.Contains("ShowForTargets(") && controller.Contains("FocusTutorialBrewPanel()"));
-        AssertTrue("TutorialController routes the sale review popup through the customer panel", controller.Contains("ShowForTarget(") && controller.Contains("_customerPanel,") && controller.Contains("BuildSaleResultBody("));
+        AssertTrue("TutorialController routes the sale review popup through the station customer panel", controller.Contains("ShowForTarget(") && controller.Contains("_stationCustomerPanel,") && controller.Contains("BuildSaleResultBody("));
         AssertTrue("TutorialController seeds the next-customer tutorial inventory", controller.Contains("SeedNextCustomerTutorialInventory()"));
         AssertTrue("TutorialController highlights status step with a combined HUD rect", controller.Contains("ShowForHighlightRect(stepContent, statusHighlightRect)"));
         AssertTrue("TutorialController builds a combined status highlight rectangle", controller.Contains("TryGetStatusHighlightRect(out var statusHighlightRect)"));
@@ -130,7 +130,7 @@ internal static class TutorialTests
         AssertTrue("TutorialController listens for day summary continue", controller.Contains("_daySummaryPanel.ContinuePressed += OnDaySummaryContinuePressed;"));
         AssertTrue("TutorialController highlights the day summary panel", controller.Contains("case TutorialStepId.DaySummary") && controller.Contains("_overlayPresenter.ShowForTarget(stepContent, _daySummaryPanel)"));
         AssertTrue("TutorialController allows the day summary continue button", controller.Contains("TutorialStepId.DaySummary => new BaseButton?[] { _daySummaryPanel?.GetContinueButton() }"));
-        AssertTrue("TutorialController includes shop floor and day summary panel in button locks", controller.Contains("new Node?[] { _hud, _shopFloor, _brewPanel, _customerPanel, _daySummaryPanel }"));
+        AssertTrue("TutorialController includes station customer and day summary panels in button locks", controller.Contains("new Node?[] { _hud, _brewPanel, _stationCustomerPanel, _daySummaryPanel }"));
         AssertTrue("TutorialOverlayPresenter supports direct highlight rectangles", presenter.Contains("ShowForHighlightRect("));
 
         AssertTrue("TutorialStateMachine is a pure class", stateMachine.Contains("public sealed class TutorialStateMachine"));
@@ -141,8 +141,8 @@ internal static class TutorialTests
         AssertTrue("DayController exposes a tutorial-only close-after-current-customer helper", ReadProjectFile("Scripts/Controllers/DayController.cs").Contains("public void ForceCloseShopAfterCurrentCustomerForTutorial()"));
         AssertTrue("TutorialContentResource exists", tutorialContent.Contains("public partial class TutorialContentResource : Resource"));
         AssertTrue("TutorialContentResource includes the close shop step copy", tutorialContent.Contains("StepId = (int)TutorialStepId.CloseShop"));
-        AssertTrue("TutorialContentResource tells the player to close the shop at night", tutorialContent.Contains("It is night time. Close the shop to end the day."));
-        AssertTrue("TutorialContentResource includes the day summary step copy", tutorialContent.Contains("StepId = (int)TutorialStepId.DaySummary") && tutorialContent.Contains("This is the end of day summary. This will show you how your day has gone. Click on the Continue to Night button."));
+        AssertTrue("TutorialContentResource tells the player to close the shop without night events", tutorialContent.Contains("Close the shop to end the day.") && !tutorialContent.Contains("It is night time."));
+        AssertTrue("TutorialContentResource includes the day summary step copy", tutorialContent.Contains("StepId = (int)TutorialStepId.DaySummary") && tutorialContent.Contains("Click Continue to start the next day."));
         AssertTrue("DaySummaryPanel exposes the continue button for tutorial locks", ReadProjectFile("Scripts/UI/DaySummaryPanel.cs").Contains("public Button? GetContinueButton()"));
         AssertTrue("Tutorial step content can lock other buttons", tutorialStepContent.Contains("public bool LockOtherButtons { get; set; }"));
         AssertTrue("Tutorial overlay presenter exists", presenter.Contains("public sealed class TutorialOverlayPresenter"));

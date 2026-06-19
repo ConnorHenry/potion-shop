@@ -115,7 +115,7 @@ internal static class RecipeAndPotionBookTests
         var source = ReadProjectFile("Scripts/UI/IngredientBookPanel.cs");
         var scene = ReadProjectFile("Scenes/UI/IngredientBookPanel.tscn");
         var gameUiScene = ReadProjectFile("Scenes/UI/GameUi.tscn");
-        var shopFloorSource = ReadProjectFile("Scripts/UI/ShopFloor.cs");
+        var stationBookController = ReadProjectFile("Scripts/UI/StationBookController.cs");
 
         AssertTrue("IngredientBookPanel is a Control with explicit book page exports",
             source.Contains("public partial class IngredientBookPanel : Control") &&
@@ -173,39 +173,32 @@ internal static class RecipeAndPotionBookTests
         AssertTrue("GameUi instances the ingredient book panel and dynamic book switch",
             gameUiScene.Contains("path=\"res://Scenes/UI/IngredientBookPanel.tscn\"") &&
             gameUiScene.Contains("[node name=\"IngredientBookPanel\" parent=\".\" instance=ExtResource(\"41_ingredient_book\")]") &&
-            gameUiScene.Contains("[node name=\"BookSwitch\" type=\"Button\" parent=\"PotionBookCloseupView\"]") &&
+            gameUiScene.Contains("[node name=\"BookSwitch\" type=\"Button\" parent=\"PotionBrewingStationView/Book\"]") &&
             !gameUiScene.Contains("[node name=\"IngredientBookTab\"") &&
             !gameUiScene.Contains("[node name=\"PotionBookTab\""));
         AssertTrue("GameUi uses one brewing-station book object and one clickable book hotspot",
             gameUiScene.Contains("[node name=\"Book\" type=\"TextureRect\" parent=\"PotionBrewingStationView\"]") &&
             gameUiScene.Contains("[node name=\"BookHotspot\" type=\"Button\" parent=\"PotionBrewingStationView/Book\"]") &&
-            !gameUiScene.Contains("[node name=\"IngredientBook\" type=\"TextureRect\" parent=\"ShopFloor/Art\"]") &&
-            !gameUiScene.Contains("[node name=\"PotionBook\" type=\"TextureRect\" parent=\"ShopFloor/Art\"]") &&
-            !gameUiScene.Contains("[node name=\"IngredientBook\" type=\"Button\" parent=\"ShopFloor/Hotspots\"]") &&
-            !gameUiScene.Contains("[node name=\"PotionBook\" type=\"Button\" parent=\"ShopFloor/Hotspots\"]") &&
-            !gameUiScene.Contains("[node name=\"Book\" type=\"TextureRect\" parent=\"ShopFloor/Art\"]") &&
-            !gameUiScene.Contains("[node name=\"Book\" type=\"Button\" parent=\"ShopFloor/Hotspots\"]"));
+            !gameUiScene.Contains("ShopFloor") &&
+            !gameUiScene.Contains("PotionBookCloseupView"));
         AssertTrue("GameUi does not override book page number paths to null",
             !gameUiScene.Contains("PageNumberLabelPath = null"));
-        AssertTrue("ShopFloor wires the station book hotspot to both book panels",
-            shopFloorSource.Contains("BookButtonPath = new(\"../PotionBrewingStationView/Book/BookHotspot\")") &&
-            shopFloorSource.Contains("IngredientBookPanelPath = new(\"../IngredientBookPanel\")") &&
-            shopFloorSource.Contains("ShowBookCloseup(_activeBookPanelKind)") &&
-            shopFloorSource.Contains("bookPanelKind == BookPanelKind.Potion") &&
-            shopFloorSource.Contains("UpdateBookSwitchButtonState(BookPanelKind.Potion)") &&
-            shopFloorSource.Contains("UpdateBookSwitchButtonState(BookPanelKind.Ingredient)"));
-        AssertTrue("ShopFloor uses one book switch button that targets the opposite book",
-            shopFloorSource.Contains("BookSwitchButtonPath = new(\"../PotionBookCloseupView/BookSwitch\")") &&
-            shopFloorSource.Contains("OnBookSwitchPressed") &&
-            shopFloorSource.Contains("ShowBookPanel(GetOppositeBookPanelKind(_activeBookPanelKind))") &&
-            shopFloorSource.Contains("_bookSwitchButton.Text = GetBookSwitchButtonText(targetBookPanelKind)") &&
-            shopFloorSource.Contains("return targetBookPanelKind == BookPanelKind.Potion ? \"Potions\" : \"Ingredients\";"));
-        AssertTrue("ShopFloor remembers the active book between openings",
-            shopFloorSource.Contains("private BookPanelKind _activeBookPanelKind = BookPanelKind.Potion;") &&
-            shopFloorSource.Contains("_activeBookPanelKind = activeBookPanelKind;"));
-        AssertTrue("ShopFloor returns from the book closeup to the brewing station when opened there",
-            shopFloorSource.Contains("_returnToPotionBrewingStationAfterBook") &&
-            shopFloorSource.Contains("ReturnFromBookToPotionBrewingStation()") &&
-            shopFloorSource.Contains("_potionBrewingStationView.MoveToFront();"));
+        AssertTrue("StationBookController wires the station book hotspot to both book panels",
+            stationBookController.Contains("BookButtonPath = new(\"Book/BookHotspot\")") &&
+            stationBookController.Contains("PotionBookPanelPath = new(\"../PotionBookPanel\")") &&
+            stationBookController.Contains("IngredientBookPanelPath = new(\"../IngredientBookPanel\")") &&
+            stationBookController.Contains("ShowBookPanel(_activeBookPanelKind)") &&
+            stationBookController.Contains("bookPanelKind == BookPanelKind.Potion") &&
+            stationBookController.Contains("_potionBookPanel.ShowPanel()") &&
+            stationBookController.Contains("_ingredientBookPanel.ShowPanel()"));
+        AssertTrue("StationBookController uses one book switch button that targets the opposite book",
+            stationBookController.Contains("BookSwitchButtonPath = new(\"Book/BookSwitch\")") &&
+            stationBookController.Contains("OnBookSwitchPressed") &&
+            stationBookController.Contains("ShowBookPanel(GetOppositeBookPanelKind(_activeBookPanelKind))") &&
+            stationBookController.Contains("_bookSwitchButton.Text = GetBookSwitchButtonText(targetBookPanelKind)") &&
+            stationBookController.Contains("return targetBookPanelKind == BookPanelKind.Potion ? \"Potions\" : \"Ingredients\";"));
+        AssertTrue("StationBookController remembers the active book between openings",
+            stationBookController.Contains("private BookPanelKind _activeBookPanelKind = BookPanelKind.Potion;") &&
+            stationBookController.Contains("_activeBookPanelKind = bookPanelKind;"));
     }
 }

@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="InventorySlotLayoutSettings" load_steps=7 format=3 uid="uid://1hc6u8lkeonc"]
+[gd_resource type="Resource" script_class="InventorySlotLayoutSettings" load_steps=6 format=3 uid="uid://1hc6u8lkeonc"]
 
 [ext_resource type="Script" uid="uid://dahcvwbo2xvw4" path="res://Scripts/UI/InventorySlotLayoutSettings.cs" id="1_settings"]
 [ext_resource type="Script" uid="uid://dlbj1pj6831n0" path="res://Scripts/UI/InventorySlotLayoutProfile.cs" id="2_profile"]
@@ -20,27 +20,6 @@ SingleLineCharacterLimit = 12
 HideQuantityWhenOne = false
 UseReadableNamePlaque = false
 UseGeneratedLabelTexture = true
-GeneratedLabelRectRatio = Rect2(0, 0, 0, 0)
-GeneratedNameRectRatio = Rect2(0, 0, 0, 0)
-GeneratedQuantityRectRatio = Rect2(0, 0, 0, 0)
-
-[sub_resource type="Resource" id="Resource_customer_potion"]
-script = ExtResource("2_profile")
-SlotSize = Vector2(94, 132)
-ArtOffset = Vector2(0, 0)
-ArtSize = Vector2(0, 0)
-IconSizeRatio = 0.54
-IconCenterYRatio = 0.43
-NameFontSize = 8
-MinimumNameFontSize = 9
-QuantityFontSize = 10
-NameColor = Color(0.055, 0.026, 0.012, 1)
-QuantityColor = Color(0.13, 0.075, 0.032, 1)
-PreserveParentheticalSuffix = false
-SingleLineCharacterLimit = 12
-HideQuantityWhenOne = false
-UseReadableNamePlaque = false
-UseGeneratedLabelTexture = false
 GeneratedLabelRectRatio = Rect2(0, 0, 0, 0)
 GeneratedNameRectRatio = Rect2(0, 0, 0, 0)
 GeneratedQuantityRectRatio = Rect2(0, 0, 0, 0)
@@ -92,4 +71,3 @@ script = ExtResource("1_settings")
 IngredientShelfSlot = SubResource("Resource_ingredient_shelf")
 ConsumableShelfSlot = SubResource("Resource_consumable_shelf")
 PotionInventorySlot = SubResource("Resource_potion_inventory")
-CustomerPotionSlot = SubResource("Resource_customer_potion")

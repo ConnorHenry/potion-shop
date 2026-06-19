@@ -62,7 +62,7 @@ internal static class RuntimeContentAndDataDbTests
         AssertTrue("Authored data resource file exists", resource.Contains("script_class=\"AuthoredDataResource\""));
         AssertTrue("Authored data resource stores item catalog", resource.Contains("ItemsPath = \"res://Data/items_data.tres\""));
         AssertTrue("Authored data resource stores rule catalog", resource.Contains("RulesPath = \"res://Data/rules_data.tres\""));
-        AssertTrue("Authored data resource stores event catalog", resource.Contains("EventsPath = \"res://Data/events_data.tres\""));
+        AssertTrue("Authored data resource no longer stores night event catalog", !resource.Contains("\nEventsPath =") && !source.Contains("AuthoredEventsResource"));
         AssertTrue("Authored data resource stores calendar event catalog", resource.Contains("CalendarEventsPath = \"res://Data/calendar_events_data.tres\""));
         AssertTrue("Authored data resource stores customer catalog",
             resource.Contains("CustomerInteractionsPath = \"res://Data/customers_data.tres\"") ||
@@ -152,12 +152,12 @@ internal static class RuntimeContentAndDataDbTests
 
         var brewPanel = ReadProjectFile("Scripts/UI/BrewPanel.cs");
         var stationShelf = ReadProjectFile("Scripts/UI/StationShelfInventory.cs");
-        var customerPanel = ReadProjectFile("Scripts/UI/CustomerPanel.cs");
+        var stationCustomerPanel = ReadProjectFile("Scripts/UI/StationCustomerPanel.cs");
         var brewService = ReadProjectFile("Scripts/Systems/PotionInventoryBrewService.cs");
 
         AssertTrue("BrewPanel resolves ItemCatalogService through an exported path", brewPanel.Contains("GetNodeOrNull<ItemCatalogService>(ItemCatalogPath)"));
         AssertTrue("StationShelfInventory resolves ItemCatalogService through an exported path", stationShelf.Contains("GetNodeOrNull<ItemCatalogService>(ItemCatalogPath)"));
-        AssertTrue("CustomerPanel resolves ItemCatalogService through an exported path", customerPanel.Contains("GetNodeOrNull<ItemCatalogService>(ItemCatalogPath)"));
+        AssertTrue("StationCustomerPanel resolves ItemCatalogService through an exported path", stationCustomerPanel.Contains("GetNodeOrNull<ItemCatalogService>(ItemCatalogPath)"));
         AssertTrue("PotionInventoryBrewService uses constructor-injected ItemCatalogService", brewService.Contains("PotionInventoryBrewService(GameState gameState, ItemCatalogService itemCatalog)"));
         AssertTrue("BrewPanel still registers runtime potions separately", brewPanel.Contains("RegisterRuntimePotionItem"));
     }

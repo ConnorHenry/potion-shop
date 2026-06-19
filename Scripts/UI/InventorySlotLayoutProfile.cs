@@ -324,16 +324,4 @@ public partial class InventorySlotLayoutProfile : Resource
 			GeneratedQuantityRectRatio = new Rect2(new Vector2(0.36f, 0.858f), new Vector2(0.28f, 0.17f))
 		};
 	}
-
-	public static InventorySlotLayoutProfile CreateCustomerPotionDefault()
-	{
-		return new InventorySlotLayoutProfile
-		{
-			SlotSize = new Vector2(94.0f, 132.0f),
-			IconSizeRatio = 0.54f,
-			NameFontSize = 8,
-			MinimumNameFontSize = 9,
-			QuantityFontSize = 10
-		};
-	}
 }

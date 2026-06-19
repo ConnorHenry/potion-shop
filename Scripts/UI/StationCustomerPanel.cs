@@ -23,6 +23,10 @@ public partial class StationCustomerPanel : Control
 	public delegate void PotionSoldEventHandler(string itemId, bool success);
 	[Signal]
 	public delegate void InteractionShownEventHandler(string interactionId);
+	[Signal]
+	public delegate void DialogueResolvedEventHandler();
+	[Signal]
+	public delegate void PlotConversationStartedEventHandler();
 
 	private const float CustomerSlideSeconds = 0.28f;
 	private const float CustomerSlideDistance = 420.0f;
@@ -32,9 +36,12 @@ public partial class StationCustomerPanel : Control
 	[Export] public NodePath PotionInventoryRowPath = new("../PotionInventoryRow");
 	[Export] public NodePath GameStatePath = new(AutoloadNodePaths.GameState);
 	[Export] public NodePath ItemCatalogPath = new(AutoloadNodePaths.ItemCatalog);
+	[Export] public int DialogueTypewriterCharactersPerSecond = 45;
 
 	private readonly List<CustomerInteractionDef> _customers = new();
 	private readonly List<Button> _queueButtons = new();
+	private readonly List<Button> _dialogueOptionButtons = new();
+	private readonly List<CustomerDialogueOptionDef> _visibleDialogueOptions = new();
 
 	private GameState _gameState = default!;
 	private ItemCatalogService _itemCatalog = default!;
@@ -45,11 +52,16 @@ public partial class StationCustomerPanel : Control
 	private Control _customerImageFrame = default!;
 	private TextureRect _customerImage = default!;
 	private RichTextLabel _dialogue = default!;
+	private VBoxContainer _dialogueOptionsContainer = default!;
+	private Label _fitTitle = default!;
 	private RichTextLabel _fitCheck = default!;
+	private Label _servingTitle = default!;
 	private CustomerSellDropBox _servingDropBox = default!;
 	private Label _servingDropLabel = default!;
+	private HBoxContainer _servingActions = default!;
 	private Button _serveButton = default!;
 	private Button _refuseButton = default!;
+	private Button _returnToDialogueButton = default!;
 	private HBoxContainer _queueRow = default!;
 	private Label _outcomeLabel = default!;
 	private PanelContainer _confirmationPanel = default!;
@@ -65,8 +77,15 @@ public partial class StationCustomerPanel : Control
 	private string _pendingPotionItemId = string.Empty;
 	private PotionResult? _pendingPotionResult;
 	private ConfirmationKind _pendingConfirmation = ConfirmationKind.None;
+	private NarrativeTextPresenter? _dialoguePresenter;
+	private Control.GuiInputEventHandler? _dialogueGuiInputHandler;
+	private string _activeDialogueNodeId = string.Empty;
+	private string _requestReturnDialogueNodeId = string.Empty;
+	private bool _sellingMode;
 	private bool _isResolvingCustomer;
 	private Tween? _slideTween;
+	private static readonly Color SeenDialogueOptionModulate = new(0.58f, 0.58f, 0.58f, 1.0f);
+	private static readonly Color DefaultButtonModulate = new(1.0f, 1.0f, 1.0f, 1.0f);
 
 	public bool HasActiveInteraction => ActiveCustomer is not null;
 	public bool HasQueuedCustomers => _customers.Count > 0;
@@ -105,6 +124,7 @@ public partial class StationCustomerPanel : Control
 		_servingDropBox.HoverPreviewCleared += OnServingPotionHoverCleared;
 		_serveButton.Pressed += OnServePressed;
 		_refuseButton.Pressed += OnRefusePressed;
+		_returnToDialogueButton.Pressed += OnReturnToDialoguePressed;
 		_confirmPrimaryButton.Pressed += OnConfirmPrimaryPressed;
 		_confirmCancelButton.Pressed += HideConfirmation;
 
@@ -128,10 +148,18 @@ public partial class StationCustomerPanel : Control
 			_serveButton.Pressed -= OnServePressed;
 		if (_refuseButton is not null)
 			_refuseButton.Pressed -= OnRefusePressed;
+		if (_returnToDialogueButton is not null)
+			_returnToDialogueButton.Pressed -= OnReturnToDialoguePressed;
 		if (_confirmPrimaryButton is not null)
 			_confirmPrimaryButton.Pressed -= OnConfirmPrimaryPressed;
 		if (_confirmCancelButton is not null)
 			_confirmCancelButton.Pressed -= HideConfirmation;
+		if (_dialoguePresenter is not null)
+			_dialoguePresenter.LineStarted -= OnDialogueLineStarted;
+		_dialoguePresenter?.Dispose();
+		_dialoguePresenter = null;
+		if (_dialogue is not null && _dialogueGuiInputHandler is not null)
+			_dialogue.GuiInput -= _dialogueGuiInputHandler;
 	}
 
 	public void SetCustomers(IReadOnlyList<CustomerInteractionDef> customers)
@@ -149,6 +177,7 @@ public partial class StationCustomerPanel : Control
 		_activeIndex = _customers.Count > 0 ? 0 : -1;
 		_isResolvingCustomer = false;
 		_resolvingCustomerIndex = -1;
+		ResetDialogueState();
 		ClearSelectedPotion();
 		HideConfirmation();
 		RefreshQueue();
@@ -161,6 +190,7 @@ public partial class StationCustomerPanel : Control
 		_activeIndex = -1;
 		_isResolvingCustomer = false;
 		_resolvingCustomerIndex = -1;
+		ResetDialogueState();
 		ClearSelectedPotion();
 		HideConfirmation();
 		RefreshQueue();
@@ -257,9 +287,38 @@ public partial class StationCustomerPanel : Control
 			MouseFilter = MouseFilterEnum.Stop
 		};
 		vbox.AddChild(_dialogue);
+		_dialoguePresenter = new NarrativeTextPresenter(this, _dialogue)
+		{
+			DefaultCharactersPerSecond = DialogueTypewriterCharactersPerSecond
+		};
+		_dialoguePresenter.LineStarted += OnDialogueLineStarted;
+		_dialogueGuiInputHandler = OnDialogueGuiInput;
+		_dialogue.GuiInput += _dialogueGuiInputHandler;
 
-		var fitTitle = new Label { Name = "FitTitle", Text = "Selected Potion Fit" };
-		vbox.AddChild(fitTitle);
+		_dialogueOptionsContainer = new VBoxContainer
+		{
+			Name = "DialogueOptions",
+			Visible = false
+		};
+		_dialogueOptionsContainer.AddThemeConstantOverride("separation", 5);
+		vbox.AddChild(_dialogueOptionsContainer);
+
+		for (var index = 0; index < CustomerInteractionDef.MaxDialogueOptionsPerNode; index += 1)
+		{
+			var optionIndex = index;
+			var button = new Button
+			{
+				Name = $"DialogueOption{index + 1}",
+				Visible = false,
+				SizeFlagsHorizontal = SizeFlags.ExpandFill
+			};
+			button.Pressed += () => TrySelectDialogueOption(optionIndex);
+			_dialogueOptionsContainer.AddChild(button);
+			_dialogueOptionButtons.Add(button);
+		}
+
+		_fitTitle = new Label { Name = "FitTitle", Text = "Selected Potion Fit" };
+		vbox.AddChild(_fitTitle);
 
 		_fitCheck = new RichTextLabel
 		{
@@ -272,14 +331,14 @@ public partial class StationCustomerPanel : Control
 		};
 		vbox.AddChild(_fitCheck);
 
-		var servingTitle = new Label { Name = "ServingTitle", Text = "Serving Slot" };
-		vbox.AddChild(servingTitle);
+		_servingTitle = new Label { Name = "ServingTitle", Text = "Serving Slot" };
+		vbox.AddChild(_servingTitle);
 		_servingDropBox = CreateServingDropBox();
 		vbox.AddChild(_servingDropBox);
 
-		var actions = new HBoxContainer { Name = "Actions" };
-		actions.AddThemeConstantOverride("separation", 8);
-		vbox.AddChild(actions);
+		_servingActions = new HBoxContainer { Name = "Actions" };
+		_servingActions.AddThemeConstantOverride("separation", 8);
+		vbox.AddChild(_servingActions);
 
 		_serveButton = new Button
 		{
@@ -287,7 +346,7 @@ public partial class StationCustomerPanel : Control
 			Text = "Serve",
 			SizeFlagsHorizontal = SizeFlags.ExpandFill
 		};
-		actions.AddChild(_serveButton);
+		_servingActions.AddChild(_serveButton);
 
 		_refuseButton = new Button
 		{
@@ -295,7 +354,16 @@ public partial class StationCustomerPanel : Control
 			Text = "Refuse",
 			SizeFlagsHorizontal = SizeFlags.ExpandFill
 		};
-		actions.AddChild(_refuseButton);
+		_servingActions.AddChild(_refuseButton);
+
+		_returnToDialogueButton = new Button
+		{
+			Name = "ReturnToDialogue",
+			Text = "Return to dialogue",
+			Visible = false,
+			SizeFlagsHorizontal = SizeFlags.ExpandFill
+		};
+		_servingActions.AddChild(_returnToDialogueButton);
 
 		_outcomeLabel = new Label
 		{
@@ -465,6 +533,9 @@ public partial class StationCustomerPanel : Control
 			return;
 
 		_activeIndex = index;
+		ResetDialogueState();
+		ClearSelectedPotion();
+		HideConfirmation();
 		RefreshQueue();
 		RefreshActiveCustomer(emitShownSignal: true);
 	}
@@ -475,31 +546,50 @@ public partial class StationCustomerPanel : Control
 		if (interaction is null)
 		{
 			_gameState.ClearActiveCustomerRequest();
+			ResetDialogueState();
 			_title.Text = "No customer waiting";
+			if (_dialoguePresenter is not null)
+				_dialoguePresenter.Clear();
 			_dialogue.Text = "No active customer.";
 			_fitCheck.Text = "Select a customer and potion.";
 			_customerImage.Texture = null;
 			_customerImage.Visible = false;
-			_serveButton.Disabled = true;
-			_refuseButton.Disabled = true;
-			_servingDropBox.SetAcceptDrops(false);
-			_servingDropBox.SetDisabledVisual(true);
+			SetServingControlsVisible(true);
+			SetServingControlsEnabled(false);
 			return;
 		}
 
+		ResetDialogueState();
+		ClearSelectedPotion();
+		HideConfirmation();
+		_outcomeLabel.Text = string.Empty;
 		_slideTween?.Kill();
 		_customerImage.Position = Vector2.Zero;
 		_customerImage.Modulate = Colors.White;
 		_title.Text = string.IsNullOrWhiteSpace(interaction.Title) ? "Customer" : interaction.Title;
-		_dialogue.Text = BuildRequestText(interaction);
 		RefreshCustomerImage(interaction);
+
+		if (TryShowDialogueStart(interaction))
+		{
+			_gameState.ClearActiveCustomerRequest();
+			SetServingControlsVisible(false);
+			SetServingControlsEnabled(false);
+			EmitSignal(SignalName.PlotConversationStarted);
+			if (emitShownSignal)
+				EmitSignal(SignalName.InteractionShown, interaction.Id);
+			return;
+		}
+
+		_dialoguePresenter?.SetHistory(BuildAuthoredNarrativeLines(
+			interaction.Lines,
+			interaction.Text,
+			CustomerDialogueTextFormatter.CustomerSpeakerName));
 
 		var request = interaction.BuildRequest();
 		_gameState.SetActiveCustomerRequest(request);
-		_serveButton.Disabled = false;
-		_refuseButton.Disabled = false;
-		_servingDropBox.SetAcceptDrops(true);
-		_servingDropBox.SetDisabledVisual(false);
+		_sellingMode = true;
+		SetServingControlsVisible(true);
+		SetServingControlsEnabled(true);
 		RefreshSelectedPotionComparison();
 
 		if (emitShownSignal)
@@ -524,9 +614,176 @@ public partial class StationCustomerPanel : Control
 		return lines.Count == 0 ? interaction.Text : string.Join("\n", lines);
 	}
 
-	private void RefreshCustomerImage(CustomerInteractionDef interaction)
+	private void ResetDialogueState()
+	{
+		_dialoguePresenter?.Clear();
+		_visibleDialogueOptions.Clear();
+		_activeDialogueNodeId = string.Empty;
+		_requestReturnDialogueNodeId = string.Empty;
+		_sellingMode = false;
+		if (_dialogueOptionsContainer is not null)
+			_dialogueOptionsContainer.Visible = false;
+		foreach (var button in _dialogueOptionButtons)
+		{
+			button.Visible = false;
+			button.Disabled = true;
+			button.Modulate = DefaultButtonModulate;
+		}
+		if (_returnToDialogueButton is not null)
+			_returnToDialogueButton.Visible = false;
+	}
+
+	private void SetServingControlsVisible(bool visible)
+	{
+		if (_fitTitle is not null)
+			_fitTitle.Visible = visible;
+		if (_fitCheck is not null)
+			_fitCheck.Visible = visible;
+		if (_servingTitle is not null)
+			_servingTitle.Visible = visible;
+		if (_servingDropBox is not null)
+			_servingDropBox.Visible = visible;
+		if (_servingActions is not null)
+			_servingActions.Visible = visible;
+		if (_returnToDialogueButton is not null)
+			_returnToDialogueButton.Visible = visible && HasActiveDialogueInteraction() && _sellingMode;
+	}
+
+	private void SetServingControlsEnabled(bool enabled)
+	{
+		if (_serveButton is not null)
+			_serveButton.Disabled = !enabled;
+		if (_refuseButton is not null)
+			_refuseButton.Disabled = !enabled;
+		if (_returnToDialogueButton is not null)
+			_returnToDialogueButton.Disabled = !enabled || !HasActiveDialogueInteraction();
+		if (_servingDropBox is not null)
+		{
+			_servingDropBox.SetAcceptDrops(enabled);
+			_servingDropBox.SetDisabledVisual(!enabled);
+		}
+	}
+
+	private bool HasActiveDialogueInteraction()
+	{
+		return ActiveCustomer is { IsStoryInteraction: true, HasDialogueTree: true };
+	}
+
+	private static List<NarrativeTextLine> BuildAuthoredNarrativeLines(
+		IReadOnlyList<CustomerDialogueLineDef> lines,
+		string fallbackText,
+		string? fallbackSpeaker)
+	{
+		var narrativeLines = new List<NarrativeTextLine>();
+		if (lines.Count > 0)
+		{
+			foreach (var line in lines)
+			{
+				if (string.IsNullOrWhiteSpace(line.Text))
+					continue;
+
+				var speaker = string.IsNullOrWhiteSpace(line.Speaker) ? fallbackSpeaker : line.Speaker;
+				narrativeLines.Add(new NarrativeTextLine(speaker, line.Text, allowMarkup: true, line.CharacterImageKey));
+			}
+		}
+		else if (!string.IsNullOrWhiteSpace(fallbackText))
+		{
+			narrativeLines.Add(new NarrativeTextLine(fallbackSpeaker, fallbackText));
+		}
+
+		if (narrativeLines.Count == 0)
+			narrativeLines.Add(new NarrativeTextLine(null, "...", allowMarkup: false));
+
+		return narrativeLines;
+	}
+
+	private void QueueAuthoredLines(
+		IReadOnlyList<CustomerDialogueLineDef> lines,
+		string fallbackText,
+		string? fallbackSpeaker)
+	{
+		if (_dialoguePresenter is null)
+			return;
+
+		foreach (var line in BuildAuthoredNarrativeLines(lines, fallbackText, fallbackSpeaker))
+			_dialoguePresenter.QueueLine(line);
+	}
+
+	private void QueuePlayerLine(string text)
+	{
+		_dialoguePresenter?.QueueLine(new NarrativeTextLine(
+			CustomerDialogueTextFormatter.PlayerSpeakerName,
+			text,
+			allowMarkup: false));
+	}
+
+	private void QueueCustomerLine(string text, bool allowMarkup)
+	{
+		_dialoguePresenter?.QueueLine(new NarrativeTextLine(
+			CustomerDialogueTextFormatter.CustomerSpeakerName,
+			text,
+			allowMarkup));
+	}
+
+	private void PlayQueuedDialogueLines(Action? completedAction)
+	{
+		if (_dialoguePresenter is null)
+		{
+			completedAction?.Invoke();
+			return;
+		}
+
+		_dialoguePresenter.DefaultCharactersPerSecond = DialogueTypewriterCharactersPerSecond;
+		_dialoguePresenter.PlayQueued(completedAction);
+	}
+
+	private void StopQueuedDialoguePresentation()
+	{
+		_dialoguePresenter?.StopQueuedPresentation();
+	}
+
+	private void AdvanceQueuedDialoguePresentation()
+	{
+		_dialoguePresenter?.AdvanceQueuedPresentation();
+	}
+
+	private void OnDialogueGuiInput(InputEvent @event)
+	{
+		if (!HasActiveDialogueInteraction())
+			return;
+		if (@event is not InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true })
+			return;
+
+		AcceptEvent();
+		AdvanceQueuedDialoguePresentation();
+	}
+
+	private void OnDialogueLineStarted(NarrativeTextLine line)
+	{
+		var interaction = ActiveCustomer;
+		if (interaction is null)
+			return;
+
+		RefreshCustomerImage(interaction, line.CharacterImageKey);
+	}
+
+	private void RefreshCustomerImage(CustomerInteractionDef interaction, string characterImageKey = "")
 	{
 		var imagePath = interaction.CharacterImagePath;
+		if (!string.IsNullOrWhiteSpace(characterImageKey))
+		{
+			var trimmedKey = characterImageKey.Trim();
+			if (interaction.CharacterImagePaths.TryGetValue(trimmedKey, out var keyedImagePath) &&
+				!string.IsNullOrWhiteSpace(keyedImagePath))
+			{
+				imagePath = keyedImagePath;
+			}
+			else
+			{
+				GD.PushError($"StationCustomerPanel: Customer interaction '{interaction.Id}' references unknown character image key '{trimmedKey}'.");
+			}
+		}
+
 		if (string.IsNullOrWhiteSpace(imagePath))
 		{
 			_customerImage.Texture = null;
@@ -545,6 +802,289 @@ public partial class StationCustomerPanel : Control
 
 		_customerImage.Texture = texture;
 		_customerImage.Visible = true;
+	}
+
+	private bool TryShowDialogueStart(CustomerInteractionDef interaction)
+	{
+		if (!interaction.IsStoryInteraction || !interaction.HasDialogueTree)
+			return false;
+
+		var startNode = interaction.GetDialogueNode(string.Empty);
+		if (startNode is null)
+		{
+			GD.PushError($"StationCustomerPanel: Story customer '{interaction.Id}' has dialogue data but no valid start node.");
+			return false;
+		}
+
+		ShowDialogueNode(startNode);
+		return true;
+	}
+
+	private void ShowDialogueNode(CustomerDialogueNodeDef node)
+	{
+		_activeDialogueNodeId = node.Id;
+		SetDialoguePresentationState();
+		QueueDialogueNodeText(node);
+		PlayQueuedDialogueLines(() => FinishShowingDialogueNode(node));
+	}
+
+	private void QueueDialogueNodeText(CustomerDialogueNodeDef node)
+	{
+		QueueAuthoredLines(node.Lines, node.Text, null);
+	}
+
+	private void QueueDialogueOptionResponse(CustomerDialogueOptionDef option)
+	{
+		QueueAuthoredLines(
+			option.ResponseLines,
+			option.ResponseText,
+			CustomerDialogueTextFormatter.CustomerSpeakerName);
+	}
+
+	private static bool HasDialogueOptionResponse(CustomerDialogueOptionDef option)
+	{
+		return option.ResponseLines.Count > 0 || !string.IsNullOrWhiteSpace(option.ResponseText);
+	}
+
+	private void FinishShowingDialogueNode(CustomerDialogueNodeDef node)
+	{
+		if (node.Options.Count == 0)
+		{
+			CompleteDialogueInteraction("dialogue_complete");
+			return;
+		}
+
+		SetDialogueOptionState(node);
+	}
+
+	private bool TrySelectDialogueOption(int optionIndex)
+	{
+		if (!HasActiveDialogueInteraction())
+			return false;
+
+		var interaction = ActiveCustomer;
+		var node = interaction?.GetDialogueNode(_activeDialogueNodeId);
+		if (node is null)
+		{
+			GD.PushError($"StationCustomerPanel: Active dialogue node '{_activeDialogueNodeId}' was not found.");
+			return true;
+		}
+
+		if (optionIndex < 0 || optionIndex >= _visibleDialogueOptions.Count)
+			return true;
+
+		var option = _visibleDialogueOptions[optionIndex];
+		SetDialoguePresentationState();
+		QueuePlayerLine(option.Label);
+		if (interaction is not null)
+			_gameState.RecordStoryCustomerDialogueOptionSelected(interaction, option.Id);
+		ApplyOutcomeEffects(option.Effects);
+		QueueDialogueOptionResponse(option);
+
+		if (option.RevealsRequest)
+		{
+			if (!HasDialogueOptionResponse(option) && interaction is not null)
+				QueueAuthoredLines(interaction.Lines, interaction.Text, CustomerDialogueTextFormatter.CustomerSpeakerName);
+			PlayQueuedDialogueLines(() => EnterPotionSellingMode(option));
+			return true;
+		}
+
+		if (option.ReturnsToDialogue)
+		{
+			var returnNode = ResolveDialogueReturnNode(option, node);
+			QueueDialogueNodeText(returnNode);
+			_activeDialogueNodeId = returnNode.Id;
+			PlayQueuedDialogueLines(() => FinishShowingDialogueNode(returnNode));
+			return true;
+		}
+
+		if (option.EndsInteraction)
+		{
+			PlayQueuedDialogueLines(() => CompleteDialogueInteraction(option));
+			return true;
+		}
+
+		if (!string.IsNullOrWhiteSpace(option.NextNodeId))
+		{
+			var nextNode = interaction?.GetDialogueNode(option.NextNodeId);
+			if (nextNode is null)
+			{
+				GD.PushError($"StationCustomerPanel: Dialogue option '{option.Id}' points to missing node '{option.NextNodeId}'.");
+				CompleteDialogueInteraction(option);
+				return true;
+			}
+
+			QueueDialogueNodeText(nextNode);
+			_activeDialogueNodeId = nextNode.Id;
+			PlayQueuedDialogueLines(() => FinishShowingDialogueNode(nextNode));
+			return true;
+		}
+
+		PlayQueuedDialogueLines(() => SetDialogueOptionState(node));
+		return true;
+	}
+
+	private CustomerDialogueNodeDef ResolveDialogueReturnNode(
+		CustomerDialogueOptionDef option,
+		CustomerDialogueNodeDef fallbackNode)
+	{
+		var interaction = ActiveCustomer;
+		if (interaction is null)
+			return fallbackNode;
+
+		var targetNodeId = !string.IsNullOrWhiteSpace(option.ReturnNodeId)
+			? option.ReturnNodeId
+			: option.NextNodeId;
+		if (string.IsNullOrWhiteSpace(targetNodeId))
+			targetNodeId = _requestReturnDialogueNodeId;
+
+		if (!string.IsNullOrWhiteSpace(targetNodeId))
+		{
+			var targetNode = interaction.GetDialogueNode(targetNodeId);
+			if (targetNode is not null)
+				return targetNode;
+
+			GD.PushError($"StationCustomerPanel: Dialogue option '{option.Id}' returns to missing node '{targetNodeId}'.");
+		}
+
+		return fallbackNode;
+	}
+
+	private void EnterPotionSellingMode(CustomerDialogueOptionDef option)
+	{
+		var interaction = ActiveCustomer;
+		if (interaction is null)
+			return;
+
+		_sellingMode = true;
+		_requestReturnDialogueNodeId = !string.IsNullOrWhiteSpace(option.ReturnNodeId)
+			? option.ReturnNodeId
+			: _activeDialogueNodeId;
+
+		_gameState.SetActiveCustomerRequest(interaction.BuildRequest());
+		SetSellingModeState();
+		RefreshSelectedPotionComparison();
+	}
+
+	private void OnReturnToDialoguePressed()
+	{
+		if (!HasActiveDialogueInteraction())
+			return;
+
+		ClearSelectedPotion();
+		StopQueuedDialoguePresentation();
+		SetDialoguePresentationState();
+		QueuePlayerLine(_returnToDialogueButton.Text);
+		_gameState.ClearActiveCustomerRequest();
+		_sellingMode = false;
+
+		var interaction = ActiveCustomer;
+		var fallbackNode = interaction?.GetDialogueNode(_activeDialogueNodeId);
+		var returnNode = interaction?.GetDialogueNode(_requestReturnDialogueNodeId) ?? fallbackNode;
+		if (returnNode is null)
+		{
+			GD.PushError($"StationCustomerPanel: Cannot return to dialogue node '{_requestReturnDialogueNodeId}'.");
+			return;
+		}
+
+		QueueDialogueNodeText(returnNode);
+		_activeDialogueNodeId = returnNode.Id;
+		PlayQueuedDialogueLines(() => FinishShowingDialogueNode(returnNode));
+	}
+
+	private void CompleteDialogueInteraction(CustomerDialogueOptionDef option)
+	{
+		var outcomeId = string.IsNullOrWhiteSpace(option.Id) ? option.Label : option.Id;
+		CompleteDialogueInteraction($"dialogue:{outcomeId}");
+	}
+
+	private void CompleteDialogueInteraction(string outcome)
+	{
+		var interaction = ActiveCustomer;
+		if (interaction is null || _isResolvingCustomer)
+			return;
+
+		_gameState.RecordStoryCustomerInteractionOutcome(interaction, outcome);
+		_gameState.ClearActiveCustomerRequest();
+		_sellingMode = false;
+		SetServingControlsVisible(false);
+		SetServingControlsEnabled(false);
+		EmitSignal(SignalName.DialogueResolved);
+		BeginResolveActiveCustomer();
+	}
+
+	private void ApplyOutcomeEffects(IReadOnlyList<EffectDef>? effects)
+	{
+		if (effects is null || effects.Count == 0)
+			return;
+
+		foreach (var effect in effects)
+			EffectApplier.Apply(_gameState, effect);
+	}
+
+	private void SetDialogueOptionState(CustomerDialogueNodeDef node)
+	{
+		_visibleDialogueOptions.Clear();
+		_dialogueOptionsContainer.Visible = true;
+		SetServingControlsVisible(false);
+		SetServingControlsEnabled(false);
+
+		foreach (var option in node.Options)
+		{
+			if (_visibleDialogueOptions.Count >= CustomerInteractionDef.MaxDialogueOptionsPerNode)
+				break;
+			if (!Requirements.Met(_gameState, option.Requires))
+				continue;
+
+			_visibleDialogueOptions.Add(option);
+		}
+
+		if (_visibleDialogueOptions.Count == 0)
+		{
+			CompleteDialogueInteraction("dialogue_no_options");
+			return;
+		}
+
+		for (var index = 0; index < _dialogueOptionButtons.Count; index += 1)
+			SetDialogueOptionButton(_dialogueOptionButtons[index], index);
+	}
+
+	private void SetDialoguePresentationState()
+	{
+		_dialogueOptionsContainer.Visible = false;
+		foreach (var button in _dialogueOptionButtons)
+			button.Visible = false;
+		SetServingControlsVisible(false);
+		SetServingControlsEnabled(false);
+	}
+
+	private void SetDialogueOptionButton(Button button, int optionIndex)
+	{
+		if (optionIndex < 0 || optionIndex >= _visibleDialogueOptions.Count)
+		{
+			button.Visible = false;
+			button.Disabled = true;
+			return;
+		}
+
+		var option = _visibleDialogueOptions[optionIndex];
+		var activeCustomer = ActiveCustomer;
+		button.Text = option.Label;
+		button.Visible = true;
+		button.Disabled = false;
+		button.Modulate = activeCustomer is not null &&
+			_gameState.HasStoryCustomerDialogueOptionSelected(activeCustomer, option.Id)
+				? SeenDialogueOptionModulate
+				: DefaultButtonModulate;
+	}
+
+	private void SetSellingModeState()
+	{
+		_dialogueOptionsContainer.Visible = false;
+		foreach (var button in _dialogueOptionButtons)
+			button.Visible = false;
+		SetServingControlsVisible(true);
+		SetServingControlsEnabled(true);
 	}
 
 	private void OnGameStateChanged()
@@ -574,7 +1114,7 @@ public partial class StationCustomerPanel : Control
 	private void OnServingPotionHoverPreview(string itemId)
 	{
 		var interaction = ActiveCustomer;
-		if (interaction is null || !_itemCatalog.IsPotion(itemId))
+		if (!CanServeActiveCustomer() || interaction is null || !_itemCatalog.IsPotion(itemId))
 		{
 			_servingDropBox.SetHoverHighlight(false);
 			return;
@@ -601,6 +1141,12 @@ public partial class StationCustomerPanel : Control
 		if (ActiveCustomer is null)
 		{
 			CursorToast.Show(this, "No customer selected.");
+			return;
+		}
+
+		if (!CanServeActiveCustomer())
+		{
+			CursorToast.Show(this, "Finish the conversation first.");
 			return;
 		}
 
@@ -692,6 +1238,9 @@ public partial class StationCustomerPanel : Control
 		if (interaction is null)
 			return;
 
+		if (!CanServeActiveCustomer())
+			return;
+
 		if (string.IsNullOrWhiteSpace(_selectedPotionItemId) || _selectedPotionResult is null)
 		{
 			CursorToast.Show(this, "Select a potion to serve.");
@@ -719,6 +1268,8 @@ public partial class StationCustomerPanel : Control
 	{
 		if (ActiveCustomer is null)
 			return;
+		if (!CanServeActiveCustomer())
+			return;
 
 		ShowConfirmation(
 			"Refuse customer?",
@@ -727,6 +1278,11 @@ public partial class StationCustomerPanel : Control
 			ConfirmationKind.Refuse,
 			string.Empty,
 			null);
+	}
+
+	private bool CanServeActiveCustomer()
+	{
+		return !HasActiveDialogueInteraction() || _sellingMode;
 	}
 
 	private void ShowConfirmation(

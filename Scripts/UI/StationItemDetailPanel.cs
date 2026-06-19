@@ -31,11 +31,8 @@ public partial class StationItemDetailPanel : Control
 	private TextureRect _icon = default!;
 	private Label _name = default!;
 	private Label _typeTag = default!;
-	private Control? _meta;
 	private Label _owned = default!;
 	private Label _price = default!;
-	private GridContainer? _stats;
-	private Control? _traitsColumn;
 	private Label _traitsHeader = default!;
 	private RichTextLabel _traits = default!;
 	private Label _risksHeader = default!;
@@ -46,10 +43,6 @@ public partial class StationItemDetailPanel : Control
 	private ItemCatalogService _itemCatalog = default!;
 	private PotionInventoryBrewService _brewService = default!;
 	private string? _currentItemId;
-	private CustomerRequestDef? _comparisonRequest;
-	private PotionResult? _comparisonBrewResult;
-	private bool _showingCustomerComparison;
-	private Vector2? _customerComparisonFrameSize;
 	private bool _dragging;
 	private Vector2 _dragOffset;
 
@@ -214,17 +207,6 @@ public partial class StationItemDetailPanel : Control
 		return column;
 	}
 
-	public void SetCustomerComparisonFrameSize(Vector2 size)
-	{
-		if (size.X <= 0.0f || size.Y <= 0.0f)
-			return;
-
-		_customerComparisonFrameSize = size;
-		ClipContents = true;
-		CustomMinimumSize = Vector2.Zero;
-		Size = size;
-	}
-
 	public override void _Ready()
 	{
 		var gameState = GetNodeOrNull<GameState>(GameStatePath);
@@ -247,12 +229,9 @@ public partial class StationItemDetailPanel : Control
 		_icon = GetNode<TextureRect>(IconPath);
 		_name = GetNode<Label>(NamePath);
 		_typeTag = GetNode<Label>(TypeTagPath);
-		_meta = GetNodeOrNull<Control>("Panel/Margin/VBox/Meta");
 		_owned = GetNode<Label>(OwnedPath);
 		_price = GetNode<Label>(PricePath);
 		_traitsHeader = GetNode<Label>(TraitsHeaderPath);
-		_stats = _traitsHeader.GetParent()?.GetParent() as GridContainer;
-		_traitsColumn = _traitsHeader.GetParent() as Control;
 		_traits = GetNode<RichTextLabel>(TraitsPath);
 		_risksHeader = GetNode<Label>(RisksHeaderPath);
 		_risks = GetNode<RichTextLabel>(RisksPath);
@@ -323,7 +302,6 @@ public partial class StationItemDetailPanel : Control
 			return;
 
 		if (Visible &&
-			!_showingCustomerComparison &&
 			string.Equals(_currentItemId, itemId, System.StringComparison.OrdinalIgnoreCase))
 		{
 			HidePanel();
@@ -337,7 +315,6 @@ public partial class StationItemDetailPanel : Control
 		}
 
 		_currentItemId = itemId;
-		ClearCustomerComparison();
 		RefreshCurrentItemDetail();
 		Visible = true;
 		MoveToFront();
@@ -374,56 +351,10 @@ public partial class StationItemDetailPanel : Control
 		GlobalPosition = position;
 	}
 
-	public void ShowCustomerPotionComparison(
-		string itemId,
-		CustomerRequestDef request,
-		PotionResult brewResult)
-	{
-		if (string.IsNullOrWhiteSpace(itemId))
-			return;
-
-		if (request is null)
-		{
-			GD.PushError("StationItemDetailPanel: Cannot compare potion because no customer request was provided.");
-			return;
-		}
-
-		if (brewResult is null)
-		{
-			GD.PushError("StationItemDetailPanel: Cannot compare potion because no potion result was provided.");
-			return;
-		}
-
-		if (Visible &&
-			_showingCustomerComparison &&
-			string.Equals(_currentItemId, itemId, System.StringComparison.OrdinalIgnoreCase))
-		{
-			HidePanel();
-			return;
-		}
-
-		if (_itemCatalog is null || !_itemCatalog.TryGetItem(itemId, out _))
-		{
-			GD.PushError($"StationItemDetailPanel: Item '{itemId}' was not found in the item catalog.");
-			return;
-		}
-
-		_currentItemId = itemId;
-		_comparisonRequest = request;
-		_comparisonBrewResult = brewResult;
-		_showingCustomerComparison = true;
-		ApplyCustomerComparisonFrameSize();
-		RefreshCurrentItemDetail();
-		ApplyCustomerComparisonFrameSize();
-		Visible = true;
-		MoveToFront();
-	}
-
 	public void HidePanel()
 	{
 		_dragging = false;
 		_currentItemId = null;
-		ClearCustomerComparison();
 		ClearPanel();
 		Visible = false;
 	}
@@ -463,13 +394,6 @@ public partial class StationItemDetailPanel : Control
 		SetItemTypeTag(item);
 		_owned.Text = $"Owned: {_gameState.Inventory.GetValueOrDefault(_currentItemId)}";
 		_price.Text = $"Value: {GetItemPrice(_currentItemId, item)} gold";
-		SetCustomerComparisonLayout(false);
-
-		if (_showingCustomerComparison)
-		{
-			RefreshCustomerPotionComparison(item);
-			return;
-		}
 
 		if (_itemCatalog.IsConsumable(_currentItemId))
 		{
@@ -497,95 +421,6 @@ public partial class StationItemDetailPanel : Control
 		}
 
 		SetDescriptionText(BuildDescription(_currentItemId, item));
-	}
-
-	private void RefreshCustomerPotionComparison(ItemDef item)
-	{
-		if (string.IsNullOrWhiteSpace(_currentItemId))
-			return;
-
-		if (_comparisonRequest is null || _comparisonBrewResult is null)
-		{
-			GD.PushError("StationItemDetailPanel: Customer potion comparison state is incomplete.");
-			HidePanel();
-			return;
-		}
-
-		if (!_itemCatalog.IsPotion(_currentItemId))
-		{
-			GD.PushError($"StationItemDetailPanel: Item '{_currentItemId}' is not a potion and cannot be compared to a customer request.");
-			HidePanel();
-			return;
-		}
-
-		SetCustomerComparisonLayout(true);
-		_name.Text = DisplayName(_currentItemId, item.Name);
-		_traitsHeader.Text = "POTION";
-		_risksHeader.Text = "REQUEST FIT";
-		_traits.Text = "";
-		_risks.Text = CustomerDialogueTextFormatter.BuildCustomerPotionRequestComparisonText(
-			_comparisonRequest,
-			_comparisonBrewResult.Traits,
-			_comparisonBrewResult.Risks,
-			GetPotionIngredientPortions(_currentItemId));
-		SetDescriptionText(string.Empty);
-	}
-
-	private IReadOnlyList<IngredientPortionDef>? GetPotionIngredientPortions(string itemId)
-	{
-		return _gameState.TryPeekPotionIngredientPortionBatch(itemId, out var ingredientPortions)
-			? ingredientPortions
-			: null;
-	}
-
-	private void SetCustomerComparisonLayout(bool active)
-	{
-		if (active)
-			ApplyCustomerComparisonFrameSize();
-		else
-			CustomMinimumSize = new Vector2(DefaultPanelWidth, DefaultPanelHeight);
-
-		if (_icon is not null)
-			_icon.Visible = !active;
-
-		if (_name is not null)
-		{
-			_name.AutowrapMode = active
-				? TextServer.AutowrapMode.Off
-				: TextServer.AutowrapMode.WordSmart;
-			_name.ClipText = active;
-		}
-
-		if (_traitsColumn is not null)
-			_traitsColumn.Visible = !active;
-
-		if (_meta is not null)
-			_meta.Visible = !active;
-
-		if (_stats is not null)
-			_stats.Columns = active ? 1 : 2;
-
-		if (_description is not null)
-			_description.CustomMinimumSize = active
-				? new Vector2(0, 58)
-				: new Vector2(0, 118);
-	}
-
-	private void ApplyCustomerComparisonFrameSize()
-	{
-		if (_customerComparisonFrameSize is not Vector2 size)
-			return;
-
-		CustomMinimumSize = Vector2.Zero;
-		Size = size;
-		ClipContents = true;
-	}
-
-	private void ClearCustomerComparison()
-	{
-		_comparisonRequest = null;
-		_comparisonBrewResult = null;
-		_showingCustomerComparison = false;
 	}
 
 	private Vector2 ResolvePanelSizeForPositioning()

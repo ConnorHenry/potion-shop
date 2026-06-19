@@ -366,11 +366,6 @@ public partial class RuntimeDebugImGui : Node
 			potionInventoryRow.RefreshSlotLayoutSettings();
 			refreshedCount += 1;
 		}
-		else if (node is CustomerPanel customerPanel)
-		{
-			customerPanel.RefreshSlotLayoutSettings();
-			refreshedCount += 1;
-		}
 		else if (node is StationCustomerPanel stationCustomerPanel)
 		{
 			stationCustomerPanel.RefreshSlotLayoutSettings();

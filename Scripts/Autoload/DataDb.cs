@@ -17,14 +17,12 @@ public partial class DataDb : Node
 
 	public IReadOnlyDictionary<string, ItemDef> Items => _items;
 	public IReadOnlyDictionary<string, RuleDef> Rules => _rules;
-	public IReadOnlyList<EventCardDef> Events => _events;
 	public IReadOnlyList<CalendarEventDef> CalendarEvents => _calendarEvents;
 	public IReadOnlyList<CustomerInteractionDef> CustomerInteractions => _customerInteractions;
 	public IReadOnlyList<PotionRecipeDef> PotionRecipes => _potionRecipes;
 
 	private Dictionary<string, ItemDef> _items = new();
 	private Dictionary<string, RuleDef> _rules = new();
-	private List<EventCardDef> _events = new();
 	private List<CalendarEventDef> _calendarEvents = new();
 	private List<CustomerInteractionDef> _customerInteractions = new();
 	private List<PotionRecipeDef> _potionRecipes = new();
@@ -45,7 +43,6 @@ public partial class DataDb : Node
 			GD.PushError($"DataDb: Failed to load authored data resource at '{AuthoredDataPath}'. Exists={exists}. GenericLoadType={genericTypeName}.");
 			_items = new Dictionary<string, ItemDef>();
 			_rules = new Dictionary<string, RuleDef>();
-			_events = new List<EventCardDef>();
 			_calendarEvents = new List<CalendarEventDef>();
 			_customerInteractions = new List<CustomerInteractionDef>();
 			_potionRecipes = new List<PotionRecipeDef>();
@@ -54,7 +51,6 @@ public partial class DataDb : Node
 
 		var itemsResource = LoadSection<AuthoredItemsResource>(authoredData.ItemsPath, "items");
 		var rulesResource = LoadSection<AuthoredRulesResource>(authoredData.RulesPath, "rules");
-		var eventsResource = LoadSection<AuthoredEventsResource>(authoredData.EventsPath, "events");
 		var calendarEventsResource = LoadSection<AuthoredCalendarEventsResource>(authoredData.CalendarEventsPath, "calendar events");
 		var customerInteractionsResource = LoadSection<AuthoredCustomerInteractionsResource>(authoredData.CustomerInteractionsPath, "customer interactions");
 		var potionRecipesResource = LoadSection<AuthoredPotionRecipesResource>(authoredData.PotionRecipesPath, "potion recipes");
@@ -63,12 +59,11 @@ public partial class DataDb : Node
 			.ToDictionary(x => x.Id, x => x, StringComparer.OrdinalIgnoreCase);
 		_rules = ParseRules(rulesResource?.Entries ?? new Godot.Collections.Array())
 			.ToDictionary(x => x.Id, x => x, StringComparer.OrdinalIgnoreCase);
-		_events = ParseEvents(eventsResource?.Entries ?? new Godot.Collections.Array());
 		_calendarEvents = ParseCalendarEvents(calendarEventsResource?.Entries ?? new Godot.Collections.Array());
 		_customerInteractions = ParseCustomerInteractions(customerInteractionsResource?.Entries ?? new Godot.Collections.Array());
 		_potionRecipes = ParsePotionRecipes(potionRecipesResource?.Entries ?? new Godot.Collections.Array());
 
-		AuthoredDataValidator.Validate(_items, _rules, _events, _calendarEvents, _customerInteractions, _potionRecipes);
+		AuthoredDataValidator.Validate(_items, _rules, _calendarEvents, _customerInteractions, _potionRecipes);
 	}
 
 	private static TSection? LoadSection<TSection>(string path, string sectionName) where TSection : Resource
@@ -273,33 +268,6 @@ public partial class DataDb : Node
 		}
 
 		return rules;
-	}
-
-	private static List<EventCardDef> ParseEvents(Godot.Collections.Array entries)
-	{
-		var events = new List<EventCardDef>(entries.Count);
-		foreach (var entryValue in entries)
-		{
-			if (!TryReadDictionary(entryValue, out var entry))
-				continue;
-
-			var id = ReadString(entry, "id");
-			if (string.IsNullOrWhiteSpace(id))
-				continue;
-
-			events.Add(new EventCardDef
-			{
-				Id = id,
-				Title = ReadString(entry, "title"),
-				Text = ReadString(entry, "text"),
-				CharacterImagePath = ReadNullableString(entry, "characterImagePath"),
-				Requires = ParseRequirements(ReadDictionary(entry, "requires")),
-				Weight = ReadInt(entry, "weight", 1),
-				Choices = ParseEventChoices(ReadArray(entry, "choices"))
-			});
-		}
-
-		return events;
 	}
 
 	private static List<CalendarEventDef> ParseCalendarEvents(Godot.Collections.Array entries)
@@ -567,29 +535,6 @@ public partial class DataDb : Node
 		}
 
 		return portions;
-	}
-
-	private static List<EventChoiceDef> ParseEventChoices(Godot.Collections.Array entries)
-	{
-		var choices = new List<EventChoiceDef>(entries.Count);
-		foreach (var entryValue in entries)
-		{
-			if (!TryReadDictionary(entryValue, out var entry))
-				continue;
-
-			var label = ReadString(entry, "label");
-			if (string.IsNullOrWhiteSpace(label))
-				continue;
-
-			choices.Add(new EventChoiceDef
-			{
-				Label = label,
-				Requires = ParseRequirements(ReadDictionary(entry, "requires")),
-				Effects = ParseEffects(ReadArray(entry, "effects"))
-			});
-		}
-
-		return choices;
 	}
 
 	private static List<EffectDef> ParseEffects(Godot.Collections.Array entries)

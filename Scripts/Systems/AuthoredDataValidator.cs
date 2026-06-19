@@ -31,14 +31,12 @@ public static class AuthoredDataValidator
 	public static void Validate(
 		IReadOnlyDictionary<string, ItemDef> items,
 		IReadOnlyDictionary<string, RuleDef> rules,
-		IReadOnlyList<EventCardDef> events,
 		IReadOnlyList<CalendarEventDef> calendarEvents,
 		IReadOnlyList<CustomerInteractionDef> customerInteractions,
 		IReadOnlyList<PotionRecipeDef> potionRecipes)
 	{
 		ValidateItemDefinitions(items);
 		ValidatePotionRecipes(items, potionRecipes);
-		ValidateEventCards(items, rules, events);
 		ValidateCalendarEvents(items, calendarEvents);
 		ValidateCustomerInteractions(items, rules, customerInteractions);
 	}
@@ -360,28 +358,6 @@ public static class AuthoredDataValidator
 			}
 
 			recipeIdsByCombination[combinationKey] = recipe.Id;
-		}
-	}
-
-	private static void ValidateEventCards(
-		IReadOnlyDictionary<string, ItemDef> items,
-		IReadOnlyDictionary<string, RuleDef> rules,
-		IReadOnlyList<EventCardDef> events)
-	{
-		foreach (var eventCard in events)
-		{
-			var context = $"Event '{eventCard.Id}'";
-			ValidateRequirements(items, eventCard.Requires, $"{context} requirements");
-
-			if (eventCard.Choices.Count == 0)
-				PushDataWarning($"{context} has no choices.");
-
-			foreach (var choice in eventCard.Choices)
-			{
-				var choiceContext = $"{context} choice '{choice.Label}'";
-				ValidateRequirements(items, choice.Requires, $"{choiceContext} requirements");
-				ValidateEffects(items, rules, choice.Effects, $"{choiceContext} effects");
-			}
 		}
 	}
 
