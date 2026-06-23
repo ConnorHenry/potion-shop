@@ -228,6 +228,38 @@ internal static class CoreSystemContractTests
                 request,
                 new PotionResult { Traits = new Dictionary<string, int> { ["sleep"] = 2, ["calm"] = 2 } },
                 ingredientAmountRequirementsMet: false));
+
+        var hiddenRequest = new CustomerRequestDef
+        {
+            HideRequestDetails = true,
+            DesiredTraits = new Dictionary<string, CustomerTraitRangeDef>
+            {
+                ["sleep"] = new() { Min = 7, Max = 7 },
+                ["calm"] = new() { Min = 5, Max = 5 },
+                ["dream"] = new() { Min = 4, Max = 4 }
+            }
+        };
+        var lowValuePotion = new PotionResult
+        {
+            Traits = new Dictionary<string, int>
+            {
+                ["sleep"] = 1,
+                ["calm"] = 1
+            }
+        };
+
+        AssertEqual(
+            "Hidden request counts present desired traits without requiring exact values",
+            2,
+            CustomerSaleRules.CountMatchedDesiredTraits(hiddenRequest, lowValuePotion.Traits));
+        AssertTrue(
+            "Hidden three-trait request succeeds when two desired traits are present",
+            CustomerSaleRules.IsRequestSatisfiedByPotion(hiddenRequest, lowValuePotion, ingredientAmountRequirementsMet: true));
+        AssertTrue(
+            "Hidden request still requires positive trait presence",
+            !CustomerSaleRules.HasAllDesiredTraitsPresent(
+                hiddenRequest,
+                new Dictionary<string, int> { ["sleep"] = 0, ["calm"] = 1 }));
     }
 
     private static void TestCustomerPotionResponsesMatchContracts()
@@ -397,25 +429,25 @@ internal static class CoreSystemContractTests
     private static void TestGardenStatePlantGrowHarvest()
     {
         var errors = new List<string>();
-        var garden = new GardenState(itemId => string.Equals(itemId, "yarrow", StringComparison.OrdinalIgnoreCase), errors.Add);
+        var garden = new GardenState(itemId => string.Equals(itemId, "heather", StringComparison.OrdinalIgnoreCase), errors.Add);
 
         garden.InitializeNewGarden();
         AssertEqual("Starting pot count", GardenState.StartingPotCount, garden.PotCount);
-        AssertEqual("Starting yarrow seed", 1, garden.GetSeedQuantity("seed_yarrow"));
+        AssertEqual("Starting heather seed", 1, garden.GetSeedQuantity("seed_heather"));
 
-        AssertTrue("Plant yarrow seed", garden.TryPlantSeed(0, "seed_yarrow", day: 1, out var plantedIngredientId, out var plantError));
-        AssertEqual($"Plant error: {plantError}", "yarrow", plantedIngredientId);
-        AssertEqual("Seed consumed", 0, garden.GetSeedQuantity("seed_yarrow"));
+        AssertTrue("Plant heather seed", garden.TryPlantSeed(0, "seed_heather", day: 1, out var plantedIngredientId, out var plantError));
+        AssertEqual($"Plant error: {plantError}", "heather", plantedIngredientId);
+        AssertEqual("Seed consumed", 0, garden.GetSeedQuantity("seed_heather"));
         AssertTrue(
             "Cannot harvest before growth",
             !garden.TryHarvestGardenPot(0, out _, out var earlyHarvestError) &&
             earlyHarvestError.Contains("still growing", StringComparison.OrdinalIgnoreCase));
 
         garden.AdvanceGrowth();
-        AssertTrue("Harvest ready yarrow", garden.TryHarvestGardenPot(0, out var harvest, out var harvestError));
-        AssertEqual($"Harvest error: {harvestError}", "yarrow", harvest.IngredientId);
+        AssertTrue("Harvest ready heather", garden.TryHarvestGardenPot(0, out var harvest, out var harvestError));
+        AssertEqual($"Harvest error: {harvestError}", "heather", harvest.IngredientId);
         AssertEqual("Harvest quantity", GardenState.DefaultHarvestYield, harvest.Quantity);
-        AssertEqual("Seed returned", 1, garden.GetSeedQuantity("seed_yarrow"));
+        AssertEqual("Seed returned", 1, garden.GetSeedQuantity("seed_heather"));
         AssertTrue("Pot is empty after harvest", garden.GardenPots[0].IsEmpty);
         AssertEqual("No harvest errors pushed", 0, errors.Count);
     }

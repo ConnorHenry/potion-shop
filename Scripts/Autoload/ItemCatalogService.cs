@@ -17,25 +17,35 @@ public partial class ItemCatalogService : Node
 
 	public override void _Ready()
 	{
-		if (!NodeLookup.TryGetRequiredNode<RuntimeContentDb>(
-			this,
-			RuntimeContentDbPath,
-			nameof(ItemCatalogService),
-			nameof(RuntimeContentDbPath),
-			out _runtimeContentDb))
+		TryEnsureDependencies();
+	}
+
+	private bool TryEnsureDependencies()
+	{
+		if (_runtimeContentDb is null &&
+			!NodeLookup.TryGetRequiredNode<RuntimeContentDb>(
+				this,
+				RuntimeContentDbPath,
+				nameof(ItemCatalogService),
+				nameof(RuntimeContentDbPath),
+				out _runtimeContentDb))
 		{
-			return;
+			return false;
 		}
 
-		if (!NodeLookup.TryGetRequiredNode<DataDb>(
-			this,
-			DataDbPath,
-			nameof(ItemCatalogService),
-			nameof(DataDbPath),
-			out _dataDb))
+		if (_dataDb is null &&
+			!NodeLookup.TryGetRequiredNode<DataDb>(
+				this,
+				DataDbPath,
+				nameof(ItemCatalogService),
+				nameof(DataDbPath),
+				out _dataDb))
 		{
-			return;
+			return false;
 		}
+
+		_dataDb.EnsureLoaded();
+		return true;
 	}
 
 	public bool TryGetItem(string itemId, out ItemDef item)
@@ -43,6 +53,9 @@ public partial class ItemCatalogService : Node
 		item = default!;
 
 		if (string.IsNullOrWhiteSpace(itemId))
+			return false;
+
+		if (!TryEnsureDependencies())
 			return false;
 
 		if (_runtimeContentDb.TryGetItem(itemId, out item))

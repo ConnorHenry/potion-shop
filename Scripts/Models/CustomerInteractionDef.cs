@@ -23,6 +23,7 @@ public sealed class CustomerInteractionDef
     public List<CustomerDialogueNodeDef> DialogueNodes { get; set; } = new();
     public RequirementsDef? Requires { get; set; }
     public int Weight { get; set; } = 1;
+    public bool HideRequestDetails { get; set; }
     [JsonConverter(typeof(DesiredTraitRangeDictionaryJsonConverter))]
     public Dictionary<string, CustomerTraitRangeDef> DesiredTraits { get; set; } = new();
     [JsonConverter(typeof(BadTraitRangeDictionaryJsonConverter))]
@@ -30,6 +31,7 @@ public sealed class CustomerInteractionDef
     public Dictionary<string, int> RequiredMinTraits { get; set; } = new();
     public Dictionary<string, int> RequiredMaxTraits { get; set; } = new();
     public List<IngredientPortionDef> RequiredIngredientAmounts { get; set; } = new();
+    public List<EffectDef> OnArrivalEffects { get; set; } = new();
     public List<EffectDef> OnSuccessEffects { get; set; } = new();
     public List<EffectDef> OnFailureEffects { get; set; } = new();
     public List<EffectDef> OnSkipEffects { get; set; } = new();
@@ -68,6 +70,7 @@ public sealed class CustomerInteractionDef
         {
             Id = Id,
             Description = Text,
+            HideRequestDetails = HideRequestDetails,
             DesiredTraits = CustomerTraitRangeDef.CloneDictionary(DesiredTraits),
             BadTraits = CustomerTraitRangeDef.CloneDictionary(BadTraits),
             RequiredMinTraits = new Dictionary<string, int>(RequiredMinTraits),
@@ -328,6 +331,7 @@ public sealed class CustomerRequestDef
 {
     public string Id { get; set; } = "";
     public string Description { get; set; } = "";
+    public bool HideRequestDetails { get; set; }
 
     // Desired effect trait ranges.
     // Authored customer requests should use both min and max so overshooting can fail.

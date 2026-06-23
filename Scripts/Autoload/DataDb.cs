@@ -26,44 +26,63 @@ public partial class DataDb : Node
 	private List<CalendarEventDef> _calendarEvents = new();
 	private List<CustomerInteractionDef> _customerInteractions = new();
 	private List<PotionRecipeDef> _potionRecipes = new();
+	private bool _hasLoadedAuthoredData;
+	private bool _isReloading;
 
 	public override void _Ready()
 	{
+		EnsureLoaded();
+	}
+
+	public void EnsureLoaded()
+	{
+		if (_hasLoadedAuthoredData || _isReloading)
+			return;
+
 		ReloadAll();
 	}
 
 	public void ReloadAll()
 	{
-		var authoredData = ResourceLoader.Load<AuthoredDataResource>(AuthoredDataPath);
-		if (authoredData is null)
+		_isReloading = true;
+		try
 		{
-			var exists = ResourceLoader.Exists(AuthoredDataPath);
-			var genericResource = ResourceLoader.Load<Resource>(AuthoredDataPath);
-			var genericTypeName = genericResource?.GetType().FullName ?? "<null>";
-			GD.PushError($"DataDb: Failed to load authored data resource at '{AuthoredDataPath}'. Exists={exists}. GenericLoadType={genericTypeName}.");
-			_items = new Dictionary<string, ItemDef>();
-			_rules = new Dictionary<string, RuleDef>();
-			_calendarEvents = new List<CalendarEventDef>();
-			_customerInteractions = new List<CustomerInteractionDef>();
-			_potionRecipes = new List<PotionRecipeDef>();
-			return;
+			var authoredData = ResourceLoader.Load<AuthoredDataResource>(AuthoredDataPath);
+			if (authoredData is null)
+			{
+				var exists = ResourceLoader.Exists(AuthoredDataPath);
+				var genericResource = ResourceLoader.Load<Resource>(AuthoredDataPath);
+				var genericTypeName = genericResource?.GetType().FullName ?? "<null>";
+				GD.PushError($"DataDb: Failed to load authored data resource at '{AuthoredDataPath}'. Exists={exists}. GenericLoadType={genericTypeName}.");
+				_items = new Dictionary<string, ItemDef>();
+				_rules = new Dictionary<string, RuleDef>();
+				_calendarEvents = new List<CalendarEventDef>();
+				_customerInteractions = new List<CustomerInteractionDef>();
+				_potionRecipes = new List<PotionRecipeDef>();
+				return;
+			}
+
+			var itemsResource = LoadSection<AuthoredItemsResource>(authoredData.ItemsPath, "items");
+			var rulesResource = LoadSection<AuthoredRulesResource>(authoredData.RulesPath, "rules");
+			var calendarEventsResource = LoadSection<AuthoredCalendarEventsResource>(authoredData.CalendarEventsPath, "calendar events");
+			var customerInteractionsResource = LoadSection<AuthoredCustomerInteractionsResource>(authoredData.CustomerInteractionsPath, "customer interactions");
+			var potionRecipesResource = LoadSection<AuthoredPotionRecipesResource>(authoredData.PotionRecipesPath, "potion recipes");
+
+			_items = ParseItems(itemsResource?.Entries ?? new Godot.Collections.Array())
+				.ToDictionary(x => x.Id, x => x, StringComparer.OrdinalIgnoreCase);
+			_rules = ParseRules(rulesResource?.Entries ?? new Godot.Collections.Array())
+				.ToDictionary(x => x.Id, x => x, StringComparer.OrdinalIgnoreCase);
+			_calendarEvents = ParseCalendarEvents(calendarEventsResource?.Entries ?? new Godot.Collections.Array());
+			_customerInteractions = ParseCustomerInteractions(customerInteractionsResource?.Entries ?? new Godot.Collections.Array());
+			_potionRecipes = ParsePotionRecipes(potionRecipesResource?.Entries ?? new Godot.Collections.Array());
+
+			AuthoredDataValidator.Validate(_items, _rules, _calendarEvents, _customerInteractions, _potionRecipes);
 		}
-
-		var itemsResource = LoadSection<AuthoredItemsResource>(authoredData.ItemsPath, "items");
-		var rulesResource = LoadSection<AuthoredRulesResource>(authoredData.RulesPath, "rules");
-		var calendarEventsResource = LoadSection<AuthoredCalendarEventsResource>(authoredData.CalendarEventsPath, "calendar events");
-		var customerInteractionsResource = LoadSection<AuthoredCustomerInteractionsResource>(authoredData.CustomerInteractionsPath, "customer interactions");
-		var potionRecipesResource = LoadSection<AuthoredPotionRecipesResource>(authoredData.PotionRecipesPath, "potion recipes");
-
-		_items = ParseItems(itemsResource?.Entries ?? new Godot.Collections.Array())
-			.ToDictionary(x => x.Id, x => x, StringComparer.OrdinalIgnoreCase);
-		_rules = ParseRules(rulesResource?.Entries ?? new Godot.Collections.Array())
-			.ToDictionary(x => x.Id, x => x, StringComparer.OrdinalIgnoreCase);
-		_calendarEvents = ParseCalendarEvents(calendarEventsResource?.Entries ?? new Godot.Collections.Array());
-		_customerInteractions = ParseCustomerInteractions(customerInteractionsResource?.Entries ?? new Godot.Collections.Array());
-		_potionRecipes = ParsePotionRecipes(potionRecipesResource?.Entries ?? new Godot.Collections.Array());
-
-		AuthoredDataValidator.Validate(_items, _rules, _calendarEvents, _customerInteractions, _potionRecipes);
+		finally
+		{
+			_hasLoadedAuthoredData = true;
+			_isReloading = false;
+		}
 	}
 
 	private static TSection? LoadSection<TSection>(string path, string sectionName) where TSection : Resource
@@ -83,6 +102,8 @@ public partial class DataDb : Node
 
 	public bool TryGetItem(string itemId, out ItemDef item)
 	{
+		EnsureLoaded();
+
 		return _items.TryGetValue(itemId, out item!);
 	}
 
@@ -145,11 +166,34 @@ public partial class DataDb : Node
 				Id = preparationId,
 				Name = ReadString(entry, "name", preparationId),
 				Traits = ReadStringIntDictionary(entry, "traits"),
-				Risks = ReadStringIntDictionary(entry, "risks")
+				Risks = ReadStringIntDictionary(entry, "risks"),
+				BoilingGame = ParseBoilingMiniGame(ReadDictionary(entry, "boilingGame"))
 			};
 		}
 
 		return preparations;
+	}
+
+	private static BoilingMiniGameDef? ParseBoilingMiniGame(Godot.Collections.Dictionary? entry)
+	{
+		if (entry is null || entry.Count == 0)
+			return null;
+
+		return new BoilingMiniGameDef
+		{
+			TemperatureTargetMin = ReadFloat(entry, "temperatureTargetMin", 0.0f),
+			TemperatureTargetMax = ReadFloat(entry, "temperatureTargetMax", 0.0f),
+			TemperatureHoldSeconds = ReadFloat(entry, "temperatureHoldSeconds", 0.0f),
+			HeatLockSeconds = ReadFloat(entry, "heatLockSeconds", 3.0f),
+			HeatRiseRate = ReadFloat(entry, "heatRiseRate", 0.0f),
+			HeatFallRate = ReadFloat(entry, "heatFallRate", 0.0f),
+			DonenessDurationSeconds = ReadFloat(entry, "donenessDurationSeconds", 0.0f),
+			DonenessWindowStart = ReadFloat(entry, "donenessWindowStart", 0.0f),
+			DonenessWindowEnd = ReadFloat(entry, "donenessWindowEnd", 0.0f),
+			StirringRhythm = ParseBoilingStirringRhythm(ReadString(entry, "stirringRhythm")),
+			StirringHoldSeconds = ReadFloat(entry, "stirringHoldSeconds", 0.0f),
+			FailureRiskId = ReadString(entry, "failureRiskId")
+		};
 	}
 
 	private static List<IngredientEffectDef> ParseIngredientEffects(Godot.Collections.Array entries)
@@ -330,11 +374,13 @@ public partial class DataDb : Node
 				DialogueNodes = ParseCustomerDialogueNodes(ReadArray(entry, "dialogueNodes")),
 				Requires = ParseRequirements(ReadDictionary(entry, "requires")),
 				Weight = ReadInt(entry, "weight", 1),
+				HideRequestDetails = ReadBool(entry, "hideRequestDetails"),
 				DesiredTraits = ReadTraitRangeDictionary(entry, "desiredTraits", legacyIntIsMinimum: true),
 				BadTraits = ReadTraitRangeDictionary(entry, "badTraits", legacyIntIsMinimum: false),
 				RequiredMinTraits = ReadStringIntDictionary(entry, "requiredMinTraits"),
 				RequiredMaxTraits = ReadStringIntDictionary(entry, "requiredMaxTraits"),
 				RequiredIngredientAmounts = ParseIngredientPortions(ReadArray(entry, "requiredIngredientAmounts")),
+				OnArrivalEffects = ParseEffects(ReadArray(entry, "onArrivalEffects")),
 				OnSuccessEffects = ParseEffects(ReadArray(entry, "onSuccessEffects")),
 				OnFailureEffects = ParseEffects(ReadArray(entry, "onFailureEffects")),
 				OnSkipEffects = ParseEffects(ReadArray(entry, "onSkipEffects")),
@@ -554,6 +600,11 @@ public partial class DataDb : Node
 				RemoveStoryFlag = ReadNullableString(entry, "removeStoryFlag"),
 				AddItemId = ReadNullableString(entry, "addItemId"),
 				AddItemQty = ReadNullableInt(entry, "addItemQty"),
+				RestockItemId = ReadNullableString(entry, "restockItemId"),
+				RestockItemQty = ReadNullableInt(entry, "restockItemQty"),
+				EnableIngredientPreparationMethodId =
+					ReadNullableString(entry, "enableIngredientPreparationMethodId") ??
+					ReadNullableString(entry, "enableIngredientPreparationMethod"),
 				ConsumeItemId = ReadNullableString(entry, "consumeItemId"),
 				ConsumeItemQty = ReadNullableInt(entry, "consumeItemQty"),
 				ConsumeEachIngredientQty = ReadNullableInt(entry, "consumeEachIngredientQty")
@@ -764,6 +815,31 @@ public partial class DataDb : Node
 	{
 		var value = ReadNullableInt(source, key);
 		return value ?? fallback;
+	}
+
+	private static float ReadFloat(Godot.Collections.Dictionary source, string key, float fallback)
+	{
+		if (!source.ContainsKey(key))
+			return fallback;
+
+		var value = source[key];
+		if (value.VariantType == Variant.Type.Float)
+			return (float)value.As<double>();
+		if (value.VariantType == Variant.Type.Int)
+			return value.As<long>();
+
+		var text = ReadVariantString(value);
+		return float.TryParse(text, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out var parsed)
+			? parsed
+			: fallback;
+	}
+
+	private static BoilingStirringRhythm ParseBoilingStirringRhythm(string value)
+	{
+		if (Enum.TryParse<BoilingStirringRhythm>(value, ignoreCase: true, out var rhythm))
+			return rhythm;
+
+		return BoilingStirringRhythm.ClockwiseSlow;
 	}
 
 	private static int? ReadNullableInt(Godot.Collections.Dictionary source, string key)

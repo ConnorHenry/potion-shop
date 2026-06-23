@@ -41,7 +41,7 @@ public static class CustomerSaleRules
 
 			TryGetValueIgnoreCase(producedTraits, desiredTrait.Key, out var producedValue);
 
-			if (!IsValueWithinRange(producedValue, desiredTrait.Value))
+			if (!DoesDesiredTraitMatch(request.HideRequestDetails, producedValue, desiredTrait.Value))
 				continue;
 
 			matchedDesiredTraitCount += 1;
@@ -241,6 +241,17 @@ public static class CustomerSaleRules
 		TryGetValueIgnoreCase(producedTraits, key, out var producedTraitValue);
 		TryGetValueIgnoreCase(producedRisks, key, out var producedRiskValue);
 		return System.Math.Max(0, producedTraitValue) + System.Math.Max(0, producedRiskValue);
+	}
+
+	private static bool DoesDesiredTraitMatch(
+		bool requestDetailsHidden,
+		int producedValue,
+		CustomerTraitRangeDef? range)
+	{
+		if (requestDetailsHidden)
+			return producedValue > 0;
+
+		return IsValueWithinRange(producedValue, range);
 	}
 
 	private static bool IsValueWithinRange(int producedValue, CustomerTraitRangeDef? range)

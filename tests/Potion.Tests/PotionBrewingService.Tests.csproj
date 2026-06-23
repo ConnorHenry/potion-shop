@@ -10,6 +10,7 @@
     <Compile Include="..\..\Scripts\Models\EffectDef.cs" Link="Linked\EffectDef.cs" />
     <Compile Include="..\..\Scripts\Models\ConsumableEffectDef.cs" Link="Linked\ConsumableEffectDef.cs" />
     <Compile Include="..\..\Scripts\Models\IngredientEffectDef.cs" Link="Linked\IngredientEffectDef.cs" />
+    <Compile Include="..\..\Scripts\Models\BoilingMiniGameDef.cs" Link="Linked\BoilingMiniGameDef.cs" />
     <Compile Include="..\..\Scripts\Models\IngredientPreparationDef.cs" Link="Linked\IngredientPreparationDef.cs" />
     <Compile Include="..\..\Scripts\Models\IngredientDef.cs" Link="Linked\IngredientDef.cs" />
     <Compile Include="..\..\Scripts\Models\ItemDef.cs" Link="Linked\ItemDef.cs" />
@@ -30,6 +31,7 @@
     <Compile Include="..\..\Scripts\Systems\IngredientPreparationCatalog.cs" Link="Linked\IngredientPreparationCatalog.cs" />
     <Compile Include="..\..\Scripts\Systems\InventoryState.cs" Link="Linked\InventoryState.cs" />
     <Compile Include="..\..\Scripts\Systems\PotionBatchStore.cs" Link="Linked\PotionBatchStore.cs" />
+    <Compile Include="..\..\Scripts\Systems\IngredientDefFactory.cs" Link="Linked\IngredientDefFactory.cs" />
     <Compile Include="..\..\Scripts\Systems\PreparedIngredientFactory.cs" Link="Linked\PreparedIngredientFactory.cs" />
     <Compile Include="..\..\Scripts\Systems\PotionRecipeLookup.cs" Link="Linked\PotionRecipeLookup.cs" />
     <Compile Include="..\..\Scripts\Systems\PotionVariantIdBuilder.cs" Link="Linked\PotionVariantIdBuilder.cs" />

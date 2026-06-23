@@ -30,6 +30,9 @@ public partial class StationCustomerPanel : Control
 
 	private const float CustomerSlideSeconds = 0.28f;
 	private const float CustomerSlideDistance = 420.0f;
+	private const float CustomerImageHeight = 104.0f;
+	private const float DialogueMinimumHeight = 76.0f;
+	private const float SelectedPotionFitMinimumHeight = 154.0f;
 	private const string FailedServeConsequenceText = "Filler consequence text: this potion may disappoint the customer and affect future outcomes.";
 	private const string RefuseConsequenceText = "Filler consequence text: refusing a customer may affect future outcomes.";
 
@@ -39,7 +42,6 @@ public partial class StationCustomerPanel : Control
 	[Export] public int DialogueTypewriterCharactersPerSecond = 45;
 
 	private readonly List<CustomerInteractionDef> _customers = new();
-	private readonly List<Button> _queueButtons = new();
 	private readonly List<Button> _dialogueOptionButtons = new();
 	private readonly List<CustomerDialogueOptionDef> _visibleDialogueOptions = new();
 
@@ -62,7 +64,6 @@ public partial class StationCustomerPanel : Control
 	private Button _serveButton = default!;
 	private Button _refuseButton = default!;
 	private Button _returnToDialogueButton = default!;
-	private HBoxContainer _queueRow = default!;
 	private Label _outcomeLabel = default!;
 	private PanelContainer _confirmationPanel = default!;
 	private Label _confirmationTitle = default!;
@@ -88,7 +89,6 @@ public partial class StationCustomerPanel : Control
 	private static readonly Color DefaultButtonModulate = new(1.0f, 1.0f, 1.0f, 1.0f);
 
 	public bool HasActiveInteraction => ActiveCustomer is not null;
-	public bool HasQueuedCustomers => _customers.Count > 0;
 
 	public override void _Ready()
 	{
@@ -128,7 +128,7 @@ public partial class StationCustomerPanel : Control
 		_confirmPrimaryButton.Pressed += OnConfirmPrimaryPressed;
 		_confirmCancelButton.Pressed += HideConfirmation;
 
-		ClearCustomers();
+		ShowEmptyCustomerPresentation(clearActiveRequest: false);
 	}
 
 	public override void _ExitTree()
@@ -180,8 +180,22 @@ public partial class StationCustomerPanel : Control
 		ResetDialogueState();
 		ClearSelectedPotion();
 		HideConfirmation();
-		RefreshQueue();
 		RefreshActiveCustomer(emitShownSignal: true);
+	}
+
+	public void RestoreActiveCustomer(CustomerInteractionDef customer)
+	{
+		_customers.Clear();
+		if (customer is not null)
+			_customers.Add(customer);
+
+		_activeIndex = _customers.Count > 0 ? 0 : -1;
+		_isResolvingCustomer = false;
+		_resolvingCustomerIndex = -1;
+		ResetDialogueState();
+		ClearSelectedPotion();
+		HideConfirmation();
+		RefreshActiveCustomer(emitShownSignal: false, restorePublishedRequest: true);
 	}
 
 	public void ClearCustomers()
@@ -190,16 +204,7 @@ public partial class StationCustomerPanel : Control
 		_activeIndex = -1;
 		_isResolvingCustomer = false;
 		_resolvingCustomerIndex = -1;
-		ResetDialogueState();
-		ClearSelectedPotion();
-		HideConfirmation();
-		RefreshQueue();
-		RefreshActiveCustomer(emitShownSignal: false);
-	}
-
-	public Button? GetNextCustomerButton()
-	{
-		return _queueButtons.Count > 0 ? _queueButtons[0] : null;
+		ShowEmptyCustomerPresentation(clearActiveRequest: true);
 	}
 
 	public Control? GetVisiblePotionSlot(string itemId)
@@ -260,7 +265,7 @@ public partial class StationCustomerPanel : Control
 		_customerImageFrame = new Control
 		{
 			Name = "CustomerImageFrame",
-			CustomMinimumSize = new Vector2(0.0f, 120.0f),
+			CustomMinimumSize = new Vector2(0.0f, CustomerImageHeight),
 			ClipContents = true,
 			MouseFilter = MouseFilterEnum.Ignore
 		};
@@ -270,7 +275,7 @@ public partial class StationCustomerPanel : Control
 		{
 			Name = "CustomerImage",
 			Position = Vector2.Zero,
-			Size = new Vector2(360.0f, 120.0f),
+			Size = new Vector2(360.0f, CustomerImageHeight),
 			MouseFilter = MouseFilterEnum.Ignore,
 			ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
 			StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered
@@ -283,7 +288,8 @@ public partial class StationCustomerPanel : Control
 			BbcodeEnabled = true,
 			FitContent = false,
 			ScrollActive = true,
-			CustomMinimumSize = new Vector2(0.0f, 76.0f),
+			CustomMinimumSize = new Vector2(0.0f, DialogueMinimumHeight),
+			SizeFlagsVertical = SizeFlags.ExpandFill,
 			MouseFilter = MouseFilterEnum.Stop
 		};
 		vbox.AddChild(_dialogue);
@@ -326,7 +332,8 @@ public partial class StationCustomerPanel : Control
 			BbcodeEnabled = true,
 			FitContent = false,
 			ScrollActive = true,
-			CustomMinimumSize = new Vector2(0.0f, 76.0f),
+			CustomMinimumSize = new Vector2(0.0f, SelectedPotionFitMinimumHeight),
+			SizeFlagsVertical = SizeFlags.ExpandFill,
 			MouseFilter = MouseFilterEnum.Stop
 		};
 		vbox.AddChild(_fitCheck);
@@ -372,12 +379,6 @@ public partial class StationCustomerPanel : Control
 			AutowrapMode = TextServer.AutowrapMode.WordSmart
 		};
 		vbox.AddChild(_outcomeLabel);
-
-		var queueTitle = new Label { Name = "QueueTitle", Text = "Customer Queue" };
-		vbox.AddChild(queueTitle);
-		_queueRow = new HBoxContainer { Name = "Queue" };
-		_queueRow.AddThemeConstantOverride("separation", 6);
-		vbox.AddChild(_queueRow);
 
 		BuildConfirmationPanel();
 	}
@@ -491,71 +492,12 @@ public partial class StationCustomerPanel : Control
 		};
 	}
 
-	private void RefreshQueue()
-	{
-		foreach (var child in _queueRow.GetChildren())
-		{
-			_queueRow.RemoveChild(child);
-			child.QueueFree();
-		}
-		_queueButtons.Clear();
-
-		for (var i = 0; i < _customers.Count; i++)
-		{
-			var index = i;
-			var customer = _customers[i];
-			var button = new Button
-			{
-				Name = $"Customer{index + 1}",
-				Text = BuildQueueLabel(customer, index),
-				ToggleMode = true,
-				ButtonPressed = index == _activeIndex,
-				Disabled = _isResolvingCustomer,
-				SizeFlagsHorizontal = SizeFlags.ExpandFill
-			};
-			button.Pressed += () => SelectCustomer(index);
-			_queueRow.AddChild(button);
-			_queueButtons.Add(button);
-		}
-	}
-
-	private static string BuildQueueLabel(CustomerInteractionDef customer, int index)
-	{
-		var title = string.IsNullOrWhiteSpace(customer.Title) ? "Customer" : customer.Title;
-		return $"{index + 1}. {title}";
-	}
-
-	private void SelectCustomer(int index)
-	{
-		if (_isResolvingCustomer)
-			return;
-		if (index < 0 || index >= _customers.Count || index == _activeIndex)
-			return;
-
-		_activeIndex = index;
-		ResetDialogueState();
-		ClearSelectedPotion();
-		HideConfirmation();
-		RefreshQueue();
-		RefreshActiveCustomer(emitShownSignal: true);
-	}
-
-	private void RefreshActiveCustomer(bool emitShownSignal)
+	private void RefreshActiveCustomer(bool emitShownSignal, bool restorePublishedRequest = false)
 	{
 		var interaction = ActiveCustomer;
 		if (interaction is null)
 		{
-			_gameState.ClearActiveCustomerRequest();
-			ResetDialogueState();
-			_title.Text = "No customer waiting";
-			if (_dialoguePresenter is not null)
-				_dialoguePresenter.Clear();
-			_dialogue.Text = "No active customer.";
-			_fitCheck.Text = "Select a customer and potion.";
-			_customerImage.Texture = null;
-			_customerImage.Visible = false;
-			SetServingControlsVisible(true);
-			SetServingControlsEnabled(false);
+			ShowEmptyCustomerPresentation(clearActiveRequest: false);
 			return;
 		}
 
@@ -568,6 +510,9 @@ public partial class StationCustomerPanel : Control
 		_customerImage.Modulate = Colors.White;
 		_title.Text = string.IsNullOrWhiteSpace(interaction.Title) ? "Customer" : interaction.Title;
 		RefreshCustomerImage(interaction);
+
+		if (restorePublishedRequest && TryRestorePublishedRequest(interaction, emitShownSignal))
+			return;
 
 		if (TryShowDialogueStart(interaction))
 		{
@@ -646,7 +591,13 @@ public partial class StationCustomerPanel : Control
 		if (_servingActions is not null)
 			_servingActions.Visible = visible;
 		if (_returnToDialogueButton is not null)
-			_returnToDialogueButton.Visible = visible && HasActiveDialogueInteraction() && _sellingMode;
+		{
+			_returnToDialogueButton.Visible =
+				visible &&
+				HasActiveDialogueInteraction() &&
+				_sellingMode &&
+				!string.IsNullOrWhiteSpace(_requestReturnDialogueNodeId);
+		}
 	}
 
 	private void SetServingControlsEnabled(bool enabled)
@@ -667,6 +618,51 @@ public partial class StationCustomerPanel : Control
 	private bool HasActiveDialogueInteraction()
 	{
 		return ActiveCustomer is { IsStoryInteraction: true, HasDialogueTree: true };
+	}
+
+	private void ShowEmptyCustomerPresentation(bool clearActiveRequest)
+	{
+		if (clearActiveRequest)
+			_gameState.ClearActiveCustomerRequest();
+
+		ResetDialogueState();
+		ClearSelectedPotion();
+		HideConfirmation();
+		_title.Text = "No customer waiting";
+		if (_dialoguePresenter is not null)
+			_dialoguePresenter.Clear();
+		_dialogue.Text = "No active customer.";
+		_fitCheck.Text = "Select a customer and potion.";
+		_outcomeLabel.Text = string.Empty;
+		_customerImage.Texture = null;
+		_customerImage.Visible = false;
+		SetServingControlsVisible(true);
+		SetServingControlsEnabled(false);
+	}
+
+	private bool TryRestorePublishedRequest(CustomerInteractionDef interaction, bool emitShownSignal)
+	{
+		var request = _gameState.ActiveCustomerRequest;
+		if (request is null ||
+			!string.Equals(request.Id, interaction.Id, StringComparison.OrdinalIgnoreCase))
+		{
+			return false;
+		}
+
+		_dialoguePresenter?.SetHistory(BuildAuthoredNarrativeLines(
+			interaction.Lines,
+			interaction.Text,
+			CustomerDialogueTextFormatter.CustomerSpeakerName));
+
+		_sellingMode = true;
+		SetServingControlsVisible(true);
+		SetServingControlsEnabled(true);
+		RefreshSelectedPotionComparison();
+
+		if (emitShownSignal)
+			EmitSignal(SignalName.InteractionShown, interaction.Id);
+
+		return true;
 	}
 
 	private static List<NarrativeTextLine> BuildAuthoredNarrativeLines(
@@ -1127,7 +1123,9 @@ public partial class StationCustomerPanel : Control
 		}
 
 		_servingDropBox.SetHoverHighlight(true);
-		SetRequestFitText(interaction.BuildRequest(), itemId, brewResult);
+		var request = interaction.BuildRequest();
+		if (!request.HideRequestDetails)
+			SetRequestFitText(request, itemId, brewResult);
 	}
 
 	private void OnServingPotionHoverCleared()
@@ -1204,6 +1202,12 @@ public partial class StationCustomerPanel : Control
 			return;
 		}
 
+		if (request.HideRequestDetails)
+		{
+			_fitCheck.Text = CustomerDialogueTextFormatter.HiddenRequestText;
+			return;
+		}
+
 		if (!_saleService.TryEvaluatePotion(interaction, _selectedPotionItemId, out var brewResult) || brewResult is null)
 		{
 			ClearSelectedPotion();
@@ -1248,6 +1252,12 @@ public partial class StationCustomerPanel : Control
 		}
 
 		var request = interaction.BuildRequest();
+		if (request.HideRequestDetails)
+		{
+			ResolveSale(_selectedPotionItemId, _selectedPotionResult);
+			return;
+		}
+
 		var isSuccess = _saleService.IsRequestSatisfiedByPotion(_selectedPotionItemId, request, _selectedPotionResult);
 		if (isSuccess)
 		{
@@ -1377,7 +1387,6 @@ public partial class StationCustomerPanel : Control
 		_refuseButton.Disabled = true;
 		_servingDropBox.SetAcceptDrops(false);
 		_servingDropBox.SetDisabledVisual(true);
-		RefreshQueue();
 
 		if (!_customerImage.Visible)
 		{
@@ -1405,7 +1414,6 @@ public partial class StationCustomerPanel : Control
 		_isResolvingCustomer = false;
 		_resolvingCustomerIndex = -1;
 		_activeIndex = _customers.Count == 0 ? -1 : Math.Clamp(_activeIndex, 0, _customers.Count - 1);
-		RefreshQueue();
 		RefreshActiveCustomer(emitShownSignal: _customers.Count > 0);
 		EmitSignal(SignalName.CustomerResolved);
 		EmitSignal(SignalName.SaleResultClosed);

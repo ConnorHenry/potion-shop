@@ -12,6 +12,7 @@ public partial class IngredientPreparationTray : Control
 	private const string DefaultIngredientName = "Drop raw ingredient";
 	private const string DefaultStatusText = "Select a preparation.";
 	private const string MissingPreviewText = "Unavailable";
+	private const string IngredientAlreadyQueuedStatusText = "That ingredient has already been added to the brew.";
 
 	[Export] public NodePath IngredientDropBoxPath = default!;
 	[Export] public NodePath IngredientIconPath = default!;
@@ -20,6 +21,7 @@ public partial class IngredientPreparationTray : Control
 	[Export] public NodePath PreparationButtonsContainerPath = default!;
 	[Export] public NodePath ClearButtonPath = default!;
 	[Export] public NodePath BrewPanelPath = new("../BrewPanel");
+	[Export] public NodePath BoilingMiniGameWindowPath = new("../BoilingMiniGameWindow");
 	[Export] public NodePath RuntimeContentDbPath = new(AutoloadNodePaths.RuntimeContentDb);
 	[Export] public NodePath GameStatePath = new(AutoloadNodePaths.GameState);
 	[Export] public NodePath ItemCatalogPath = new(AutoloadNodePaths.ItemCatalog);
@@ -31,12 +33,14 @@ public partial class IngredientPreparationTray : Control
 	private Container _preparationButtonsContainer = default!;
 	private Button _clearButton = default!;
 	private BrewPanel _brewPanel = default!;
+	private BoilingMiniGameWindow? _boilingMiniGameWindow;
 	private RuntimeContentDb _runtimeContentDb = default!;
 	private GameState _gameState = default!;
 	private ItemCatalogService _itemCatalog = default!;
 	private string _selectedIngredientId = string.Empty;
+	private string _pendingBoilingIngredientId = string.Empty;
 	private Control.GuiInputEventHandler? _dropBoxGuiInputHandler;
-	private readonly List<Button> _preparationButtons = new();
+	private readonly Dictionary<string, Button> _preparationButtonsById = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Dictionary<string, RichTextLabel> _preparationPreviewLabels = new(StringComparer.OrdinalIgnoreCase);
 
 	public override void _Ready()
@@ -73,6 +77,9 @@ public partial class IngredientPreparationTray : Control
 		_gameState = gameState;
 		_itemCatalog = itemCatalog;
 		_brewPanel = brewPanel;
+		_boilingMiniGameWindow = GetNodeOrNull<BoilingMiniGameWindow>(BoilingMiniGameWindowPath);
+		if (_boilingMiniGameWindow is null)
+			GD.PushError($"IngredientPreparationTray: BoilingMiniGameWindow was not found at '{BoilingMiniGameWindowPath}'.");
 		_ingredientDropBox = GetNode<BrewDropBox>(IngredientDropBoxPath);
 		_ingredientIcon = GetNode<TextureRect>(IngredientIconPath);
 		_ingredientName = GetNode<Label>(IngredientNamePath);
@@ -84,6 +91,9 @@ public partial class IngredientPreparationTray : Control
 		_dropBoxGuiInputHandler = OnIngredientDropBoxGuiInput;
 		_ingredientDropBox.GuiInput += _dropBoxGuiInputHandler;
 		_clearButton.Pressed += ClearSelection;
+		if (_boilingMiniGameWindow is not null)
+			_boilingMiniGameWindow.Completed += OnBoilingMiniGameCompleted;
+		_gameState.Changed += Refresh;
 		BuildPreparationButtons();
 
 		MouseFilter = MouseFilterEnum.Stop;
@@ -98,6 +108,10 @@ public partial class IngredientPreparationTray : Control
 			_ingredientDropBox.GuiInput -= _dropBoxGuiInputHandler;
 		if (_clearButton is not null)
 			_clearButton.Pressed -= ClearSelection;
+		if (_boilingMiniGameWindow is not null)
+			_boilingMiniGameWindow.Completed -= OnBoilingMiniGameCompleted;
+		if (_gameState is not null)
+			_gameState.Changed -= Refresh;
 	}
 
 	private void OnIngredientDropped(string itemId)
@@ -122,6 +136,12 @@ public partial class IngredientPreparationTray : Control
 		if (_itemCatalog.IsPreparedIngredient(itemId))
 		{
 			SetStatus("That ingredient is already prepared.");
+			return false;
+		}
+
+		if (IsIngredientAlreadyQueuedForBrew(itemId))
+		{
+			SetStatus(IngredientAlreadyQueuedStatusText);
 			return false;
 		}
 
@@ -187,7 +207,7 @@ public partial class IngredientPreparationTray : Control
 			child.QueueFree();
 		}
 
-		_preparationButtons.Clear();
+		_preparationButtonsById.Clear();
 		_preparationPreviewLabels.Clear();
 
 		foreach (var option in IngredientPreparationCatalog.AllOptions)
@@ -224,7 +244,7 @@ public partial class IngredientPreparationTray : Control
 			column.AddChild(button);
 			column.AddChild(preview);
 			_preparationButtonsContainer.AddChild(column);
-			_preparationButtons.Add(button);
+			_preparationButtonsById[preparationId] = button;
 			_preparationPreviewLabels[preparationId] = preview;
 		}
 	}
@@ -237,6 +257,13 @@ public partial class IngredientPreparationTray : Control
 			return;
 		}
 
+		if (!_gameState.IsIngredientPreparationMethodEnabled(preparationId))
+		{
+			var preparationName = IngredientPreparationCatalog.GetDisplayName(preparationId);
+			SetStatus($"{preparationName} preparation is disabled.");
+			return;
+		}
+
 		if (!_itemCatalog.TryGetItem(_selectedIngredientId, out var baseIngredient))
 		{
 			SetStatus("Selected ingredient is missing.");
@@ -244,7 +271,100 @@ public partial class IngredientPreparationTray : Control
 			return;
 		}
 
-		if (!PreparedIngredientFactory.TryBuildPreparedIngredient(baseIngredient, preparationId, out var preparedIngredient, out var error))
+		if (IsIngredientAlreadyQueuedForBrew(baseIngredient.Id))
+		{
+			SetStatus(IngredientAlreadyQueuedStatusText);
+			return;
+		}
+
+		var normalizedPreparationId = IngredientPreparationCatalog.NormalizePreparationId(preparationId);
+		if (string.Equals(normalizedPreparationId, IngredientPreparationCatalog.BoiledPreparationId, StringComparison.OrdinalIgnoreCase))
+		{
+			if (_gameState.DebugSkipBoilingMiniGame)
+			{
+				TryBuildAndQueuePreparedIngredient(baseIngredient, normalizedPreparationId, failedBoiling: false);
+				return;
+			}
+
+			TryStartBoilingMiniGame(baseIngredient);
+			return;
+		}
+
+		TryBuildAndQueuePreparedIngredient(baseIngredient, normalizedPreparationId, failedBoiling: false);
+	}
+
+	private void TryStartBoilingMiniGame(ItemDef baseIngredient)
+	{
+		if (_boilingMiniGameWindow is null)
+		{
+			SetStatus("Boiling station is not available.");
+			return;
+		}
+
+		if (!IngredientPreparationCatalog.TryGetPreparation(
+			baseIngredient,
+			IngredientPreparationCatalog.BoiledPreparationId,
+			out var boiledPreparation))
+		{
+			SetStatus($"{baseIngredient.Name} cannot be boiled.");
+			return;
+		}
+
+		if (boiledPreparation.BoilingGame is null)
+		{
+			SetStatus("Boiling mini game is not configured.");
+			GD.PushError($"IngredientPreparationTray: '{baseIngredient.Id}' has no boiling mini game data.");
+			return;
+		}
+
+		_pendingBoilingIngredientId = _selectedIngredientId;
+		_boilingMiniGameWindow.ShowForIngredient(baseIngredient.Name, baseIngredient.IconPath ?? string.Empty, boiledPreparation.BoilingGame);
+		SetStatus("Boiling...");
+	}
+
+	private void OnBoilingMiniGameCompleted(bool succeeded)
+	{
+		var ingredientId = _pendingBoilingIngredientId;
+		_pendingBoilingIngredientId = string.Empty;
+		if (string.IsNullOrWhiteSpace(ingredientId))
+			return;
+
+		if (!_itemCatalog.TryGetItem(ingredientId, out var baseIngredient))
+		{
+			SetStatus("Selected ingredient is missing.");
+			ClearSelection(returnIngredient: false);
+			return;
+		}
+
+		TryBuildAndQueuePreparedIngredient(baseIngredient, IngredientPreparationCatalog.BoiledPreparationId, failedBoiling: !succeeded);
+	}
+
+	private void TryBuildAndQueuePreparedIngredient(ItemDef baseIngredient, string preparationId, bool failedBoiling)
+	{
+		if (IsIngredientAlreadyQueuedForBrew(baseIngredient.Id))
+		{
+			SetStatus(IngredientAlreadyQueuedStatusText);
+			return;
+		}
+
+		ItemDef preparedIngredient;
+		string error;
+		if (failedBoiling)
+		{
+			if (!IngredientPreparationCatalog.TryGetPreparation(baseIngredient, preparationId, out var preparation) ||
+				preparation.BoilingGame is null)
+			{
+				SetStatus("Boiling failure data is missing.");
+				return;
+			}
+
+			if (!PreparedIngredientFactory.TryBuildFailedBoiledIngredient(baseIngredient, preparation.BoilingGame, out preparedIngredient, out error))
+			{
+				SetStatus(error);
+				return;
+			}
+		}
+		else if (!PreparedIngredientFactory.TryBuildPreparedIngredient(baseIngredient, preparationId, out preparedIngredient, out error))
 		{
 			SetStatus(error);
 			return;
@@ -265,8 +385,24 @@ public partial class IngredientPreparationTray : Control
 			return;
 		}
 
-		SetStatus($"{preparedIngredient.Name} added to brew.");
+		SetStatus(failedBoiling
+			? $"{preparedIngredient.Name} spoiled and added to brew."
+			: $"{preparedIngredient.Name} added to brew.");
 		ClearSelection(returnIngredient: false);
+	}
+
+	private bool IsIngredientAlreadyQueuedForBrew(string ingredientId)
+	{
+		if (string.IsNullOrWhiteSpace(ingredientId))
+			return false;
+
+		foreach (var queuedIngredient in _gameState.CloneQueuedBrewIngredients())
+		{
+			if (string.Equals(queuedIngredient.IngredientId, ingredientId, StringComparison.OrdinalIgnoreCase))
+				return true;
+		}
+
+		return false;
 	}
 
 	private void ClearSelection()
@@ -279,6 +415,7 @@ public partial class IngredientPreparationTray : Control
 		if (returnIngredient)
 			ReturnSelectedIngredient();
 
+		_pendingBoilingIngredientId = string.Empty;
 		_selectedIngredientId = string.Empty;
 		Refresh();
 	}
@@ -309,8 +446,17 @@ public partial class IngredientPreparationTray : Control
 		_clearButton.Visible = hasSelection;
 		_clearButton.Disabled = !hasSelection;
 
-		foreach (var button in _preparationButtons)
-			button.Disabled = !hasSelection;
+		foreach (var option in IngredientPreparationCatalog.AllOptions)
+		{
+			if (!_preparationButtonsById.TryGetValue(option.Id, out var button))
+				continue;
+
+			var preparationEnabled = _gameState.IsIngredientPreparationMethodEnabled(option.Id);
+			button.Disabled = !hasSelection || !preparationEnabled;
+			button.TooltipText = preparationEnabled
+				? $"Prepare as {option.DisplayName}."
+				: $"{option.DisplayName} preparation is disabled.";
+		}
 
 		RefreshPreparationPreviews(selectedItem);
 

@@ -19,12 +19,13 @@ internal static class CustomerFlowTests
         runner.Run("Customer events randomize shop-day order", TestCustomerEventControllerRandomizesOrder);
         runner.Run("Shop summary clears station customer presentation", TestShopSummaryClearsCustomerPresentation);
         runner.Run("Active customer request is owned by station panel", TestActiveCustomerRequestKeepsShopFrontCustomerClickable);
+        runner.Run("Active customer request persists across scene reloads", TestActiveCustomerRequestPersistsAcrossSceneReloads);
         runner.Run("Forced customer fallback resolves legacy ids deterministically", TestForcedCustomerFallbackResolvesLegacyIdsDeterministically);
         runner.Run("Customer events respect scheduling and story outcomes", TestCustomerEventSchedulingAndStoryOutcomes);
         runner.Run("Customer trait thresholds are enforced", TestCustomerTraitThresholdsAreEnforced);
         runner.Run("Customer trait ranges are enforced", TestCustomerTraitRangesAreEnforced);
         runner.Run("Active customer catalog includes trait threshold requests", TestActiveCustomerCatalogIncludesTraitThresholdRequests);
-        runner.Run("Tiered customer data is a day-one bounded trait catalog", TestTieredCustomerDataIsDayOneFlexibleTraitCatalog);
+        runner.Run("Tiered customer data is an early bounded trait catalog", TestTieredCustomerDataIsEarlyFlexibleTraitCatalog);
         runner.Run("Customer dialogue markup converts safe syntax", TestCustomerDialogueMarkupConvertsSafeSyntax);
         runner.Run("Story customer dialogue trees support selling mode", TestStoryCustomerDialogueTreesSupportSellingMode);
         runner.Run("StationCustomerPanel renders dialogue node text as narration", TestCustomerPanelRendersDialogueNodeTextAsNarration);
@@ -85,25 +86,70 @@ internal static class CustomerFlowTests
         AssertTrue("CustomerEventController keeps a randomized order buffer", source.Contains("_customerOrder"));
         AssertTrue("CustomerEventController randomizes the customer order", source.Contains("_random.Next("));
         AssertTrue("CustomerEventController resets the order at the start of a shop day", source.Contains("BeginShopDay()"));
-        AssertTrue("CustomerEventController makes Bridget the first normal new-game customer",
-            source.Contains("NewGameWelcomeInteractionId = \"plot_bridget_visit_1\"") &&
-            source.Contains("TryDrawNewGameWelcomeInteraction") &&
-            source.Contains("GameState.BridgetWelcomePendingStoryFlag") &&
+        AssertTrue("CustomerEventController makes the fixed opening requests the first normal new-game customers",
+            source.Contains("NewGameOpeningCustomerInteractionId = \"customer_requests_opening_gravekeepers_balm\"") &&
+            source.Contains("NewGameSecondCustomerInteractionId = \"customer_requests_opening_silver_focus_tonic\"") &&
+            source.Contains("NewGameThirdCustomerInteractionId = \"customer_requests_opening_clean_vigor_tonic\"") &&
+            source.Contains("DayTwoFirstCustomerInteractionId = \"customer_requests_day_two_charmed_focus_tonic\"") &&
+            source.Contains("DayTwoSecondCustomerInteractionId = \"customer_requests_day_two_crowded_head_tonic\"") &&
+            source.Contains("DayTwoThirdCustomerInteractionId = \"customer_requests_day_two_rest_memory_clarity\"") &&
+            source.Contains("TryDrawNewGameOpeningCustomerInteraction") &&
+            source.Contains("TryDrawNewGameSecondCustomerInteraction") &&
+            source.Contains("TryDrawNewGameThirdCustomerInteraction") &&
+            source.Contains("TryDrawDayTwoFirstCustomerInteraction") &&
+            source.Contains("TryDrawDayTwoSecondCustomerInteraction") &&
+            source.Contains("TryDrawDayTwoThirdCustomerInteraction") &&
+            source.Contains("GameState.NewGameOpeningCustomerPendingStoryFlag") &&
+            source.Contains("GameState.NewGameSecondCustomerPendingStoryFlag") &&
+            source.Contains("GameState.NewGameThirdCustomerPendingStoryFlag") &&
+            source.Contains("GameState.DayTwoFirstCustomerPendingStoryFlag") &&
+            source.Contains("GameState.DayTwoSecondCustomerPendingStoryFlag") &&
+            source.Contains("GameState.DayTwoThirdCustomerPendingStoryFlag") &&
+            source.Contains("state.RemoveStoryFlag(GameState.NewGameOpeningCustomerPendingStoryFlag)") &&
+            source.Contains("state.RemoveStoryFlag(GameState.NewGameSecondCustomerPendingStoryFlag)") &&
+            source.Contains("state.RemoveStoryFlag(GameState.NewGameThirdCustomerPendingStoryFlag)") &&
+            source.Contains("state.RemoveStoryFlag(GameState.DayTwoFirstCustomerPendingStoryFlag)") &&
+            source.Contains("state.RemoveStoryFlag(GameState.DayTwoSecondCustomerPendingStoryFlag)") &&
+            source.Contains("state.RemoveStoryFlag(GameState.DayTwoThirdCustomerPendingStoryFlag)") &&
             source.Contains("state.RemoveStoryFlag(GameState.BridgetWelcomePendingStoryFlag)") &&
-            ReadProjectFile("Scripts/Autoload/GameState.cs").Contains("StoryFlags.Add(BridgetWelcomePendingStoryFlag)") &&
-            source.IndexOf("TryDrawForcedInteraction", StringComparison.Ordinal) < source.IndexOf("TryDrawNewGameWelcomeInteraction", StringComparison.Ordinal));
+            ReadProjectFile("Scripts/Autoload/GameState.cs").Contains("StoryFlags.Add(NewGameOpeningCustomerPendingStoryFlag)") &&
+            ReadProjectFile("Scripts/Autoload/GameState.cs").Contains("StoryFlags.Add(NewGameSecondCustomerPendingStoryFlag)") &&
+            ReadProjectFile("Scripts/Autoload/GameState.cs").Contains("StoryFlags.Add(NewGameThirdCustomerPendingStoryFlag)") &&
+            ReadProjectFile("Scripts/Autoload/GameState.cs").Contains("StoryFlags.Add(DayTwoFirstCustomerPendingStoryFlag)") &&
+            ReadProjectFile("Scripts/Autoload/GameState.cs").Contains("StoryFlags.Add(DayTwoSecondCustomerPendingStoryFlag)") &&
+            ReadProjectFile("Scripts/Autoload/GameState.cs").Contains("StoryFlags.Add(DayTwoThirdCustomerPendingStoryFlag)") &&
+            ReadProjectFile("Scripts/Autoload/GameState.cs").Contains("if (Day == 2)") &&
+            source.IndexOf("TryDrawForcedInteraction", StringComparison.Ordinal) < source.IndexOf("TryDrawNewGameOpeningCustomerInteraction", StringComparison.Ordinal) &&
+            source.IndexOf("TryDrawForcedInteraction", StringComparison.Ordinal) < source.IndexOf("TryDrawDayTwoFirstCustomerInteraction", StringComparison.Ordinal) &&
+            source.IndexOf("TryDrawDayTwoFirstCustomerInteraction", StringComparison.Ordinal) < source.IndexOf("TryDrawNewGameOpeningCustomerInteraction", StringComparison.Ordinal) &&
+            source.IndexOf("TryDrawDayTwoFirstCustomerInteraction", StringComparison.Ordinal) < source.IndexOf("TryDrawDayTwoSecondCustomerInteraction", StringComparison.Ordinal) &&
+            source.IndexOf("TryDrawDayTwoSecondCustomerInteraction", StringComparison.Ordinal) < source.IndexOf("TryDrawDayTwoThirdCustomerInteraction", StringComparison.Ordinal) &&
+            source.IndexOf("TryDrawDayTwoThirdCustomerInteraction", StringComparison.Ordinal) < source.IndexOf("TryDrawNewGameOpeningCustomerInteraction", StringComparison.Ordinal) &&
+            source.IndexOf("TryDrawDayTwoSecondCustomerInteraction", StringComparison.Ordinal) < source.IndexOf("TryDrawNewGameOpeningCustomerInteraction", StringComparison.Ordinal) &&
+            source.IndexOf("TryDrawNewGameOpeningCustomerInteraction", StringComparison.Ordinal) < source.IndexOf("TryDrawNewGameSecondCustomerInteraction", StringComparison.Ordinal) &&
+            source.IndexOf("TryDrawNewGameSecondCustomerInteraction", StringComparison.Ordinal) < source.IndexOf("TryDrawNewGameThirdCustomerInteraction", StringComparison.Ordinal) &&
+            source.IndexOf("TryDrawNewGameThirdCustomerInteraction", StringComparison.Ordinal) < source.IndexOf("var eligibleInteractions", StringComparison.Ordinal));
         AssertTrue("DayController resets customer order when the shop opens", dayController.Contains("_customerEventController.BeginShopDay();"));
         AssertTrue("DayController caps shop-day customer arrivals at three",
             dayController.Contains("MaxCustomersPerShopDay = 3") &&
             dayController.Contains("_customersArrived >= MaxCustomersPerShopDay"));
         AssertTrue("DayController counts customer arrivals when a customer is shown",
-            dayController.Contains("_customersArrived += 1;"));
+            dayController.Contains("_gameState.RecordShopDayCustomerArrived(interaction);") &&
+            dayController.Contains("_customersArrived = _gameState.ShopDayCustomersArrived;"));
         AssertTrue("DayController closes the shop after the current final customer is resolved",
             dayController.Contains("ShouldCloseShopAfterCurrentCustomer()") &&
             dayController.Contains("CloseShopAndShowSummary();"));
         AssertTrue("StationCustomerPanel exposes active interaction state", stationCustomerPanel.Contains("HasActiveInteraction => ActiveCustomer is not null"));
-        AssertTrue("StationCustomerPanel exposes queue state", stationCustomerPanel.Contains("HasQueuedCustomers => _customers.Count > 0"));
-        AssertTrue("StationCustomerPanel exposes the next customer button for tutorial flow", stationCustomerPanel.Contains("public Button? GetNextCustomerButton()"));
+        AssertTrue("StationCustomerPanel does not build visible customer queue controls",
+            !stationCustomerPanel.Contains("Customer Queue") &&
+            !stationCustomerPanel.Contains("QueueTitle") &&
+            !stationCustomerPanel.Contains("Name = \"Queue\"") &&
+            !stationCustomerPanel.Contains("BuildQueueLabel") &&
+            !stationCustomerPanel.Contains("GetNextCustomerButton") &&
+            !stationCustomerPanel.Contains("HasQueuedCustomers"));
+        AssertTrue("DayController shows the next customer without preloading a station panel queue",
+            dayController.Contains("TryShowNextCustomer()") &&
+            !dayController.Contains("TryShowQueuedCustomers()"));
     }
 
     private static void TestShopSummaryClearsCustomerPresentation()
@@ -137,6 +183,42 @@ internal static class CustomerFlowTests
         AssertTrue("StationCustomerPanel gates serving while plot dialogue is active",
             stationCustomerPanel.Contains("private bool CanServeActiveCustomer()") &&
             stationCustomerPanel.Contains("return !HasActiveDialogueInteraction() || _sellingMode;"));
+    }
+
+    private static void TestActiveCustomerRequestPersistsAcrossSceneReloads()
+    {
+        var gameState = ReadProjectFile("Scripts/Autoload/GameState.cs");
+        var saveData = ReadProjectFile("Scripts/Persistence/SaveData.cs");
+        var dayController = ReadProjectFile("Scripts/Controllers/DayController.cs");
+        var stationCustomerPanel = ReadProjectFile("Scripts/UI/StationCustomerPanel.cs");
+
+        AssertTrue("GameState persists the active shop session and customer interaction id",
+            gameState.Contains("IsShopDayOpen") &&
+            gameState.Contains("ActiveCustomerInteractionId") &&
+            gameState.Contains("RecordShopDayCustomerArrived") &&
+            gameState.Contains("EnsureActiveShopCustomerForRequest(request);") &&
+            saveData.Contains("ActiveCustomerInteractionId") &&
+            saveData.Contains("ShopDayCustomersArrived"));
+        AssertTrue("GameState snapshots active shop-day counters for scene reloads and saves",
+            gameState.Contains("ShopDayCustomersServed") &&
+            gameState.Contains("ShopDaySuccessfulSales") &&
+            gameState.Contains("ShopDayFailedSales") &&
+            gameState.Contains("ShopDayGoldEarned") &&
+            gameState.Contains("ShopDayDreadChange") &&
+            saveData.Contains("ShopDayDreadChange"));
+        AssertTrue("DayController defers active shop restore until scene UI nodes finish ready",
+            dayController.Contains("Callable.From(RestoreShopDayState).CallDeferred();") &&
+            dayController.Contains("_stationCustomerPanel.RestoreActiveCustomer(interaction);") &&
+            dayController.Contains("EmitShopStateChanged();") &&
+            dayController.Contains("if (TryShowNextCustomer())") &&
+            dayController.Contains("CloseShopAndShowSummary();"));
+        AssertTrue("StationCustomerPanel does not clear global request state during scene initialization",
+            CountOccurrences(stationCustomerPanel, "ShowEmptyCustomerPresentation(clearActiveRequest: false);") >= 2 &&
+            stationCustomerPanel.Contains("public void RestoreActiveCustomer(CustomerInteractionDef customer)") &&
+            stationCustomerPanel.Contains("TryRestorePublishedRequest(interaction, emitShownSignal)"));
+        AssertTrue("Explicit customer clearing still clears active request state",
+            stationCustomerPanel.Contains("public void ClearCustomers()") &&
+            stationCustomerPanel.Contains("ShowEmptyCustomerPresentation(clearActiveRequest: true);"));
     }
 
     private static void TestForcedCustomerFallbackResolvesLegacyIdsDeterministically()
@@ -181,6 +263,10 @@ internal static class CustomerFlowTests
         AssertTrue("Customer draws use weighted selection", customerController.Contains("PickWeightedIndex"));
         AssertTrue("DataDb parses customer difficulty", dataDb.Contains("Difficulty = Math.Max(1, ReadInt(entry, \"difficulty\", 1))"));
         AssertTrue("DataDb parses customer outcome effects", dataDb.Contains("OnSuccessEffects = ParseEffects(ReadArray(entry, \"onSuccessEffects\"))"));
+        AssertTrue("DataDb parses customer arrival effects", dataDb.Contains("OnArrivalEffects = ParseEffects(ReadArray(entry, \"onArrivalEffects\"))"));
+        AssertTrue("DataDb parses item restock effects", dataDb.Contains("RestockItemId = ReadNullableString(entry, \"restockItemId\")"));
+        AssertTrue("DataDb parses ingredient preparation method unlock effects", dataDb.Contains("EnableIngredientPreparationMethodId"));
+        AssertTrue("DataDb parses hidden customer request details", dataDb.Contains("HideRequestDetails = ReadBool(entry, \"hideRequestDetails\")"));
         AssertTrue("DataDb parses day requirements", dataDb.Contains("DayMin = ReadNullableInt(entry, \"dayMin\")"));
         AssertTrue("DataDb parses story flag requirements", dataDb.Contains("HasStoryFlag = ReadNullableString(entry, \"hasStoryFlag\")"));
         AssertTrue("GameState stores story flags", gameState.Contains("HashSet<string> StoryFlags"));
@@ -189,6 +275,7 @@ internal static class CustomerFlowTests
         AssertTrue("GameState records story customer outcomes", gameState.Contains("RecordStoryCustomerInteractionOutcome"));
         AssertTrue("Customer draws exclude story visits that already arrived", customerController.Contains("HasStoryCustomerVisitArrived(interaction)"));
         AssertTrue("Customer draws mark story customer arrivals", customerController.Contains("RecordStoryCustomerArrived(interaction)"));
+        AssertTrue("Customer draws apply arrival effects", customerController.Contains("ApplyArrivalEffects(interaction, state)") && customerController.Contains("EffectApplier.Apply(state, effect)"));
         AssertTrue("Story customer visits persist in save snapshots", saveData.Contains("List<StoryCustomerVisitRecord> StoryCustomerVisits"));
         AssertTrue("Story customer visit records track arrival and outcome", storyVisit.Contains("HasArrived") && storyVisit.Contains("LastOutcome"));
         AssertTrue("Requirements check story flags", requirements.Contains("state.HasStoryFlag(req.HasStoryFlag!)"));
@@ -197,6 +284,22 @@ internal static class CustomerFlowTests
             effects.Contains("state.ConsumeEachIngredient(ingredientQty)") &&
             gameState.Contains("public int ConsumeEachIngredient(int qty)") &&
             dataDb.Contains("ConsumeEachIngredientQty = ReadNullableInt(entry, \"consumeEachIngredientQty\")"));
+        AssertTrue("Effects can restock items to a minimum quantity",
+            effects.Contains("state.RestockItemToMinimum(e.RestockItemId!, e.RestockItemQty ?? 1)") &&
+            gameState.Contains("public void RestockItemToMinimum(string itemId, int qty)") &&
+            ReadProjectFile("Scripts/Systems/InventoryState.cs").Contains("RestockItemToMinimum(string itemId, int minimumQuantity)"));
+        AssertTrue("Effects can enable a single ingredient preparation method",
+            effects.Contains("state.SetIngredientPreparationMethodEnabled(e.EnableIngredientPreparationMethodId!, true)") &&
+            gameState.Contains("public void SetIngredientPreparationMethodEnabled(string preparationId, bool enabled)") &&
+            dataDb.Contains("enableIngredientPreparationMethodId"));
+        AssertTrue("Preparation unlock effects reveal that preparation for current inventory ingredients",
+            effects.Contains("state.UnlockIngredientPreparationForCurrentInventory(e.EnableIngredientPreparationMethodId!)") &&
+            gameState.Contains("public void UnlockIngredientPreparationForCurrentInventory(string preparationId)") &&
+            gameState.Contains("TryGetPreparationForCurrentInventoryItem(pair.Key, normalizedPreparationId, out var ingredientId)"));
+        AssertTrue("Authored data validates arrival effects", ReadProjectFile("Scripts/Systems/AuthoredDataValidator.cs").Contains("interaction.OnArrivalEffects"));
+        AssertTrue("Authored data validates ingredient preparation method unlock effects",
+            ReadProjectFile("Scripts/Systems/AuthoredDataValidator.cs").Contains("effect.EnableIngredientPreparationMethodId") &&
+            ReadProjectFile("Scripts/Systems/AuthoredDataValidator.cs").Contains("IngredientPreparationCatalog.IsKnownPreparationId"));
         AssertTrue("CustomerSaleService applies success and failure effects", saleService.Contains("ApplyOutcomeEffects(isSuccess ? interaction.OnSuccessEffects : interaction.OnFailureEffects)"));
         AssertTrue("CustomerSaleService applies refusal effects", saleService.Contains("interaction.OnPotionRefusedEffects.Count > 0") && saleService.Contains("interaction.OnSkipEffects"));
         AssertTrue("CustomerSaleService records story sale outcomes", saleService.Contains("StoryCustomerOutcomeSuccess") && saleService.Contains("StoryCustomerOutcomeFailure"));
@@ -369,6 +472,9 @@ internal static class CustomerFlowTests
         AssertTrue("Customer requests store desired and bad trait ranges",
             customerDef.Contains("Dictionary<string, CustomerTraitRangeDef> DesiredTraits") &&
             customerDef.Contains("Dictionary<string, CustomerTraitRangeDef> BadTraits"));
+        AssertTrue("Customer requests can hide authored request details",
+            customerDef.Contains("HideRequestDetails") &&
+            formatter.Contains("HiddenRequestText"));
         AssertTrue("DataDb parses desired and bad trait ranges",
             dataDb.Contains("ReadTraitRangeDictionary(entry, \"desiredTraits\", legacyIntIsMinimum: true)") &&
             dataDb.Contains("ReadTraitRangeDictionary(entry, \"badTraits\", legacyIntIsMinimum: false)"));
@@ -416,14 +522,17 @@ internal static class CustomerFlowTests
             formatter.Contains("prep"));
     }
 
-    private static void TestTieredCustomerDataIsDayOneFlexibleTraitCatalog()
+    private static void TestTieredCustomerDataIsEarlyFlexibleTraitCatalog()
     {
         var tieredCustomers = ReadProjectFile("Data/customers_tiered_test_data.tres");
         var catalog = ReadProjectFile("Data/customers_tiered_test_catalog.md");
 
-        AssertTrue("Tiered customer data has no later-day gates",
+        var dayOneGateCount = CountOccurrences(tieredCustomers, "\"dayMin\": 1");
+        var dayTwoGateCount = CountOccurrences(tieredCustomers, "\"dayExact\": 2");
+        AssertTrue("Tiered customer data only gates scripted requests to day one or scripted day-two customers",
             !tieredCustomers.Contains("\"dayMax\"") &&
-            CountOccurrences(tieredCustomers, "\"requires\":") == CountOccurrences(tieredCustomers, "\"dayMin\": 1"));
+            dayTwoGateCount == 3 &&
+            CountOccurrences(tieredCustomers, "\"requires\":") == dayOneGateCount + dayTwoGateCount);
         AssertTrue("Tiered customer data avoids hard ingredient and prep locks",
             !tieredCustomers.Contains("\"requiredIngredientAmounts\"") &&
             !tieredCustomers.Contains("\"requiredMinTraits\"") &&
@@ -445,6 +554,64 @@ internal static class CustomerFlowTests
             tieredCustomers.Contains("\"melancholy\"") &&
             tieredCustomers.Contains("\"corruption\"") &&
             tieredCustomers.Contains("\"insomnia\""));
+        AssertTrue("Tiered customer data includes the deterministic opening request",
+            tieredCustomers.Contains("\"id\": \"customer_requests_opening_gravekeepers_balm\"") &&
+            tieredCustomers.Contains("\"cleanse\": { \"min\": 4, \"max\": 4 }") &&
+            tieredCustomers.Contains("\"mend\": { \"min\": 4, \"max\": 4 }") &&
+            tieredCustomers.Contains("\"soothe\": { \"min\": 4, \"max\": 4 }") &&
+            catalog.Contains("Deterministic first shop customer"));
+        AssertTrue("Tiered customer data includes the deterministic second request and arrival grant",
+            tieredCustomers.Contains("\"id\": \"customer_requests_opening_silver_focus_tonic\"") &&
+            tieredCustomers.Contains("\"courage\": { \"min\": 8, \"max\": 8 }") &&
+            tieredCustomers.Contains("\"clarity\": { \"min\": 2, \"max\": 2 }") &&
+            tieredCustomers.Contains("\"vigor\": { \"min\": 3, \"max\": 3 }") &&
+            tieredCustomers.Contains("\"onArrivalEffects\"") &&
+            tieredCustomers.Contains("\"addItemId\": \"comfrey\"") &&
+            tieredCustomers.Contains("\"addItemId\": \"willow\"") &&
+            tieredCustomers.Contains("\"addItemId\": \"yarrow\"") &&
+            catalog.Contains("Deterministic second shop customer"));
+        AssertTrue("Tiered customer data includes the deterministic third request and restock grant",
+            tieredCustomers.Contains("\"id\": \"customer_requests_opening_clean_vigor_tonic\"") &&
+            tieredCustomers.Contains("\"cleanse\": { \"min\": 7, \"max\": 7 }") &&
+            tieredCustomers.Contains("\"soothe\": { \"min\": 4, \"max\": 4 }") &&
+            tieredCustomers.Contains("\"vigor\": { \"min\": 3, \"max\": 3 }") &&
+            tieredCustomers.Contains("\"restockItemId\": \"mint\"") &&
+            tieredCustomers.Contains("\"restockItemId\": \"gorse\"") &&
+            tieredCustomers.Contains("\"restockItemId\": \"thyme\"") &&
+            tieredCustomers.Contains("\"restockItemId\": \"comfrey\"") &&
+            tieredCustomers.Contains("\"restockItemId\": \"willow\"") &&
+            tieredCustomers.Contains("\"restockItemId\": \"yarrow\"") &&
+            tieredCustomers.Contains("\"restockItemQty\": 5") &&
+            catalog.Contains("Deterministic third shop customer"));
+        AssertTrue("Tiered customer data includes the deterministic day-two first request",
+            tieredCustomers.Contains("\"id\": \"customer_requests_day_two_charmed_focus_tonic\"") &&
+            tieredCustomers.Contains("\"dayExact\": 2") &&
+            tieredCustomers.Contains("\"hasStoryFlag\": \"day_two_first_customer_pending\"") &&
+            tieredCustomers.Contains("\"courage\": { \"min\": 8, \"max\": 8 }") &&
+            tieredCustomers.Contains("\"charm\": { \"min\": 4, \"max\": 4 }") &&
+            tieredCustomers.Contains("\"vigor\": { \"min\": 3, \"max\": 3 }") &&
+            catalog.Contains("Deterministic first customer on day 2"));
+        AssertTrue("Tiered customer data includes the hidden deterministic day-two second request",
+            tieredCustomers.Contains("\"id\": \"customer_requests_day_two_crowded_head_tonic\"") &&
+            tieredCustomers.Contains("Please help me. My head feels crowded, my stomach feels off, and I can't focus.") &&
+            tieredCustomers.Contains("\"dayExact\": 2") &&
+            tieredCustomers.Contains("\"hasStoryFlag\": \"day_two_second_customer_pending\"") &&
+            tieredCustomers.Contains("\"hideRequestDetails\": true") &&
+            tieredCustomers.Contains("\"cleanse\": { \"min\": 7, \"max\": 7 }") &&
+            tieredCustomers.Contains("\"soothe\": { \"min\": 5, \"max\": 5 }") &&
+            tieredCustomers.Contains("\"clarity\": { \"min\": 4, \"max\": 4 }") &&
+            CountOccurrences(tieredCustomers, "\"enableIngredientPreparationMethodId\": \"boiled\"") >= 2 &&
+            catalog.Contains("Enables Boiled prep method when served") &&
+            catalog.Contains("desired request details display as `?????`"));
+        AssertTrue("Tiered customer data includes the deterministic day-two third rest memory clarity request",
+            tieredCustomers.Contains("\"id\": \"customer_requests_day_two_rest_memory_clarity\"") &&
+            tieredCustomers.Contains("\"hasStoryFlag\": \"day_two_third_customer_pending\"") &&
+            tieredCustomers.Contains("\"rest\": { \"min\": 5 }") &&
+            tieredCustomers.Contains("\"memory\": { \"min\": 5 }") &&
+            tieredCustomers.Contains("\"clarity\": { \"min\": 4 }") &&
+            tieredCustomers.Contains("\"melancholy\": { \"max\": 0 }") &&
+            tieredCustomers.Contains("\"insomnia\": { \"max\": 0 }") &&
+            catalog.Contains("Deterministic third customer on day 2"));
         AssertTrue("Tiered customer data omits old unsupported traits and risks",
             !tieredCustomers.Contains("\"confusion\"") &&
             !tieredCustomers.Contains("\"nausea\"") &&
@@ -453,8 +620,9 @@ internal static class CustomerFlowTests
             !tieredCustomers.Contains("\"reflexes\"") &&
             !tieredCustomers.Contains("\"empathy\"") &&
             !tieredCustomers.Contains("\"creativity\""));
-        AssertTrue("Tiered customer catalog documents the day-one flexible request design",
-            catalog.Contains("All entries in this catalog are available from day 1") &&
+        AssertTrue("Tiered customer catalog documents the early flexible request design",
+            catalog.Contains("Most entries in this catalog are available from day 1") &&
+            catalog.Contains("deterministic day-two opener") &&
             catalog.Contains("requests avoid hard `requiredIngredientAmounts`") &&
             catalog.Contains("multiple successful recipes"));
     }
@@ -770,6 +938,10 @@ internal static class CustomerFlowTests
             stationCustomerPanel.Contains("BuildCustomerPotionRequestComparisonText") &&
             stationCustomerPanel.Contains("_saleService.GetPotionIngredientPortions(potionItemId)") &&
             formatter.Contains("BuildCustomerPotionRequestComparisonText"));
+        AssertTrue("StationCustomerPanel hides potion fit feedback for hidden requests",
+            stationCustomerPanel.Contains("request.HideRequestDetails") &&
+            stationCustomerPanel.Contains("CustomerDialogueTextFormatter.HiddenRequestText") &&
+            stationCustomerPanel.Contains("ResolveSale(_selectedPotionItemId, _selectedPotionResult);"));
     }
 
     private static void TestCustomerRequestComparisonTextShowsSelectedPotionValues()
@@ -824,6 +996,19 @@ internal static class CustomerFlowTests
             badText.Contains("[color=#E64040]corruption: <= 0 (2)[/color]"));
         AssertTrue("Violated required max trait row is red and shows potion value",
             badText.Contains("[color=#E64040]melancholy <= 1 (2)[/color]"));
+
+        var hiddenRequest = new CustomerRequestDef
+        {
+            HideRequestDetails = true,
+            DesiredTraits = request.DesiredTraits,
+            BadTraits = request.BadTraits,
+            RequiredMinTraits = request.RequiredMinTraits,
+            RequiredMaxTraits = request.RequiredMaxTraits
+        };
+        AssertEqual("Hidden desired request text", "?????", CustomerDialogueTextFormatter.BuildDesiredRequestText(hiddenRequest, producedTraits));
+        AssertEqual("Hidden bad request text", "?????", CustomerDialogueTextFormatter.BuildBadRequestText(hiddenRequest, producedTraits, producedRisks));
+        AssertEqual("Hidden potion comparison text", "?????", CustomerDialogueTextFormatter.BuildCustomerPotionRequestComparisonText(hiddenRequest, producedTraits, producedRisks, null));
+        AssertEqual("Hidden brew checklist text", "?????", CustomerDialogueTextFormatter.BuildBrewingRequestChecklistText(hiddenRequest, producedTraits, producedRisks, null));
     }
 
     private static CustomerTraitRangeDef Range(int? min = null, int? max = null)
@@ -845,14 +1030,25 @@ internal static class CustomerFlowTests
                 AssertTrue(
                     $"{interaction.Id} desired trait '{desired.Key}' has a minimum",
                     desired.Value?.HasMin == true);
-                AssertTrue(
-                    $"{interaction.Id} desired trait '{desired.Key}' has a maximum",
-                    desired.Value?.HasMax == true);
+                if (!AllowsOpenEndedDesiredTraitRanges(interaction.Id))
+                {
+                    AssertTrue(
+                        $"{interaction.Id} desired trait '{desired.Key}' has a maximum",
+                        desired.Value?.HasMax == true);
+                }
 
                 if (desired.Value?.Min is int min && desired.Value.Max is int max)
                     AssertTrue($"{interaction.Id} desired trait '{desired.Key}' has a valid range", min <= max);
             }
         }
+    }
+
+    private static bool AllowsOpenEndedDesiredTraitRanges(string interactionId)
+    {
+        return string.Equals(
+            interactionId,
+            "customer_requests_day_two_rest_memory_clarity",
+            StringComparison.OrdinalIgnoreCase);
     }
 
     private static List<CustomerInteractionDef> ReadAuthoredCustomerInteractions(string projectPath)

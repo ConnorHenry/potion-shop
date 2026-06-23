@@ -61,7 +61,7 @@ public partial class TreatmentTray : Control
 		_clearButton.Pressed += ClearStagedItems;
 		_gameState.Changed += OnGameStateChanged;
 
-		Visible = true;
+		Visible = false;
 		Refresh();
 	}
 

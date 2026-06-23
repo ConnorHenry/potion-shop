@@ -18,6 +18,7 @@ internal static class RuntimeContentAndDataDbTests
         runner.Run("DataDb does not expose runtime registration", TestDataDbDoesNotExposeRuntimeRegistration);
         runner.Run("DataDb reloads authored resource catalogs only", TestDataDbReloadsAuthoredResourceCatalogsOnly);
         runner.Run("Authored ingredient preparations expose two trait prep contract", TestAuthoredIngredientPreparationsExposeTwoTraitPrepContract);
+        runner.Run("Authored boiled preparations define mini game failure risks", TestAuthoredBoiledPreparationsDefineMiniGameFailureRisks);
         runner.Run("UI lookup uses the runtime-first item catalog", TestUiLookupUsesRuntimeFirstCatalog);
     }
 
@@ -79,6 +80,23 @@ internal static class RuntimeContentAndDataDbTests
     {
         var items = ReadAuthoredItems();
         var preparationIds = IngredientPreparationCatalog.AllOptions.Select(x => x.Id).ToList();
+        var expectedBoiledRiskByTrait = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["dream"] = "melancholy",
+            ["cleanse"] = "corruption",
+            ["vigor"] = "insomnia",
+            ["calm"] = "drowsiness",
+            ["soothe"] = "drowsiness",
+            ["charm"] = "insomnia",
+            ["courage"] = "melancholy",
+            ["clarity"] = "insomnia",
+            ["mend"] = "corruption",
+            ["rest"] = "insomnia",
+            ["discipline"] = "corruption",
+            ["warmth"] = "melancholy",
+            ["memory"] = "melancholy",
+            ["luck"] = "insomnia"
+        };
 
         foreach (var item in items.Where(IsBaseIngredient))
         {
@@ -111,12 +129,61 @@ internal static class RuntimeContentAndDataDbTests
 
             AssertEqual($"{item.Id} raw risk count", 0, CountPositiveRisks(item.Preparations[IngredientPreparationCatalog.RawPreparationId]));
             AssertEqual($"{item.Id} crushed risk count", 0, CountPositiveRisks(item.Preparations[IngredientPreparationCatalog.CrushedPreparationId]));
+            AssertEqual($"{item.Id} boiled risk count", 1, CountPositiveRisks(item.Preparations[IngredientPreparationCatalog.BoiledPreparationId]));
+            var boiledRisk = GetSinglePreparationRisk(item, IngredientPreparationCatalog.BoiledPreparationId);
+            AssertEqual($"{item.Id} boiled risk chance", 1, boiledRisk.Value);
+            var hasExpectedRisk = expectedBoiledRiskByTrait.TryGetValue(boiledTrait.Key, out var mappedRisk);
+            var expectedRisk = mappedRisk ?? string.Empty;
+            AssertTrue($"{item.Id} boiled trait has expected risk mapping", hasExpectedRisk);
+            AssertEqual($"{item.Id} boiled risk matches trait", expectedRisk, boiledRisk.Key.ToLowerInvariant());
 
             var steepedRiskCount = CountPositiveRisks(item.Preparations[IngredientPreparationCatalog.SteepedPreparationId]);
-            var boiledRiskCount = CountPositiveRisks(item.Preparations[IngredientPreparationCatalog.BoiledPreparationId]);
-            AssertEqual($"{item.Id} has exactly one risky high prep", 1, (steepedRiskCount > 0 ? 1 : 0) + (boiledRiskCount > 0 ? 1 : 0));
             AssertTrue($"{item.Id} steeped risk count is singular", steepedRiskCount <= 1);
-            AssertTrue($"{item.Id} boiled risk count is singular", boiledRiskCount <= 1);
+        }
+    }
+
+    private static void TestAuthoredBoiledPreparationsDefineMiniGameFailureRisks()
+    {
+        var items = ReadAuthoredItems().Where(IsBaseIngredient).ToList();
+        var serializedConfigs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var item in items)
+        {
+            AssertTrue($"{item.Id} defines boiled", item.Preparations.TryGetValue(IngredientPreparationCatalog.BoiledPreparationId, out var boiled));
+            if (!item.Preparations.TryGetValue(IngredientPreparationCatalog.BoiledPreparationId, out boiled))
+                continue;
+
+            var boilingGame = boiled.BoilingGame;
+            AssertTrue($"{item.Id} boiled mini game exists", boilingGame is not null);
+            if (boilingGame is null)
+                continue;
+
+            AssertTrue($"{item.Id} failure risk required", !string.IsNullOrWhiteSpace(boilingGame.FailureRiskId));
+            AssertTrue($"{item.Id} temperature target range",
+                boilingGame.TemperatureTargetMin >= 0.0f &&
+                boilingGame.TemperatureTargetMax <= 1.0f &&
+                boilingGame.TemperatureTargetMin < boilingGame.TemperatureTargetMax);
+            AssertTrue($"{item.Id} doneness window range",
+                boilingGame.DonenessWindowStart >= 0.0f &&
+                boilingGame.DonenessWindowEnd <= 1.0f &&
+                boilingGame.DonenessWindowStart < boilingGame.DonenessWindowEnd);
+            AssertTrue($"{item.Id} positive timing",
+                boilingGame.TemperatureHoldSeconds > 0.0f &&
+                boilingGame.HeatLockSeconds > 0.0f &&
+                boilingGame.DonenessDurationSeconds > 0.0f &&
+                boilingGame.StirringHoldSeconds > 0.0f);
+            AssertTrue($"{item.Id} positive heat rates",
+                boilingGame.HeatRiseRate > 0.0f &&
+                boilingGame.HeatFallRate > 0.0f);
+
+            var configKey = string.Join("|",
+                boilingGame.TemperatureTargetMin,
+                boilingGame.TemperatureTargetMax,
+                boilingGame.DonenessWindowStart,
+                boilingGame.DonenessWindowEnd,
+                boilingGame.StirringRhythm,
+                boilingGame.FailureRiskId);
+            AssertTrue($"{item.Id} has unique boiling tuning", serializedConfigs.Add(configKey));
         }
     }
 
@@ -128,6 +195,16 @@ internal static class RuntimeContentAndDataDbTests
 
         AssertEqual($"{item.Id} {preparationId} trait count", 1, preparation.Traits.Count);
         return preparation.Traits.First();
+    }
+
+    private static KeyValuePair<string, int> GetSinglePreparationRisk(ItemDef item, string preparationId)
+    {
+        AssertTrue($"{item.Id} defines {preparationId}", item.Preparations.TryGetValue(preparationId, out var preparation));
+        if (!item.Preparations.TryGetValue(preparationId, out preparation))
+            return default;
+
+        AssertEqual($"{item.Id} {preparationId} risk count", 1, CountPositiveRisks(preparation));
+        return preparation.Risks.First(risk => !string.IsNullOrWhiteSpace(risk.Key) && risk.Value > 0);
     }
 
     private static int CountPositiveRisks(IngredientPreparationDef preparation)

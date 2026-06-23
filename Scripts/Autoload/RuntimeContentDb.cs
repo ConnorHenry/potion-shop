@@ -381,11 +381,34 @@ public partial class RuntimeContentDb : Node
 				Id = pair.Value.Id,
 				Name = pair.Value.Name,
 				Traits = pair.Value.Traits is null ? new Dictionary<string, int>() : new Dictionary<string, int>(pair.Value.Traits),
-				Risks = pair.Value.Risks is null ? new Dictionary<string, int>() : new Dictionary<string, int>(pair.Value.Risks)
+				Risks = pair.Value.Risks is null ? new Dictionary<string, int>() : new Dictionary<string, int>(pair.Value.Risks),
+				BoilingGame = CloneBoilingMiniGame(pair.Value.BoilingGame)
 			};
 		}
 
 		return clones;
+	}
+
+	private static BoilingMiniGameDef? CloneBoilingMiniGame(BoilingMiniGameDef? value)
+	{
+		if (value is null)
+			return null;
+
+		return new BoilingMiniGameDef
+		{
+			TemperatureTargetMin = value.TemperatureTargetMin,
+			TemperatureTargetMax = value.TemperatureTargetMax,
+			TemperatureHoldSeconds = value.TemperatureHoldSeconds,
+			HeatLockSeconds = value.HeatLockSeconds,
+			HeatRiseRate = value.HeatRiseRate,
+			HeatFallRate = value.HeatFallRate,
+			DonenessDurationSeconds = value.DonenessDurationSeconds,
+			DonenessWindowStart = value.DonenessWindowStart,
+			DonenessWindowEnd = value.DonenessWindowEnd,
+			StirringRhythm = value.StirringRhythm,
+			StirringHoldSeconds = value.StirringHoldSeconds,
+			FailureRiskId = value.FailureRiskId
+		};
 	}
 
 	private static List<IngredientEffectDef> CloneIngredientEffects(List<IngredientEffectDef>? effects)

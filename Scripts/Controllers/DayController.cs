@@ -60,7 +60,7 @@ public partial class DayController : Node
 		_stationCustomerPanel.CustomerQueueEmptied += OnStationCustomerQueueEmptied;
 		_daySummaryPanel.ContinuePressed += OnSummaryContinuePressed;
 		_daySummaryPanel.HidePanel();
-		EmitShopStateChanged();
+		Callable.From(RestoreShopDayState).CallDeferred();
 	}
 
 	public override void _ExitTree()
@@ -87,10 +87,11 @@ public partial class DayController : Node
 		_customersArrived = 0;
 		_closeShopAfterCurrentCustomer = false;
 		IsShopOpen = true;
+		_gameState.BeginShopDayState();
 		EmitShopStateChanged();
 		_customerEventController.BeginShopDay();
 
-		if (!TryShowQueuedCustomers())
+		if (!TryShowNextCustomer())
 		{
 			CloseShopAndShowSummary();
 			return;
@@ -103,6 +104,7 @@ public partial class DayController : Node
 			return;
 
 		_closeShopAfterCurrentCustomer = true;
+		_gameState.RequestCloseShopAfterCurrentCustomer();
 		EmitShopStateChanged();
 	}
 
@@ -143,6 +145,7 @@ public partial class DayController : Node
 		else
 			_shopDayStats.FailedSales += 1;
 
+		_gameState.RecordShopDaySale(success, goldDelta, dreadDelta);
 		EmitShopStateChanged();
 	}
 
@@ -159,13 +162,15 @@ public partial class DayController : Node
 		if (!IsShopOpen)
 			return;
 
-		if (_closeShopAfterCurrentCustomer || !_stationCustomerPanel.HasQueuedCustomers)
+		_gameState.ClearActiveShopCustomer();
+		if (ShouldCloseShopAfterCurrentCustomer())
 		{
 			CloseShopAndShowSummary();
 			return;
 		}
 
-		EmitShopStateChanged();
+		if (!TryShowNextCustomer())
+			CloseShopAndShowSummary();
 	}
 
 	private void OnStationCustomerQueueEmptied()
@@ -176,28 +181,27 @@ public partial class DayController : Node
 		CloseShopAndShowSummary();
 	}
 
-	private bool TryShowQueuedCustomers()
+	private bool TryShowNextCustomer()
 	{
 		if (!IsShopOpen)
 			return false;
 
-		var customers = new System.Collections.Generic.List<OccultShop.Models.CustomerInteractionDef>();
-		while (_customersArrived < MaxCustomersPerShopDay)
-		{
-			var interaction = _customerEventController.DrawShopDayCustomerInteraction(_dataDb, _gameState);
-			if (interaction is null)
-				break;
-
-			customers.Add(interaction);
-			_customersArrived += 1;
-		}
-
-		if (customers.Count == 0)
+		if (_customersArrived >= MaxCustomersPerShopDay)
 		{
 			_stationCustomerPanel.ClearCustomers();
 			return false;
 		}
 
+		var interaction = _customerEventController.DrawShopDayCustomerInteraction(_dataDb, _gameState);
+		if (interaction is null)
+		{
+			_stationCustomerPanel.ClearCustomers();
+			return false;
+		}
+
+		var customers = new System.Collections.Generic.List<OccultShop.Models.CustomerInteractionDef> { interaction };
+		_gameState.RecordShopDayCustomerArrived(interaction);
+		_customersArrived = _gameState.ShopDayCustomersArrived;
 		_stationCustomerPanel.SetCustomers(customers);
 		_brewPanel.ShowPanel();
 		EmitShopStateChanged();
@@ -220,6 +224,7 @@ public partial class DayController : Node
 			_shopDayStats.DreadChange,
 			_gameState.Gold,
 			_gameState.Dread);
+		_gameState.CloseShopDayState();
 
 		EmitShopStateChanged();
 	}
@@ -240,6 +245,62 @@ public partial class DayController : Node
 		return _closeShopAfterCurrentCustomer || _customersArrived >= MaxCustomersPerShopDay;
 	}
 
+	private void RestoreShopDayState()
+	{
+		IsShopOpen = _gameState.IsShopDayOpen;
+		_customersArrived = _gameState.ShopDayCustomersArrived;
+		_closeShopAfterCurrentCustomer = _gameState.CloseShopAfterCurrentCustomer;
+		_shopDayStats.Restore(
+			_gameState.ShopDayCustomersServed,
+			_gameState.ShopDaySuccessfulSales,
+			_gameState.ShopDayFailedSales,
+			_gameState.ShopDayGoldEarned,
+			_gameState.ShopDayDreadChange);
+
+		if (!IsShopOpen)
+		{
+			_brewPanel.HidePanel();
+			EmitShopStateChanged();
+			return;
+		}
+
+		_brewPanel.ShowPanel();
+		if (TryResolveActiveCustomerInteraction(out var interaction) && interaction is not null)
+		{
+			_stationCustomerPanel.RestoreActiveCustomer(interaction);
+			EmitShopStateChanged();
+			return;
+		}
+
+		GD.PushError("DayController: Shop day was open but no active customer could be restored. Advancing to the next customer.");
+		if (TryShowNextCustomer())
+			return;
+
+		CloseShopAndShowSummary();
+	}
+
+	private bool TryResolveActiveCustomerInteraction(out OccultShop.Models.CustomerInteractionDef? interaction)
+	{
+		interaction = null;
+		var interactionId = _gameState.ActiveCustomerInteractionId;
+		if (string.IsNullOrWhiteSpace(interactionId))
+			interactionId = _gameState.ActiveCustomerRequest?.Id ?? string.Empty;
+		if (string.IsNullOrWhiteSpace(interactionId))
+			return false;
+
+		foreach (var candidate in _dataDb.CustomerInteractions)
+		{
+			if (!string.Equals(candidate.Id, interactionId, StringComparison.OrdinalIgnoreCase))
+				continue;
+
+			interaction = candidate;
+			return true;
+		}
+
+		GD.PushError($"DayController: Active customer interaction '{interactionId}' was not found in authored data.");
+		return false;
+	}
+
 	private sealed class ShopDayStats
 	{
 		public int CustomersServed { get; set; }
@@ -255,6 +316,15 @@ public partial class DayController : Node
 			FailedSales = 0;
 			GoldEarned = 0;
 			DreadChange = 0;
+		}
+
+		public void Restore(int customersServed, int successfulSales, int failedSales, int goldEarned, int dreadChange)
+		{
+			CustomersServed = Math.Max(0, customersServed);
+			SuccessfulSales = Math.Max(0, successfulSales);
+			FailedSales = Math.Max(0, failedSales);
+			GoldEarned = goldEarned;
+			DreadChange = dreadChange;
 		}
 	}
 }

@@ -32,8 +32,8 @@ public sealed class GardenState
 		CreateGardenCrop("heather", growthDays: 1),
 		CreateGardenCrop("mint", growthDays: 2),
 		CreateGardenCrop("elder", growthDays: 1),
-		CreateGardenCrop("rosemary", growthDays: 3),
-		CreateGardenCrop("willow", growthDays: 2),
+		CreateGardenCrop("rosemary", growthDays: 1),
+		CreateGardenCrop("willow", growthDays: 1),
 		CreateGardenCrop("juniper", growthDays: 3),
 		CreateGardenCrop("comfrey", growthDays: 1)
 	};
@@ -43,9 +43,9 @@ public sealed class GardenState
 		.ToDictionary(x => x.SeedId, x => x, StringComparer.OrdinalIgnoreCase);
 	private static readonly (string SeedId, int Quantity)[] StartingSeedInventory =
 	{
-		("seed_yarrow", 1),
-		("seed_gorse", 1),
-		("seed_thyme", 1)
+		("seed_willow", 1),
+		("seed_heather", 1),
+		("seed_rosemary", 1)
 	};
 
 	private readonly Func<string, bool> _itemExists;

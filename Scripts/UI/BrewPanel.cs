@@ -30,6 +30,8 @@ public partial class BrewPanel : Control
 	private const float MinimumCursorDropDistance = 140.0f;
 	private const int PreviewTraitLineCount = 4;
 	private const int PreviewRiskLineCount = 4;
+	private const string IngredientImpactSoundPath = "res://Assets/Audio/SFX/ingredient_cauldron_hit.mp3";
+	private const float IngredientImpactVolumeDb = -5.0f;
 
 	[Export] public NodePath BrewBoxPath = default!;
 	[Export] public NodePath IngredientSlotOnePath = default!;
@@ -76,6 +78,7 @@ public partial class BrewPanel : Control
 	private ItemCatalogService _itemCatalog = default!;
 	private CauldronSmokeEffect? _cauldronSmokeEffect;
 	private BrewingStationFireGlow? _fireGlowEffect;
+	private AudioStreamPlayer? _ingredientImpactPlayer;
 	private readonly List<IngredientPortionDef> _queuedIngredients = new();
 	private readonly PotionRecipeLookup _predefinedPotionRecipes = new();
 	private readonly PotionBrewingService _brewingService = new();
@@ -88,6 +91,7 @@ public partial class BrewPanel : Control
 	private int _draggingSlotIndex = -1;
 	private Vector2 _dragStartGlobalPosition = Vector2.Zero;
 	private bool _slotDragThresholdReached;
+	private bool _queuedBrewPanelRefresh;
 	private readonly List<IngredientDropAnimation> _dropAnimations = new();
 
 	public override void _Ready()
@@ -150,6 +154,7 @@ public partial class BrewPanel : Control
 		_fireGlowEffect = GetNodeOrNull<BrewingStationFireGlow>(FireGlowEffectPath);
 		if (_fireGlowEffect is null)
 			GD.PushError($"BrewPanel: BrewingStationFireGlow was not found at '{FireGlowEffectPath}'.");
+		CreateIngredientImpactPlayer();
 		_requestChecklistLabel.BbcodeEnabled = true;
 
 		SetInteractiveCursor(_ingredientSlotOneContainer);
@@ -168,6 +173,7 @@ public partial class BrewPanel : Control
 		_ingredientSlotTwoContainer.GuiInput += _slotTwoGuiInputHandler;
 		_ingredientSlotThreeContainer.GuiInput += _slotThreeGuiInputHandler;
 		Visible = false;
+		SyncQueuedIngredientsFromGameState();
 		RefreshIngredientIcons();
 		SetProcess(false);
 	}
@@ -279,7 +285,7 @@ public partial class BrewPanel : Control
 
 			animation.Icon.QueueFree();
 			_dropAnimations.RemoveAt(i);
-			PlayCauldronSmokeBurst();
+			PlayIngredientImpactReaction();
 		}
 
 		if (_dropAnimations.Count == 0)
@@ -342,7 +348,7 @@ public partial class BrewPanel : Control
 			item.IconPath,
 			startCenterGlobalPosition,
 			endCenterGlobalPosition,
-			PlayCauldronSmokeBurst))
+			PlayIngredientImpactReaction))
 			return;
 
 		var texture = UiIconLoader.LoadIcon(item.IconPath);
@@ -385,10 +391,43 @@ public partial class BrewPanel : Control
 			_fireGlowEffect.PlayIgnitionBurst();
 	}
 
+	private void PlayIngredientImpactReaction()
+	{
+		PlayIngredientImpactSound();
+		PlayCauldronSmokeBurst();
+	}
+
+	private void PlayIngredientImpactSound()
+	{
+		if (_ingredientImpactPlayer is null || !GodotObject.IsInstanceValid(_ingredientImpactPlayer))
+			return;
+
+		_ingredientImpactPlayer.Stop();
+		_ingredientImpactPlayer.Play();
+	}
+
 	private void PlayCauldronSmokeBurst()
 	{
 		if (_cauldronSmokeEffect is not null && GodotObject.IsInstanceValid(_cauldronSmokeEffect))
 			_cauldronSmokeEffect.PlayRandomBurst();
+	}
+
+	private void CreateIngredientImpactPlayer()
+	{
+		var stream = ResourceLoader.Load<AudioStream>(IngredientImpactSoundPath);
+		if (stream is null)
+		{
+			GD.PushError($"BrewPanel: Ingredient impact sound was not found at '{IngredientImpactSoundPath}'.");
+			return;
+		}
+
+		_ingredientImpactPlayer = new AudioStreamPlayer
+		{
+			Name = "IngredientImpactPlayer",
+			Stream = stream,
+			VolumeDb = IngredientImpactVolumeDb
+		};
+		AddChild(_ingredientImpactPlayer);
 	}
 
 	private static CanvasLayer CreateDropAnimationLayer()
@@ -482,9 +521,28 @@ public partial class BrewPanel : Control
 		}
 
 		_queuedIngredients.Add(queuedIngredient);
-		RefreshIngredientIcons();
+		_gameState.SetQueuedBrewIngredients(_queuedIngredients);
+		ScheduleBrewPanelRefresh();
 		EmitSignal(SignalName.IngredientQueued, itemId, _queuedIngredients.Count);
 		return true;
+	}
+
+	private void ScheduleBrewPanelRefresh()
+	{
+		if (_queuedBrewPanelRefresh)
+			return;
+
+		_queuedBrewPanelRefresh = true;
+		CallDeferred(nameof(ApplyQueuedBrewPanelRefresh));
+	}
+
+	private void ApplyQueuedBrewPanelRefresh()
+	{
+		_queuedBrewPanelRefresh = false;
+		if (!IsInsideTree())
+			return;
+
+		RefreshIngredientIcons();
 	}
 
 	private bool TryBuildQueuedIngredientPortion(
@@ -517,12 +575,14 @@ public partial class BrewPanel : Control
 		ResetSlotDragState();
 		ClearDropAnimations();
 		_queuedIngredients.Clear();
-		RefreshIngredientIcons();
+		_gameState.ClearQueuedBrewIngredients();
+		ScheduleBrewPanelRefresh();
 	}
 
 	private void OnGameStateChanged()
 	{
-		RefreshBrewPreview();
+		SyncQueuedIngredientsFromGameState();
+		RefreshIngredientIcons();
 	}
 
 	private void TryBrew()
@@ -632,6 +692,7 @@ public partial class BrewPanel : Control
 		EmitSignal(SignalName.PotionBrewed, potionItemId);
 		PlayCauldronReactionBurst();
 		_queuedIngredients.Clear();
+		_gameState.ClearQueuedBrewIngredients();
 		ResetSlotDragState();
 		RefreshIngredientIcons();
 		RefreshBrewTraitRiskPreview(brewResult, showCarriedRisks: true);
@@ -678,7 +739,14 @@ public partial class BrewPanel : Control
 			return;
 
 		_queuedIngredients.RemoveAt(slotIndex);
-		RefreshIngredientIcons();
+		_gameState.SetQueuedBrewIngredients(_queuedIngredients);
+		ScheduleBrewPanelRefresh();
+	}
+
+	private void SyncQueuedIngredientsFromGameState()
+	{
+		_queuedIngredients.Clear();
+		_queuedIngredients.AddRange(_gameState.CloneQueuedBrewIngredients());
 	}
 
 	private bool IsPointInsideAnyIngredientSlot(Vector2 globalPosition)
@@ -771,7 +839,7 @@ public partial class BrewPanel : Control
 			: BrewPanelTextFormatter.BuildStatListText(previewResult.Traits, PreviewTraitLineCount);
 
 		_previewRisksLabel.Text = previewResult is null || !showCarriedRisks
-			? BrewPanelTextFormatter.BuildCarriedRiskListText(new Dictionary<string, int>(), PreviewRiskLineCount)
+			? BrewPanelTextFormatter.BuildRiskChanceListText(previewResult?.PossibleRisks ?? new Dictionary<string, int>(), PreviewRiskLineCount)
 			: BrewPanelTextFormatter.BuildCarriedRiskListText(previewResult.Risks, PreviewRiskLineCount);
 	}
 

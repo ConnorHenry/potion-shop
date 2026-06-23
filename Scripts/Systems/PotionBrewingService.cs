@@ -99,16 +99,21 @@ public sealed class PotionBrewingService
         var combinedTraits = CombineTraits(validIngredients);
         result.Traits = combinedTraits;
 
-        // 3) Combine ingredient risks as chance values, then apply visible ingredient effects
-        var possibleRisks = CombineRisks(validIngredients);
-        ApplyPreRiskIngredientEffects(validIngredients, combinedTraits, possibleRisks, result);
+		// 3) Combine ingredient risks as chance values, then apply visible ingredient effects
+		var possibleRisks = CombineRisks(validIngredients);
+		ApplyPreRiskIngredientEffects(validIngredients, combinedTraits, possibleRisks, result);
+		ForceFailedBoilingRiskChances(validIngredients, possibleRisks);
 
-        // 4) Roll actual carried risks, then apply conditional ingredient effects
-        var carriedRisks = rollRisks
-            ? RollCarriedRisks(possibleRisks)
-            : new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        ApplyPostRiskIngredientEffects(validIngredients, combinedTraits, carriedRisks, possibleRisks, result, rollRisks);
-        result.RiskIngredientPricePenalty = CalculateRiskIngredientPricePenalty(validIngredients, carriedRisks);
+		// 4) Roll actual carried risks, then apply conditional ingredient effects
+		var carriedRisks = rollRisks
+			? RollCarriedRisks(possibleRisks)
+			: new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+		if (rollRisks)
+			ForceFailedBoilingCarriedRisks(validIngredients, carriedRisks);
+		ApplyPostRiskIngredientEffects(validIngredients, combinedTraits, carriedRisks, possibleRisks, result, rollRisks);
+		if (rollRisks)
+			ForceFailedBoilingCarriedRisks(validIngredients, carriedRisks);
+		result.RiskIngredientPricePenalty = CalculateRiskIngredientPricePenalty(validIngredients, carriedRisks);
 
         // 5) Calculate ingredient quality (Q)
         result.IngredientQualityScore = CalculateIngredientQuality(validIngredients);
@@ -188,9 +193,9 @@ public sealed class PotionBrewingService
         return combined;
     }
 
-    private static Dictionary<string, int> CombineRisks(List<IngredientDef> ingredients)
-    {
-        var combined = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+	private static Dictionary<string, int> CombineRisks(List<IngredientDef> ingredients)
+	{
+		var combined = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var ingredient in ingredients)
         {
@@ -204,9 +209,53 @@ public sealed class PotionBrewingService
             }
         }
 
-        ClampRiskChances(combined);
-        return combined;
-    }
+		ClampRiskChances(combined);
+		return combined;
+	}
+
+	private static void ForceFailedBoilingRiskChances(
+		List<IngredientDef> ingredients,
+		Dictionary<string, int> possibleRisks)
+	{
+		foreach (var ingredient in ingredients)
+		{
+			if (!IsFailedBoilingIngredient(ingredient))
+				continue;
+
+			foreach (var risk in ingredient.Risks)
+			{
+				if (string.IsNullOrWhiteSpace(risk.Key) || risk.Value <= 0)
+					continue;
+
+				possibleRisks[risk.Key] = MaxRiskChanceValue;
+			}
+		}
+	}
+
+	private static void ForceFailedBoilingCarriedRisks(
+		List<IngredientDef> ingredients,
+		Dictionary<string, int> carriedRisks)
+	{
+		foreach (var ingredient in ingredients)
+		{
+			if (!IsFailedBoilingIngredient(ingredient))
+				continue;
+
+			foreach (var risk in ingredient.Risks)
+			{
+				if (string.IsNullOrWhiteSpace(risk.Key) || risk.Value <= 0)
+					continue;
+
+				carriedRisks[risk.Key] = RiskPresenceValue;
+			}
+		}
+	}
+
+	private static bool IsFailedBoilingIngredient(IngredientDef ingredient)
+	{
+		return ingredient.Tags is not null &&
+			ingredient.Tags.Any(tag => string.Equals(tag, ItemTags.FailedBoiling, StringComparison.OrdinalIgnoreCase));
+	}
 
     private static void ApplyPreRiskIngredientEffects(
         List<IngredientDef> ingredients,

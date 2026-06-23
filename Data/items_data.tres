@@ -25,29 +25,37 @@ Entries = [{
 "calm": 6
 },
 "risks": {
-"drowsiness": 2
 }
 },
 "crushed": {
 "traits": {
-"dream": 3
+"warmth": 3
 },
 "risks": {}
 },
 "boiled": {
 "traits": {
-"dream": 5
+"warmth": 5
 },
-"risks": {}
+"risks": {
+"melancholy": 1
+},
+"boilingGame": {
+"temperatureTargetMin": 0.48,
+"temperatureTargetMax": 0.67,
+"temperatureHoldSeconds": 1.2,
+"heatLockSeconds": 3.0,
+"heatRiseRate": 0.72,
+"heatFallRate": 0.30,
+"donenessDurationSeconds": 10.2,
+"donenessWindowStart": 0.62,
+"donenessWindowEnd": 0.82,
+"stirringRhythm": "ClockwiseSlow",
+"stirringHoldSeconds": 1.6,
+"failureRiskId": "drowsiness"
+}
 }
 },
-"ingredientEffects": [{
-"kind": "boost_lowest_trait_if_no_risk_carries",
-"family": "Bloom",
-"name": "Lunar Bloom",
-"description": "If no risk carries, raises the lowest trait in the finished brew by +2.",
-"amount": 2
-}],
 "tags": ["ingredient", "catalyst"],
 "traits": {}
 }, {
@@ -83,17 +91,24 @@ Entries = [{
 "cleanse": 6
 },
 "risks": {
-"melancholy": 1
+"corruption": 1
+},
+"boilingGame": {
+"temperatureTargetMin": 0.36,
+"temperatureTargetMax": 0.55,
+"temperatureHoldSeconds": 1.0,
+"heatLockSeconds": 3.0,
+"heatRiseRate": 0.82,
+"heatFallRate": 0.30,
+"donenessDurationSeconds": 9.4,
+"donenessWindowStart": 0.58,
+"donenessWindowEnd": 0.78,
+"stirringRhythm": "AntiClockwiseFast",
+"stirringHoldSeconds": 1.3,
+"failureRiskId": "melancholy"
 }
 }
 },
-"ingredientEffects": [{
-"kind": "reduce_highest_risk",
-"family": "Binder",
-"name": "Cooling Ground",
-"description": "Reduces the highest risk chance in the brew by 20%.",
-"amount": 2
-}],
 "tags": ["ingredient", "catalyst"],
 "traits": {}
 }, {
@@ -129,19 +144,24 @@ Entries = [{
 "vigor": 6
 },
 "risks": {
-"corruption": 3
+"insomnia": 1
+},
+"boilingGame": {
+"temperatureTargetMin": 0.58,
+"temperatureTargetMax": 0.77,
+"temperatureHoldSeconds": 1.4,
+"heatLockSeconds": 3.0,
+"heatRiseRate": 0.65,
+"heatFallRate": 0.30,
+"donenessDurationSeconds": 11.0,
+"donenessWindowStart": 0.64,
+"donenessWindowEnd": 0.86,
+"stirringRhythm": "AntiClockwiseSlow",
+"stirringHoldSeconds": 1.8,
+"failureRiskId": "corruption"
 }
 }
 },
-"ingredientEffects": [{
-"kind": "boost_strongest_trait_add_risk",
-"family": "Catalyst",
-"name": "Dark Solvent",
-"description": "Raises the strongest trait by +2, then adds 20% corruption risk.",
-"amount": 2,
-"secondaryAmount": 2,
-"riskId": "corruption"
-}],
 "tags": ["ingredient", "catalyst"],
 "traits": {}
 }, {
@@ -164,9 +184,7 @@ Entries = [{
 "traits": {
 "dream": 6
 },
-"risks": {
-"drowsiness": 1
-}
+"risks": {}
 },
 "crushed": {
 "traits": {
@@ -178,16 +196,25 @@ Entries = [{
 "traits": {
 "calm": 5
 },
-"risks": {}
+"risks": {
+"drowsiness": 1
+},
+"boilingGame": {
+"temperatureTargetMin": 0.44,
+"temperatureTargetMax": 0.51,
+"temperatureHoldSeconds": 1.1,
+"heatLockSeconds": 3.0,
+"heatRiseRate": 0.78,
+"heatFallRate": 0.30,
+"donenessDurationSeconds": 9.8,
+"donenessWindowStart": 0.58,
+"donenessWindowEnd": 0.80,
+"stirringRhythm": "ClockwiseFast",
+"stirringHoldSeconds": 1.4,
+"failureRiskId": "drowsiness"
+}
 }
 },
-"ingredientEffects": [{
-"kind": "boost_lowest_other_trait",
-"family": "Echo",
-"name": "Soft Bloom",
-"description": "Raises the lowest trait from the other ingredients by +2.",
-"amount": 2
-}],
 "tags": ["ingredient", "catalyst"],
 "traits": {}
 }, {
@@ -223,16 +250,24 @@ Entries = [{
 "soothe": 6
 },
 "risks": {
-"melancholy": 2
+"drowsiness": 1
+},
+"boilingGame": {
+"temperatureTargetMin": 0.52,
+"temperatureTargetMax": 0.76,
+"temperatureHoldSeconds": 1.3,
+"heatLockSeconds": 3.0,
+"heatRiseRate": 0.7,
+"heatFallRate": 0.30,
+"donenessDurationSeconds": 10.7,
+"donenessWindowStart": 0.63,
+"donenessWindowEnd": 0.84,
+"stirringRhythm": "AntiClockwiseFast",
+"stirringHoldSeconds": 1.5,
+"failureRiskId": "melancholy"
 }
 }
 },
-"ingredientEffects": [{
-"kind": "halve_other_risks",
-"family": "Binder",
-"name": "Gorse Binding",
-"description": "Halves risk chances from the other ingredients."
-}],
 "tags": ["ingredient", "liquid"],
 "traits": {}
 }, {
@@ -256,29 +291,37 @@ Entries = [{
 "vigor": 6
 },
 "risks": {
-"insomnia": 2
 }
 },
 "crushed": {
 "traits": {
-"charm": 4
+"luck": 4
 },
 "risks": {}
 },
 "boiled": {
 "traits": {
-"charm": 5
+"luck": 5
 },
-"risks": {}
+"risks": {
+"insomnia": 1
+},
+"boilingGame": {
+"temperatureTargetMin": 0.4,
+"temperatureTargetMax": 0.59,
+"temperatureHoldSeconds": 0.95,
+"heatLockSeconds": 3.0,
+"heatRiseRate": 0.86,
+"heatFallRate": 0.30,
+"donenessDurationSeconds": 9.6,
+"donenessWindowStart": 0.60,
+"donenessWindowEnd": 0.81,
+"stirringRhythm": "ClockwiseSlow",
+"stirringHoldSeconds": 1.5,
+"failureRiskId": "insomnia"
+}
 }
 },
-"ingredientEffects": [{
-"kind": "boost_lowest_other_trait",
-"family": "Echo",
-"name": "Fever Dream",
-"description": "Raises the lowest trait from the other ingredients by +3.",
-"amount": 3
-}],
 "tags": ["ingredient", "liquid"],
 "traits": {}
 }, {
@@ -301,30 +344,37 @@ Entries = [{
 "traits": {
 "clarity": 6
 },
-"risks": {
-"melancholy": 1
-}
+"risks": {}
 },
 "crushed": {
 "traits": {
-"courage": 3
+"memory": 3
 },
 "risks": {}
 },
 "boiled": {
 "traits": {
-"courage": 5
+"memory": 5
 },
-"risks": {}
+"risks": {
+"melancholy": 1
+},
+"boilingGame": {
+"temperatureTargetMin": 0.46,
+"temperatureTargetMax": 0.65,
+"temperatureHoldSeconds": 1.25,
+"heatLockSeconds": 3.0,
+"heatRiseRate": 0.68,
+"heatFallRate": 0.30,
+"donenessDurationSeconds": 11.2,
+"donenessWindowStart": 0.65,
+"donenessWindowEnd": 0.87,
+"stirringRhythm": "AntiClockwiseSlow",
+"stirringHoldSeconds": 1.9,
+"failureRiskId": "melancholy"
+}
 }
 },
-"ingredientEffects": [{
-"kind": "temper_traits",
-"family": "Temper",
-"name": "Willow Measure",
-"description": "Lowers the highest trait by 2 and raises the lowest trait by +2.",
-"amount": 2
-}],
 "tags": ["ingredient", "liquid"],
 "traits": {}
 }, {
@@ -360,17 +410,24 @@ Entries = [{
 "clarity": 6
 },
 "risks": {
-"corruption": 2
+"insomnia": 1
+},
+"boilingGame": {
+"temperatureTargetMin": 0.55,
+"temperatureTargetMax": 0.75,
+"temperatureHoldSeconds": 1.35,
+"heatLockSeconds": 3.0,
+"heatRiseRate": 0.74,
+"heatFallRate": 0.30,
+"donenessDurationSeconds": 10.3,
+"donenessWindowStart": 0.61,
+"donenessWindowEnd": 0.82,
+"stirringRhythm": "ClockwiseFast",
+"stirringHoldSeconds": 1.4,
+"failureRiskId": "corruption"
 }
 }
 },
-"ingredientEffects": [{
-"kind": "copy_strongest_other_trait",
-"family": "Echo",
-"name": "Juniper Lure",
-"description": "Copies +2 from the strongest trait on another ingredient.",
-"amount": 2
-}],
 "tags": ["ingredient", "herb"],
 "traits": {}
 }, {
@@ -397,27 +454,33 @@ Entries = [{
 },
 "crushed": {
 "traits": {
-"mend": 4
+"discipline": 4
 },
 "risks": {}
 },
 "boiled": {
 "traits": {
-"mend": 6
+"discipline": 6
 },
 "risks": {
-"melancholy": 1
+"corruption": 1
+},
+"boilingGame": {
+"temperatureTargetMin": 0.5,
+"temperatureTargetMax": 0.69,
+"temperatureHoldSeconds": 1.2,
+"heatLockSeconds": 3.0,
+"heatRiseRate": 0.7,
+"heatFallRate": 0.30,
+"donenessDurationSeconds": 10.9,
+"donenessWindowStart": 0.64,
+"donenessWindowEnd": 0.85,
+"stirringRhythm": "AntiClockwiseSlow",
+"stirringHoldSeconds": 1.7,
+"failureRiskId": "melancholy"
 }
 }
 },
-"ingredientEffects": [{
-"kind": "add_trait_if_risk_carries",
-"family": "Tether",
-"name": "Steady Hand",
-"description": "If any risk carries, adds Courage +2.",
-"amount": 2,
-"traitId": "courage"
-}],
 "tags": ["ingredient", "herb"],
 "traits": {}
 }, {
@@ -440,9 +503,7 @@ Entries = [{
 "traits": {
 "cleanse": 6
 },
-"risks": {
-"drowsiness": 1
-}
+"risks": {}
 },
 "crushed": {
 "traits": {
@@ -454,15 +515,25 @@ Entries = [{
 "traits": {
 "rest": 5
 },
-"risks": {}
+"risks": {
+"insomnia": 1
+},
+"boilingGame": {
+"temperatureTargetMin": 0.38,
+"temperatureTargetMax": 0.57,
+"temperatureHoldSeconds": 1.0,
+"heatLockSeconds": 3.0,
+"heatRiseRate": 0.82,
+"heatFallRate": 0.30,
+"donenessDurationSeconds": 9.5,
+"donenessWindowStart": 0.57,
+"donenessWindowEnd": 0.79,
+"stirringRhythm": "ClockwiseSlow",
+"stirringHoldSeconds": 1.4,
+"failureRiskId": "drowsiness"
+}
 }
 },
-"ingredientEffects": [{
-"kind": "suppress_single_carried_risk",
-"family": "Binder",
-"name": "Thyme Ward",
-"description": "If exactly one risk carries, suppresses it."
-}],
 "tags": ["ingredient", "herb"],
 "traits": {}
 }, {

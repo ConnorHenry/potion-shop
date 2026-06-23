@@ -37,7 +37,7 @@ internal static class SceneAndHudWiringTests
         runner.Run("Hud return-to-menu does not auto-save", TestHudReturnToMainMenuDoesNotAutoSave);
         runner.Run("Hud settings panel closes on outside click", TestHudSettingsPanelClosesOnOutsideClick);
         runner.Run("Hud ambient rain settings are wired", TestHudAmbientRainSettingsAreWired);
-        runner.Run("Hud active request alert is wired", TestHudActiveRequestAlertIsWired);
+        runner.Run("Hud day counter replaces request alert", TestHudDayCounterReplacesRequestAlert);
     }
 
     private static void TestUiClassPresenceAndBaseTypes()
@@ -133,6 +133,13 @@ internal static class SceneAndHudWiringTests
         AssertTrue("StationCustomerPanel builds an inline customer image frame",
             stationCustomerPanel.Contains("Name = \"CustomerImageFrame\"") &&
             stationCustomerPanel.Contains("Name = \"CustomerImage\""));
+        var requestTextIndex = stationCustomerPanel.IndexOf("Name = \"RequestText\"", StringComparison.Ordinal);
+        var requestTextBlock = requestTextIndex >= 0
+            ? stationCustomerPanel.Substring(requestTextIndex, Math.Min(260, stationCustomerPanel.Length - requestTextIndex))
+            : string.Empty;
+        AssertTrue("StationCustomerPanel gives customer dialogue extra vertical room",
+            scene.Contains("anchor_bottom = 0.825") &&
+            requestTextBlock.Contains("SizeFlagsVertical = SizeFlags.ExpandFill"));
         AssertTrue("StationCustomerPanel loads customer portrait textures from customer data",
             stationCustomerPanel.Contains("RefreshCustomerImage(interaction)") &&
             stationCustomerPanel.Contains("RefreshCustomerImage(interaction, line.CharacterImageKey)") &&
@@ -166,11 +173,21 @@ internal static class SceneAndHudWiringTests
         AssertTrue("Station book controls open both book panels from the brewing station",
             scene.Contains("[node name=\"Book\" type=\"TextureRect\" parent=\"PotionBrewingStationView\"]") &&
             scene.Contains("[node name=\"BookHotspot\" type=\"Button\" parent=\"PotionBrewingStationView/Book\"]") &&
-            scene.Contains("[node name=\"BookSwitch\" type=\"Button\" parent=\"PotionBrewingStationView/Book\"]") &&
+            !scene.Contains("[node name=\"BookSwitch\" type=\"Button\" parent=\"PotionBrewingStationView/Book\"]") &&
+            scene.Contains("[node name=\"BookOverlayLayer\" type=\"CanvasLayer\" parent=\".\"]") &&
+            scene.Contains("layer = 4096") &&
+            scene.Contains("[node name=\"BookDismissOverlay\" type=\"Control\" parent=\"BookOverlayLayer\"]") &&
+            scene.Contains("[node name=\"PotionBookPanel\" parent=\"BookOverlayLayer\" instance=ExtResource(\"18_potion_book\")]") &&
+            scene.Contains("[node name=\"IngredientBookPanel\" parent=\"BookOverlayLayer\" instance=ExtResource(\"41_ingredient_book\")]") &&
             stationBookController.Contains("BookButtonPath = new(\"Book/BookHotspot\")") &&
-            stationBookController.Contains("BookSwitchButtonPath = new(\"Book/BookSwitch\")") &&
-            stationBookController.Contains("PotionBookPanelPath = new(\"../PotionBookPanel\")") &&
-            stationBookController.Contains("IngredientBookPanelPath = new(\"../IngredientBookPanel\")"));
+            stationBookController.Contains("BookDismissOverlayPath = new(\"../BookOverlayLayer/BookDismissOverlay\")") &&
+            stationBookController.Contains("OnBookDismissOverlayGuiInput") &&
+            stationBookController.Contains("HideBookPanels();") &&
+            stationBookController.Contains("_bookDismissOverlay?.AcceptEvent();") &&
+            stationBookController.Contains("PotionBookSwitchButtonPath = new(\"../BookOverlayLayer/PotionBookPanel/BookRow/BookPanel/BookSwitch\")") &&
+            stationBookController.Contains("IngredientBookSwitchButtonPath = new(\"../BookOverlayLayer/IngredientBookPanel/BookRow/BookPanel/BookSwitch\")") &&
+            stationBookController.Contains("PotionBookPanelPath = new(\"../BookOverlayLayer/PotionBookPanel\")") &&
+            stationBookController.Contains("IngredientBookPanelPath = new(\"../BookOverlayLayer/IngredientBookPanel\")"));
         AssertTrue("Main scene wires shop flow directly to the station customer panel",
             main.Contains("StationCustomerPanelPath = NodePath(\"../CanvasLayer/PotionBrewingStationView/StationCustomerPanel\")") &&
             !main.Contains("\nCustomerPanelPath = NodePath("));
@@ -517,6 +534,16 @@ internal static class SceneAndHudWiringTests
             runtimeDebug.Contains("items.AddRange(_dataDb.Items.Values)") &&
             runtimeDebug.Contains("items.AddRange(_runtimeContentDb.Items.Values)") &&
             runtimeDebug.Contains("_gameState.UnlockAllIngredientPreparations(items)"));
+        AssertTrue("Scenario debugger toggles non-Raw preparation methods",
+            runtimeDebug.Contains("Non-Raw Prep Methods") &&
+            runtimeDebug.Contains("Disable Non-Raw Prep Methods") &&
+            runtimeDebug.Contains("Enable Non-Raw Prep Methods") &&
+            runtimeDebug.Contains("AreNonRawIngredientPreparationMethodsEnabled()") &&
+            runtimeDebug.Contains("SetNonRawIngredientPreparationMethodsEnabled(!nonRawPreparationsEnabled)"));
+        AssertTrue("Scenario debugger can skip the boiling mini game",
+            runtimeDebug.Contains("Skip Boiling Mini Game") &&
+            runtimeDebug.Contains("DebugSkipBoilingMiniGame") &&
+            runtimeDebug.Contains("SetDebugSkipBoilingMiniGame(skipBoilingMiniGame)"));
         AssertTrue("Scenario debugger lists authored book entries",
             runtimeDebug.Contains("_dataDb.PotionRecipes") &&
             runtimeDebug.Contains("IsBookIngredient(item)"));
@@ -1135,9 +1162,11 @@ internal static class SceneAndHudWiringTests
             gathering.Contains("if (berry.IsRipe)") &&
             gathering.Contains("_ripeCaught += 1") &&
             gathering.Contains("_wrongCaught += 1"));
-        AssertTrue("Juniper gathering keeps the requested thirty second reward thresholds",
+        AssertTrue("Juniper gathering keeps the requested reward thresholds and completes after 15 ripe berries",
             gathering.Contains("GatheringDurationSeconds = 30.0f") &&
-            gathering.Contains("if (_ripeCaught >= 15)") &&
+            gathering.Contains("private const int RipeBerryCompletionCount = 15") &&
+            gathering.Contains("if (berry.IsRipe && _ripeCaught >= RipeBerryCompletionCount)") &&
+            gathering.Contains("if (_ripeCaught >= RipeBerryCompletionCount)") &&
             gathering.Contains("return 3") &&
             gathering.Contains("if (_ripeCaught >= 10)") &&
             gathering.Contains("return 2") &&
@@ -1247,8 +1276,15 @@ internal static class SceneAndHudWiringTests
         var musicAssetNames = new[]
         {
             "almost_bliss.mp3",
+            "danse_morialta.mp3",
+            "dream_culture.mp3",
+            "easy_lemon.mp3",
             "healing.mp3",
+            "immersed.mp3",
+            "light_thought_var_1.mp3",
             "silver_blue_light.mp3",
+            "southern_gothic.mp3",
+            "wet_riffs.mp3",
             "when_the_wind_blows.mp3",
             "windswept.mp3",
         };
@@ -1334,8 +1370,15 @@ internal static class SceneAndHudWiringTests
             source.Contains("rainfall_volume"));
         AssertTrue("Hud loads and persists music settings",
             source.Contains("res://Assets/Audio/Music/almost_bliss.mp3") &&
+            source.Contains("res://Assets/Audio/Music/danse_morialta.mp3") &&
+            source.Contains("res://Assets/Audio/Music/dream_culture.mp3") &&
+            source.Contains("res://Assets/Audio/Music/easy_lemon.mp3") &&
             source.Contains("res://Assets/Audio/Music/healing.mp3") &&
+            source.Contains("res://Assets/Audio/Music/immersed.mp3") &&
+            source.Contains("res://Assets/Audio/Music/light_thought_var_1.mp3") &&
             source.Contains("res://Assets/Audio/Music/silver_blue_light.mp3") &&
+            source.Contains("res://Assets/Audio/Music/southern_gothic.mp3") &&
+            source.Contains("res://Assets/Audio/Music/wet_riffs.mp3") &&
             source.Contains("res://Assets/Audio/Music/when_the_wind_blows.mp3") &&
             source.Contains("res://Assets/Audio/Music/windswept.mp3") &&
             removedMusicAssetNames.All(name => !source.Contains($"res://Assets/Audio/Music/{name}")) &&
@@ -1346,12 +1389,14 @@ internal static class SceneAndHudWiringTests
             rainImport.Contains("loop=true") &&
             !source.Contains("_ambientRainPlayer.Finished += OnAmbientRainFinished") &&
             !source.Contains("private void OnAmbientRainFinished()"));
-        AssertTrue("Hud shuffles the soundtrack once and advances without polling",
-            source.Contains("BuildShuffledSoundtrackOrder();") &&
+        AssertTrue("Hud shuffles the soundtrack cycle and advances without polling",
+            source.Contains("StartNewSoundtrackCycle();") &&
             source.Contains("_soundtrackRandom.Next") &&
             source.Contains("_musicPlayer.Finished += OnMusicFinished") &&
             source.Contains("private void OnNextTrackPressed()") &&
-            source.Contains("PlayNextSoundtrackTrack();"));
+            source.Contains("PlayNextSoundtrackTrack();") &&
+            source.Contains("StartNewSoundtrackCycle(previousTrackIndex);") &&
+            source.Contains("soundtrackShouldRestart"));
         AssertTrue("Hud fades music tracks without fading ambient rain",
             source.Contains("MusicFadeSeconds = 5.0") &&
             source.Contains("SilentMusicVolumeDb = -80.0f") &&
@@ -1365,47 +1410,33 @@ internal static class SceneAndHudWiringTests
             !persistentHud.Contains("SetAmbientPlaybackAllowed(false)"));
     }
 
-    private static void TestHudActiveRequestAlertIsWired()
+    private static void TestHudDayCounterReplacesRequestAlert()
     {
         var source = ReadProjectFile("Scripts/UI/Hud.cs");
         var scene = ReadProjectFile("Scenes/UI/Hud.tscn");
-        var stationCustomerPanel = ReadProjectFile("Scripts/UI/StationCustomerPanel.cs");
-        var formatter = ReadProjectFile("Scripts/UI/CustomerDialogueTextFormatter.cs");
 
-        AssertTrue("Hud scene places the request alert in the status row without a shop timer",
+        AssertTrue("Hud scene replaces the request alert with a day counter in the status row",
             !scene.Contains("[node name=\"ShopTimer\"") &&
-            !source.Contains("ShopTimerLabelPath") &&
-            scene.Contains("[node name=\"RequestAlert\" type=\"Button\" parent=\"Content/Status\"]") &&
-            scene.Contains("text = \"!\"") &&
-            scene.Contains("theme_override_colors/font_color = Color(1, 0.86, 0.05, 1)"));
-        AssertTrue("Hud scene defines a request popup under the alert",
-            scene.Contains("[node name=\"RequestPanel\" type=\"PanelContainer\" parent=\".\"]") &&
-            scene.Contains("custom_minimum_size = Vector2(340, 0)") &&
-            scene.Contains("[node name=\"Description\" type=\"RichTextLabel\" parent=\"RequestPanel/Margin/VBox\"]") &&
-            scene.Contains("[node name=\"DesiredTraits\" type=\"RichTextLabel\" parent=\"RequestPanel/Margin/VBox/Traits/DesiredColumn\"]") &&
-            scene.Contains("[node name=\"BadTraits\" type=\"RichTextLabel\" parent=\"RequestPanel/Margin/VBox/Traits/BadColumn\"]"));
-        AssertTrue("Hud drives the request alert from active customer request state",
-            source.Contains("ActiveCustomerRequest") &&
-            source.Contains("_requestAlertButton.Visible = true") &&
-            source.Contains("_requestAlertButton.Visible = false") &&
-            source.Contains("SetRequestPanelVisible(false);"));
-        AssertTrue("Hud toggles the request panel from the alert button",
-            source.Contains("OnRequestAlertPressed") &&
-            source.Contains("SetRequestPanelVisible(!_requestPanel.Visible);"));
-        AssertTrue("Hud sizes the request popup to its required content",
-            source.Contains("ResizeAndPositionRequestPanelUnderAlert") &&
-            source.Contains("_requestPanel.GetCombinedMinimumSize().Y") &&
-            source.Contains("_requestPanel.Size = new Vector2(panelWidth, panelHeight);"));
-        AssertTrue("Hud closes the request panel on outside click and scene refresh",
-            source.Contains("IsPointInsideVisibleControl(_requestPanel, mouseButton.GlobalPosition)") &&
-            source.Contains("IsPointInsideVisibleControl(_requestAlertButton, mouseButton.GlobalPosition)") &&
-            source.Contains("SetRequestPanelVisible(false);") &&
-            source.Contains("public void RefreshSceneBindings()"));
-        AssertTrue("Hud and StationCustomerPanel share request detail formatting",
-            source.Contains("CustomerDialogueTextFormatter.BuildDesiredRequestText") &&
-            source.Contains("CustomerDialogueTextFormatter.BuildBadRequestText") &&
-            stationCustomerPanel.Contains("CustomerDialogueTextFormatter.BuildCustomerPotionRequestComparisonText") &&
-            formatter.Contains("public static string BuildDesiredRequestText") &&
-            formatter.Contains("public static string BuildBadRequestText"));
+            !scene.Contains("[node name=\"RequestAlert\"") &&
+            !scene.Contains("text = \"!\"") &&
+            scene.Contains("[node name=\"DayCounter\" type=\"Label\" parent=\"Content/Status\"]") &&
+            scene.Contains("text = \"Day 1\""));
+        AssertTrue("Hud scene no longer defines the request popup",
+            !scene.Contains("[node name=\"RequestPanel\"") &&
+            !scene.Contains("Current Request") &&
+            !scene.Contains("parent=\"RequestPanel"));
+        AssertTrue("Hud drives the day counter from GameState.Day",
+            source.Contains("DayCounterLabelPath = new(\"Content/Status/DayCounter\")") &&
+            source.Contains("_dayCounter = GetNode<Label>(DayCounterLabelPath);") &&
+            source.Contains("_dayCounter.Text = $\"Day {_gameState.Day}\";"));
+        AssertTrue("Hud no longer carries request alert popup code",
+            !source.Contains("RequestAlertButtonPath") &&
+            !source.Contains("RequestPanelPath") &&
+            !source.Contains("OnRequestAlertPressed") &&
+            !source.Contains("RefreshRequestAlert") &&
+            !source.Contains("SetRequestPanelVisible") &&
+            !source.Contains("ResizeAndPositionRequestPanelUnderAlert") &&
+            !source.Contains("CustomerDialogueTextFormatter.BuildDesiredRequestText") &&
+            !source.Contains("CustomerDialogueTextFormatter.BuildBadRequestText"));
     }
 }

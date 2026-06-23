@@ -9,6 +9,7 @@ namespace OccultShop.UI;
 public partial class JuniperGathering : Control
 {
 	private const float GatheringDurationSeconds = 30.0f;
+	private const int RipeBerryCompletionCount = 15;
 	private const float FreezeDurationSeconds = 2.0f;
 	private const float ShakeDistanceForBurst = 150.0f;
 	private const float ShakeBurstCooldownSeconds = 0.16f;
@@ -486,6 +487,9 @@ public partial class JuniperGathering : Control
 			if (IsBerryTouchingBasket(berry))
 			{
 				CollectBerry(index, berry);
+				if (_finished)
+					break;
+
 				continue;
 			}
 
@@ -535,6 +539,9 @@ public partial class JuniperGathering : Control
 
 		RefreshStatusLabels();
 		RemoveBerryAt(berryIndex);
+
+		if (berry.IsRipe && _ripeCaught >= RipeBerryCompletionCount)
+			FinishGathering();
 	}
 
 	private void RemoveBerryAt(int index)
@@ -556,7 +563,7 @@ public partial class JuniperGathering : Control
 
 	private int CalculateRewardQuantity()
 	{
-		if (_ripeCaught >= 15)
+		if (_ripeCaught >= RipeBerryCompletionCount)
 			return 3;
 		if (_ripeCaught >= 10)
 			return 2;
@@ -574,7 +581,6 @@ public partial class JuniperGathering : Control
 		_finished = true;
 		_basketDragActive = false;
 		_isShaking = false;
-		_remainingTime = 0.0f;
 		RefreshStatusLabels();
 
 		var rewardQuantity = CalculateRewardQuantity();

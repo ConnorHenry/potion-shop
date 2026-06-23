@@ -15,6 +15,14 @@ public partial class GameState : Node
 	public const string StoryCustomerOutcomeSuccess = "success";
 	public const string StoryCustomerOutcomeFailure = "failure";
 	public const string StoryCustomerOutcomeSkipped = "skipped";
+	public const string NewGameOpeningCustomerPendingStoryFlag = "new_game_opening_customer_pending";
+	public const string NewGameSecondCustomerPendingStoryFlag = "new_game_second_customer_pending";
+	public const string NewGameThirdCustomerPendingStoryFlag = "new_game_third_customer_pending";
+	public const string DayTwoFirstCustomerPendingStoryFlag = "day_two_first_customer_pending";
+	public const string DayTwoSecondCustomerPendingStoryFlag = "day_two_second_customer_pending";
+	public const string DayTwoThirdCustomerPendingStoryFlag = "day_two_third_customer_pending";
+	public const string GardenUnlockedStoryFlag = "garden_unlocked";
+	// Legacy flag retained so old pre-shop saves route to the current opening request.
 	public const string BridgetWelcomePendingStoryFlag = "bridget_welcome_pending";
 	public const int StartingGardenPotCount = GardenState.StartingPotCount;
 	public const int DefaultGardenHarvestYield = GardenState.DefaultHarvestYield;
@@ -37,6 +45,7 @@ public partial class GameState : Node
 	public string PendingConsumableItemId => _inventoryState.PendingConsumableItemId;
 	public int PendingConsumableQuantity => _inventoryState.PendingConsumableQuantity;
 	public bool HasPendingConsumableGrant => _inventoryState.HasPendingConsumableGrant;
+	public bool DebugSkipBoilingMiniGame { get; private set; }
 
 	// itemId -> qty
 	public Dictionary<string, int> Inventory { get; } = new();
@@ -48,10 +57,12 @@ public partial class GameState : Node
 	public HashSet<string> KnownIngredients { get; } = new(StringComparer.OrdinalIgnoreCase);
 	public List<string> KnownIngredientOrder { get; } = new();
 	public HashSet<string> KnownIngredientPreparations { get; } = new(StringComparer.OrdinalIgnoreCase);
+	public HashSet<string> DisabledIngredientPreparationMethods { get; } = new(StringComparer.OrdinalIgnoreCase);
 	public Dictionary<string, string> PotionDisplayNames { get; } = new(StringComparer.OrdinalIgnoreCase);
 	public IReadOnlyDictionary<string, int> SeedInventory => _gardenState.SeedInventory;
 	public IReadOnlyList<GardenPotState> GardenPots => _gardenState.GardenPots;
 	public IReadOnlyList<GardenCropDef> GardenCrops => _gardenState.GardenCrops;
+	public bool IsGardenUnlocked => HasStoryFlag(GardenUnlockedStoryFlag);
 	private static readonly (string ItemId, int Quantity)[] StartingInventory =
 	{
 		("mint", 1),
@@ -71,13 +82,29 @@ public partial class GameState : Node
 		("juniper", 1),
 		("comfrey", 1)
 	};
+	private static readonly string[] NewGameDisabledIngredientPreparationMethods =
+	{
+		IngredientPreparationCatalog.SteepedPreparationId,
+		IngredientPreparationCatalog.CrushedPreparationId,
+		IngredientPreparationCatalog.BoiledPreparationId
+	};
 	private readonly PotionKnowledgeState _potionKnowledgeState;
 	private readonly InventoryState _inventoryState;
 	private readonly GardenState _gardenState;
+	private readonly List<IngredientPortionDef> _queuedBrewIngredients = new();
 	private readonly PotionBatchStore _potionBatchStore = new();
 	private readonly StoryCustomerVisitState _storyCustomerVisitState = new();
 	private readonly TutorialProgressState _tutorialProgressState = new();
 	public CustomerRequestDef? ActiveCustomerRequest { get; private set; }
+	public bool IsShopDayOpen { get; private set; }
+	public int ShopDayCustomersArrived { get; private set; }
+	public int ShopDayCustomersServed { get; private set; }
+	public int ShopDaySuccessfulSales { get; private set; }
+	public int ShopDayFailedSales { get; private set; }
+	public int ShopDayGoldEarned { get; private set; }
+	public int ShopDayDreadChange { get; private set; }
+	public bool CloseShopAfterCurrentCustomer { get; private set; }
+	public string ActiveCustomerInteractionId { get; private set; } = string.Empty;
 
 	public event Action? Changed;
 	private ItemCatalogService _itemCatalog = default!;
@@ -132,13 +159,20 @@ public partial class GameState : Node
 		_tutorialProgressState.Reset();
 		_inventoryState.Clear();
 		ActiveRules.Clear();
+		ResetIngredientPreparationMethodLocksForNewGame();
 		StoryFlags.Clear();
-		StoryFlags.Add(BridgetWelcomePendingStoryFlag);
+		StoryFlags.Add(NewGameOpeningCustomerPendingStoryFlag);
+		StoryFlags.Add(NewGameSecondCustomerPendingStoryFlag);
+		StoryFlags.Add(NewGameThirdCustomerPendingStoryFlag);
+		StoryFlags.Add(DayTwoFirstCustomerPendingStoryFlag);
+		StoryFlags.Add(DayTwoSecondCustomerPendingStoryFlag);
+		StoryFlags.Add(DayTwoThirdCustomerPendingStoryFlag);
 		_storyCustomerVisitState.Clear();
 		_potionKnowledgeState.Clear();
+		_queuedBrewIngredients.Clear();
 		_potionBatchStore.Clear();
 		_gardenState.InitializeNewGarden();
-		ActiveCustomerRequest = null;
+		ResetShopDayState();
 
 		SeedStartingInventory();
 		SeedStartingIngredientBookKnowledge();
@@ -184,6 +218,7 @@ public partial class GameState : Node
 			Inventory = _inventoryState.CloneInventory(),
 			PendingConsumableItemId = PendingConsumableItemId,
 			PendingConsumableQuantity = PendingConsumableQuantity,
+			QueuedBrewIngredients = CloneIngredientPortions(_queuedBrewIngredients),
 			ActiveRules = ActiveRules.ToList(),
 			StoryFlags = StoryFlags.ToList(),
 			KnownPotions = _potionKnowledgeState.BuildKnownPotionSnapshot(),
@@ -191,6 +226,7 @@ public partial class GameState : Node
 			KnownIngredients = _potionKnowledgeState.BuildKnownIngredientSnapshot(),
 			KnownIngredientOrder = _potionKnowledgeState.CloneKnownIngredientOrder(),
 			KnownIngredientPreparations = _potionKnowledgeState.BuildKnownIngredientPreparationSnapshot(),
+			DisabledIngredientPreparationMethods = BuildDisabledIngredientPreparationMethodSnapshot(),
 			PotionDisplayNames = _potionKnowledgeState.ClonePotionDisplayNames(),
 			PotionBasePrices = _potionKnowledgeState.ClonePotionBasePrices(),
 			PotionRecipes = _potionKnowledgeState.ClonePotionRecipes(),
@@ -202,6 +238,15 @@ public partial class GameState : Node
 			SeedInventory = _gardenState.CloneSeedInventory(),
 			GardenPots = _gardenState.CloneGardenPots(),
 			StoryCustomerVisits = _storyCustomerVisitState.CloneStoryCustomerVisits(),
+			IsShopDayOpen = IsShopDayOpen,
+			ShopDayCustomersArrived = ShopDayCustomersArrived,
+			ShopDayCustomersServed = ShopDayCustomersServed,
+			ShopDaySuccessfulSales = ShopDaySuccessfulSales,
+			ShopDayFailedSales = ShopDayFailedSales,
+			ShopDayGoldEarned = ShopDayGoldEarned,
+			ShopDayDreadChange = ShopDayDreadChange,
+			CloseShopAfterCurrentCustomer = CloseShopAfterCurrentCustomer,
+			ActiveCustomerInteractionId = ActiveCustomerInteractionId,
 			ActiveCustomerRequest = CloneCustomerRequest(ActiveCustomerRequest)
 		};
 
@@ -222,6 +267,7 @@ public partial class GameState : Node
 		_tutorialProgressState.ApplySnapshot(snapshot);
 
 		_inventoryState.Restore(snapshot.Inventory, snapshot.PendingConsumableItemId, snapshot.PendingConsumableQuantity);
+		RestoreQueuedBrewIngredients(snapshot.QueuedBrewIngredients);
 
 		ActiveRules.Clear();
 		if (snapshot.ActiveRules is not null)
@@ -232,6 +278,8 @@ public partial class GameState : Node
 					ActiveRules.Add(ruleId);
 			}
 		}
+
+		RestoreDisabledIngredientPreparationMethods(snapshot.DisabledIngredientPreparationMethods);
 
 		StoryFlags.Clear();
 		if (snapshot.StoryFlags is not null)
@@ -251,7 +299,24 @@ public partial class GameState : Node
 
 		_gardenState.Restore(snapshot.GardenInitialized, snapshot.SeedInventory, snapshot.GardenPots, snapshot.GardenPotCount);
 
+		IsShopDayOpen = snapshot.IsShopDayOpen;
+		ShopDayCustomersArrived = Math.Max(0, snapshot.ShopDayCustomersArrived);
+		ShopDayCustomersServed = Math.Max(0, snapshot.ShopDayCustomersServed);
+		ShopDaySuccessfulSales = Math.Max(0, snapshot.ShopDaySuccessfulSales);
+		ShopDayFailedSales = Math.Max(0, snapshot.ShopDayFailedSales);
+		ShopDayGoldEarned = snapshot.ShopDayGoldEarned;
+		ShopDayDreadChange = snapshot.ShopDayDreadChange;
+		CloseShopAfterCurrentCustomer = snapshot.CloseShopAfterCurrentCustomer;
+		ActiveCustomerInteractionId = string.IsNullOrWhiteSpace(snapshot.ActiveCustomerInteractionId)
+			? string.Empty
+			: snapshot.ActiveCustomerInteractionId.Trim();
 		ActiveCustomerRequest = CloneCustomerRequest(snapshot.ActiveCustomerRequest);
+		if (string.IsNullOrWhiteSpace(ActiveCustomerInteractionId) && ActiveCustomerRequest is not null)
+			ActiveCustomerInteractionId = ActiveCustomerRequest.Id.Trim();
+		if (!IsShopDayOpen && !string.IsNullOrWhiteSpace(ActiveCustomerInteractionId))
+			IsShopDayOpen = true;
+		if (IsShopDayOpen && ShopDayCustomersArrived == 0 && !string.IsNullOrWhiteSpace(ActiveCustomerInteractionId))
+			ShopDayCustomersArrived = 1;
 		BackfillKnownIngredients();
 		EmitChanged();
 	}
@@ -260,6 +325,12 @@ public partial class GameState : Node
 	{
 		_gardenState.AdvanceGrowth();
 		Day += 1;
+		if (Day == 2)
+		{
+			StoryFlags.Add(DayTwoFirstCustomerPendingStoryFlag);
+			StoryFlags.Add(DayTwoSecondCustomerPendingStoryFlag);
+			StoryFlags.Add(DayTwoThirdCustomerPendingStoryFlag);
+		}
 		EmitChanged();
 	}
 
@@ -369,6 +440,15 @@ public partial class GameState : Node
 			EmitChanged();
 	}
 
+	public void RestockItemToMinimum(string itemId, int qty)
+	{
+		var result = _inventoryState.RestockItemToMinimum(itemId, qty);
+		if (result.AddedQuantity > 0)
+			AddKnownIngredient(itemId, emitChanged: false);
+		if (result.Changed)
+			EmitChanged();
+	}
+
 	public bool ConsumeItem(string itemId, int qty)
 	{
 		if (qty <= 0)
@@ -402,6 +482,27 @@ public partial class GameState : Node
 			EmitChanged();
 
 		return consumedCount;
+	}
+
+	public List<IngredientPortionDef> CloneQueuedBrewIngredients()
+	{
+		return CloneIngredientPortions(_queuedBrewIngredients);
+	}
+
+	public void SetQueuedBrewIngredients(IReadOnlyList<IngredientPortionDef> ingredientPortions)
+	{
+		_queuedBrewIngredients.Clear();
+		_queuedBrewIngredients.AddRange(CloneIngredientPortions(ingredientPortions));
+		EmitChanged();
+	}
+
+	public void ClearQueuedBrewIngredients()
+	{
+		if (_queuedBrewIngredients.Count == 0)
+			return;
+
+		_queuedBrewIngredients.Clear();
+		EmitChanged();
 	}
 
 	public static string BuildSeedId(string ingredientId)
@@ -506,6 +607,79 @@ public partial class GameState : Node
 		return _potionKnowledgeState.KnowsAnyIngredientPreparation(ingredientId);
 	}
 
+	public bool IsIngredientPreparationMethodEnabled(string preparationId)
+	{
+		var normalizedPreparationId = IngredientPreparationCatalog.NormalizePreparationId(preparationId);
+		if (string.IsNullOrWhiteSpace(normalizedPreparationId))
+			return false;
+		if (IsRawPreparation(normalizedPreparationId))
+			return true;
+		if (!IngredientPreparationCatalog.IsKnownPreparationId(normalizedPreparationId))
+			return false;
+
+		return !DisabledIngredientPreparationMethods.Contains(normalizedPreparationId);
+	}
+
+	public bool AreNonRawIngredientPreparationMethodsEnabled()
+	{
+		foreach (var option in IngredientPreparationCatalog.AllOptions)
+		{
+			if (IsRawPreparation(option.Id))
+				continue;
+			if (DisabledIngredientPreparationMethods.Contains(option.Id))
+				return false;
+		}
+
+		return true;
+	}
+
+	public void SetNonRawIngredientPreparationMethodsEnabled(bool enabled)
+	{
+		var changed = false;
+		foreach (var option in IngredientPreparationCatalog.AllOptions)
+		{
+			if (IsRawPreparation(option.Id))
+				continue;
+
+			changed |= enabled
+				? DisabledIngredientPreparationMethods.Remove(option.Id)
+				: DisabledIngredientPreparationMethods.Add(option.Id);
+		}
+
+		if (changed)
+			EmitChanged();
+	}
+
+	public void SetIngredientPreparationMethodEnabled(string preparationId, bool enabled)
+	{
+		var normalizedPreparationId = IngredientPreparationCatalog.NormalizePreparationId(preparationId);
+		if (string.IsNullOrWhiteSpace(normalizedPreparationId))
+			return;
+		if (IsRawPreparation(normalizedPreparationId))
+			return;
+		if (!IngredientPreparationCatalog.IsKnownPreparationId(normalizedPreparationId))
+		{
+			GD.PushError($"GameState: Cannot toggle unknown ingredient preparation method '{preparationId}'.");
+			return;
+		}
+
+		var changed = enabled
+			? DisabledIngredientPreparationMethods.Remove(normalizedPreparationId)
+			: DisabledIngredientPreparationMethods.Add(normalizedPreparationId);
+
+		if (changed)
+			EmitChanged();
+	}
+
+	public void SetDebugSkipBoilingMiniGame(bool enabled)
+	{
+		if (DebugSkipBoilingMiniGame == enabled)
+			return;
+
+		DebugSkipBoilingMiniGame = enabled;
+		EmitChanged();
+	}
+
 	public bool KnowsItemIngredientPreparation(string itemId)
 	{
 		return TryResolveIngredientPreparation(itemId, out var ingredientId, out var preparationId) &&
@@ -551,6 +725,32 @@ public partial class GameState : Node
 				continue;
 
 			changed |= _potionKnowledgeState.AddKnownIngredientPreparation(ingredientId, preparationId);
+		}
+
+		if (changed)
+			EmitChanged();
+	}
+
+	public void UnlockIngredientPreparationForCurrentInventory(string preparationId)
+	{
+		var normalizedPreparationId = IngredientPreparationCatalog.NormalizePreparationId(preparationId);
+		if (string.IsNullOrWhiteSpace(normalizedPreparationId))
+			return;
+		if (!IngredientPreparationCatalog.IsKnownPreparationId(normalizedPreparationId))
+		{
+			GD.PushError($"GameState: Cannot unlock unknown ingredient preparation knowledge '{preparationId}'.");
+			return;
+		}
+
+		var changed = false;
+		foreach (var pair in Inventory)
+		{
+			if (pair.Value <= 0)
+				continue;
+			if (!TryGetPreparationForCurrentInventoryItem(pair.Key, normalizedPreparationId, out var ingredientId))
+				continue;
+
+			changed |= _potionKnowledgeState.AddKnownIngredientPreparation(ingredientId, normalizedPreparationId);
 		}
 
 		if (changed)
@@ -648,9 +848,84 @@ public partial class GameState : Node
 		return _potionBatchStore.TryPeekPotionIngredientPortionBatch(potionItemId, out ingredientPortions);
 	}
 
+	public void BeginShopDayState()
+	{
+		IsShopDayOpen = true;
+		ShopDayCustomersArrived = 0;
+		ShopDayCustomersServed = 0;
+		ShopDaySuccessfulSales = 0;
+		ShopDayFailedSales = 0;
+		ShopDayGoldEarned = 0;
+		ShopDayDreadChange = 0;
+		CloseShopAfterCurrentCustomer = false;
+		ActiveCustomerInteractionId = string.Empty;
+		ActiveCustomerRequest = null;
+		EmitChanged();
+	}
+
+	public void CloseShopDayState()
+	{
+		if (!IsShopDayOpen &&
+			ShopDayCustomersArrived == 0 &&
+			string.IsNullOrWhiteSpace(ActiveCustomerInteractionId) &&
+			ActiveCustomerRequest is null)
+		{
+			return;
+		}
+
+		ResetShopDayState();
+		EmitChanged();
+	}
+
+	public void RecordShopDayCustomerArrived(CustomerInteractionDef interaction)
+	{
+		if (interaction is null || string.IsNullOrWhiteSpace(interaction.Id))
+		{
+			GD.PushError("GameState: Cannot record an active shop customer without an interaction id.");
+			return;
+		}
+
+		ActiveCustomerInteractionId = interaction.Id.Trim();
+		ShopDayCustomersArrived += 1;
+		EmitChanged();
+	}
+
+	public void ClearActiveShopCustomer()
+	{
+		if (string.IsNullOrWhiteSpace(ActiveCustomerInteractionId))
+			return;
+
+		ActiveCustomerInteractionId = string.Empty;
+		EmitChanged();
+	}
+
+	public void RecordShopDaySale(bool success, int goldDelta, int dreadDelta)
+	{
+		ShopDayCustomersServed += 1;
+		if (success)
+			ShopDaySuccessfulSales += 1;
+		else
+			ShopDayFailedSales += 1;
+
+		ShopDayGoldEarned += goldDelta;
+		ShopDayDreadChange += dreadDelta;
+		UnlockGardenIfReady();
+		EmitChanged();
+	}
+
+	public void RequestCloseShopAfterCurrentCustomer()
+	{
+		if (CloseShopAfterCurrentCustomer)
+			return;
+
+		CloseShopAfterCurrentCustomer = true;
+		EmitChanged();
+	}
+
 	public void SetActiveCustomerRequest(CustomerRequestDef? request)
 	{
 		ActiveCustomerRequest = request;
+		EnsureActiveShopCustomerForRequest(request);
 		EmitChanged();
 	}
 
@@ -664,6 +939,14 @@ public partial class GameState : Node
 	}
 
 	private void EmitChanged() => Changed?.Invoke();
+
+	private void UnlockGardenIfReady()
+	{
+		if (Day != 2 || ShopDayCustomersServed < 3)
+			return;
+
+		StoryFlags.Add(GardenUnlockedStoryFlag);
+	}
 
 	private void SeedStartingInventory()
 	{
@@ -716,6 +999,74 @@ public partial class GameState : Node
 		BackfillKnownIngredientsFromInventory();
 		BackfillKnownIngredientsFromGardenPots();
 		_potionKnowledgeState.BackfillKnownIngredientsFromKnownRecipes();
+	}
+
+	private void ResetIngredientPreparationMethodLocksForNewGame()
+	{
+		DisabledIngredientPreparationMethods.Clear();
+		foreach (var preparationId in NewGameDisabledIngredientPreparationMethods)
+			DisabledIngredientPreparationMethods.Add(preparationId);
+	}
+
+	private List<string> BuildDisabledIngredientPreparationMethodSnapshot()
+	{
+		return DisabledIngredientPreparationMethods
+			.OrderBy(preparationId => preparationId, StringComparer.OrdinalIgnoreCase)
+			.ToList();
+	}
+
+	private void RestoreDisabledIngredientPreparationMethods(IEnumerable<string>? disabledPreparationMethods)
+	{
+		DisabledIngredientPreparationMethods.Clear();
+		if (disabledPreparationMethods is null)
+			return;
+
+		foreach (var preparationId in disabledPreparationMethods)
+		{
+			var normalizedPreparationId = IngredientPreparationCatalog.NormalizePreparationId(preparationId);
+			if (string.IsNullOrWhiteSpace(normalizedPreparationId))
+				continue;
+			if (IsRawPreparation(normalizedPreparationId))
+				continue;
+			if (!IngredientPreparationCatalog.IsKnownPreparationId(normalizedPreparationId))
+				continue;
+
+			DisabledIngredientPreparationMethods.Add(normalizedPreparationId);
+		}
+	}
+
+	private void RestoreQueuedBrewIngredients(IReadOnlyList<IngredientPortionDef>? ingredientPortions)
+	{
+		_queuedBrewIngredients.Clear();
+		_queuedBrewIngredients.AddRange(CloneIngredientPortions(ingredientPortions));
+	}
+
+	private static List<IngredientPortionDef> CloneIngredientPortions(IReadOnlyList<IngredientPortionDef>? ingredientPortions)
+	{
+		var clones = new List<IngredientPortionDef>();
+		if (ingredientPortions is null)
+			return clones;
+
+		foreach (var ingredientPortion in ingredientPortions)
+		{
+			if (ingredientPortion is null)
+				continue;
+
+			var ingredientId = ingredientPortion.IngredientId?.Trim() ?? string.Empty;
+			var itemId = ingredientPortion.ItemId?.Trim() ?? string.Empty;
+			if (string.IsNullOrWhiteSpace(ingredientId) && string.IsNullOrWhiteSpace(itemId))
+				continue;
+
+			clones.Add(new IngredientPortionDef
+			{
+				IngredientId = string.IsNullOrWhiteSpace(ingredientId) ? itemId : ingredientId,
+				ItemId = itemId,
+				PreparationId = IngredientPreparationCatalog.NormalizePreparationId(ingredientPortion.PreparationId),
+				Grams = Math.Max(0, ingredientPortion.Grams)
+			});
+		}
+
+		return clones;
 	}
 
 	private void BackfillKnownIngredientsFromInventory()
@@ -791,6 +1142,25 @@ public partial class GameState : Node
 		return true;
 	}
 
+	private bool TryGetPreparationForCurrentInventoryItem(
+		string itemId,
+		string preparationId,
+		out string ingredientId)
+	{
+		ingredientId = string.Empty;
+		if (!TryResolveKnownIngredientId(itemId, out var knownIngredientId))
+			return false;
+		if (_itemCatalog is null || !_itemCatalog.TryGetItem(knownIngredientId, out var ingredient))
+			return false;
+		if (!IsIngredient(ingredient) || ingredient.Treatment is not null)
+			return false;
+		if (!IngredientPreparationCatalog.TryGetPreparation(ingredient, preparationId, out _))
+			return false;
+
+		ingredientId = ingredient.Id;
+		return true;
+	}
+
 	public bool TryResolveIngredientPreparation(
 		string itemId,
 		out string ingredientId,
@@ -832,6 +1202,14 @@ public partial class GameState : Node
 		return item.Tags.Any(tag => string.Equals(tag, ItemTags.Ingredient, StringComparison.OrdinalIgnoreCase));
 	}
 
+	private static bool IsRawPreparation(string preparationId)
+	{
+		return string.Equals(
+			IngredientPreparationCatalog.NormalizePreparationId(preparationId),
+			IngredientPreparationCatalog.RawPreparationId,
+			StringComparison.OrdinalIgnoreCase);
+	}
+
 	private bool ItemExists(string itemId)
 	{
 		return _itemCatalog.TryGetItem(itemId, out _);
@@ -857,6 +1235,34 @@ public partial class GameState : Node
 		GD.PushError(message);
 	}
 
+	private void ResetShopDayState()
+	{
+		IsShopDayOpen = false;
+		ShopDayCustomersArrived = 0;
+		ShopDayCustomersServed = 0;
+		ShopDaySuccessfulSales = 0;
+		ShopDayFailedSales = 0;
+		ShopDayGoldEarned = 0;
+		ShopDayDreadChange = 0;
+		CloseShopAfterCurrentCustomer = false;
+		ActiveCustomerInteractionId = string.Empty;
+		ActiveCustomerRequest = null;
+	}
+
+	private void EnsureActiveShopCustomerForRequest(CustomerRequestDef? request)
+	{
+		if (request is null || string.IsNullOrWhiteSpace(request.Id))
+			return;
+
+		var requestId = request.Id.Trim();
+		IsShopDayOpen = true;
+		if (ShopDayCustomersArrived == 0)
+			ShopDayCustomersArrived = 1;
+
+		if (!string.Equals(ActiveCustomerInteractionId, requestId, StringComparison.OrdinalIgnoreCase))
+			ActiveCustomerInteractionId = requestId;
+	}
+
 	private static CustomerRequestDef? CloneCustomerRequest(CustomerRequestDef? request)
 	{
 		if (request is null)
@@ -866,6 +1272,7 @@ public partial class GameState : Node
 		{
 			Id = request.Id,
 			Description = request.Description,
+			HideRequestDetails = request.HideRequestDetails,
 			DesiredTraits = CustomerTraitRangeDef.CloneDictionary(request.DesiredTraits),
 			BadTraits = CustomerTraitRangeDef.CloneDictionary(request.BadTraits),
 			RequiredMinTraits = request.RequiredMinTraits is null ? new Dictionary<string, int>() : new Dictionary<string, int>(request.RequiredMinTraits),

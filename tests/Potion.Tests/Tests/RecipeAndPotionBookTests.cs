@@ -14,6 +14,7 @@ internal static class RecipeAndPotionBookTests
     {
         var source = ReadProjectFile("Scripts/UI/PotionBookPanel.cs");
         var potionBookScene = ReadProjectFile("Scenes/UI/PotionBookPanel.tscn");
+        var potionBookTheme = ReadProjectFile("Assets/UI/PotionBookTheme.tres");
         var gameStateSource = ReadProjectFile("Scripts/Autoload/GameState.cs");
         var potionKnowledgeState = ReadProjectFile("Scripts/Systems/PotionKnowledgeState.cs");
         var saveDataSource = ReadProjectFile("Scripts/Persistence/SaveData.cs");
@@ -65,6 +66,25 @@ internal static class RecipeAndPotionBookTests
             potionBookScene.Contains("[node name=\"LeftPage\" type=\"VBoxContainer\" parent=\"BookRow/BookPanel/Margin/VBox/Pages\"]") &&
             potionBookScene.Contains("[node name=\"CenterFold\" type=\"ColorRect\" parent=\"BookRow/BookPanel/Margin/VBox/Pages\"]") &&
             potionBookScene.Contains("[node name=\"RightPage\" type=\"VBoxContainer\" parent=\"BookRow/BookPanel/Margin/VBox/Pages\"]"));
+        AssertTrue("PotionBookPanel scene renders above active brewing station UI",
+            potionBookScene.Contains("[node name=\"PotionBookPanel\" type=\"Control\"]") &&
+            potionBookScene.Contains("z_index = 5000"));
+        AssertTrue("Potion book theme defines generated open-book StyleBoxFlat resources",
+            potionBookTheme.Contains("OpenBookCover/base_type = &\"PanelContainer\"") &&
+            potionBookTheme.Contains("OpenBookCover/styles/panel = SubResource(\"StyleBoxFlat_book_cover\")") &&
+            potionBookTheme.Contains("OpenBookLeftPage/base_type = &\"PanelContainer\"") &&
+            potionBookTheme.Contains("OpenBookLeftPage/styles/panel = SubResource(\"StyleBoxFlat_book_left_page\")") &&
+            potionBookTheme.Contains("OpenBookRightPage/base_type = &\"PanelContainer\"") &&
+            potionBookTheme.Contains("OpenBookRightPage/styles/panel = SubResource(\"StyleBoxFlat_book_right_page\")") &&
+            potionBookTheme.Contains("bg_color = Color(0.86, 0.77, 0.51, 0.98)") &&
+            potionBookTheme.Contains("bg_color = Color(0.88, 0.79, 0.53, 0.98)"));
+        AssertTrue("PotionBookPanel scene draws the generated open-book background behind page writing",
+            potionBookScene.Contains("[node name=\"BookSurface\" type=\"Control\" parent=\"BookRow/BookPanel\"]") &&
+            potionBookScene.Contains("[node name=\"LeftPageBackground\" type=\"PanelContainer\" parent=\"BookRow/BookPanel/BookSurface\"]") &&
+            potionBookScene.Contains("[node name=\"RightPageBackground\" type=\"PanelContainer\" parent=\"BookRow/BookPanel/BookSurface\"]") &&
+            potionBookScene.Contains("theme_type_variation = &\"OpenBookLeftPage\"") &&
+            potionBookScene.Contains("theme_type_variation = &\"OpenBookRightPage\"") &&
+            potionBookScene.IndexOf("[node name=\"BookSurface\"") < potionBookScene.IndexOf("[node name=\"Margin\" type=\"MarginContainer\" parent=\"BookRow/BookPanel\"]"));
         AssertTrue("PotionBookPanel scene defines both brew button paths",
             potionBookScene.Contains("LeftBrewButtonPath = NodePath(\"BookRow/BookPanel/Margin/VBox/Pages/LeftPage/RecipeContent/Brew\")") &&
             potionBookScene.Contains("RightBrewButtonPath = NodePath(\"BookRow/BookPanel/Margin/VBox/Pages/RightPage/RecipeContent/Brew\")"));
@@ -113,6 +133,7 @@ internal static class RecipeAndPotionBookTests
     private static void TestIngredientBookPanelShowsKnownEntriesBeforeUnknownPages()
     {
         var source = ReadProjectFile("Scripts/UI/IngredientBookPanel.cs");
+        var potionBookScene = ReadProjectFile("Scenes/UI/PotionBookPanel.tscn");
         var scene = ReadProjectFile("Scenes/UI/IngredientBookPanel.tscn");
         var gameUiScene = ReadProjectFile("Scenes/UI/GameUi.tscn");
         var stationBookController = ReadProjectFile("Scripts/UI/StationBookController.cs");
@@ -160,6 +181,16 @@ internal static class RecipeAndPotionBookTests
             scene.Contains("[node name=\"RightPage\" type=\"VBoxContainer\" parent=\"BookRow/BookPanel/Margin/VBox/Pages\"]") &&
             scene.Contains("[node name=\"UnknownIcon\" type=\"Label\" parent=\"BookRow/BookPanel/Margin/VBox/Pages/LeftPage/IngredientContent/IconFrame\"]") &&
             scene.Contains("[node name=\"UnknownIcon\" type=\"Label\" parent=\"BookRow/BookPanel/Margin/VBox/Pages/RightPage/IngredientContent/IconFrame\"]"));
+        AssertTrue("IngredientBookPanel scene renders above active brewing station UI",
+            scene.Contains("[node name=\"IngredientBookPanel\" type=\"Control\"]") &&
+            scene.Contains("z_index = 5000"));
+        AssertTrue("IngredientBookPanel scene draws the generated open-book background behind page writing",
+            scene.Contains("[node name=\"BookSurface\" type=\"Control\" parent=\"BookRow/BookPanel\"]") &&
+            scene.Contains("[node name=\"LeftPageBackground\" type=\"PanelContainer\" parent=\"BookRow/BookPanel/BookSurface\"]") &&
+            scene.Contains("[node name=\"RightPageBackground\" type=\"PanelContainer\" parent=\"BookRow/BookPanel/BookSurface\"]") &&
+            scene.Contains("theme_type_variation = &\"OpenBookLeftPage\"") &&
+            scene.Contains("theme_type_variation = &\"OpenBookRightPage\"") &&
+            scene.IndexOf("[node name=\"BookSurface\"") < scene.IndexOf("[node name=\"Margin\" type=\"MarginContainer\" parent=\"BookRow/BookPanel\"]"));
         AssertTrue("IngredientBookPanel scene defines page number labels on both pages",
             scene.Contains("LeftPageNumberLabelPath = NodePath(\"BookRow/BookPanel/Margin/VBox/Pages/LeftPage/PageNumber\")") &&
             scene.Contains("RightPageNumberLabelPath = NodePath(\"BookRow/BookPanel/Margin/VBox/Pages/RightPage/PageNumber\")") &&
@@ -170,10 +201,20 @@ internal static class RecipeAndPotionBookTests
             scene.Contains("RightContentsPath = NodePath(\"BookRow/BookPanel/Margin/VBox/Pages/RightPage/Contents\")") &&
             scene.Contains("[node name=\"Contents\" type=\"VBoxContainer\" parent=\"BookRow/BookPanel/Margin/VBox/Pages/LeftPage\"]") &&
             scene.Contains("[node name=\"Contents\" type=\"VBoxContainer\" parent=\"BookRow/BookPanel/Margin/VBox/Pages/RightPage\"]"));
-        AssertTrue("GameUi instances the ingredient book panel and dynamic book switch",
+        AssertTrue("Book panel scenes own the dynamic book switch buttons",
             gameUiScene.Contains("path=\"res://Scenes/UI/IngredientBookPanel.tscn\"") &&
-            gameUiScene.Contains("[node name=\"IngredientBookPanel\" parent=\".\" instance=ExtResource(\"41_ingredient_book\")]") &&
-            gameUiScene.Contains("[node name=\"BookSwitch\" type=\"Button\" parent=\"PotionBrewingStationView/Book\"]") &&
+            gameUiScene.Contains("[node name=\"BookOverlayLayer\" type=\"CanvasLayer\" parent=\".\"]") &&
+            gameUiScene.Contains("layer = 4096") &&
+            gameUiScene.Contains("[node name=\"BookDismissOverlay\" type=\"Control\" parent=\"BookOverlayLayer\"]") &&
+            gameUiScene.Contains("[node name=\"PotionBookPanel\" parent=\"BookOverlayLayer\" instance=ExtResource(\"18_potion_book\")]") &&
+            gameUiScene.Contains("[node name=\"IngredientBookPanel\" parent=\"BookOverlayLayer\" instance=ExtResource(\"41_ingredient_book\")]") &&
+            !gameUiScene.Contains("[node name=\"PotionBookPanel\" parent=\".\" instance=ExtResource(\"18_potion_book\")]\ntop_level = true") &&
+            !gameUiScene.Contains("[node name=\"PotionBookPanel\" parent=\".\" instance=ExtResource(\"18_potion_book\")]\nz_index = 0") &&
+            potionBookScene.Contains("[node name=\"BookSwitch\" type=\"Button\" parent=\"BookRow/BookPanel\"]") &&
+            potionBookScene.Contains("text = \"Ingredients\"") &&
+            scene.Contains("[node name=\"BookSwitch\" type=\"Button\" parent=\"BookRow/BookPanel\"]") &&
+            scene.Contains("text = \"Potions\"") &&
+            !gameUiScene.Contains("[node name=\"BookSwitch\" type=\"Button\" parent=\"PotionBrewingStationView/Book\"]") &&
             !gameUiScene.Contains("[node name=\"IngredientBookTab\"") &&
             !gameUiScene.Contains("[node name=\"PotionBookTab\""));
         AssertTrue("GameUi uses one brewing-station book object and one clickable book hotspot",
@@ -185,18 +226,29 @@ internal static class RecipeAndPotionBookTests
             !gameUiScene.Contains("PageNumberLabelPath = null"));
         AssertTrue("StationBookController wires the station book hotspot to both book panels",
             stationBookController.Contains("BookButtonPath = new(\"Book/BookHotspot\")") &&
-            stationBookController.Contains("PotionBookPanelPath = new(\"../PotionBookPanel\")") &&
-            stationBookController.Contains("IngredientBookPanelPath = new(\"../IngredientBookPanel\")") &&
+            stationBookController.Contains("PotionBookPanelPath = new(\"../BookOverlayLayer/PotionBookPanel\")") &&
+            stationBookController.Contains("IngredientBookPanelPath = new(\"../BookOverlayLayer/IngredientBookPanel\")") &&
+            stationBookController.Contains("BookDismissOverlayPath = new(\"../BookOverlayLayer/BookDismissOverlay\")") &&
             stationBookController.Contains("ShowBookPanel(_activeBookPanelKind)") &&
             stationBookController.Contains("bookPanelKind == BookPanelKind.Potion") &&
             stationBookController.Contains("_potionBookPanel.ShowPanel()") &&
             stationBookController.Contains("_ingredientBookPanel.ShowPanel()"));
-        AssertTrue("StationBookController uses one book switch button that targets the opposite book",
-            stationBookController.Contains("BookSwitchButtonPath = new(\"Book/BookSwitch\")") &&
-            stationBookController.Contains("OnBookSwitchPressed") &&
-            stationBookController.Contains("ShowBookPanel(GetOppositeBookPanelKind(_activeBookPanelKind))") &&
-            stationBookController.Contains("_bookSwitchButton.Text = GetBookSwitchButtonText(targetBookPanelKind)") &&
-            stationBookController.Contains("return targetBookPanelKind == BookPanelKind.Potion ? \"Potions\" : \"Ingredients\";"));
+        AssertTrue("StationBookController closes active book panels from outside clicks",
+            stationBookController.Contains("_bookDismissOverlay.GuiInput += _bookDismissOverlayGuiInputHandler") &&
+            stationBookController.Contains("OnBookDismissOverlayGuiInput") &&
+            stationBookController.Contains("HideBookPanels();") &&
+            stationBookController.Contains("_bookDismissOverlay?.AcceptEvent();") &&
+            stationBookController.Contains("SetBookDismissOverlayVisible(false)") &&
+            stationBookController.Contains("MouseFilterEnum.Stop") &&
+            stationBookController.Contains("MouseFilterEnum.Ignore"));
+        AssertTrue("StationBookController wires switch buttons owned by the open book panels",
+            stationBookController.Contains("PotionBookSwitchButtonPath = new(\"../BookOverlayLayer/PotionBookPanel/BookRow/BookPanel/BookSwitch\")") &&
+            stationBookController.Contains("IngredientBookSwitchButtonPath = new(\"../BookOverlayLayer/IngredientBookPanel/BookRow/BookPanel/BookSwitch\")") &&
+            stationBookController.Contains("OnPotionBookSwitchPressed") &&
+            stationBookController.Contains("ShowBookPanel(BookPanelKind.Ingredient)") &&
+            stationBookController.Contains("OnIngredientBookSwitchPressed") &&
+            stationBookController.Contains("ShowBookPanel(BookPanelKind.Potion)") &&
+            !stationBookController.Contains("BookSwitchButtonPath = new(\"Book/BookSwitch\")"));
         AssertTrue("StationBookController remembers the active book between openings",
             stationBookController.Contains("private BookPanelKind _activeBookPanelKind = BookPanelKind.Potion;") &&
             stationBookController.Contains("_activeBookPanelKind = bookPanelKind;"));

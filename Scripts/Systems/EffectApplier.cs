@@ -16,6 +16,15 @@ public static class EffectApplier
         if (!string.IsNullOrWhiteSpace(e.AddItemId))
             state.AddItem(e.AddItemId!, e.AddItemQty ?? 1);
 
+        if (!string.IsNullOrWhiteSpace(e.RestockItemId))
+            state.RestockItemToMinimum(e.RestockItemId!, e.RestockItemQty ?? 1);
+
+        if (!string.IsNullOrWhiteSpace(e.EnableIngredientPreparationMethodId))
+        {
+            state.SetIngredientPreparationMethodEnabled(e.EnableIngredientPreparationMethodId!, true);
+            state.UnlockIngredientPreparationForCurrentInventory(e.EnableIngredientPreparationMethodId!);
+        }
+
         if (!string.IsNullOrWhiteSpace(e.ConsumeItemId))
             state.ConsumeItem(e.ConsumeItemId!, e.ConsumeItemQty ?? 1);
 

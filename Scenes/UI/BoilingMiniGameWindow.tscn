@@ -1,0 +1,285 @@
+[gd_scene load_steps=4 format=3 uid="uid://d1p1ircme3kck"]
+
+[ext_resource type="Script" uid="uid://dltd36apkfde7" path="res://Scripts/UI/BoilingMiniGameWindow.cs" id="1_boil"]
+[ext_resource type="Texture2D" uid="uid://d0yyrix6cjwbs" path="res://Assets/UI/cauldron_placeholder.png" id="2_cauldron"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
+content_margin_left = 18.0
+content_margin_top = 18.0
+content_margin_right = 18.0
+content_margin_bottom = 18.0
+bg_color = Color(0.086275, 0.05098, 0.094118, 0.96)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.709804, 0.541176, 0.352941, 0.82)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[node name="BoilingMiniGameWindow" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+script = ExtResource("1_boil")
+IngredientNamePath = NodePath("Panel/Margin/VBox/Header/IngredientName")
+PhaseLabelPath = NodePath("Panel/Margin/VBox/Body/Controls/Phase")
+StatusLabelPath = NodePath("Panel/Margin/VBox/Body/Controls/Status")
+CauldronTexturePath = NodePath("Panel/Margin/VBox/Body/CauldronFrame/Cauldron")
+TemperatureTrackPath = NodePath("Panel/Margin/VBox/Body/Controls/Gauges/Temperature/Track")
+TemperatureFillPath = NodePath("Panel/Margin/VBox/Body/Controls/Gauges/Temperature/Track/Fill")
+TemperatureTargetBandPath = NodePath("Panel/Margin/VBox/Body/Controls/Gauges/Temperature/Track/TargetBand")
+TemperatureCurrentLinePath = NodePath("Panel/Margin/VBox/Body/Controls/Gauges/Temperature/Track/CurrentLine")
+BellowsButtonPath = NodePath("Panel/Margin/VBox/Body/Controls/Gauges/Temperature/Actions/Bellows")
+LockHeatButtonPath = NodePath("Panel/Margin/VBox/Body/Controls/Gauges/Temperature/Actions/LockHeat")
+DonenessTrackPath = NodePath("Panel/Margin/VBox/Body/Controls/Gauges/Doneness/Track")
+DonenessTargetBandPath = NodePath("Panel/Margin/VBox/Body/Controls/Gauges/Doneness/Track/TargetBand")
+DonenessCurrentLinePath = NodePath("Panel/Margin/VBox/Body/Controls/Gauges/Doneness/Track/CurrentLine")
+TakeOutButtonPath = NodePath("Panel/Margin/VBox/Body/Controls/Gauges/Doneness/TakeOut")
+StirringAreaPath = NodePath("Panel/Margin/VBox/Body/CauldronFrame/StirringArea")
+StirringProgressFillPath = NodePath("Panel/Margin/VBox/Body/Controls/StirringProgress/Fill")
+CancelButtonPath = NodePath("Panel/Margin/VBox/Header/Cancel")
+
+[node name="Dimmer" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+color = Color(0, 0, 0, 0.56)
+
+[node name="Panel" type="PanelContainer" parent="."]
+custom_minimum_size = Vector2(760, 560)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -380.0
+offset_top = -280.0
+offset_right = 380.0
+offset_bottom = 280.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="Margin" type="MarginContainer" parent="Panel"]
+layout_mode = 2
+
+[node name="VBox" type="VBoxContainer" parent="Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Header" type="HBoxContainer" parent="Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="IngredientName" type="Label" parent="Panel/Margin/VBox/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.709804, 0.541176, 0.352941, 1)
+theme_override_font_sizes/font_size = 26
+text = "Ingredient"
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="Cancel" type="Button" parent="Panel/Margin/VBox/Header"]
+custom_minimum_size = Vector2(96, 36)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+text = "Close"
+
+[node name="Body" type="HBoxContainer" parent="Panel/Margin/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 24
+
+[node name="CauldronFrame" type="Control" parent="Panel/Margin/VBox/Body"]
+custom_minimum_size = Vector2(320, 420)
+layout_mode = 2
+size_flags_vertical = 3
+mouse_filter = 2
+
+[node name="Cauldron" type="TextureRect" parent="Panel/Margin/VBox/Body/CauldronFrame"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -155.0
+offset_top = -128.0
+offset_right = 155.0
+offset_bottom = 128.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("2_cauldron")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="StirringArea" type="Control" parent="Panel/Margin/VBox/Body/CauldronFrame"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -132.0
+offset_top = -132.0
+offset_right = 132.0
+offset_bottom = 132.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Controls" type="VBoxContainer" parent="Panel/Margin/VBox/Body"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 12
+
+[node name="Phase" type="Label" parent="Panel/Margin/VBox/Body/Controls"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.941176, 0.811765, 1)
+theme_override_font_sizes/font_size = 22
+text = "Temperature Control"
+
+[node name="Status" type="Label" parent="Panel/Margin/VBox/Body/Controls"]
+custom_minimum_size = Vector2(0, 46)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.82, 0.88, 0.78, 1)
+theme_override_font_sizes/font_size = 16
+text = "Hold the heat inside the marked band."
+autowrap_mode = 3
+
+[node name="Gauges" type="HBoxContainer" parent="Panel/Margin/VBox/Body/Controls"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 24
+
+[node name="Temperature" type="VBoxContainer" parent="Panel/Margin/VBox/Body/Controls/Gauges"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Label" type="Label" parent="Panel/Margin/VBox/Body/Controls/Gauges/Temperature"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.709804, 0.541176, 0.352941, 1)
+text = "Heat"
+horizontal_alignment = 1
+
+[node name="Track" type="Control" parent="Panel/Margin/VBox/Body/Controls/Gauges/Temperature"]
+custom_minimum_size = Vector2(70, 230)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Background" type="ColorRect" parent="Panel/Margin/VBox/Body/Controls/Gauges/Temperature/Track"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.04, 0.02, 0.05, 0.9)
+
+[node name="TargetBand" type="ColorRect" parent="Panel/Margin/VBox/Body/Controls/Gauges/Temperature/Track"]
+layout_mode = 0
+mouse_filter = 2
+color = Color(0.92, 0.72, 0.23, 0.5)
+
+[node name="Fill" type="ColorRect" parent="Panel/Margin/VBox/Body/Controls/Gauges/Temperature/Track"]
+layout_mode = 0
+mouse_filter = 2
+color = Color(0.82, 0.18, 0.09, 0.82)
+
+[node name="CurrentLine" type="ColorRect" parent="Panel/Margin/VBox/Body/Controls/Gauges/Temperature/Track"]
+layout_mode = 0
+mouse_filter = 2
+color = Color(1, 0.94, 0.81, 1)
+
+[node name="Actions" type="VBoxContainer" parent="Panel/Margin/VBox/Body/Controls/Gauges/Temperature"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Bellows" type="Button" parent="Panel/Margin/VBox/Body/Controls/Gauges/Temperature/Actions"]
+custom_minimum_size = Vector2(118, 38)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+text = "Bellows"
+
+[node name="LockHeat" type="Button" parent="Panel/Margin/VBox/Body/Controls/Gauges/Temperature/Actions"]
+custom_minimum_size = Vector2(118, 38)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+text = "Lock Heat"
+
+[node name="Doneness" type="VBoxContainer" parent="Panel/Margin/VBox/Body/Controls/Gauges"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Label" type="Label" parent="Panel/Margin/VBox/Body/Controls/Gauges/Doneness"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.709804, 0.541176, 0.352941, 1)
+text = "Doneness"
+horizontal_alignment = 1
+
+[node name="Track" type="Control" parent="Panel/Margin/VBox/Body/Controls/Gauges/Doneness"]
+custom_minimum_size = Vector2(70, 230)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Background" type="ColorRect" parent="Panel/Margin/VBox/Body/Controls/Gauges/Doneness/Track"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.04, 0.02, 0.05, 0.9)
+
+[node name="TargetBand" type="ColorRect" parent="Panel/Margin/VBox/Body/Controls/Gauges/Doneness/Track"]
+layout_mode = 0
+mouse_filter = 2
+color = Color(0.31, 0.72, 0.55, 0.55)
+
+[node name="CurrentLine" type="ColorRect" parent="Panel/Margin/VBox/Body/Controls/Gauges/Doneness/Track"]
+layout_mode = 0
+mouse_filter = 2
+color = Color(1, 0.94, 0.81, 1)
+
+[node name="TakeOut" type="Button" parent="Panel/Margin/VBox/Body/Controls/Gauges/Doneness"]
+custom_minimum_size = Vector2(118, 38)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+text = "Take Out"
+
+[node name="StirringProgress" type="Control" parent="Panel/Margin/VBox/Body/Controls"]
+custom_minimum_size = Vector2(0, 18)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Background" type="ColorRect" parent="Panel/Margin/VBox/Body/Controls/StirringProgress"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.04, 0.02, 0.05, 0.9)
+
+[node name="Fill" type="ColorRect" parent="Panel/Margin/VBox/Body/Controls/StirringProgress"]
+layout_mode = 0
+mouse_filter = 2
+color = Color(0.31, 0.72, 0.55, 0.9)

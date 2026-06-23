@@ -30,6 +30,9 @@ internal static class PotionBrewingServiceTests
         runner.Run("PotionRecipeLookup exact grams override base recipes", TestPotionRecipeLookupExactGrams);
         runner.Run("PotionRecipeLookup distinguishes preparation methods", TestPotionRecipeLookupPreparationMethods);
         runner.Run("Prepared ingredients use preparation traits and metadata", TestPreparedIngredientFactoryUsesPreparationData);
+        runner.Run("Successful minigame prepared ingredients do not carry risks", TestSuccessfulMiniGamePreparedIngredientsDoNotCarryRisks);
+        runner.Run("Failed boiled ingredients reduce traits and guarantee risk", TestFailedBoiledIngredientFactoryReducesTraitsAndGuaranteesRisk);
+        runner.Run("Failed boiled risks survive risk modifiers", TestFailedBoiledRisksSurviveRiskModifiers);
         runner.Run("Scores a clean positive brew", TestPositiveBrew);
         runner.Run("Handles risk penalties", TestRiskPenaltyBrew);
     }
@@ -168,6 +171,143 @@ internal static class PotionBrewingServiceTests
         AssertEqual("Prepared metadata base", "mint", preparedIngredient.PreparedIngredient?.BaseIngredientId ?? "");
         AssertEqual("Prepared metadata prep", "crushed", preparedIngredient.PreparedIngredient?.PreparationId ?? "");
         AssertTrue("Prepared tag is present", preparedIngredient.Tags.Contains(ItemTags.PreparedIngredient));
+    }
+
+    private static void TestSuccessfulMiniGamePreparedIngredientsDoNotCarryRisks()
+    {
+        var baseIngredient = new ItemDef
+        {
+            Id = "gorse",
+            Name = "Gorse",
+            IconPath = "res://Assets/Items/gorse.png",
+            BasePrice = 8,
+            Quality = 75,
+            Tags = new List<string> { ItemTags.Ingredient, ItemTags.Herb },
+            Preparations = new Dictionary<string, IngredientPreparationDef>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["boiled"] = new()
+                {
+                    Traits = new Dictionary<string, int> { ["soothe"] = 6 },
+                    Risks = new Dictionary<string, int> { ["melancholy"] = 4 },
+                    BoilingGame = new BoilingMiniGameDef
+                    {
+                        FailureRiskId = "melancholy"
+                    }
+                }
+            }
+        };
+
+        var built = PreparedIngredientFactory.TryBuildPreparedIngredient(
+            baseIngredient,
+            IngredientPreparationCatalog.BoiledPreparationId,
+            out var preparedIngredient,
+            out var error);
+
+        AssertTrue($"Successful boiled ingredient builds without error: {error}", built);
+        AssertEqual("Successful minigame output has no stored risks", 0, preparedIngredient.Risks.Count);
+        AssertEqual("Successful boiled trait remains", 6, preparedIngredient.Traits["soothe"]);
+
+        preparedIngredient.Risks["melancholy"] = 4;
+        var ingredientDef = IngredientDefFactory.FromItemDef(preparedIngredient);
+        var service = new PotionBrewingService(() => 0.0f);
+        var preview = service.PreviewPotion(new List<IngredientDef> { ingredientDef }, null);
+        var brewed = service.BrewPotion(new List<IngredientDef> { ingredientDef }, null);
+
+        AssertEqual("Stale successful minigame risk is removed for preview", 0, preview.PossibleRisks.Count);
+        AssertEqual("Successful minigame risk does not carry to potion", 0, brewed.Risks.Count);
+    }
+
+    private static void TestFailedBoiledIngredientFactoryReducesTraitsAndGuaranteesRisk()
+    {
+        var baseIngredient = new ItemDef
+        {
+            Id = "mint",
+            Name = "Mint",
+            IconPath = "res://Assets/Items/mint.png",
+            BasePrice = 7,
+            Quality = 70,
+            Tags = new List<string> { ItemTags.Ingredient, ItemTags.Herb },
+            Preparations = new Dictionary<string, IngredientPreparationDef>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["boiled"] = new()
+                {
+                    Traits = new Dictionary<string, int> { ["cleanse"] = 6, ["soothe"] = 1 },
+                    Risks = new Dictionary<string, int>(),
+                    BoilingGame = new BoilingMiniGameDef
+                    {
+                        FailureRiskId = "melancholy"
+                    }
+                }
+            }
+        };
+
+        var built = PreparedIngredientFactory.TryBuildFailedBoiledIngredient(
+            baseIngredient,
+            baseIngredient.Preparations["boiled"].BoilingGame!,
+            out var failedIngredient,
+            out var error);
+
+        AssertTrue($"Failed boiled ingredient builds without error: {error}", built);
+        AssertEqual("Failed boiled item id", "mint__prep_boiled__boil_failed", failedIngredient.Id);
+        AssertEqual("Reduced high trait", 2, failedIngredient.Traits["cleanse"]);
+        AssertEqual("Reduced minimum trait", 1, failedIngredient.Traits["soothe"]);
+        AssertEqual("Failure risk is guaranteed", 10, failedIngredient.Risks["melancholy"]);
+        AssertEqual("Failed metadata base", "mint", failedIngredient.PreparedIngredient?.BaseIngredientId ?? "");
+        AssertEqual("Failed metadata prep still matches recipes", "boiled", failedIngredient.PreparedIngredient?.PreparationId ?? "");
+        AssertTrue("Failed boiling tag is present", failedIngredient.Tags.Contains(ItemTags.FailedBoiling));
+    }
+
+    private static void TestFailedBoiledRisksSurviveRiskModifiers()
+    {
+        var service = new PotionBrewingService(() => 0.99f);
+        var failedBoiledIngredient = new IngredientDef
+        {
+            Id = "mint__prep_boiled__boil_failed",
+            Name = "Mint (Boiled, Failed)",
+            Quality = 70,
+            BasePrice = 7,
+            Traits = new Dictionary<string, int> { ["cleanse"] = 2 },
+            Risks = new Dictionary<string, int> { ["melancholy"] = 10 },
+            Tags = new List<string> { ItemTags.Ingredient, ItemTags.PreparedIngredient, ItemTags.FailedBoiling }
+        };
+        var riskReducer = new IngredientDef
+        {
+            Id = "gorse",
+            Name = "Gorse",
+            Quality = 80,
+            Traits = new Dictionary<string, int> { ["soothe"] = 2 },
+            IngredientEffects = new List<IngredientEffectDef>
+            {
+                new()
+                {
+                    Kind = IngredientEffectDef.ReduceHighestRiskKind,
+                    Name = "Risk reducer",
+                    Amount = 10
+                }
+            }
+        };
+        var riskSuppressor = new IngredientDef
+        {
+            Id = "thyme",
+            Name = "Thyme",
+            Quality = 80,
+            Traits = new Dictionary<string, int> { ["rest"] = 2 },
+            IngredientEffects = new List<IngredientEffectDef>
+            {
+                new()
+                {
+                    Kind = IngredientEffectDef.SuppressSingleCarriedRiskKind,
+                    Name = "Risk suppressor"
+                }
+            }
+        };
+
+        var result = service.BrewPotion(
+            new List<IngredientDef> { failedBoiledIngredient, riskReducer, riskSuppressor },
+            null);
+
+        AssertEqual("Failed risk remains a guaranteed possible risk", 10, result.PossibleRisks["melancholy"]);
+        AssertEqual("Failed risk carries despite modifiers", 1, result.Risks["melancholy"]);
     }
 
     private static void TestRejectsEmptyIngredients()

@@ -133,6 +133,18 @@ public sealed class InventoryState
 		return new InventoryAddResult(quantityToAdd, changed: true);
 	}
 
+	public InventoryAddResult RestockItemToMinimum(string itemId, int minimumQuantity)
+	{
+		if (minimumQuantity <= 0 || string.IsNullOrWhiteSpace(itemId))
+			return new InventoryAddResult(0, changed: false);
+
+		var currentQuantity = _inventory.GetValueOrDefault(itemId);
+		var missingQuantity = minimumQuantity - currentQuantity;
+		return missingQuantity <= 0
+			? new InventoryAddResult(0, changed: false)
+			: AddItem(itemId, missingQuantity);
+	}
+
 	public bool ConsumeItem(string itemId, int quantity)
 	{
 		if (quantity <= 0)

@@ -2,7 +2,7 @@
 
 [ext_resource type="Texture2D" path="res://art/Background - Evening.png" id="1_1pus8"]
 [ext_resource type="Texture2D" path="res://art/Inventory-Shelf.png" id="2_pceak"]
-[ext_resource type="Texture2D" uid="uid://b4yl005rxxasi" path="res://art/Middleclass-Woman.png" id="3_35oa3"]
+[ext_resource type="Texture2D" uid="uid://clq84iodl6dfq" path="res://art/placeholder_head_outline.svg" id="3_35oa3"]
 [ext_resource type="Texture2D" path="res://art/Counter.png" id="4_nwaye"]
 [ext_resource type="Texture2D" path="res://art/Potion-Book.png" id="5_mejed"]
 [ext_resource type="Texture2D" path="res://art/Treatment.png" id="6_7rdjm"]
@@ -22,7 +22,7 @@ position = Vector2(1839, 513)
 scale = Vector2(0.670056, 0.6642)
 texture = ExtResource("2_pceak")
 
-[node name="Middleclass-woman" type="Sprite2D" parent="."]
+[node name="PlaceholderHeadOutline" type="Sprite2D" parent="."]
 visible = false
 position = Vector2(951, 965)
 scale = Vector2(1.2915, 1.2915)

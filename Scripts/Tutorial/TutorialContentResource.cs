@@ -167,7 +167,7 @@ public partial class TutorialContentResource : Resource
 			{
 				StepId = (int)TutorialStepId.NextCustomer,
 				Title = "Let in the Next Customer",
-				Body = "Click Next customer to bring in the next request.",
+				Body = "The next customer is coming to the counter. Read their request before choosing ingredients.",
 				ShowNextButton = false,
 				PanelAtTop = false,
 				LockOtherButtons = true
@@ -196,7 +196,7 @@ public partial class TutorialContentResource : Resource
 				Body = "Close the shop to end the day.",
 				ShowNextButton = false,
 				PanelAtTop = true,
-				LockOtherButtons = true
+				LockOtherButtons = false
 			},
 			new()
 			{

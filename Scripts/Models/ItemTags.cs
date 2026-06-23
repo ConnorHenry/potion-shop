@@ -10,4 +10,5 @@ public static class ItemTags
 	public const string Catalyst = "catalyst";
 	public const string Treated = "treated";
 	public const string PreparedIngredient = "prepared_ingredient";
+	public const string FailedBoiling = "failed_boiling";
 }

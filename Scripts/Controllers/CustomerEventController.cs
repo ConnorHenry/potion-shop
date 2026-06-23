@@ -10,7 +10,12 @@ namespace OccultShop.Controllers;
 
 public partial class CustomerEventController : Node
 {
-	private const string NewGameWelcomeInteractionId = "plot_bridget_visit_1";
+	private const string NewGameOpeningCustomerInteractionId = "customer_requests_opening_gravekeepers_balm";
+	private const string NewGameSecondCustomerInteractionId = "customer_requests_opening_silver_focus_tonic";
+	private const string NewGameThirdCustomerInteractionId = "customer_requests_opening_clean_vigor_tonic";
+	private const string DayTwoFirstCustomerInteractionId = "customer_requests_day_two_charmed_focus_tonic";
+	private const string DayTwoSecondCustomerInteractionId = "customer_requests_day_two_crowded_head_tonic";
+	private const string DayTwoThirdCustomerInteractionId = "customer_requests_day_two_rest_memory_clarity";
 
 	private readonly Random _random = new();
 	private readonly List<string> _customerOrder = new();
@@ -39,8 +44,23 @@ public partial class CustomerEventController : Node
 		if (TryDrawForcedInteraction(interactions, state, out var forcedInteraction))
 			return forcedInteraction;
 
-		if (TryDrawNewGameWelcomeInteraction(interactions, state, out var welcomeInteraction))
-			return welcomeInteraction;
+		if (TryDrawDayTwoFirstCustomerInteraction(interactions, state, out var dayTwoFirstCustomerInteraction))
+			return dayTwoFirstCustomerInteraction;
+
+		if (TryDrawDayTwoSecondCustomerInteraction(interactions, state, out var dayTwoSecondCustomerInteraction))
+			return dayTwoSecondCustomerInteraction;
+
+		if (TryDrawDayTwoThirdCustomerInteraction(interactions, state, out var dayTwoThirdCustomerInteraction))
+			return dayTwoThirdCustomerInteraction;
+
+		if (TryDrawNewGameOpeningCustomerInteraction(interactions, state, out var openingCustomerInteraction))
+			return openingCustomerInteraction;
+
+		if (TryDrawNewGameSecondCustomerInteraction(interactions, state, out var secondCustomerInteraction))
+			return secondCustomerInteraction;
+
+		if (TryDrawNewGameThirdCustomerInteraction(interactions, state, out var thirdCustomerInteraction))
+			return thirdCustomerInteraction;
 
 		var eligibleInteractions = interactions
 			.Where(interaction => Requirements.Met(state, interaction.Requires))
@@ -70,24 +90,181 @@ public partial class CustomerEventController : Node
 		return DrawCustomerInteraction(db, state);
 	}
 
-	private bool TryDrawNewGameWelcomeInteraction(
+	private bool TryDrawDayTwoFirstCustomerInteraction(
 		IReadOnlyList<CustomerInteractionDef> interactions,
 		GameState state,
 		out CustomerInteractionDef? interaction)
 	{
 		interaction = null;
-		if (!state.HasStoryFlag(GameState.BridgetWelcomePendingStoryFlag))
+		if (!state.HasStoryFlag(GameState.DayTwoFirstCustomerPendingStoryFlag))
 			return false;
+		if (state.Day != 2)
+			return false;
+		if (state.ShopDayCustomersArrived > 0)
+		{
+			state.RemoveStoryFlag(GameState.DayTwoFirstCustomerPendingStoryFlag);
+			return false;
+		}
 
 		foreach (var candidate in interactions)
 		{
-			if (!string.Equals(candidate.Id, NewGameWelcomeInteractionId, StringComparison.OrdinalIgnoreCase))
+			if (!string.Equals(candidate.Id, DayTwoFirstCustomerInteractionId, StringComparison.OrdinalIgnoreCase))
 				continue;
 
 			if (!Requirements.Met(state, candidate.Requires) || !IsCustomerVisitAvailable(state, candidate))
 				return false;
 
+			state.RemoveStoryFlag(GameState.DayTwoFirstCustomerPendingStoryFlag);
+			interaction = MarkCustomerArrival(candidate, state);
+			return true;
+		}
+
+		return false;
+	}
+
+	private bool TryDrawDayTwoSecondCustomerInteraction(
+		IReadOnlyList<CustomerInteractionDef> interactions,
+		GameState state,
+		out CustomerInteractionDef? interaction)
+	{
+		interaction = null;
+		if (!state.HasStoryFlag(GameState.DayTwoSecondCustomerPendingStoryFlag))
+			return false;
+		if (state.Day != 2)
+			return false;
+		if (state.ShopDayCustomersArrived < 1)
+			return false;
+		if (state.ShopDayCustomersArrived > 1)
+		{
+			state.RemoveStoryFlag(GameState.DayTwoSecondCustomerPendingStoryFlag);
+			return false;
+		}
+
+		foreach (var candidate in interactions)
+		{
+			if (!string.Equals(candidate.Id, DayTwoSecondCustomerInteractionId, StringComparison.OrdinalIgnoreCase))
+				continue;
+
+			if (!Requirements.Met(state, candidate.Requires) || !IsCustomerVisitAvailable(state, candidate))
+				return false;
+
+			state.RemoveStoryFlag(GameState.DayTwoSecondCustomerPendingStoryFlag);
+			interaction = MarkCustomerArrival(candidate, state);
+			return true;
+		}
+
+		return false;
+	}
+
+	private bool TryDrawDayTwoThirdCustomerInteraction(
+		IReadOnlyList<CustomerInteractionDef> interactions,
+		GameState state,
+		out CustomerInteractionDef? interaction)
+	{
+		interaction = null;
+		if (!state.HasStoryFlag(GameState.DayTwoThirdCustomerPendingStoryFlag))
+			return false;
+		if (state.Day != 2)
+			return false;
+		if (state.ShopDayCustomersArrived < 2)
+			return false;
+		if (state.ShopDayCustomersArrived > 2)
+		{
+			state.RemoveStoryFlag(GameState.DayTwoThirdCustomerPendingStoryFlag);
+			return false;
+		}
+
+		foreach (var candidate in interactions)
+		{
+			if (!string.Equals(candidate.Id, DayTwoThirdCustomerInteractionId, StringComparison.OrdinalIgnoreCase))
+				continue;
+
+			if (!Requirements.Met(state, candidate.Requires) || !IsCustomerVisitAvailable(state, candidate))
+				return false;
+
+			state.RemoveStoryFlag(GameState.DayTwoThirdCustomerPendingStoryFlag);
+			interaction = MarkCustomerArrival(candidate, state);
+			return true;
+		}
+
+		return false;
+	}
+
+	private bool TryDrawNewGameOpeningCustomerInteraction(
+		IReadOnlyList<CustomerInteractionDef> interactions,
+		GameState state,
+		out CustomerInteractionDef? interaction)
+	{
+		interaction = null;
+		if (!HasNewGameOpeningCustomerPendingFlag(state))
+			return false;
+
+		foreach (var candidate in interactions)
+		{
+			if (!string.Equals(candidate.Id, NewGameOpeningCustomerInteractionId, StringComparison.OrdinalIgnoreCase))
+				continue;
+
+			if (!Requirements.Met(state, candidate.Requires) || !IsCustomerVisitAvailable(state, candidate))
+				return false;
+
+			state.RemoveStoryFlag(GameState.NewGameOpeningCustomerPendingStoryFlag);
 			state.RemoveStoryFlag(GameState.BridgetWelcomePendingStoryFlag);
+			interaction = MarkCustomerArrival(candidate, state);
+			return true;
+		}
+
+		return false;
+	}
+
+	private static bool HasNewGameOpeningCustomerPendingFlag(GameState state)
+	{
+		return state.HasStoryFlag(GameState.NewGameOpeningCustomerPendingStoryFlag) ||
+			state.HasStoryFlag(GameState.BridgetWelcomePendingStoryFlag);
+	}
+
+	private bool TryDrawNewGameSecondCustomerInteraction(
+		IReadOnlyList<CustomerInteractionDef> interactions,
+		GameState state,
+		out CustomerInteractionDef? interaction)
+	{
+		interaction = null;
+		if (!state.HasStoryFlag(GameState.NewGameSecondCustomerPendingStoryFlag))
+			return false;
+
+		foreach (var candidate in interactions)
+		{
+			if (!string.Equals(candidate.Id, NewGameSecondCustomerInteractionId, StringComparison.OrdinalIgnoreCase))
+				continue;
+
+			if (!Requirements.Met(state, candidate.Requires) || !IsCustomerVisitAvailable(state, candidate))
+				return false;
+
+			state.RemoveStoryFlag(GameState.NewGameSecondCustomerPendingStoryFlag);
+			interaction = MarkCustomerArrival(candidate, state);
+			return true;
+		}
+
+		return false;
+	}
+
+	private bool TryDrawNewGameThirdCustomerInteraction(
+		IReadOnlyList<CustomerInteractionDef> interactions,
+		GameState state,
+		out CustomerInteractionDef? interaction)
+	{
+		interaction = null;
+		if (!state.HasStoryFlag(GameState.NewGameThirdCustomerPendingStoryFlag))
+			return false;
+
+		foreach (var candidate in interactions)
+		{
+			if (!string.Equals(candidate.Id, NewGameThirdCustomerInteractionId, StringComparison.OrdinalIgnoreCase))
+				continue;
+
+			if (!Requirements.Met(state, candidate.Requires) || !IsCustomerVisitAvailable(state, candidate))
+				return false;
+
+			state.RemoveStoryFlag(GameState.NewGameThirdCustomerPendingStoryFlag);
 			interaction = MarkCustomerArrival(candidate, state);
 			return true;
 		}
@@ -210,7 +387,17 @@ public partial class CustomerEventController : Node
 	private static CustomerInteractionDef MarkCustomerArrival(CustomerInteractionDef interaction, GameState state)
 	{
 		state.RecordStoryCustomerArrived(interaction);
+		ApplyArrivalEffects(interaction, state);
 		return interaction;
+	}
+
+	private static void ApplyArrivalEffects(CustomerInteractionDef interaction, GameState state)
+	{
+		if (interaction.OnArrivalEffects is null)
+			return;
+
+		foreach (var effect in interaction.OnArrivalEffects)
+			EffectApplier.Apply(state, effect);
 	}
 
 	private bool IsCustomerOrderCurrent(IReadOnlyList<CustomerInteractionDef> eligibleInteractions)

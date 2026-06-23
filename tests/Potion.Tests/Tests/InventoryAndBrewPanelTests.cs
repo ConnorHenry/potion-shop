@@ -26,8 +26,11 @@ internal static class InventoryAndBrewPanelTests
         runner.Run("Consumable inventory and treatment tray are wired", TestConsumableInventoryAndTreatmentTrayWiring);
         runner.Run("Ingredient scales are wired on the brewing station", TestIngredientScalesWiring);
         runner.Run("Ingredient preparation tray previews prep outputs", TestIngredientPreparationTrayPreviewWiring);
+        runner.Run("Ingredient preparation tray rejects ingredients already queued in brew", TestIngredientPreparationTrayRejectsQueuedBrewIngredient);
+        runner.Run("Boiled preparation opens the boiling mini game", TestBoiledPreparationMiniGameWiring);
         runner.Run("Prepared ingredients queue directly and brew panel discards clears", TestPreparedIngredientsQueueDirectlyAndBrewPanelDiscards);
         runner.Run("Measured ingredients are stored for exact-gram requests", TestMeasuredIngredientPersistenceWiring);
+        runner.Run("BrewPanel queued ingredients persist across scene reloads", TestBrewPanelQueuedIngredientsPersistAcrossSceneReloads);
         runner.Run("Treatment service creates expected treatment outputs", TestTreatmentServiceCreatesExpectedOutputs);
         runner.Run("Brew and inventory price wiring stays intact", TestBrewAndInventoryPriceWiring);
         runner.Run("BrewPanel splits risk variants for known potion combinations", TestBrewPanelSplitsRiskVariantsForKnownCombinations);
@@ -219,11 +222,11 @@ internal static class InventoryAndBrewPanelTests
             !scene.Contains("[node name=\"KnownDangers\" type=\"Control\" parent=\"PotionBrewingStationView/BrewPanel/Panel\"]") &&
             !scene.Contains("[node name=\"Instability\" type=\"Control\" parent=\"PotionBrewingStationView/BrewPanel/Panel\"]") &&
             !scene.Contains("[node name=\"EstimatedValue\" type=\"Control\" parent=\"PotionBrewingStationView/BrewPanel/Panel\"]"));
-        AssertTrue("BrewPanel displays only final carried risks instead of possible risk chances",
+        AssertTrue("BrewPanel displays live possible risk chances before brewing and final carried risks after brewing",
             source.Contains("BrewPanelTextFormatter.BuildStatListText(previewResult.Traits, PreviewTraitLineCount)") &&
+            source.Contains("BrewPanelTextFormatter.BuildRiskChanceListText(previewResult?.PossibleRisks ?? new Dictionary<string, int>(), PreviewRiskLineCount)") &&
             source.Contains("BrewPanelTextFormatter.BuildCarriedRiskListText(previewResult.Risks, PreviewRiskLineCount)") &&
             source.Contains("RefreshBrewTraitRiskPreview(brewResult, showCarriedRisks: true);") &&
-            !source.Contains("BuildRiskChanceListText(previewResult.PossibleRisks") &&
             !source.Contains("BuildPreviewEffectText(previewResult)"));
     }
 
@@ -499,6 +502,32 @@ internal static class InventoryAndBrewPanelTests
             saleService.Contains("portion.Grams == requiredIngredientAmount.Grams"));
     }
 
+    private static void TestBrewPanelQueuedIngredientsPersistAcrossSceneReloads()
+    {
+        var brewPanel = ReadProjectFile("Scripts/UI/BrewPanel.cs");
+        var gameState = ReadProjectFile("Scripts/Autoload/GameState.cs");
+        var saveData = ReadProjectFile("Scripts/Persistence/SaveData.cs");
+
+        AssertTrue("Save data snapshots queued brew portions",
+            saveData.Contains("List<IngredientPortionDef> QueuedBrewIngredients"));
+        AssertTrue("GameState owns the scene-persistent brew queue",
+            gameState.Contains("private readonly List<IngredientPortionDef> _queuedBrewIngredients = new();") &&
+            gameState.Contains("public List<IngredientPortionDef> CloneQueuedBrewIngredients()") &&
+            gameState.Contains("public void SetQueuedBrewIngredients(IReadOnlyList<IngredientPortionDef> ingredientPortions)") &&
+            gameState.Contains("public void ClearQueuedBrewIngredients()"));
+        AssertTrue("GameState snapshots and restores queued brew portions",
+            gameState.Contains("QueuedBrewIngredients = CloneIngredientPortions(_queuedBrewIngredients)") &&
+            gameState.Contains("RestoreQueuedBrewIngredients(snapshot.QueuedBrewIngredients)") &&
+            gameState.Contains("_queuedBrewIngredients.Clear();"));
+        AssertTrue("BrewPanel restores queued ingredients from GameState when recreated",
+            brewPanel.Contains("SyncQueuedIngredientsFromGameState();") &&
+            brewPanel.Contains("_queuedIngredients.AddRange(_gameState.CloneQueuedBrewIngredients())") &&
+            brewPanel.Contains("_gameState.Changed += OnGameStateChanged"));
+        AssertTrue("BrewPanel writes queue mutations back to GameState",
+            brewPanel.Contains("_gameState.SetQueuedBrewIngredients(_queuedIngredients);") &&
+            brewPanel.Contains("_gameState.ClearQueuedBrewIngredients();"));
+    }
+
     private static void TestIngredientPreparationTrayPreviewWiring()
     {
         var tray = ReadProjectFile("Scripts/UI/IngredientPreparationTray.cs");
@@ -537,10 +566,37 @@ internal static class InventoryAndBrewPanelTests
             tray.Contains("[color=#6ED775]{traitName} +{trait.Value}[/color]") &&
             tray.Contains("[color=#F0544F]{riskName} +{risk.Value}[/color]") &&
             !tray.Contains("Risk: {"));
+        AssertTrue("IngredientPreparationTray disables preparation buttons through GameState method locks",
+            tray.Contains("_preparationButtonsById") &&
+            tray.Contains("_gameState.Changed += Refresh") &&
+            tray.Contains("_gameState.Changed -= Refresh") &&
+            tray.Contains("_gameState.IsIngredientPreparationMethodEnabled(option.Id)") &&
+            tray.Contains("button.Disabled = !hasSelection || !preparationEnabled") &&
+            tray.Contains("if (!_gameState.IsIngredientPreparationMethodEnabled(preparationId))"));
         AssertTrue("Game UI reserves room for preparation preview labels under buttons",
             scene.Contains("custom_minimum_size = Vector2(430, 330)") &&
             scene.Contains("offset_bottom = 1147.0") &&
             scene.Contains("[node name=\"PreparationMethods\" type=\"HBoxContainer\" parent=\"PotionBrewingStationView/IngredientPreparationTray\"]"));
+    }
+
+    private static void TestIngredientPreparationTrayRejectsQueuedBrewIngredient()
+    {
+        var tray = ReadProjectFile("Scripts/UI/IngredientPreparationTray.cs");
+
+        AssertTrue("IngredientPreparationTray uses GameState queued brew ingredients for duplicate checks",
+            tray.Contains("IsIngredientAlreadyQueuedForBrew") &&
+            tray.Contains("_gameState.CloneQueuedBrewIngredients()") &&
+            tray.Contains("queuedIngredient.IngredientId"));
+        AssertTrue("IngredientPreparationTray rejects duplicate raw ingredients before reserving them",
+            tray.Contains("IsIngredientAlreadyQueuedForBrew(itemId)") &&
+            tray.Contains("That ingredient has already been added to the brew."));
+
+        var duplicateGuardIndex = tray.IndexOf("IsIngredientAlreadyQueuedForBrew(baseIngredient.Id)", StringComparison.Ordinal);
+        var boiledMiniGameIndex = tray.IndexOf("TryStartBoilingMiniGame(baseIngredient)", StringComparison.Ordinal);
+        AssertTrue("IngredientPreparationTray rejects duplicate selected ingredients before opening the boiled mini game",
+            duplicateGuardIndex >= 0 &&
+            boiledMiniGameIndex >= 0 &&
+            duplicateGuardIndex < boiledMiniGameIndex);
     }
 
     private static void TestPreparedIngredientsQueueDirectlyAndBrewPanelDiscards()
@@ -552,7 +608,7 @@ internal static class InventoryAndBrewPanelTests
             tray.Contains("BrewPanelPath = new(\"../BrewPanel\")") &&
             tray.Contains("GetNodeOrNull<BrewPanel>(BrewPanelPath)") &&
             tray.Contains("_brewPanel.TryQueueReservedIngredient(preparedIngredient.Id)") &&
-            tray.Contains("SetStatus($\"{preparedIngredient.Name} added to brew.\")") &&
+            tray.Contains("$\"{preparedIngredient.Name} added to brew.\"") &&
             !tray.Contains("_gameState.AddItem(preparedIngredient.Id, 1)"));
         AssertTrue("BrewPanel accepts already-reserved unmeasured ingredients",
             brewPanel.Contains("public bool TryQueueReservedIngredient(string itemId)") &&
@@ -566,6 +622,55 @@ internal static class InventoryAndBrewPanelTests
         AssertTrue("Preparation trait knowledge is recorded only by successful brew paths",
             !tray.Contains("RecordIngredientPreparationKnowledge") &&
             brewPanel.Contains("_gameState.RecordIngredientPreparationKnowledge(_queuedIngredients);"));
+    }
+
+    private static void TestBoiledPreparationMiniGameWiring()
+    {
+        var tray = ReadProjectFile("Scripts/UI/IngredientPreparationTray.cs");
+        var miniGame = ReadProjectFile("Scripts/UI/BoilingMiniGameWindow.cs");
+        var scene = ReadProjectFile("Scenes/UI/GameUi.tscn");
+        var miniGameScene = ReadProjectFile("Scenes/UI/BoilingMiniGameWindow.tscn");
+
+        AssertTrue("IngredientPreparationTray resolves the boiling mini game modal",
+            tray.Contains("BoilingMiniGameWindowPath = new(\"../BoilingMiniGameWindow\")") &&
+            tray.Contains("GetNodeOrNull<BoilingMiniGameWindow>(BoilingMiniGameWindowPath)") &&
+            tray.Contains("_boilingMiniGameWindow.Completed += OnBoilingMiniGameCompleted") &&
+            tray.Contains("_boilingMiniGameWindow.Completed -= OnBoilingMiniGameCompleted"));
+        AssertTrue("IngredientPreparationTray routes only boiled preparation through the mini game",
+            tray.Contains("IngredientPreparationCatalog.BoiledPreparationId") &&
+            tray.Contains("_gameState.DebugSkipBoilingMiniGame") &&
+            tray.Contains("TryBuildAndQueuePreparedIngredient(baseIngredient, normalizedPreparationId, failedBoiling: false)") &&
+            tray.Contains("TryStartBoilingMiniGame(baseIngredient)") &&
+            tray.Contains("_pendingBoilingIngredientId = _selectedIngredientId") &&
+            tray.Contains("_boilingMiniGameWindow.ShowForIngredient"));
+        AssertTrue("IngredientPreparationTray builds failed boiled output after failed or cancelled mini game",
+            tray.Contains("TryBuildFailedBoiledIngredient") &&
+            tray.Contains("failedBoiling: !succeeded") &&
+            tray.Contains("spoiled and added to brew"));
+        AssertTrue("BoilingMiniGameWindow implements the required phases",
+            miniGame.Contains("TemperatureControl") &&
+            miniGame.Contains("StirringRhythm") &&
+            miniGame.Contains("ButtonDown += OnBellowsButtonDown") &&
+            miniGame.Contains("HeatLockSeconds") &&
+            miniGame.Contains("BuildStirringVector") &&
+            miniGame.Contains("IsExpectedStirringSpeed"));
+        AssertTrue("BoilingMiniGameWindow runs doneness as a global urgency timer",
+            miniGame.Contains("ProcessDoneness(deltaSeconds);") &&
+            miniGame.Contains("private bool _heatLocked;") &&
+            miniGame.Contains("private bool _stirringComplete;") &&
+            miniGame.Contains("_donenessValue > _config.DonenessWindowEnd") &&
+            miniGame.Contains("if (!_heatLocked || !_stirringComplete)") &&
+            miniGame.Contains("CompleteAndClose();"));
+        AssertTrue("Game UI instances the boiling mini game beside the preparation tray",
+            scene.Contains("res://Scenes/UI/BoilingMiniGameWindow.tscn") &&
+            scene.Contains("[node name=\"BoilingMiniGameWindow\" parent=\"PotionBrewingStationView\" instance=ExtResource(\"55_boil_game\")]") &&
+            scene.Contains("BoilingMiniGameWindowPath = NodePath(\"../BoilingMiniGameWindow\")"));
+        AssertTrue("Boiling mini game scene uses existing cauldron art and simple gauges",
+            miniGameScene.Contains("res://Assets/UI/cauldron_placeholder.png") &&
+            miniGameScene.Contains("[node name=\"Temperature\" type=\"VBoxContainer\"") &&
+            miniGameScene.Contains("[node name=\"Doneness\" type=\"VBoxContainer\"") &&
+            miniGameScene.Contains("[node name=\"StirringArea\" type=\"Control\"") &&
+            miniGameScene.Contains("mouse_filter = 1"));
     }
 
     private static void TestConsumableInventoryAndTreatmentTrayWiring()

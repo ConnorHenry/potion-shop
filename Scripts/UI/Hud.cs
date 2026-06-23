@@ -3,7 +3,6 @@ using ImGuiGodot;
 using OccultShop.Autoload;
 using OccultShop.Controllers;
 using OccultShop.Infrastructure;
-using OccultShop.Models;
 using OccultShop.Systems;
 
 namespace OccultShop.UI;
@@ -22,11 +21,6 @@ public partial class Hud : Control
 	private const string RainfallVolumeKey = "rainfall_volume";
 	private const string MusicEnabledKey = "music_enabled";
 	private const string MusicVolumeKey = "music_volume";
-	private const int RequestPanelZIndex = SettingsPanelZIndex;
-	private const float RequestPanelTopOffset = 54.0f;
-	private const float RequestPanelHorizontalMargin = 16.0f;
-	private const float RequestPanelFallbackWidth = 340.0f;
-	private const float RequestPanelMinimumHeight = 0.0f;
 	private const double MusicFadeSeconds = 5.0;
 	private const float SilentMusicVolumeDb = -80.0f;
 	private const bool DefaultAmbientSoundsEnabled = true;
@@ -35,11 +29,25 @@ public partial class Hud : Control
 	private const double DefaultMusicVolume = 0.55;
 	private static readonly string[] SoundtrackAudioPaths =
 	[
-		"res://Assets/Audio/Music/almost_bliss.mp3",
-		"res://Assets/Audio/Music/healing.mp3",
-		"res://Assets/Audio/Music/silver_blue_light.mp3",
-		"res://Assets/Audio/Music/when_the_wind_blows.mp3",
-		"res://Assets/Audio/Music/windswept.mp3",
+		"res://Assets/Audio/Music/postcards_from_ireland_celtic_lofi_beats/01_moonera_and_lucie_cravero_cliffs_of_eire.mp3",
+		"res://Assets/Audio/Music/postcards_from_ireland_celtic_lofi_beats/02_fugee_the_troublemakers.mp3",
+		"res://Assets/Audio/Music/postcards_from_ireland_celtic_lofi_beats/03_bogar_waking_the_strings.mp3",
+		"res://Assets/Audio/Music/postcards_from_ireland_celtic_lofi_beats/04_innigma_and_courtney_pinski_irish_sunset.mp3",
+		"res://Assets/Audio/Music/postcards_from_ireland_celtic_lofi_beats/05_hotpotatoes_and_scott_munro_ode_to_a_broken_mandolin.mp3",
+		"res://Assets/Audio/Music/postcards_from_ireland_celtic_lofi_beats/06_moonera_and_folkturia_fianna.mp3",
+		"res://Assets/Audio/Music/postcards_from_ireland_celtic_lofi_beats/07_stabilisers_and_hoxde_where_lambs_once_grazed.mp3",
+		"res://Assets/Audio/Music/postcards_from_ireland_celtic_lofi_beats/08_c4c_and_nathaniel_e_young_patrick_s_story.mp3",
+		"res://Assets/Audio/Music/postcards_from_ireland_celtic_lofi_beats/09_detuned_cafe_the_road_back_home.mp3",
+		"res://Assets/Audio/Music/postcards_from_ireland_celtic_lofi_beats/10_alpacca_an_old_story_told.mp3",
+		"res://Assets/Audio/Music/postcards_from_ireland_celtic_lofi_beats/11_atamatoki_moonera_and_courtney_pinski_selkie_s_song.mp3",
+		"res://Assets/Audio/Music/postcards_from_ireland_celtic_lofi_beats/12_pueblo_vista_whispers_of_a_home_barely_forgotten.mp3",
+		"res://Assets/Audio/Music/postcards_from_ireland_celtic_lofi_beats/13_eva_gomi_tenshi_and_prithvi_a_long_expected_party.mp3",
+		"res://Assets/Audio/Music/postcards_from_ireland_celtic_lofi_beats/14_moonera_and_joshua_hoe_where_we_began.mp3",
+		"res://Assets/Audio/Music/postcards_from_ireland_celtic_lofi_beats/15_atamatoki_and_early_garden_lash_the_kettle_on.mp3",
+		"res://Assets/Audio/Music/postcards_from_ireland_celtic_lofi_beats/16_stabilisers_and_myceliumbug_green_hills_of_home.mp3",
+		"res://Assets/Audio/Music/postcards_from_ireland_celtic_lofi_beats/17_odem_medo_honeycomb.mp3",
+		"res://Assets/Audio/Music/postcards_from_ireland_celtic_lofi_beats/18_weviis_and_atamatoki_river_shannon.mp3",
+		"res://Assets/Audio/Music/postcards_from_ireland_celtic_lofi_beats/19_moonera_outlander.mp3",
 	];
 
 	private enum MusicFadeState
@@ -51,12 +59,8 @@ public partial class Hud : Control
 
 	[Export] public NodePath GoldLabelPath = new("Content/Status/Gold");
 	[Export] public NodePath DateButtonPath = new("Content/Status/Day");
+	[Export] public NodePath DayCounterLabelPath = new("Content/Status/DayCounter");
 	[Export] public NodePath CalendarPanelPath = new("CalendarPanel");
-	[Export] public NodePath RequestAlertButtonPath = new("Content/Status/RequestAlert");
-	[Export] public NodePath RequestPanelPath = new("RequestPanel");
-	[Export] public NodePath RequestDescriptionLabelPath = new("RequestPanel/Margin/VBox/Description");
-	[Export] public NodePath RequestDesiredTraitsLabelPath = new("RequestPanel/Margin/VBox/Traits/DesiredColumn/DesiredTraits");
-	[Export] public NodePath RequestBadTraitsLabelPath = new("RequestPanel/Margin/VBox/Traits/BadColumn/BadTraits");
 	[Export] public NodePath StartDayButtonPath = new("Content/Actions/ServeCustomer");
 	[Export] public NodePath GardenButtonPath = new("Content/Actions/Garden");
 	[Export] public NodePath MapButtonPath = new("Content/Actions/Map");
@@ -67,8 +71,8 @@ public partial class Hud : Control
 
 	private Label _gold = default!;
 	private Button _dateButton = default!;
+	private Label _dayCounter = default!;
 	private CalendarPanel _calendarPanel = default!;
-	private Button _requestAlertButton = default!;
 	private Button _serveCustomerButton = default!;
 	private Button _gardenButton = default!;
 	private Button _mapButton = default!;
@@ -85,10 +89,6 @@ public partial class Hud : Control
 	private HSlider _musicVolumeSlider = default!;
 	private AudioStreamPlayer _musicPlayer = default!;
 	private Godot.Timer _musicFadeOutTimer = default!;
-	private Control _requestPanel = default!;
-	private RichTextLabel _requestDescription = default!;
-	private RichTextLabel _requestDesiredTraits = default!;
-	private RichTextLabel _requestBadTraits = default!;
 	private GameState? _gameState;
 	private SaveGameManager? _saveGameManager;
 	private DayController? _dayController;
@@ -110,10 +110,10 @@ public partial class Hud : Control
 	{
 		_gold = GetNode<Label>(GoldLabelPath);
 		_dateButton = GetNode<Button>(DateButtonPath);
+		_dayCounter = GetNode<Label>(DayCounterLabelPath);
 		_calendarPanel = GetNode<CalendarPanel>(CalendarPanelPath);
 
 		_serveCustomerButton = GetNode<Button>(StartDayButtonPath);
-		_requestAlertButton = GetNode<Button>(RequestAlertButtonPath);
 		_gardenButton = GetNode<Button>(GardenButtonPath);
 		_mapButton = GetNode<Button>(MapButtonPath);
 		_settingsButton = GetNode<Button>(SettingsButtonPath);
@@ -131,10 +131,6 @@ public partial class Hud : Control
 		_musicVolumeSlider = GetNode<HSlider>("Settings/Margin/VBox/MusicVolumeRow/MusicVolume");
 		_musicPlayer = GetNode<AudioStreamPlayer>("MusicPlayer");
 		_musicFadeOutTimer = GetNode<Godot.Timer>("MusicFadeOutTimer");
-		_requestPanel = GetNode<Control>(RequestPanelPath);
-		_requestDescription = GetNode<RichTextLabel>(RequestDescriptionLabelPath);
-		_requestDesiredTraits = GetNode<RichTextLabel>(RequestDesiredTraitsLabelPath);
-		_requestBadTraits = GetNode<RichTextLabel>(RequestBadTraitsLabelPath);
 
 		_gameState = GetNodeOrNull<GameState>(GameStatePath);
 		if (_gameState is null)
@@ -146,11 +142,7 @@ public partial class Hud : Control
 
 		_settingsPanel.ZIndex = SettingsPanelZIndex;
 		_settingsDetailsPanel.ZIndex = SettingsDetailsPanelZIndex;
-		_requestPanel.ZIndex = RequestPanelZIndex;
-		_requestDescription.BbcodeEnabled = true;
-		_requestDesiredTraits.BbcodeEnabled = true;
-		_requestBadTraits.BbcodeEnabled = true;
-		_calendarPanel.ZIndex = RequestPanelZIndex;
+		_calendarPanel.ZIndex = SettingsPanelZIndex;
 		LoadAudioSettings();
 		ConfigureAmbientRainPlayer();
 		ConfigureSoundtrackPlayer();
@@ -159,7 +151,6 @@ public partial class Hud : Control
 
 		_serveCustomerButton.Pressed += OnStartDayPressed;
 		_dateButton.Pressed += OnDatePressed;
-		_requestAlertButton.Pressed += OnRequestAlertPressed;
 		_gardenButton.Pressed += OnGardenPressed;
 		_mapButton.Pressed += OnMapPressed;
 		_settingsButton.Pressed += OnSettingsPressed;
@@ -179,7 +170,6 @@ public partial class Hud : Control
 			_gameState.Changed += Refresh;
 
 		_toggleDebugPanelButton.Text = ImGuiGD.Visible ? "Debug Panel: On" : "Debug Panel: Off";
-		SetRequestPanelVisible(false);
 		_calendarPanel.HidePanel();
 		SetSettingsPanelVisible(false);
 		SetSettingsDetailsVisible(false);
@@ -199,8 +189,6 @@ public partial class Hud : Control
 			_serveCustomerButton.Pressed -= OnStartDayPressed;
 		if (_dateButton is not null)
 			_dateButton.Pressed -= OnDatePressed;
-		if (_requestAlertButton is not null)
-			_requestAlertButton.Pressed -= OnRequestAlertPressed;
 		if (_gardenButton is not null)
 			_gardenButton.Pressed -= OnGardenPressed;
 		if (_mapButton is not null)
@@ -256,8 +244,6 @@ public partial class Hud : Control
 
 		if (IsPointInsideVisibleControl(_settingsPanel, mouseButton.GlobalPosition)
 			|| IsPointInsideVisibleControl(_settingsDetailsPanel, mouseButton.GlobalPosition)
-			|| IsPointInsideVisibleControl(_requestPanel, mouseButton.GlobalPosition)
-			|| IsPointInsideVisibleControl(_requestAlertButton, mouseButton.GlobalPosition)
 			|| IsPointInsideVisibleControl(_calendarPanel, mouseButton.GlobalPosition)
 			|| IsPointInsideVisibleControl(_dateButton, mouseButton.GlobalPosition))
 			return;
@@ -269,8 +255,6 @@ public partial class Hud : Control
 	public void RefreshSceneBindings()
 	{
 		DisconnectSceneBindings();
-		if (_requestPanel is not null)
-			SetRequestPanelVisible(false);
 		if (_calendarPanel is not null)
 			_calendarPanel.HidePanel();
 
@@ -293,7 +277,11 @@ public partial class Hud : Control
 
 	public void SetAmbientPlaybackAllowed(bool allowed)
 	{
+		var soundtrackShouldRestart = allowed && !_ambientPlaybackAllowed;
 		_ambientPlaybackAllowed = allowed;
+		if (soundtrackShouldRestart)
+			StartNewSoundtrackCycle();
+
 		RefreshAmbientRainPlayback();
 		RefreshSoundtrackPlayback();
 	}
@@ -316,11 +304,11 @@ public partial class Hud : Control
 		if (_gameState is not null)
 		{
 			_gold.Text = $"Gold: {_gameState.Gold}";
+			_dayCounter.Text = $"Day {_gameState.Day}";
 			_dateButton.Text = GameCalendar.ToDate(_gameState.Day).ToHudText();
 			_calendarPanel.Refresh();
 		}
 
-		RefreshRequestAlert();
 		RefreshShopState();
 	}
 
@@ -341,16 +329,7 @@ public partial class Hud : Control
 
 		SetSettingsPanelVisible(false);
 		SetSettingsDetailsVisible(false);
-		SetRequestPanelVisible(false);
 		_calendarPanel.TogglePanel();
-	}
-
-	private void OnRequestAlertPressed()
-	{
-		if (_gameState?.ActiveCustomerRequest is null)
-			return;
-
-		SetRequestPanelVisible(!_requestPanel.Visible);
 	}
 
 	private void OnGardenPressed()
@@ -358,6 +337,8 @@ public partial class Hud : Control
 		if (IsSceneNavigationBlocked())
 			return;
 		if (_dayController is not null && _dayController.IsShopOpen)
+			return;
+		if (_gameState is null || !_gameState.IsGardenUnlocked)
 			return;
 		if (GetTree().CurrentScene is Garden)
 			return;
@@ -395,7 +376,6 @@ public partial class Hud : Control
 		if (shouldOpen)
 		{
 			_calendarPanel.HidePanel();
-			SetRequestPanelVisible(false);
 			SetSettingsDetailsVisible(false);
 		}
 	}
@@ -560,88 +540,8 @@ public partial class Hud : Control
 			SetSettingsPanelVisible(false);
 		if (_settingsDetailsPanel is not null)
 			SetSettingsDetailsVisible(false);
-		if (_requestPanel is not null)
-			SetRequestPanelVisible(false);
 		if (_calendarPanel is not null)
 			_calendarPanel.HidePanel();
-	}
-
-	private void RefreshRequestAlert()
-	{
-		var request = _gameState?.ActiveCustomerRequest;
-		if (request is null)
-		{
-			_requestAlertButton.Visible = false;
-			_requestAlertButton.Disabled = true;
-			ClearRequestPanelText();
-			SetRequestPanelVisible(false);
-			return;
-		}
-
-		_requestAlertButton.Visible = true;
-		_requestAlertButton.Disabled = false;
-		SetRequestPanelText(request);
-		if (_requestPanel.Visible)
-			ResizeAndPositionRequestPanelUnderAlert();
-	}
-
-	private void SetRequestPanelText(CustomerRequestDef request)
-	{
-		_requestDescription.Text = CustomerDialogueTextFormatter.EscapeBbCodeText(request.Description);
-		_requestDesiredTraits.Text = CustomerDialogueTextFormatter.BuildDesiredRequestText(request, null);
-		_requestBadTraits.Text = CustomerDialogueTextFormatter.BuildBadRequestText(request, null, null);
-	}
-
-	private void ClearRequestPanelText()
-	{
-		_requestDescription.Text = "";
-		_requestDesiredTraits.Text = "";
-		_requestBadTraits.Text = "";
-	}
-
-	private void SetRequestPanelVisible(bool visible)
-	{
-		_requestPanel.Visible = visible;
-
-		if (!visible)
-			return;
-
-		ResizeAndPositionRequestPanelUnderAlert();
-		_requestPanel.MoveToFront();
-	}
-
-	private void ResizeAndPositionRequestPanelUnderAlert()
-	{
-		var alertRect = _requestAlertButton.GetGlobalRect();
-		var hudRect = GetGlobalRect();
-		var panelWidth = GetRequestPanelWidth();
-		var panelHeight = GetRequestPanelHeight();
-
-		var maxX = Mathf.Max(RequestPanelHorizontalMargin, Size.X - panelWidth - RequestPanelHorizontalMargin);
-		var localX = alertRect.Position.X - hudRect.Position.X;
-		localX = Mathf.Clamp(localX, RequestPanelHorizontalMargin, maxX);
-		_requestPanel.Position = new Vector2(localX, RequestPanelTopOffset);
-		_requestPanel.Size = new Vector2(panelWidth, panelHeight);
-	}
-
-	private float GetRequestPanelWidth()
-	{
-		var panelWidth = _requestPanel.CustomMinimumSize.X;
-		if (panelWidth <= 0.0f)
-			panelWidth = _requestPanel.GetCombinedMinimumSize().X;
-		if (panelWidth <= 0.0f)
-			panelWidth = RequestPanelFallbackWidth;
-
-		return panelWidth;
-	}
-
-	private float GetRequestPanelHeight()
-	{
-		var panelHeight = _requestPanel.GetCombinedMinimumSize().Y;
-		if (panelHeight < RequestPanelMinimumHeight)
-			panelHeight = RequestPanelMinimumHeight;
-
-		return panelHeight;
 	}
 
 	private void LoadAudioSettings()
@@ -698,7 +598,7 @@ public partial class Hud : Control
 
 	private void ConfigureSoundtrackPlayer()
 	{
-		BuildShuffledSoundtrackOrder();
+		StartNewSoundtrackCycle();
 		if (_soundtrackOrder.Length == 0)
 		{
 			GD.PushError("Hud: No soundtrack tracks are configured.");
@@ -706,9 +606,6 @@ public partial class Hud : Control
 			return;
 		}
 
-		_soundtrackOrderIndex = 0;
-		TryLoadSoundtrackTrack(_soundtrackOrder[_soundtrackOrderIndex]);
-		_musicPlayer.VolumeDb = SilentMusicVolumeDb;
 		UpdateNextTrackButtonState();
 	}
 
@@ -778,9 +675,13 @@ public partial class Hud : Control
 		if (_soundtrackOrder.Length == 0)
 			return;
 
+		var previousTrackIndex = _soundtrackOrderIndex >= 0 && _soundtrackOrderIndex < _soundtrackOrder.Length
+			? _soundtrackOrder[_soundtrackOrderIndex]
+			: -1;
+
 		_soundtrackOrderIndex += 1;
 		if (_soundtrackOrderIndex >= _soundtrackOrder.Length)
-			_soundtrackOrderIndex = 0;
+			StartNewSoundtrackCycle(previousTrackIndex);
 
 		if (!TryLoadCurrentSoundtrackTrack())
 			return;
@@ -897,7 +798,18 @@ public partial class Hud : Control
 		return true;
 	}
 
-	private void BuildShuffledSoundtrackOrder()
+	private void StartNewSoundtrackCycle(int previousTrackIndex = -1)
+	{
+		BuildShuffledSoundtrackOrder(previousTrackIndex);
+		if (_soundtrackOrder.Length == 0)
+			return;
+
+		_soundtrackOrderIndex = 0;
+		TryLoadCurrentSoundtrackTrack();
+		_musicPlayer.VolumeDb = SilentMusicVolumeDb;
+	}
+
+	private void BuildShuffledSoundtrackOrder(int previousTrackIndex = -1)
 	{
 		_soundtrackOrder = new int[SoundtrackAudioPaths.Length];
 		for (var index = 0; index < _soundtrackOrder.Length; index += 1)
@@ -908,6 +820,11 @@ public partial class Hud : Control
 			var swapIndex = _soundtrackRandom.Next(index, _soundtrackOrder.Length);
 			(_soundtrackOrder[index], _soundtrackOrder[swapIndex]) = (_soundtrackOrder[swapIndex], _soundtrackOrder[index]);
 		}
+
+		if (_soundtrackOrder.Length <= 1 || _soundtrackOrder[0] != previousTrackIndex)
+			return;
+
+		(_soundtrackOrder[0], _soundtrackOrder[1]) = (_soundtrackOrder[1], _soundtrackOrder[0]);
 	}
 
 	private void UpdateNextTrackButtonState()
@@ -951,7 +868,6 @@ public partial class Hud : Control
 	{
 		return _settingsPanel.Visible
 			|| _settingsDetailsPanel.Visible
-			|| _requestPanel.Visible
 			|| _calendarPanel.Visible;
 	}
 
@@ -964,6 +880,7 @@ public partial class Hud : Control
 	{
 		var isShopOpen = _dayController is not null && _dayController.IsShopOpen;
 		var navigationBlocked = IsSceneNavigationBlocked();
+		var gardenUnlocked = _gameState is not null && _gameState.IsGardenUnlocked;
 		if (navigationBlocked)
 		{
 			HideHudPopups();
@@ -971,7 +888,7 @@ public partial class Hud : Control
 
 		_serveCustomerButton.Text = isShopOpen ? "Shop Open" : "Start Day";
 		_serveCustomerButton.Disabled = navigationBlocked || _dayController is null || isShopOpen;
-		_gardenButton.Disabled = navigationBlocked || isShopOpen;
+		_gardenButton.Disabled = navigationBlocked || isShopOpen || !gardenUnlocked;
 		if (GetTree().CurrentScene is Garden)
 			_gardenButton.Disabled = true;
 		_mapButton.Disabled = navigationBlocked || GetTree().CurrentScene is Map;

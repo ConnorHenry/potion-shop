@@ -10,7 +10,6 @@
 [ext_resource type="Theme" uid="uid://bcxrpcn1ol80g" path="res://Assets/UI/BrewPanelTheme.tres" id="16_brew_theme"]
 [ext_resource type="Texture2D" uid="uid://bi0wkhi6by5eq" path="res://Assets/Art/BrewingStationBright/scales_bright.png" id="18_bd6m8"]
 [ext_resource type="PackedScene" uid="uid://q4276gq8k64i" path="res://Scenes/UI/PotionBookPanel.tscn" id="18_potion_book"]
-[ext_resource type="PackedScene" uid="uid://dux1kpmnsmdmo" path="res://Scenes/UI/TutorialOverlay.tscn" id="19_tutorial_overlay"]
 [ext_resource type="Script" uid="uid://yqvlygg1780" path="res://Scripts/UI/TreatmentTray.cs" id="20_treatment_tray"]
 [ext_resource type="Texture2D" uid="uid://c6dt74cpoh7xn" path="res://Assets/Art/BrewingStationBright/mortar_pestle_bright.png" id="26_l20nr"]
 [ext_resource type="Script" uid="uid://ct6us1a3xks8f" path="res://Scripts/UI/StationShelfInventory.cs" id="31_station_shelf"]
@@ -29,7 +28,8 @@
 [ext_resource type="Script" uid="uid://61ri84pvvrwd" path="res://Scripts/UI/BrewingStationPropHoverEffect.cs" id="47_prop_hover"]
 [ext_resource type="Texture2D" uid="uid://d0yyrix6cjwbs" path="res://Assets/UI/cauldron_placeholder.png" id="48_cauldron_placeholder"]
 [ext_resource type="Script" uid="uid://fr081tqi5wx8" path="res://Scripts/UI/StationCustomerPanel.cs" id="53_station_customer"]
-[ext_resource type="Script" path="res://Scripts/UI/StationBookController.cs" id="54_station_book"]
+[ext_resource type="Script" uid="uid://dm0gx0ctlle7o" path="res://Scripts/UI/StationBookController.cs" id="54_station_book"]
+[ext_resource type="PackedScene" uid="uid://d1p1ircme3kck" path="res://Scenes/UI/BoilingMiniGameWindow.tscn" id="55_boil_game"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_brew_panel_band"]
 bg_color = Color(0.070588, 0.035294, 0.094118, 0.18)
@@ -93,7 +93,6 @@ bg_color = Color(0.427451, 0.121569, 0.168627, 1)
 [node name="CanvasLayer" type="CanvasLayer"]
 
 [node name="PotionBrewingStationView" type="Control" parent="."]
-script = ExtResource("54_station_book")
 clip_contents = true
 layout_mode = 3
 anchors_preset = 15
@@ -105,6 +104,7 @@ offset_right = 26.0
 offset_bottom = 29.0
 grow_horizontal = 2
 grow_vertical = 2
+script = ExtResource("54_station_book")
 
 [node name="Background" type="TextureRect" parent="PotionBrewingStationView"]
 layout_mode = 1
@@ -178,17 +178,6 @@ offset_bottom = 206.0
 tooltip_text = "Book"
 mouse_default_cursor_shape = 2
 flat = true
-
-[node name="BookSwitch" type="Button" parent="PotionBrewingStationView/Book"]
-z_index = 32
-custom_minimum_size = Vector2(160, 36)
-layout_mode = 0
-offset_left = 45.0
-offset_top = -42.0
-offset_right = 205.0
-offset_bottom = -4.0
-tooltip_text = "Open ingredient book"
-text = "Ingredients"
 
 [node name="HoverEffect" type="Node" parent="PotionBrewingStationView/Book"]
 script = ExtResource("47_prop_hover")
@@ -321,13 +310,12 @@ theme_override_constants/v_separation = 0
 columns = 4
 
 [node name="StationCustomerPanel" type="Control" parent="PotionBrewingStationView"]
-visible = false
 z_index = 80
 layout_mode = 1
 anchor_left = 0.72
 anchor_top = 0.03
 anchor_right = 0.985
-anchor_bottom = 0.76
+anchor_bottom = 0.825
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
@@ -735,7 +723,7 @@ size_flags_horizontal = 3
 size_flags_vertical = 3
 theme_override_colors/font_color = Color(1, 0.941176, 0.811765, 1)
 theme_override_font_sizes/font_size = 14
-text = "None carried"
+text = "None detected"
 autowrap_mode = 3
 
 [node name="RequestChecklist" type="Control" parent="PotionBrewingStationView/BrewPanel/Panel"]
@@ -1015,10 +1003,10 @@ text = "Clear"
 custom_minimum_size = Vector2(430, 330)
 layout_mode = 3
 anchors_preset = 0
-offset_left = 499.0
-offset_top = 790.0
-offset_right = 929.0
-offset_bottom = 1147.0
+offset_left = 422.0
+offset_top = 749.0
+offset_right = 852.0
+offset_bottom = 1106.0
 theme = ExtResource("16_brew_theme")
 script = ExtResource("45_prep_tray")
 IngredientDropBoxPath = NodePath("PreparationDropBox")
@@ -1094,6 +1082,10 @@ offset_top = 72.0
 offset_right = 389.0
 offset_bottom = 113.0
 text = "Clear"
+
+[node name="BoilingMiniGameWindow" parent="PotionBrewingStationView" instance=ExtResource("55_boil_game")]
+z_index = 4096
+layout_mode = 1
 
 [node name="TreatmentTray" type="Control" parent="PotionBrewingStationView"]
 visible = false
@@ -1210,19 +1202,29 @@ fit_content = true
 layout_mode = 2
 text = "Continue to Night"
 
-[node name="PotionBookPanel" parent="." instance=ExtResource("18_potion_book")]
+[node name="BookOverlayLayer" type="CanvasLayer" parent="."]
+layer = 4096
 visible = false
+
+[node name="BookDismissOverlay" type="Control" parent="BookOverlayLayer"]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+
+[node name="PotionBookPanel" parent="BookOverlayLayer" instance=ExtResource("18_potion_book")]
 offset_left = -304.0
 offset_top = -310.0
 offset_right = 334.0
 offset_bottom = 292.0
 
-[node name="IngredientBookPanel" parent="." instance=ExtResource("41_ingredient_book")]
+[node name="IngredientBookPanel" parent="BookOverlayLayer" instance=ExtResource("41_ingredient_book")]
 visible = false
 offset_left = -304.0
 offset_top = -310.0
 offset_right = 334.0
 offset_bottom = 292.0
-
-
-

@@ -11,6 +11,9 @@ public sealed class EffectDef
 
     public string? AddItemId { get; set; }
     public int? AddItemQty { get; set; }
+    public string? RestockItemId { get; set; }
+    public int? RestockItemQty { get; set; }
+    public string? EnableIngredientPreparationMethodId { get; set; }
 
     public string? ConsumeItemId { get; set; }
     public int? ConsumeItemQty { get; set; }

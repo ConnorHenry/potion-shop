@@ -177,7 +177,10 @@ public partial class TutorialController : Node
 		var currentStep = CurrentStep();
 		var transition = _stateMachine.EvaluatePotionSold(currentStep, itemId);
 		if (transition.HasNextStep && transition.NextStep == TutorialStepId.SaleResult)
+		{
 			_lastTutorialSaleSucceeded = success;
+			_customerEventController?.ForceNextCustomerInteraction(_tutorialContent.AmbiguousTutorialCustomerId);
+		}
 
 		ApplyTransition(transition);
 	}
@@ -323,7 +326,8 @@ public partial class TutorialController : Node
 			case TutorialStepId.NextCustomer:
 				_gameState.SeedNextCustomerTutorialInventory();
 				_customerEventController?.ForceNextCustomerInteraction(_tutorialContent.AmbiguousTutorialCustomerId);
-				_overlayPresenter.ShowForTarget(stepContent, _stationCustomerPanel?.GetNextCustomerButton());
+				Callable.From(AdvanceIfAmbiguousCustomerIsActive).CallDeferred();
+				_overlayPresenter.ShowForTarget(stepContent, _stationCustomerPanel);
 				break;
 			case TutorialStepId.AmbiguousCustomer:
 				_overlayPresenter.ShowForTarget(stepContent, _stationCustomerPanel);
@@ -332,7 +336,7 @@ public partial class TutorialController : Node
 				_overlayPresenter.ShowMessage(stepContent);
 				break;
 			case TutorialStepId.CloseShop:
-				_overlayPresenter.ShowForTarget(stepContent, _stationCustomerPanel?.GetNextCustomerButton());
+				_overlayPresenter.ShowForTarget(stepContent, _stationCustomerPanel);
 				break;
 			case TutorialStepId.DaySummary:
 				_overlayPresenter.ShowForTarget(stepContent, _daySummaryPanel);
@@ -428,8 +432,8 @@ public partial class TutorialController : Node
 			TutorialStepId.BrewPotion => new BaseButton?[] { _brewPanel?.GetBrewButton() },
 			TutorialStepId.StartDay => new BaseButton?[] { _startDayButton },
 			TutorialStepId.SellPotion => new BaseButton?[] { GetAllowedButton(FocusTutorialPotionInventorySlot()) },
-			TutorialStepId.NextCustomer => new BaseButton?[] { _stationCustomerPanel?.GetNextCustomerButton() },
-			TutorialStepId.CloseShop => new BaseButton?[] { _stationCustomerPanel?.GetNextCustomerButton() },
+			TutorialStepId.NextCustomer => new BaseButton?[] { },
+			TutorialStepId.CloseShop => new BaseButton?[] { },
 			TutorialStepId.DaySummary => new BaseButton?[] { _daySummaryPanel?.GetContinueButton() },
 			_ => new BaseButton?[] { }
 		};

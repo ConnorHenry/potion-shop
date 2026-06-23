@@ -16,4 +16,7 @@ public sealed class IngredientPreparationDef
 
 	[JsonPropertyName("risks")]
 	public Dictionary<string, int> Risks { get; set; } = new();
+
+	[JsonPropertyName("boilingGame")]
+	public BoilingMiniGameDef? BoilingGame { get; set; }
 }

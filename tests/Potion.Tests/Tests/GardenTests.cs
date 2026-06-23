@@ -36,8 +36,8 @@ internal static class GardenTests
             ["heather"] = 1,
             ["mint"] = 2,
             ["elder"] = 1,
-            ["rosemary"] = 3,
-            ["willow"] = 2,
+            ["rosemary"] = 1,
+            ["willow"] = 1,
             ["juniper"] = 3,
             ["comfrey"] = 1
         };
@@ -50,12 +50,12 @@ internal static class GardenTests
                 ReadProjectFile("Data/items_data.tres").Contains($"\"id\": \"{crop.Key}\""));
         }
 
-        AssertTrue("Starter seed inventory includes yarrow",
-            gardenState.Contains("(\"seed_yarrow\", 1)"));
-        AssertTrue("Starter seed inventory includes gorse",
-            gardenState.Contains("(\"seed_gorse\", 1)"));
-        AssertTrue("Starter seed inventory includes thyme",
-            gardenState.Contains("(\"seed_thyme\", 1)"));
+        AssertTrue("Starter seed inventory includes willow",
+            gardenState.Contains("(\"seed_willow\", 1)"));
+        AssertTrue("Starter seed inventory includes heather",
+            gardenState.Contains("(\"seed_heather\", 1)"));
+        AssertTrue("Starter seed inventory includes rosemary",
+            gardenState.Contains("(\"seed_rosemary\", 1)"));
     }
 
     private static void TestGardenStatePersistenceWiring()
@@ -76,6 +76,10 @@ internal static class GardenTests
 
         AssertTrue("GameState exposes seed inventory", gameStateSource.Contains("public IReadOnlyDictionary<string, int> SeedInventory"));
         AssertTrue("GameState exposes garden pots", gameStateSource.Contains("public IReadOnlyList<GardenPotState> GardenPots"));
+        AssertTrue("GameState persists garden unlock through story flags",
+            gameStateSource.Contains("public const string GardenUnlockedStoryFlag") &&
+            gameStateSource.Contains("public bool IsGardenUnlocked => HasStoryFlag(GardenUnlockedStoryFlag);") &&
+            gameStateSource.Contains("StoryFlags.Add(GardenUnlockedStoryFlag);"));
         AssertTrue("GameState seeds starting garden pots", gameStateSource.Contains("_gardenState.InitializeNewGarden();") && gardenState.Contains("EnsurePotCount(StartingPotCount);"));
         AssertTrue("GameState seeds starter seed inventory", gardenState.Contains("SeedStartingSeedInventory();"));
         AssertTrue("GameState migrates old saves into a garden state", gameStateSource.Contains("_gardenState.Restore(snapshot.GardenInitialized") && gardenState.Contains("if (gardenInitialized)") && gardenState.Contains("InitializeNewGarden();"));
@@ -102,9 +106,12 @@ internal static class GardenTests
         AssertTrue("Hud points to the garden scene", hudSource.Contains("ScenePaths.Garden") && scenePaths.Contains("res://Scenes/Main/Garden.tscn"));
         AssertTrue("Hud has a garden button field", hudSource.Contains("private Button _gardenButton"));
         AssertTrue("Hud resolves the garden button", hudSource.Contains("GetNode<Button>(GardenButtonPath)"));
-        AssertTrue("Hud disables garden while shop is open", hudSource.Contains("_gardenButton.Disabled = navigationBlocked || isShopOpen;"));
+        AssertTrue("Hud disables garden until unlocked and while shop is open",
+            hudSource.Contains("var gardenUnlocked = _gameState is not null && _gameState.IsGardenUnlocked;") &&
+            hudSource.Contains("_gardenButton.Disabled = navigationBlocked || isShopOpen || !gardenUnlocked;"));
         AssertTrue("Hud autosaves before entering garden", hudSource.Contains("TryAutoSave(\"entering the garden\")"));
         AssertTrue("Hud scene includes Garden button", hudScene.Contains("[node name=\"Garden\" type=\"Button\" parent=\"Content/Actions\"]"));
+        AssertTrue("Garden button starts disabled in the HUD scene", hudScene.Contains("disabled = true"));
         AssertTrue("Garden button stays in the HUD menu", hudScene.Contains("text = \"Garden\""));
 
         AssertTrue("Garden script exists", gardenSource.Contains("public partial class Garden : Control"));

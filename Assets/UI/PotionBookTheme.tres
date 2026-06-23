@@ -1,4 +1,4 @@
-[gd_resource type="Theme" load_steps=14 format=3 uid="uid://bimj2f6p05ivj"]
+[gd_resource type="Theme" load_steps=17 format=3 uid="uid://bimj2f6p05ivj"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_arrow_disabled"]
 content_margin_left = 10.0
@@ -176,11 +176,47 @@ corner_radius_top_right = 4
 corner_radius_bottom_right = 4
 corner_radius_bottom_left = 4
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_book_cover"]
+bg_color = Color(0.23, 0.13, 0.055, 0.92)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.11, 0.055, 0.025, 0.78)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_book_left_page"]
+bg_color = Color(0.86, 0.77, 0.51, 0.98)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 1
+border_width_bottom = 2
+border_color = Color(0.33, 0.18, 0.07, 0.34)
+corner_radius_top_left = 6
+corner_radius_top_right = 2
+corner_radius_bottom_right = 2
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_book_right_page"]
+bg_color = Color(0.88, 0.79, 0.53, 0.98)
+border_width_left = 1
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.33, 0.18, 0.07, 0.34)
+corner_radius_top_left = 2
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 2
+
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_panel"]
 
 [resource]
-BookArrowButton/colors/font_color = Color(0.145, 0.073, 0.028, 0.82)
-BookArrowButton/colors/font_disabled_color = Color(0.28, 0.21, 0.14, 0.32)
+BookArrowButton/colors/font_color = Color(0.0641282, 0.109063, 0.0209173, 0.82)
+BookArrowButton/colors/font_disabled_color = Color(0.278431, 0.211765, 0.141176, 0.235294)
 BookArrowButton/colors/font_hover_color = Color(0.11, 0.052, 0.02, 1)
 BookArrowButton/colors/font_pressed_color = Color(0.11, 0.052, 0.02, 0.9)
 BookArrowButton/styles/disabled = SubResource("StyleBoxFlat_arrow_disabled")
@@ -205,4 +241,10 @@ Button/styles/hover = SubResource("StyleBoxFlat_button_hover")
 Button/styles/normal = SubResource("StyleBoxFlat_button_normal")
 Button/styles/pressed = SubResource("StyleBoxFlat_button_pressed")
 Label/colors/font_color = Color(0.12, 0.055, 0.018, 1)
+OpenBookCover/base_type = &"PanelContainer"
+OpenBookCover/styles/panel = SubResource("StyleBoxFlat_book_cover")
+OpenBookLeftPage/base_type = &"PanelContainer"
+OpenBookLeftPage/styles/panel = SubResource("StyleBoxFlat_book_left_page")
+OpenBookRightPage/base_type = &"PanelContainer"
+OpenBookRightPage/styles/panel = SubResource("StyleBoxFlat_book_right_page")
 PanelContainer/styles/panel = SubResource("StyleBoxEmpty_panel")

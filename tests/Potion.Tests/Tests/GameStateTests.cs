@@ -17,6 +17,8 @@ internal static class GameStateTests
         runner.Run("GameState seeds only the starter potion ingredients", TestStartingInventorySeedsOnlyTutorialRecipeItems);
         runner.Run("GameState persists and backfills known ingredient book entries", TestKnownIngredientBookEntriesPersistAndBackfill);
         runner.Run("GameState persists ingredient preparation knowledge separately", TestIngredientPreparationKnowledgePersistsSeparately);
+        runner.Run("GameState starts new games with only Raw prep enabled", TestNewGameIngredientPreparationMethodLocks);
+        runner.Run("GameState exposes runtime debug boil skip flag", TestRuntimeDebugBoilSkipFlag);
         runner.Run("GameState can forget book records for debug toggles", TestBookRecordsCanBeForgottenForDebugToggles);
     }
 
@@ -95,7 +97,13 @@ internal static class GameStateTests
             gameStateSource.Contains("LearnIngredientPreparation") &&
             gameStateSource.Contains("KnowsIngredientPreparation") &&
             gameStateSource.Contains("RecordIngredientPreparationKnowledge") &&
+            gameStateSource.Contains("UnlockIngredientPreparationForCurrentInventory") &&
             gameStateSource.Contains("UnlockAllIngredientPreparations"));
+        AssertTrue("GameState can reveal a specific preparation for current inventory ingredients",
+            gameStateSource.Contains("public void UnlockIngredientPreparationForCurrentInventory(string preparationId)") &&
+            gameStateSource.Contains("foreach (var pair in Inventory)") &&
+            gameStateSource.Contains("TryGetPreparationForCurrentInventoryItem(pair.Key, normalizedPreparationId, out var ingredientId)") &&
+            gameStateSource.Contains("_potionKnowledgeState.AddKnownIngredientPreparation(ingredientId, normalizedPreparationId)"));
         AssertTrue("Preparation knowledge keys are scoped by ingredient and normalized preparation id",
             potionKnowledgeState.Contains("IngredientPreparationCatalog.NormalizePreparationId(preparationId)") &&
             potionKnowledgeState.Contains("::{normalizedPreparationId}"));
@@ -114,5 +122,49 @@ internal static class GameStateTests
             gameStateSource.Contains("public void ForgetIngredient(string ingredientId)") &&
             potionKnowledgeState.Contains("_knownIngredients.RemoveWhere") &&
             potionKnowledgeState.Contains("_knownIngredientOrder.RemoveAll"));
+    }
+
+    private static void TestRuntimeDebugBoilSkipFlag()
+    {
+        var gameStateSource = ReadProjectFile("Scripts/Autoload/GameState.cs");
+        var saveDataSource = ReadProjectFile("Scripts/Persistence/SaveData.cs");
+
+        AssertTrue("GameState exposes a runtime-only debug flag for skipping the boiling mini game",
+            gameStateSource.Contains("public bool DebugSkipBoilingMiniGame { get; private set; }") &&
+            gameStateSource.Contains("public void SetDebugSkipBoilingMiniGame(bool enabled)") &&
+            gameStateSource.Contains("DebugSkipBoilingMiniGame = enabled;") &&
+            !saveDataSource.Contains("DebugSkipBoilingMiniGame"));
+    }
+
+    private static void TestNewGameIngredientPreparationMethodLocks()
+    {
+        var gameStateSource = ReadProjectFile("Scripts/Autoload/GameState.cs");
+        var saveDataSource = ReadProjectFile("Scripts/Persistence/SaveData.cs");
+
+        AssertTrue("GameState tracks disabled ingredient preparation methods",
+            gameStateSource.Contains("public HashSet<string> DisabledIngredientPreparationMethods") &&
+            saveDataSource.Contains("DisabledIngredientPreparationMethods"));
+        AssertTrue("New games disable every non-Raw preparation method",
+            gameStateSource.Contains("NewGameDisabledIngredientPreparationMethods") &&
+            gameStateSource.Contains("IngredientPreparationCatalog.SteepedPreparationId") &&
+            gameStateSource.Contains("IngredientPreparationCatalog.CrushedPreparationId") &&
+            gameStateSource.Contains("IngredientPreparationCatalog.BoiledPreparationId") &&
+            gameStateSource.Contains("ResetIngredientPreparationMethodLocksForNewGame();"));
+        AssertTrue("Raw preparation remains enabled even when preparation methods are locked",
+            gameStateSource.Contains("IsRawPreparation(normalizedPreparationId)") &&
+            gameStateSource.Contains("return true;"));
+        AssertTrue("GameState exposes non-Raw preparation toggle APIs for debug controls",
+            gameStateSource.Contains("AreNonRawIngredientPreparationMethodsEnabled()") &&
+            gameStateSource.Contains("SetNonRawIngredientPreparationMethodsEnabled(bool enabled)") &&
+            gameStateSource.Contains("DisabledIngredientPreparationMethods.Remove(option.Id)") &&
+            gameStateSource.Contains("DisabledIngredientPreparationMethods.Add(option.Id)"));
+        AssertTrue("GameState exposes a single preparation method toggle for progression unlocks",
+            gameStateSource.Contains("SetIngredientPreparationMethodEnabled(string preparationId, bool enabled)") &&
+            gameStateSource.Contains("IngredientPreparationCatalog.NormalizePreparationId(preparationId)") &&
+            gameStateSource.Contains("DisabledIngredientPreparationMethods.Remove(normalizedPreparationId)") &&
+            gameStateSource.Contains("DisabledIngredientPreparationMethods.Add(normalizedPreparationId)"));
+        AssertTrue("GameState snapshots and restores disabled preparation methods",
+            gameStateSource.Contains("DisabledIngredientPreparationMethods = BuildDisabledIngredientPreparationMethodSnapshot()") &&
+            gameStateSource.Contains("RestoreDisabledIngredientPreparationMethods(snapshot.DisabledIngredientPreparationMethods)"));
     }
 }

@@ -5,12 +5,21 @@ namespace OccultShop.UI;
 public partial class StationBookController : Control
 {
 	[Export] public NodePath BookButtonPath = new("Book/BookHotspot");
-	[Export] public NodePath BookSwitchButtonPath = new("Book/BookSwitch");
-	[Export] public NodePath PotionBookPanelPath = new("../PotionBookPanel");
-	[Export] public NodePath IngredientBookPanelPath = new("../IngredientBookPanel");
+	[Export] public NodePath PotionBookPanelPath = new("../BookOverlayLayer/PotionBookPanel");
+	[Export] public NodePath IngredientBookPanelPath = new("../BookOverlayLayer/IngredientBookPanel");
+	[Export] public NodePath BookDismissOverlayPath = new("../BookOverlayLayer/BookDismissOverlay");
+	[Export] public NodePath PotionBookSwitchButtonPath = new("../BookOverlayLayer/PotionBookPanel/BookRow/BookPanel/BookSwitch");
+	[Export] public NodePath IngredientBookSwitchButtonPath = new("../BookOverlayLayer/IngredientBookPanel/BookRow/BookPanel/BookSwitch");
+	[Export] public NodePath PotionBookCloseButtonPath = new("../BookOverlayLayer/PotionBookPanel/BookRow/BookPanel/Margin/VBox/Header/Close");
+	[Export] public NodePath IngredientBookCloseButtonPath = new("../BookOverlayLayer/IngredientBookPanel/BookRow/BookPanel/Margin/VBox/Header/Close");
 
 	private Button? _bookButton;
-	private Button? _bookSwitchButton;
+	private Control? _bookDismissOverlay;
+	private Button? _potionBookSwitchButton;
+	private Button? _ingredientBookSwitchButton;
+	private Button? _potionBookCloseButton;
+	private Button? _ingredientBookCloseButton;
+	private Control.GuiInputEventHandler? _bookDismissOverlayGuiInputHandler;
 	private PotionBookPanel? _potionBookPanel;
 	private IngredientBookPanel? _ingredientBookPanel;
 	private BookPanelKind _activeBookPanelKind = BookPanelKind.Potion;
@@ -18,24 +27,48 @@ public partial class StationBookController : Control
 	public override void _Ready()
 	{
 		_bookButton = GetOptionalNode<Button>(BookButtonPath, nameof(BookButtonPath));
-		_bookSwitchButton = GetOptionalNode<Button>(BookSwitchButtonPath, nameof(BookSwitchButtonPath));
 		_potionBookPanel = GetOptionalNode<PotionBookPanel>(PotionBookPanelPath, nameof(PotionBookPanelPath));
 		_ingredientBookPanel = GetOptionalNode<IngredientBookPanel>(IngredientBookPanelPath, nameof(IngredientBookPanelPath));
+		_bookDismissOverlay = GetOptionalNode<Control>(BookDismissOverlayPath, nameof(BookDismissOverlayPath));
+		_potionBookSwitchButton = GetOptionalNode<Button>(PotionBookSwitchButtonPath, nameof(PotionBookSwitchButtonPath));
+		_ingredientBookSwitchButton = GetOptionalNode<Button>(IngredientBookSwitchButtonPath, nameof(IngredientBookSwitchButtonPath));
+		_potionBookCloseButton = GetOptionalNode<Button>(PotionBookCloseButtonPath, nameof(PotionBookCloseButtonPath));
+		_ingredientBookCloseButton = GetOptionalNode<Button>(IngredientBookCloseButtonPath, nameof(IngredientBookCloseButtonPath));
 
 		if (_bookButton is not null)
 			_bookButton.Pressed += OnBookPressed;
-		if (_bookSwitchButton is not null)
-			_bookSwitchButton.Pressed += OnBookSwitchPressed;
+		if (_bookDismissOverlay is not null)
+		{
+			_bookDismissOverlayGuiInputHandler = OnBookDismissOverlayGuiInput;
+			_bookDismissOverlay.GuiInput += _bookDismissOverlayGuiInputHandler;
+			SetBookDismissOverlayVisible(false);
+		}
+		if (_potionBookSwitchButton is not null)
+			_potionBookSwitchButton.Pressed += OnPotionBookSwitchPressed;
+		if (_ingredientBookSwitchButton is not null)
+			_ingredientBookSwitchButton.Pressed += OnIngredientBookSwitchPressed;
+		if (_potionBookCloseButton is not null)
+			_potionBookCloseButton.Pressed += HideBookPanels;
+		if (_ingredientBookCloseButton is not null)
+			_ingredientBookCloseButton.Pressed += HideBookPanels;
 
-		UpdateBookSwitchButton();
+		UpdateBookSwitchButtons();
 	}
 
 	public override void _ExitTree()
 	{
 		if (_bookButton is not null)
 			_bookButton.Pressed -= OnBookPressed;
-		if (_bookSwitchButton is not null)
-			_bookSwitchButton.Pressed -= OnBookSwitchPressed;
+		if (_bookDismissOverlay is not null && _bookDismissOverlayGuiInputHandler is not null)
+			_bookDismissOverlay.GuiInput -= _bookDismissOverlayGuiInputHandler;
+		if (_potionBookSwitchButton is not null)
+			_potionBookSwitchButton.Pressed -= OnPotionBookSwitchPressed;
+		if (_ingredientBookSwitchButton is not null)
+			_ingredientBookSwitchButton.Pressed -= OnIngredientBookSwitchPressed;
+		if (_potionBookCloseButton is not null)
+			_potionBookCloseButton.Pressed -= HideBookPanels;
+		if (_ingredientBookCloseButton is not null)
+			_ingredientBookCloseButton.Pressed -= HideBookPanels;
 	}
 
 	private void OnBookPressed()
@@ -43,9 +76,14 @@ public partial class StationBookController : Control
 		ShowBookPanel(_activeBookPanelKind);
 	}
 
-	private void OnBookSwitchPressed()
+	private void OnPotionBookSwitchPressed()
 	{
-		ShowBookPanel(GetOppositeBookPanelKind(_activeBookPanelKind));
+		ShowBookPanel(BookPanelKind.Ingredient);
+	}
+
+	private void OnIngredientBookSwitchPressed()
+	{
+		ShowBookPanel(BookPanelKind.Potion);
 	}
 
 	private void ShowBookPanel(BookPanelKind bookPanelKind)
@@ -60,6 +98,7 @@ public partial class StationBookController : Control
 
 			if (_ingredientBookPanel is not null)
 				_ingredientBookPanel.Visible = false;
+			SetBookDismissOverlayVisible(true);
 			_potionBookPanel.ShowPanel();
 			_potionBookPanel.MoveToFront();
 			SetActiveBookPanelKind(BookPanelKind.Potion);
@@ -74,43 +113,62 @@ public partial class StationBookController : Control
 
 		if (_potionBookPanel is not null)
 			_potionBookPanel.Visible = false;
+		SetBookDismissOverlayVisible(true);
 		_ingredientBookPanel.ShowPanel();
 		_ingredientBookPanel.MoveToFront();
 		SetActiveBookPanelKind(BookPanelKind.Ingredient);
 	}
 
+	private void OnBookDismissOverlayGuiInput(InputEvent @event)
+	{
+		if (@event is not InputEventMouseButton mouseButton ||
+			mouseButton.ButtonIndex != MouseButton.Left ||
+			!mouseButton.Pressed)
+			return;
+
+		HideBookPanels();
+		_bookDismissOverlay?.AcceptEvent();
+	}
+
+	private void HideBookPanels()
+	{
+		if (_potionBookPanel is not null)
+			_potionBookPanel.Visible = false;
+		if (_ingredientBookPanel is not null)
+			_ingredientBookPanel.Visible = false;
+		SetBookDismissOverlayVisible(false);
+	}
+
+	private void SetBookDismissOverlayVisible(bool visible)
+	{
+		if (_bookDismissOverlay is null)
+			return;
+
+		_bookDismissOverlay.Visible = visible;
+		_bookDismissOverlay.MouseFilter = visible ? MouseFilterEnum.Stop : MouseFilterEnum.Ignore;
+	}
+
 	private void SetActiveBookPanelKind(BookPanelKind bookPanelKind)
 	{
 		_activeBookPanelKind = bookPanelKind;
-		UpdateBookSwitchButton();
+		UpdateBookSwitchButtons();
 	}
 
-	private void UpdateBookSwitchButton()
+	private void UpdateBookSwitchButtons()
 	{
-		if (_bookSwitchButton is null)
-			return;
+		if (_potionBookSwitchButton is not null)
+		{
+			_potionBookSwitchButton.Text = "Ingredients";
+			_potionBookSwitchButton.TooltipText = "Open ingredient book";
+			_potionBookSwitchButton.Disabled = false;
+		}
 
-		var targetBookPanelKind = GetOppositeBookPanelKind(_activeBookPanelKind);
-		_bookSwitchButton.Text = GetBookSwitchButtonText(targetBookPanelKind);
-		_bookSwitchButton.TooltipText = GetBookSwitchButtonTooltipText(targetBookPanelKind);
-		_bookSwitchButton.Disabled = false;
-	}
-
-	private static BookPanelKind GetOppositeBookPanelKind(BookPanelKind bookPanelKind)
-	{
-		return bookPanelKind == BookPanelKind.Potion
-			? BookPanelKind.Ingredient
-			: BookPanelKind.Potion;
-	}
-
-	private static string GetBookSwitchButtonText(BookPanelKind targetBookPanelKind)
-	{
-		return targetBookPanelKind == BookPanelKind.Potion ? "Potions" : "Ingredients";
-	}
-
-	private static string GetBookSwitchButtonTooltipText(BookPanelKind targetBookPanelKind)
-	{
-		return targetBookPanelKind == BookPanelKind.Potion ? "Open potion book" : "Open ingredient book";
+		if (_ingredientBookSwitchButton is not null)
+		{
+			_ingredientBookSwitchButton.Text = "Potions";
+			_ingredientBookSwitchButton.TooltipText = "Open potion book";
+			_ingredientBookSwitchButton.Disabled = false;
+		}
 	}
 
 	private TNode? GetOptionalNode<TNode>(NodePath path, string exportName) where TNode : Node

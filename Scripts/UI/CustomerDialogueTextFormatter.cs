@@ -7,6 +7,7 @@ namespace OccultShop.UI;
 
 public static class CustomerDialogueTextFormatter
 {
+	public const string HiddenRequestText = "?????";
 	public const string PlayerSpeakerName = "You";
 	public const string CustomerSpeakerName = "Customer";
 	public const string PlayerSpeakerColorHex = "#59D959";
@@ -37,6 +38,9 @@ public static class CustomerDialogueTextFormatter
 		CustomerRequestDef request,
 		IReadOnlyDictionary<string, int>? producedTraits)
 	{
+		if (request.HideRequestDetails)
+			return HiddenRequestText;
+
 		var lines = new List<string>();
 		var desiredTraitText = FormatTraitListWithMatches(
 			request.DesiredTraits,
@@ -67,6 +71,8 @@ public static class CustomerDialogueTextFormatter
 	{
 		if (request is null)
 			return "No active request.";
+		if (request.HideRequestDetails)
+			return HiddenRequestText;
 
 		var lines = new List<string>();
 		AddDesiredTraitChecklistLines(lines, request.DesiredTraits, producedTraits);
@@ -88,6 +94,8 @@ public static class CustomerDialogueTextFormatter
 	{
 		if (request is null)
 			return "No active request.";
+		if (request.HideRequestDetails)
+			return HiddenRequestText;
 
 		var lines = new List<string>();
 		AddDesiredTraitComparisonLines(lines, request.DesiredTraits, producedTraits);
@@ -106,6 +114,9 @@ public static class CustomerDialogueTextFormatter
 		IReadOnlyDictionary<string, int>? producedTraits,
 		IReadOnlyDictionary<string, int>? producedRisks)
 	{
+		if (request.HideRequestDetails)
+			return HiddenRequestText;
+
 		var lines = new List<string>();
 		var badTraitText = FormatBadTraitListWithViolations(
 			request.BadTraits,

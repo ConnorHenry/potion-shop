@@ -31,7 +31,8 @@ Entries = [
     "visitId": "visit_1",
     "dialogueStartNodeId": "intro",
     "requires": {
-      "dayMin": 1
+      "dayMin": 1,
+      "hasStoryFlag": "bridget_welcome_pending"
     },
     "weight": 2,
     "desiredTraits": {},
@@ -166,6 +167,221 @@ Entries = [
     ]
   },
   {
+    "id": "customer_requests_opening_gravekeepers_balm",
+    "title": "First Customer",
+    "text": "A customer asks for a simple balanced balm: Cleanse +4, Mend +4, and Soothe +4.",
+    "lines": [
+      {
+        "speaker": "Customer",
+        "text": "'I need something clean, mending, and gentle. Cleanse +4, Mend +4, and Soothe +4, if you can.'"
+      }
+    ],
+    "characterImagePath": "res://art/placeholder_head_outline.svg",
+    "pool": "plot",
+    "difficulty": 1,
+    "storyCharacterId": "opening_customer",
+    "visitId": "visit_1",
+    "requires": {
+      "dayMin": 1
+    },
+    "weight": 1,
+    "desiredTraits": {
+      "cleanse": { "min": 4, "max": 4 },
+      "mend": { "min": 4, "max": 4 },
+      "soothe": { "min": 4, "max": 4 }
+    },
+    "badTraits": {}
+  },
+  {
+    "id": "customer_requests_opening_silver_focus_tonic",
+    "title": "Second Customer",
+    "text": "A customer asks for a bright, steady tonic: Courage 8, Vigor 3, and Clarity 2.",
+    "lines": [
+      {
+        "speaker": "Customer",
+        "text": "'I need a tonic with courage, enough vigor to keep me standing, and just a little clarity. Courage 8, Vigor 3, and Clarity 2.'"
+      }
+    ],
+    "characterImagePath": "res://art/placeholder_head_outline.svg",
+    "pool": "plot",
+    "difficulty": 1,
+    "storyCharacterId": "opening_customer",
+    "visitId": "visit_2",
+    "requires": {
+      "dayMin": 1,
+      "hasStoryFlag": "new_game_second_customer_pending"
+    },
+    "weight": 1,
+    "desiredTraits": {
+      "clarity": { "min": 4, "max": 4 },
+      "courage": { "min": 3, "max": 3 },
+      "vigor": { "min": 3, "max": 3 }
+    },
+    "badTraits": {},
+    "onArrivalEffects": [
+      {
+        "addItemId": "comfrey",
+        "addItemQty": 1
+      },
+      {
+        "addItemId": "willow",
+        "addItemQty": 1
+      },
+      {
+        "addItemId": "yarrow",
+        "addItemQty": 1
+      }
+    ]
+  },
+  {
+    "id": "customer_requests_opening_clean_vigor_tonic",
+    "title": "Third Customer",
+    "text": "A customer asks for a sharp tonic: Cleanse 7, Soothe 4, and Vigor 3.",
+    "lines": [
+      {
+        "speaker": "Customer",
+        "text": "'I need something clean and bracing, but not harsh. Cleanse 7, Soothe 4, and Vigor 3.'"
+      }
+    ],
+    "characterImagePath": "res://art/placeholder_head_outline.svg",
+    "pool": "plot",
+    "difficulty": 1,
+    "storyCharacterId": "opening_customer",
+    "visitId": "visit_3",
+    "requires": {
+      "dayMin": 1,
+      "hasStoryFlag": "new_game_third_customer_pending"
+    },
+    "weight": 1,
+    "desiredTraits": {
+      "cleanse": { "min": 4, "max": 4 },
+      "soothe": { "min": 4, "max": 4 },
+      "vigor": { "min": 3, "max": 3 }
+    },
+    "badTraits": {},
+    "onArrivalEffects": [
+      {
+        "restockItemId": "mint",
+        "restockItemQty": 5
+      },
+      {
+        "restockItemId": "gorse",
+        "restockItemQty": 5
+      },
+      {
+        "restockItemId": "thyme",
+        "restockItemQty": 5
+      },
+      {
+        "restockItemId": "comfrey",
+        "restockItemQty": 5
+      },
+      {
+        "restockItemId": "willow",
+        "restockItemQty": 5
+      },
+      {
+        "restockItemId": "yarrow",
+        "restockItemQty": 5
+      }
+    ]
+  },
+  {
+    "id": "customer_requests_day_two_charmed_focus_tonic",
+    "title": "Day Two First Customer",
+    "text": "A customer asks for a precise tonic: Courage 8, Charm 4, and Vigor 3.",
+    "lines": [
+      {
+        "speaker": "Customer",
+        "text": "'I need courage enough to hold steady, a measured charm, and enough vigor to keep pace. Courage 8, Charm 4, and Vigor 3.'"
+      }
+    ],
+    "characterImagePath": "res://art/placeholder_head_outline.svg",
+    "pool": "plot",
+    "difficulty": 2,
+    "storyCharacterId": "day_two_customer",
+    "visitId": "visit_1",
+    "requires": {
+      "dayExact": 2,
+      "hasStoryFlag": "day_two_first_customer_pending"
+    },
+    "weight": 1,
+    "desiredTraits": {
+      "charm": { "min": 4, "max": 4 },
+      "courage": { "min": 3, "max": 3 },
+      "vigor": { "min": 3, "max": 3 }
+    },
+    "badTraits": {}
+  },
+  {
+    "id": "customer_requests_day_two_crowded_head_tonic",
+    "title": "Day Two Second Customer",
+    "text": "Please help me. My head feels crowded, my stomach feels off, and I can't focus.",
+    "lines": [
+      {
+        "speaker": "Customer",
+        "text": "'Please help me. My head feels crowded, my stomach feels off, and I can't focus.'"
+      }
+    ],
+    "characterImagePath": "res://art/placeholder_head_outline.svg",
+    "pool": "plot",
+    "difficulty": 2,
+    "storyCharacterId": "day_two_customer",
+    "visitId": "visit_2",
+    "requires": {
+      "dayExact": 2,
+      "hasStoryFlag": "day_two_second_customer_pending"
+    },
+    "weight": 1,
+    "hideRequestDetails": true,
+    "desiredTraits": {
+      "cleanse": { "min": 7, "max": 7 },
+      "soothe": { "min": 5, "max": 5 },
+      "clarity": { "min": 4, "max": 4 }
+    },
+    "badTraits": {},
+    "onSuccessEffects": [
+      {
+        "enableIngredientPreparationMethodId": "boiled"
+      }
+    ],
+    "onFailureEffects": [
+      {
+        "enableIngredientPreparationMethodId": "boiled"
+      }
+    ]
+  },
+  {
+    "id": "customer_requests_day_two_rest_memory_clarity",
+    "title": "Day Two Third Customer",
+    "text": "A customer asks for a potion with Rest 5, Memory 5, and Clarity 4, with no insomnia or melancholy.",
+    "lines": [
+      {
+        "speaker": "Customer",
+        "text": "'I need rest, memory, and clarity. Rest 5, Memory 5, Clarity 4. No insomnia, no melancholy.'"
+      }
+    ],
+    "characterImagePath": "res://art/placeholder_head_outline.svg",
+    "pool": "plot",
+    "difficulty": 2,
+    "storyCharacterId": "day_two_customer",
+    "visitId": "visit_3",
+    "requires": {
+      "dayExact": 2,
+      "hasStoryFlag": "day_two_third_customer_pending"
+    },
+    "weight": 1,
+    "desiredTraits": {
+      "rest": { "min": 5 },
+      "memory": { "min": 5 },
+      "clarity": { "min": 4 }
+    },
+    "badTraits": {
+      "melancholy": { "max": 0 },
+      "insomnia": { "max": 0 }
+    }
+  },
+  {
     "id": "plot_line_demo_visit_1",
     "title": "Mrs Vale",
     "text": "Mrs Vale needs a draught that steadies her nerves and keeps her thoughts clear, with no sleepy or mournful edge.",
@@ -178,7 +394,7 @@ Entries = [
         "text": "'I need my hands still and my mind sharper than fear.'"
       }
     ],
-    "characterImagePath": "res://art/Middleclass-Woman.png",
+    "characterImagePath": "res://art/placeholder_head_outline.svg",
     "pool": "plot",
     "difficulty": 2,
     "storyCharacterId": "mrs_vale",
@@ -375,7 +591,7 @@ Entries = [
     "id": "customer_requests_counterfeit_calm",
     "title": "Counterfeit Calm",
     "text": "A document forger needs a draught that steadies their hand without making the ink swim. Calm and clarity matter most, with cleansing welcome as long as the brew stays awake and untainted.",
-    "characterImagePath": "res://art/Middleclass-Woman.png",
+    "characterImagePath": "res://art/placeholder_head_outline.svg",
     "pool": "early",
     "difficulty": 2,
     "requires": {
@@ -396,7 +612,7 @@ Entries = [
     "id": "customer_requests_clean_blade_rinse",
     "title": "Clean Blade Rinse",
     "text": "A barber brings a nicked silver razor wrapped in cloth. They need cleansing strength, then either soothing or clarity to keep their hand steady.",
-    "characterImagePath": "res://art/Middleclass-Woman.png",
+    "characterImagePath": "res://art/placeholder_head_outline.svg",
     "pool": "early",
     "difficulty": 2,
     "requires": {
@@ -417,7 +633,7 @@ Entries = [
     "id": "customer_requests_soft_dream_tonic",
     "title": "Soft Dream Tonic",
     "text": "A childminder asks for kinder dreams without a heavy sleep. Dream and calm are ideal, and a little soothe can soften the edges.",
-    "characterImagePath": "res://art/Middleclass-Woman.png",
+    "characterImagePath": "res://art/placeholder_head_outline.svg",
     "pool": "early",
     "difficulty": 2,
     "requires": {
@@ -438,7 +654,7 @@ Entries = [
     "id": "customer_requests_grave_stitch_poultice",
     "title": "Grave Stitch Poultice",
     "text": "A surgeon wants a poultice that closes dead-cold wounds. Mending is the heart of it, with soothing or cleansing support to keep the mixture from turning bleak.",
-    "characterImagePath": "res://art/Middleclass-Woman.png",
+    "characterImagePath": "res://art/placeholder_head_outline.svg",
     "pool": "early",
     "difficulty": 3,
     "requires": {
@@ -459,7 +675,7 @@ Entries = [
     "id": "customer_requests_stage_door_spark",
     "title": "Stage Door Spark",
     "text": "A stage performer wants charm that carries them through the curtain call. Vigor or calm can support the brew, but corruption would sour the room.",
-    "characterImagePath": "res://art/Middleclass-Woman.png",
+    "characterImagePath": "res://art/placeholder_head_outline.svg",
     "pool": "early",
     "difficulty": 3,
     "requires": {
@@ -480,7 +696,7 @@ Entries = [
     "id": "customer_requests_bitter_wake_cure",
     "title": "Bitter Wake Cure",
     "text": "A watchman needs to stay awake after a poisoned supper. Vigor helps them stand, while cleansing or clarity shakes off the fog.",
-    "characterImagePath": "res://art/Middleclass-Woman.png",
+    "characterImagePath": "res://art/placeholder_head_outline.svg",
     "pool": "early",
     "difficulty": 3,
     "requires": {
@@ -501,7 +717,7 @@ Entries = [
     "id": "customer_requests_quiet_courage_draught",
     "title": "Quiet Courage Draught",
     "text": "A witness needs courage without panic. A clear head or steady calm can carry the courage, but the potion cannot be corrupting.",
-    "characterImagePath": "res://art/Middleclass-Woman.png",
+    "characterImagePath": "res://art/placeholder_head_outline.svg",
     "pool": "early",
     "difficulty": 3,
     "requires": {
@@ -522,7 +738,7 @@ Entries = [
     "id": "customer_requests_restless_fever_draught",
     "title": "Restless Fever Draught",
     "text": "A feverish courier needs real rest without being knocked flat. Rest is the goal, with cleansing or soothing support to keep the fever from clinging.",
-    "characterImagePath": "res://art/Middleclass-Woman.png",
+    "characterImagePath": "res://art/placeholder_head_outline.svg",
     "pool": "early",
     "difficulty": 3,
     "requires": {
@@ -543,7 +759,7 @@ Entries = [
     "id": "customer_requests_silver_invitation",
     "title": "Silver Invitation",
     "text": "A diplomat needs charm with a clear head. Courage is useful at the table, but corruption would make the invitation dangerous.",
-    "characterImagePath": "res://art/Middleclass-Woman.png",
+    "characterImagePath": "res://art/placeholder_head_outline.svg",
     "pool": "early",
     "difficulty": 3,
     "requires": {
@@ -564,7 +780,7 @@ Entries = [
     "id": "customer_requests_lantern_wash",
     "title": "Lantern Wash",
     "text": "A lamplighter wants a wash for a haunted lens. Soothe and cleanse are the obvious answers, though courage can hold the line if the mixture stays awake.",
-    "characterImagePath": "res://art/Middleclass-Woman.png",
+    "characterImagePath": "res://art/placeholder_head_outline.svg",
     "pool": "early",
     "difficulty": 3,
     "requires": {

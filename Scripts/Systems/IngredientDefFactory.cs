@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using OccultShop.Models;
 
@@ -14,10 +15,43 @@ public static class IngredientDefFactory
 			Quality = item.Quality,
 			BasePrice = item.BasePrice,
 			Traits = new Dictionary<string, int>(item.Traits),
-			Risks = new Dictionary<string, int>(item.Risks),
+			Risks = CloneRisksForBrewing(item),
 			IngredientEffects = CloneIngredientEffects(item.IngredientEffects),
 			Tags = new List<string>(item.Tags)
 		};
+	}
+
+	private static Dictionary<string, int> CloneRisksForBrewing(ItemDef item)
+	{
+		return IsSuccessfulBoiledIngredient(item)
+			? new Dictionary<string, int>()
+			: new Dictionary<string, int>(item.Risks);
+	}
+
+	private static bool IsSuccessfulBoiledIngredient(ItemDef item)
+	{
+		if (item.PreparedIngredient is null)
+			return false;
+
+		var preparationId = IngredientPreparationCatalog.NormalizePreparationId(item.PreparedIngredient.PreparationId);
+		if (!string.Equals(preparationId, IngredientPreparationCatalog.BoiledPreparationId, StringComparison.OrdinalIgnoreCase))
+			return false;
+
+		return !HasTag(item, ItemTags.FailedBoiling);
+	}
+
+	private static bool HasTag(ItemDef item, string tag)
+	{
+		if (item.Tags is null)
+			return false;
+
+		foreach (var candidate in item.Tags)
+		{
+			if (string.Equals(candidate, tag, StringComparison.OrdinalIgnoreCase))
+				return true;
+		}
+
+		return false;
 	}
 
 	private static List<IngredientEffectDef> CloneIngredientEffects(List<IngredientEffectDef>? effects)

@@ -487,6 +487,8 @@ public partial class RuntimeDebugImGui : Node
 			return;
 
 		ImGui.TextWrapped("Developer action for filling the inventory with every base ingredient.");
+		DrawIngredientPreparationMethodControls();
+		ImGui.Separator();
 
 		if (_ingredientItemIds.Count == 0)
 		{
@@ -502,6 +504,35 @@ public partial class RuntimeDebugImGui : Node
 				? $"Added 10x of {addedStackCount} base ingredient stacks to inventory."
 				: "No base ingredient stacks were added.";
 		}
+	}
+
+	private void DrawIngredientPreparationMethodControls()
+	{
+		var skipBoilingMiniGame = _gameState.DebugSkipBoilingMiniGame;
+		if (ImGui.Checkbox("Skip Boiling Mini Game", ref skipBoilingMiniGame))
+		{
+			_gameState.SetDebugSkipBoilingMiniGame(skipBoilingMiniGame);
+			_statusMessage = skipBoilingMiniGame
+				? "Boiling mini game will be skipped for boiled ingredients."
+				: "Boiling mini game will run for boiled ingredients.";
+		}
+
+		var nonRawPreparationsEnabled = _gameState.AreNonRawIngredientPreparationMethodsEnabled();
+		ImGui.Text(nonRawPreparationsEnabled
+			? "Non-Raw Prep Methods: Enabled"
+			: "Non-Raw Prep Methods: Disabled");
+
+		if (!ImGui.Button(nonRawPreparationsEnabled
+			? "Disable Non-Raw Prep Methods"
+			: "Enable Non-Raw Prep Methods"))
+		{
+			return;
+		}
+
+		_gameState.SetNonRawIngredientPreparationMethodsEnabled(!nonRawPreparationsEnabled);
+		_statusMessage = nonRawPreparationsEnabled
+			? "Disabled Steeped, Crushed, and Boiled preparation methods."
+			: "Enabled Steeped, Crushed, and Boiled preparation methods.";
 	}
 
 	private int AddEveryIngredientStack(int quantity)

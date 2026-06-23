@@ -138,7 +138,9 @@ public static class AuthoredDataValidator
 
 		ValidateNoPreparationRisks(item.Id, IngredientPreparationCatalog.RawPreparationId, raw);
 		ValidateNoPreparationRisks(item.Id, IngredientPreparationCatalog.CrushedPreparationId, crushed);
-		ValidateRiskyHighPreparationPair(item.Id, steeped, boiled);
+		ValidateSteepedPreparationRisks(item.Id, steeped);
+		ValidateBoiledPreparationRisks(item.Id, boiled);
+		ValidateBoilingMiniGameConfig(item.Id, boiled);
 	}
 
 	private static bool TryGetAuthoredPreparation(ItemDef item, string preparationId, out IngredientPreparationDef preparation)
@@ -198,27 +200,68 @@ public static class AuthoredDataValidator
 			PushDataWarning($"Ingredient '{itemId}' preparation '{preparationId}' should not define risks.");
 	}
 
-	private static void ValidateRiskyHighPreparationPair(
+	private static void ValidateSteepedPreparationRisks(
 		string itemId,
-		IngredientPreparationDef steeped,
-		IngredientPreparationDef boiled)
+		IngredientPreparationDef steeped)
 	{
 		var steepedRiskCount = CountPositiveRisks(steeped);
+		if (steepedRiskCount > 1)
+			PushDataWarning($"Ingredient '{itemId}' steeped preparation should define no more than one risk.");
+
+		ValidateRiskChanceValues(itemId, IngredientPreparationCatalog.SteepedPreparationId, steeped);
+	}
+
+	private static void ValidateBoiledPreparationRisks(
+		string itemId,
+		IngredientPreparationDef boiled)
+	{
 		var boiledRiskCount = CountPositiveRisks(boiled);
-		var riskyHighPrepCount = (steepedRiskCount > 0 ? 1 : 0) + (boiledRiskCount > 0 ? 1 : 0);
-		if (riskyHighPrepCount != 1)
+		if (boiledRiskCount != 1)
+			PushDataWarning($"Ingredient '{itemId}' boiled preparation should define exactly one risk.");
+
+		ValidateRiskChanceValues(itemId, IngredientPreparationCatalog.BoiledPreparationId, boiled);
+	}
+
+	private static void ValidateBoilingMiniGameConfig(string itemId, IngredientPreparationDef boiled)
+	{
+		var boilingGame = boiled.BoilingGame;
+		if (boilingGame is null)
 		{
-			PushDataWarning($"Ingredient '{itemId}' should define exactly one risky high preparation: steeped or boiled.");
+			PushDataWarning($"Ingredient '{itemId}' boiled preparation is missing boiling mini game data.");
 			return;
 		}
 
-		if (steepedRiskCount > 1)
-			PushDataWarning($"Ingredient '{itemId}' steeped preparation should define no more than one risk.");
-		if (boiledRiskCount > 1)
-			PushDataWarning($"Ingredient '{itemId}' boiled preparation should define no more than one risk.");
+		if (string.IsNullOrWhiteSpace(boilingGame.FailureRiskId))
+			PushDataWarning($"Ingredient '{itemId}' boiling mini game is missing failureRiskId.");
 
-		ValidateRiskChanceValues(itemId, IngredientPreparationCatalog.SteepedPreparationId, steeped);
-		ValidateRiskChanceValues(itemId, IngredientPreparationCatalog.BoiledPreparationId, boiled);
+		if (!IsValidUnitRange(boilingGame.TemperatureTargetMin, boilingGame.TemperatureTargetMax))
+			PushDataWarning($"Ingredient '{itemId}' boiling temperature target should be a 0-1 range with min below max.");
+
+		if (boilingGame.TemperatureHoldSeconds <= 0.0f)
+			PushDataWarning($"Ingredient '{itemId}' boiling temperatureHoldSeconds should be greater than 0.");
+
+		if (boilingGame.HeatLockSeconds <= 0.0f)
+			PushDataWarning($"Ingredient '{itemId}' boiling heatLockSeconds should be greater than 0.");
+
+		if (boilingGame.HeatRiseRate <= 0.0f)
+			PushDataWarning($"Ingredient '{itemId}' boiling heatRiseRate should be greater than 0.");
+
+		if (boilingGame.HeatFallRate <= 0.0f)
+			PushDataWarning($"Ingredient '{itemId}' boiling heatFallRate should be greater than 0.");
+
+		if (boilingGame.DonenessDurationSeconds <= 0.0f)
+			PushDataWarning($"Ingredient '{itemId}' boiling donenessDurationSeconds should be greater than 0.");
+
+		if (!IsValidUnitRange(boilingGame.DonenessWindowStart, boilingGame.DonenessWindowEnd))
+			PushDataWarning($"Ingredient '{itemId}' boiling doneness window should be a 0-1 range with start below end.");
+
+		if (boilingGame.StirringHoldSeconds <= 0.0f)
+			PushDataWarning($"Ingredient '{itemId}' boiling stirringHoldSeconds should be greater than 0.");
+	}
+
+	private static bool IsValidUnitRange(float min, float max)
+	{
+		return min >= 0.0f && max <= 1.0f && min < max;
 	}
 
 	private static int CountPositiveRisks(IngredientPreparationDef preparation)
@@ -397,6 +440,7 @@ public static class AuthoredDataValidator
 			ValidateTraitThresholds(interaction.RequiredMinTraits, knownTraitIds, $"{context} required minimum traits");
 			ValidateTraitThresholds(interaction.RequiredMaxTraits, knownTraitIds, $"{context} required maximum traits");
 			ValidateIngredientAmounts(items, interaction.RequiredIngredientAmounts, $"{context} required ingredient amounts");
+			ValidateEffects(items, rules, interaction.OnArrivalEffects, $"{context} arrival effects");
 			ValidateEffects(items, rules, interaction.OnSuccessEffects, $"{context} success effects");
 			ValidateEffects(items, rules, interaction.OnFailureEffects, $"{context} failure effects");
 			ValidateEffects(items, rules, interaction.OnSkipEffects, $"{context} skip effects");
@@ -726,6 +770,15 @@ public static class AuthoredDataValidator
 
 			if (!string.IsNullOrWhiteSpace(effect.AddItemId))
 				ValidateKnownItemReference(items, effect.AddItemId, $"{effectContext} add item");
+
+			if (!string.IsNullOrWhiteSpace(effect.RestockItemId))
+				ValidateKnownItemReference(items, effect.RestockItemId, $"{effectContext} restock item");
+
+			if (!string.IsNullOrWhiteSpace(effect.EnableIngredientPreparationMethodId) &&
+				!IngredientPreparationCatalog.IsKnownPreparationId(effect.EnableIngredientPreparationMethodId))
+			{
+				PushDataWarning($"{effectContext} enables unknown ingredient preparation method '{effect.EnableIngredientPreparationMethodId}'.");
+			}
 
 			if (!string.IsNullOrWhiteSpace(effect.ConsumeItemId))
 				ValidateKnownItemReference(items, effect.ConsumeItemId, $"{effectContext} consume item");

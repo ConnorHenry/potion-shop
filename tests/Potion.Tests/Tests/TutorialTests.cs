@@ -116,7 +116,10 @@ internal static class TutorialTests
         AssertTrue("TutorialController no longer caches sale score details for tutorial feedback", !controller.Contains("_lastTutorialSaleScore") && !controller.Contains("_lastTutorialSaleGrade"));
         AssertTrue("TutorialController resolves step-specific button locks", controller.Contains("UpdateTutorialButtonLock("));
         AssertTrue("TutorialController includes the close shop tutorial step", controller.Contains("TutorialStepId.CloseShop"));
-        AssertTrue("TutorialController highlights the close shop button", controller.Contains("case TutorialStepId.CloseShop") && controller.Contains("GetNextCustomerButton()"));
+        AssertTrue("TutorialController highlights the station customer panel for the close shop step",
+            controller.Contains("case TutorialStepId.CloseShop") &&
+            controller.Contains("_overlayPresenter.ShowForTarget(stepContent, _stationCustomerPanel);") &&
+            !controller.Contains("GetNextCustomerButton()"));
         AssertTrue("TutorialController forces the final tutorial customer to end the shop day", controller.Contains("ForceCloseShopAfterCurrentCustomerForTutorial()"));
         AssertTrue("TutorialController caches HUD date control for tutorial highlighting", controller.Contains("HudDateControlPath = new(\"Content/Status/Day\")") && controller.Contains("_hudDateControl = GetOptionalHudControl(HudDateControlPath"));
         AssertTrue("TutorialController does not cache a HUD shop timer label", !controller.Contains("HudShopTimerLabelPath") && !controller.Contains("_hudShopTimerLabel"));

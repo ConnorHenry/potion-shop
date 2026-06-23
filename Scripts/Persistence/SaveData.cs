@@ -27,6 +27,7 @@ public sealed class GameStateSnapshot
 	public Dictionary<string, int> Inventory { get; set; } = new();
 	public string PendingConsumableItemId { get; set; } = "";
 	public int PendingConsumableQuantity { get; set; }
+	public List<IngredientPortionDef> QueuedBrewIngredients { get; set; } = new();
 	public List<string> ActiveRules { get; set; } = new();
 	public List<string> StoryFlags { get; set; } = new();
 	public List<string> KnownPotions { get; set; } = new();
@@ -34,6 +35,7 @@ public sealed class GameStateSnapshot
 	public List<string> KnownIngredients { get; set; } = new();
 	public List<string> KnownIngredientOrder { get; set; } = new();
 	public List<string> KnownIngredientPreparations { get; set; } = new();
+	public List<string> DisabledIngredientPreparationMethods { get; set; } = new();
 	public Dictionary<string, string> PotionDisplayNames { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 	public Dictionary<string, int> PotionBasePrices { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 	public Dictionary<string, List<string>> PotionRecipes { get; set; } = new(StringComparer.OrdinalIgnoreCase);
@@ -44,6 +46,15 @@ public sealed class GameStateSnapshot
 	public int GardenPotCount { get; set; }
 	public Dictionary<string, int> SeedInventory { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 	public List<GardenPotState> GardenPots { get; set; } = new();
+	public bool IsShopDayOpen { get; set; }
+	public int ShopDayCustomersArrived { get; set; }
+	public int ShopDayCustomersServed { get; set; }
+	public int ShopDaySuccessfulSales { get; set; }
+	public int ShopDayFailedSales { get; set; }
+	public int ShopDayGoldEarned { get; set; }
+	public int ShopDayDreadChange { get; set; }
+	public bool CloseShopAfterCurrentCustomer { get; set; }
+	public string ActiveCustomerInteractionId { get; set; } = "";
 	public CustomerRequestDef? ActiveCustomerRequest { get; set; }
 	public List<StoryCustomerVisitRecord> StoryCustomerVisits { get; set; } = new();
 }
