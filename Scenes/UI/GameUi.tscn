@@ -1204,7 +1204,6 @@ text = "Continue to Night"
 
 [node name="BookOverlayLayer" type="CanvasLayer" parent="."]
 layer = 4096
-visible = false
 
 [node name="BookDismissOverlay" type="Control" parent="BookOverlayLayer"]
 visible = false

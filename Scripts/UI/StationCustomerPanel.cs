@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Godot;
 using OccultShop.Autoload;
+using OccultShop.Dialogue;
 using OccultShop.Models;
 using OccultShop.Systems;
 
@@ -43,7 +44,7 @@ public partial class StationCustomerPanel : Control
 
 	private readonly List<CustomerInteractionDef> _customers = new();
 	private readonly List<Button> _dialogueOptionButtons = new();
-	private readonly List<CustomerDialogueOptionDef> _visibleDialogueOptions = new();
+	private readonly List<DialogueOption> _visibleDialogueOptions = new();
 
 	private GameState _gameState = default!;
 	private ItemCatalogService _itemCatalog = default!;
@@ -80,7 +81,8 @@ public partial class StationCustomerPanel : Control
 	private ConfirmationKind _pendingConfirmation = ConfirmationKind.None;
 	private NarrativeTextPresenter? _dialoguePresenter;
 	private Control.GuiInputEventHandler? _dialogueGuiInputHandler;
-	private string _activeDialogueNodeId = string.Empty;
+	private DialogueSession? _dialogueSession;
+	private CustomerDialogueAdapter? _customerDialogueAdapter;
 	private string _requestReturnDialogueNodeId = string.Empty;
 	private bool _sellingMode;
 	private bool _isResolvingCustomer;
@@ -563,7 +565,8 @@ public partial class StationCustomerPanel : Control
 	{
 		_dialoguePresenter?.Clear();
 		_visibleDialogueOptions.Clear();
-		_activeDialogueNodeId = string.Empty;
+		_dialogueSession = null;
+		_customerDialogueAdapter = null;
 		_requestReturnDialogueNodeId = string.Empty;
 		_sellingMode = false;
 		if (_dialogueOptionsContainer is not null)
@@ -617,7 +620,7 @@ public partial class StationCustomerPanel : Control
 
 	private bool HasActiveDialogueInteraction()
 	{
-		return ActiveCustomer is { IsStoryInteraction: true, HasDialogueTree: true };
+		return _dialogueSession is { IsActive: true } && _customerDialogueAdapter is not null;
 	}
 
 	private void ShowEmptyCustomerPresentation(bool clearActiveRequest)
@@ -670,27 +673,7 @@ public partial class StationCustomerPanel : Control
 		string fallbackText,
 		string? fallbackSpeaker)
 	{
-		var narrativeLines = new List<NarrativeTextLine>();
-		if (lines.Count > 0)
-		{
-			foreach (var line in lines)
-			{
-				if (string.IsNullOrWhiteSpace(line.Text))
-					continue;
-
-				var speaker = string.IsNullOrWhiteSpace(line.Speaker) ? fallbackSpeaker : line.Speaker;
-				narrativeLines.Add(new NarrativeTextLine(speaker, line.Text, allowMarkup: true, line.CharacterImageKey));
-			}
-		}
-		else if (!string.IsNullOrWhiteSpace(fallbackText))
-		{
-			narrativeLines.Add(new NarrativeTextLine(fallbackSpeaker, fallbackText));
-		}
-
-		if (narrativeLines.Count == 0)
-			narrativeLines.Add(new NarrativeTextLine(null, "...", allowMarkup: false));
-
-		return narrativeLines;
+		return CustomerNarrativeLineBuilder.BuildAuthoredNarrativeLines(lines, fallbackText, fallbackSpeaker);
 	}
 
 	private void QueueAuthoredLines(
@@ -702,6 +685,18 @@ public partial class StationCustomerPanel : Control
 			return;
 
 		foreach (var line in BuildAuthoredNarrativeLines(lines, fallbackText, fallbackSpeaker))
+			_dialoguePresenter.QueueLine(line);
+	}
+
+	private void QueueDialogueLines(
+		IReadOnlyList<DialogueLine> lines,
+		string fallbackText,
+		string? fallbackSpeaker)
+	{
+		if (_dialoguePresenter is null)
+			return;
+
+		foreach (var line in DialogueNarrativeLineBuilder.BuildNarrativeLines(lines, fallbackText, fallbackSpeaker))
 			_dialoguePresenter.QueueLine(line);
 	}
 
@@ -802,47 +797,56 @@ public partial class StationCustomerPanel : Control
 
 	private bool TryShowDialogueStart(CustomerInteractionDef interaction)
 	{
-		if (!interaction.IsStoryInteraction || !interaction.HasDialogueTree)
+		if (!CustomerDialogueAdapter.TryCreate(interaction, _gameState, out var adapter, out var error) ||
+			adapter is null)
+		{
+			if (!string.IsNullOrWhiteSpace(error))
+				GD.PushError($"StationCustomerPanel: {error}");
 			return false;
+		}
 
-		var startNode = interaction.GetDialogueNode(string.Empty);
-		if (startNode is null)
+		var session = new DialogueSession(
+			adapter.Graph,
+			adapter.IsOptionAvailable,
+			CustomerInteractionDef.MaxDialogueOptionsPerNode);
+		if (!session.TryStart(out var startNode) || startNode is null)
 		{
 			GD.PushError($"StationCustomerPanel: Story customer '{interaction.Id}' has dialogue data but no valid start node.");
 			return false;
 		}
 
+		_customerDialogueAdapter = adapter;
+		_dialogueSession = session;
 		ShowDialogueNode(startNode);
 		return true;
 	}
 
-	private void ShowDialogueNode(CustomerDialogueNodeDef node)
+	private void ShowDialogueNode(DialogueNode node)
 	{
-		_activeDialogueNodeId = node.Id;
 		SetDialoguePresentationState();
 		QueueDialogueNodeText(node);
 		PlayQueuedDialogueLines(() => FinishShowingDialogueNode(node));
 	}
 
-	private void QueueDialogueNodeText(CustomerDialogueNodeDef node)
+	private void QueueDialogueNodeText(DialogueNode node)
 	{
-		QueueAuthoredLines(node.Lines, node.Text, null);
+		QueueDialogueLines(node.Lines, node.Text, null);
 	}
 
-	private void QueueDialogueOptionResponse(CustomerDialogueOptionDef option)
+	private void QueueDialogueOptionResponse(DialogueOption option)
 	{
-		QueueAuthoredLines(
+		QueueDialogueLines(
 			option.ResponseLines,
 			option.ResponseText,
 			CustomerDialogueTextFormatter.CustomerSpeakerName);
 	}
 
-	private static bool HasDialogueOptionResponse(CustomerDialogueOptionDef option)
+	private static bool HasDialogueOptionResponse(DialogueOption option)
 	{
-		return option.ResponseLines.Count > 0 || !string.IsNullOrWhiteSpace(option.ResponseText);
+		return option.HasResponse;
 	}
 
-	private void FinishShowingDialogueNode(CustomerDialogueNodeDef node)
+	private void FinishShowingDialogueNode(DialogueNode node)
 	{
 		if (node.Options.Count == 0)
 		{
@@ -858,60 +862,63 @@ public partial class StationCustomerPanel : Control
 		if (!HasActiveDialogueInteraction())
 			return false;
 
-		var interaction = ActiveCustomer;
-		var node = interaction?.GetDialogueNode(_activeDialogueNodeId);
-		if (node is null)
+		var session = _dialogueSession;
+		var adapter = _customerDialogueAdapter;
+		var node = session?.ActiveNode;
+		if (session is null || adapter is null || node is null)
 		{
-			GD.PushError($"StationCustomerPanel: Active dialogue node '{_activeDialogueNodeId}' was not found.");
+			GD.PushError("StationCustomerPanel: Active dialogue session was not found.");
 			return true;
 		}
 
-		if (optionIndex < 0 || optionIndex >= _visibleDialogueOptions.Count)
+		if (!session.TrySelectVisibleOption(optionIndex, out var option) || option is null)
 			return true;
 
-		var option = _visibleDialogueOptions[optionIndex];
 		SetDialoguePresentationState();
 		QueuePlayerLine(option.Label);
-		if (interaction is not null)
-			_gameState.RecordStoryCustomerDialogueOptionSelected(interaction, option.Id);
-		ApplyOutcomeEffects(option.Effects);
+		adapter.RecordOptionSelected(option);
+		adapter.ApplyOptionEffects(option);
 		QueueDialogueOptionResponse(option);
 
-		if (option.RevealsRequest)
+		if (adapter.RevealsRequest(option))
 		{
-			if (!HasDialogueOptionResponse(option) && interaction is not null)
-				QueueAuthoredLines(interaction.Lines, interaction.Text, CustomerDialogueTextFormatter.CustomerSpeakerName);
+			if (!HasDialogueOptionResponse(option))
+				QueueDialogueLines(adapter.RequestLines, adapter.RequestText, CustomerDialogueTextFormatter.CustomerSpeakerName);
 			PlayQueuedDialogueLines(() => EnterPotionSellingMode(option));
 			return true;
 		}
 
-		if (option.ReturnsToDialogue)
+		if (adapter.ReturnsToDialogue(option))
 		{
-			var returnNode = ResolveDialogueReturnNode(option, node);
+			if (!session.TryResolveReturnNode(option, _requestReturnDialogueNodeId, out var returnNode, out var error) ||
+				returnNode is null)
+			{
+				GD.PushError($"StationCustomerPanel: {error}");
+				CompleteDialogueInteraction(adapter.BuildOutcome(option));
+				return true;
+			}
+
 			QueueDialogueNodeText(returnNode);
-			_activeDialogueNodeId = returnNode.Id;
 			PlayQueuedDialogueLines(() => FinishShowingDialogueNode(returnNode));
 			return true;
 		}
 
-		if (option.EndsInteraction)
+		if (option.EndsDialogue)
 		{
-			PlayQueuedDialogueLines(() => CompleteDialogueInteraction(option));
+			PlayQueuedDialogueLines(() => CompleteDialogueInteraction(adapter.BuildOutcome(option)));
 			return true;
 		}
 
 		if (!string.IsNullOrWhiteSpace(option.NextNodeId))
 		{
-			var nextNode = interaction?.GetDialogueNode(option.NextNodeId);
-			if (nextNode is null)
+			if (!session.TryMoveToNextNode(option, out var nextNode, out _ ) || nextNode is null)
 			{
 				GD.PushError($"StationCustomerPanel: Dialogue option '{option.Id}' points to missing node '{option.NextNodeId}'.");
-				CompleteDialogueInteraction(option);
+				CompleteDialogueInteraction(adapter.BuildOutcome(option));
 				return true;
 			}
 
 			QueueDialogueNodeText(nextNode);
-			_activeDialogueNodeId = nextNode.Id;
 			PlayQueuedDialogueLines(() => FinishShowingDialogueNode(nextNode));
 			return true;
 		}
@@ -920,33 +927,7 @@ public partial class StationCustomerPanel : Control
 		return true;
 	}
 
-	private CustomerDialogueNodeDef ResolveDialogueReturnNode(
-		CustomerDialogueOptionDef option,
-		CustomerDialogueNodeDef fallbackNode)
-	{
-		var interaction = ActiveCustomer;
-		if (interaction is null)
-			return fallbackNode;
-
-		var targetNodeId = !string.IsNullOrWhiteSpace(option.ReturnNodeId)
-			? option.ReturnNodeId
-			: option.NextNodeId;
-		if (string.IsNullOrWhiteSpace(targetNodeId))
-			targetNodeId = _requestReturnDialogueNodeId;
-
-		if (!string.IsNullOrWhiteSpace(targetNodeId))
-		{
-			var targetNode = interaction.GetDialogueNode(targetNodeId);
-			if (targetNode is not null)
-				return targetNode;
-
-			GD.PushError($"StationCustomerPanel: Dialogue option '{option.Id}' returns to missing node '{targetNodeId}'.");
-		}
-
-		return fallbackNode;
-	}
-
-	private void EnterPotionSellingMode(CustomerDialogueOptionDef option)
+	private void EnterPotionSellingMode(DialogueOption option)
 	{
 		var interaction = ActiveCustomer;
 		if (interaction is null)
@@ -955,7 +936,7 @@ public partial class StationCustomerPanel : Control
 		_sellingMode = true;
 		_requestReturnDialogueNodeId = !string.IsNullOrWhiteSpace(option.ReturnNodeId)
 			? option.ReturnNodeId
-			: _activeDialogueNodeId;
+			: _dialogueSession?.ActiveNodeId ?? string.Empty;
 
 		_gameState.SetActiveCustomerRequest(interaction.BuildRequest());
 		SetSellingModeState();
@@ -974,24 +955,17 @@ public partial class StationCustomerPanel : Control
 		_gameState.ClearActiveCustomerRequest();
 		_sellingMode = false;
 
-		var interaction = ActiveCustomer;
-		var fallbackNode = interaction?.GetDialogueNode(_activeDialogueNodeId);
-		var returnNode = interaction?.GetDialogueNode(_requestReturnDialogueNodeId) ?? fallbackNode;
-		if (returnNode is null)
+		var session = _dialogueSession;
+		if (session is null ||
+			!session.TryMoveToNode(_requestReturnDialogueNodeId, out var returnNode, out _) ||
+			returnNode is null)
 		{
 			GD.PushError($"StationCustomerPanel: Cannot return to dialogue node '{_requestReturnDialogueNodeId}'.");
 			return;
 		}
 
 		QueueDialogueNodeText(returnNode);
-		_activeDialogueNodeId = returnNode.Id;
 		PlayQueuedDialogueLines(() => FinishShowingDialogueNode(returnNode));
-	}
-
-	private void CompleteDialogueInteraction(CustomerDialogueOptionDef option)
-	{
-		var outcomeId = string.IsNullOrWhiteSpace(option.Id) ? option.Label : option.Id;
-		CompleteDialogueInteraction($"dialogue:{outcomeId}");
 	}
 
 	private void CompleteDialogueInteraction(string outcome)
@@ -1009,31 +983,16 @@ public partial class StationCustomerPanel : Control
 		BeginResolveActiveCustomer();
 	}
 
-	private void ApplyOutcomeEffects(IReadOnlyList<EffectDef>? effects)
-	{
-		if (effects is null || effects.Count == 0)
-			return;
-
-		foreach (var effect in effects)
-			EffectApplier.Apply(_gameState, effect);
-	}
-
-	private void SetDialogueOptionState(CustomerDialogueNodeDef node)
+	private void SetDialogueOptionState(DialogueNode node)
 	{
 		_visibleDialogueOptions.Clear();
 		_dialogueOptionsContainer.Visible = true;
 		SetServingControlsVisible(false);
 		SetServingControlsEnabled(false);
 
-		foreach (var option in node.Options)
-		{
-			if (_visibleDialogueOptions.Count >= CustomerInteractionDef.MaxDialogueOptionsPerNode)
-				break;
-			if (!Requirements.Met(_gameState, option.Requires))
-				continue;
-
-			_visibleDialogueOptions.Add(option);
-		}
+		var session = _dialogueSession;
+		if (session is not null)
+			_visibleDialogueOptions.AddRange(session.RefreshVisibleOptions());
 
 		if (_visibleDialogueOptions.Count == 0)
 		{
@@ -1064,12 +1023,10 @@ public partial class StationCustomerPanel : Control
 		}
 
 		var option = _visibleDialogueOptions[optionIndex];
-		var activeCustomer = ActiveCustomer;
 		button.Text = option.Label;
 		button.Visible = true;
 		button.Disabled = false;
-		button.Modulate = activeCustomer is not null &&
-			_gameState.HasStoryCustomerDialogueOptionSelected(activeCustomer, option.Id)
+		button.Modulate = _customerDialogueAdapter?.HasOptionBeenSelected(option) == true
 				? SeenDialogueOptionModulate
 				: DefaultButtonModulate;
 	}
@@ -1174,10 +1131,9 @@ public partial class StationCustomerPanel : Control
 
 	private string BuildSelectedPotionLabel(string itemId)
 	{
-		var fallbackName = _itemCatalog.GetItemName(itemId);
-		var customName = _gameState.GetPotionDisplayName(itemId);
-		var displayName = string.IsNullOrWhiteSpace(customName) ? fallbackName : customName;
-		return $"Selected: {displayName}";
+		return StationCustomerPotionPresentation.BuildSelectedPotionLabel(
+			_itemCatalog.GetItemName(itemId),
+			_gameState.GetPotionDisplayName(itemId));
 	}
 
 	private void RefreshSelectedPotionComparison()
@@ -1192,19 +1148,14 @@ public partial class StationCustomerPanel : Control
 			!_gameState.HasItem(_selectedPotionItemId, 1))
 		{
 			_selectedPotionResult = null;
-			_servingDropLabel.Text = "Drop potion here";
+			_servingDropLabel.Text = StationCustomerPotionPresentation.EmptyPotionDropLabel;
 			SetRequestFitText(request, string.Empty, null);
-			_fitCheck.Text = CustomerDialogueTextFormatter.BuildCustomerPotionRequestComparisonText(
-				request,
-				null,
-				null,
-				null);
 			return;
 		}
 
 		if (request.HideRequestDetails)
 		{
-			_fitCheck.Text = CustomerDialogueTextFormatter.HiddenRequestText;
+			_fitCheck.Text = StationCustomerPotionPresentation.BuildHiddenRequestFitText();
 			return;
 		}
 
@@ -1221,11 +1172,13 @@ public partial class StationCustomerPanel : Control
 
 	private void SetRequestFitText(CustomerRequestDef request, string potionItemId, PotionResult? brewResult)
 	{
-		_fitCheck.Text = CustomerDialogueTextFormatter.BuildCustomerPotionRequestComparisonText(
+		var potionIngredients = string.IsNullOrWhiteSpace(potionItemId)
+			? null
+			: _saleService.GetPotionIngredientPortions(potionItemId);
+		_fitCheck.Text = StationCustomerPotionPresentation.BuildRequestFitText(
 			request,
-			brewResult?.Traits,
-			brewResult?.Risks,
-			string.IsNullOrWhiteSpace(potionItemId) ? null : _saleService.GetPotionIngredientPortions(potionItemId));
+			brewResult,
+			potionIngredients);
 	}
 
 	private void ClearSelectedPotion()
@@ -1233,7 +1186,7 @@ public partial class StationCustomerPanel : Control
 		_selectedPotionItemId = string.Empty;
 		_selectedPotionResult = null;
 		if (_servingDropLabel is not null)
-			_servingDropLabel.Text = "Drop potion here";
+			_servingDropLabel.Text = StationCustomerPotionPresentation.EmptyPotionDropLabel;
 	}
 
 	private void OnServePressed()

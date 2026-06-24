@@ -25,8 +25,10 @@ public partial class DayController : Node
 	private GameState _gameState = default!;
 	private int _customersArrived;
 	private bool _closeShopAfterCurrentCustomer;
+	private bool _isShopDayReadyToEnd;
 
 	public bool IsShopOpen { get; private set; }
+	public bool IsShopDayReadyToEnd => _isShopDayReadyToEnd;
 	public int CustomersArrivedToday => _customersArrived;
 	public int MaxCustomersPerDay => MaxCustomersPerShopDay;
 	public event Action? ShopStateChanged;
@@ -86,6 +88,7 @@ public partial class DayController : Node
 		_shopDayStats.Reset();
 		_customersArrived = 0;
 		_closeShopAfterCurrentCustomer = false;
+		_isShopDayReadyToEnd = false;
 		IsShopOpen = true;
 		_gameState.BeginShopDayState();
 		EmitShopStateChanged();
@@ -115,6 +118,29 @@ public partial class DayController : Node
 
 		CloseShopAndShowSummary();
 		return true;
+	}
+
+	public ShopDayFastForwardResult TryFastForwardToDayFromDebug(int targetDay)
+	{
+		var result = ShopDayFastForwardService.FastForwardToDay(
+			_dataDb,
+			_gameState,
+			_customerEventController,
+			targetDay,
+			MaxCustomersPerShopDay);
+		if (!result.Applied)
+			return result;
+
+		IsShopOpen = false;
+		_customersArrived = 0;
+		_closeShopAfterCurrentCustomer = false;
+		_isShopDayReadyToEnd = false;
+		_shopDayStats.Reset();
+		_daySummaryPanel.HidePanel();
+		_stationCustomerPanel.ClearCustomers();
+		_brewPanel.HidePanel();
+		EmitShopStateChanged();
+		return result;
 	}
 
 	public void EndDayAndRunNight()
@@ -169,14 +195,32 @@ public partial class DayController : Node
 			return;
 		}
 
+		if (_customersArrived >= MaxCustomersPerShopDay)
+		{
+			MarkShopDayReadyToEnd();
+			return;
+		}
+
 		if (!TryShowNextCustomer())
 			CloseShopAndShowSummary();
 	}
 
 	private void OnStationCustomerQueueEmptied()
 	{
-		if (!IsShopOpen)
+		if (!IsShopOpen || _isShopDayReadyToEnd)
 			return;
+
+		if (ShouldCloseShopAfterCurrentCustomer())
+		{
+			CloseShopAndShowSummary();
+			return;
+		}
+
+		if (_customersArrived >= MaxCustomersPerShopDay)
+		{
+			MarkShopDayReadyToEnd();
+			return;
+		}
 
 		CloseShopAndShowSummary();
 	}
@@ -213,6 +257,7 @@ public partial class DayController : Node
 		IsShopOpen = false;
 		_customersArrived = 0;
 		_closeShopAfterCurrentCustomer = false;
+		_isShopDayReadyToEnd = false;
 		_stationCustomerPanel.ClearCustomers();
 		_brewPanel.HidePanel();
 		_daySummaryPanel.ShowSummary(
@@ -242,7 +287,18 @@ public partial class DayController : Node
 
 	private bool ShouldCloseShopAfterCurrentCustomer()
 	{
-		return _closeShopAfterCurrentCustomer || _customersArrived >= MaxCustomersPerShopDay;
+		return _closeShopAfterCurrentCustomer;
+	}
+
+	private void MarkShopDayReadyToEnd()
+	{
+		if (_isShopDayReadyToEnd)
+			return;
+
+		_isShopDayReadyToEnd = true;
+		_stationCustomerPanel.ClearCustomers();
+		_brewPanel.HidePanel();
+		EmitShopStateChanged();
 	}
 
 	private void RestoreShopDayState()
@@ -250,6 +306,7 @@ public partial class DayController : Node
 		IsShopOpen = _gameState.IsShopDayOpen;
 		_customersArrived = _gameState.ShopDayCustomersArrived;
 		_closeShopAfterCurrentCustomer = _gameState.CloseShopAfterCurrentCustomer;
+		_isShopDayReadyToEnd = false;
 		_shopDayStats.Restore(
 			_gameState.ShopDayCustomersServed,
 			_gameState.ShopDaySuccessfulSales,
@@ -261,6 +318,12 @@ public partial class DayController : Node
 		{
 			_brewPanel.HidePanel();
 			EmitShopStateChanged();
+			return;
+		}
+
+		if (IsPersistedShopDayReadyToEnd())
+		{
+			MarkShopDayReadyToEnd();
 			return;
 		}
 
@@ -277,6 +340,13 @@ public partial class DayController : Node
 			return;
 
 		CloseShopAndShowSummary();
+	}
+
+	private bool IsPersistedShopDayReadyToEnd()
+	{
+		return _customersArrived >= MaxCustomersPerShopDay &&
+			string.IsNullOrWhiteSpace(_gameState.ActiveCustomerInteractionId) &&
+			_gameState.ActiveCustomerRequest is null;
 	}
 
 	private bool TryResolveActiveCustomerInteraction(out OccultShop.Models.CustomerInteractionDef? interaction)

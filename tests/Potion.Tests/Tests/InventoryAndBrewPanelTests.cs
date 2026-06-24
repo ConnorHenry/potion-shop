@@ -573,9 +573,9 @@ internal static class InventoryAndBrewPanelTests
             tray.Contains("_gameState.IsIngredientPreparationMethodEnabled(option.Id)") &&
             tray.Contains("button.Disabled = !hasSelection || !preparationEnabled") &&
             tray.Contains("if (!_gameState.IsIngredientPreparationMethodEnabled(preparationId))"));
-        AssertTrue("Game UI reserves room for preparation preview labels under buttons",
+        AssertTrue("Game UI keeps the compact preparation tray with room for preview labels under buttons",
             scene.Contains("custom_minimum_size = Vector2(430, 330)") &&
-            scene.Contains("offset_bottom = 1147.0") &&
+            scene.Contains("offset_bottom = 1106.0") &&
             scene.Contains("[node name=\"PreparationMethods\" type=\"HBoxContainer\" parent=\"PotionBrewingStationView/IngredientPreparationTray\"]"));
     }
 
@@ -628,6 +628,7 @@ internal static class InventoryAndBrewPanelTests
     {
         var tray = ReadProjectFile("Scripts/UI/IngredientPreparationTray.cs");
         var miniGame = ReadProjectFile("Scripts/UI/BoilingMiniGameWindow.cs");
+        var stirringCue = ReadProjectFile("Scripts/UI/BoilingStirringCue.cs");
         var scene = ReadProjectFile("Scenes/UI/GameUi.tscn");
         var miniGameScene = ReadProjectFile("Scenes/UI/BoilingMiniGameWindow.tscn");
 
@@ -654,6 +655,25 @@ internal static class InventoryAndBrewPanelTests
             miniGame.Contains("HeatLockSeconds") &&
             miniGame.Contains("BuildStirringVector") &&
             miniGame.Contains("IsExpectedStirringSpeed"));
+        AssertTrue("BoilingMiniGameWindow drives stirring stick and direction arrow cues",
+            miniGame.Contains("StirringStickCuePath") &&
+            miniGame.Contains("StirringDirectionArrowPath") &&
+            miniGame.Contains("ShowStirringCues()") &&
+            miniGame.Contains("HideStirringCues()") &&
+            miniGame.Contains("_stirringStickCue.AddStickAngle(signedAngleDelta)") &&
+            miniGame.Contains("_stirringStickCue.SetCueState(active: true") &&
+            miniGame.Contains("_stirringDirectionArrow.SetCueState(active: true") &&
+            miniGame.Contains("HideStirringCues();") &&
+            miniGame.Contains("_stirringComplete = true;"));
+        AssertTrue("BoilingStirringCue draws placeholder stick and animated direction arrow",
+            stirringCue.Contains("public partial class BoilingStirringCue : Control") &&
+            stirringCue.Contains("IsDirectionArrow") &&
+            stirringCue.Contains("AddStickAngle") &&
+            stirringCue.Contains("DrawStirringStick") &&
+            stirringCue.Contains("DrawDirectionArrow") &&
+            stirringCue.Contains("SlowArrowRadiansPerSecond") &&
+            stirringCue.Contains("FastArrowRadiansPerSecond") &&
+            stirringCue.Contains("DrawLine"));
         AssertTrue("BoilingMiniGameWindow runs doneness as a global urgency timer",
             miniGame.Contains("ProcessDoneness(deltaSeconds);") &&
             miniGame.Contains("private bool _heatLocked;") &&
@@ -664,11 +684,17 @@ internal static class InventoryAndBrewPanelTests
         AssertTrue("Game UI instances the boiling mini game beside the preparation tray",
             scene.Contains("res://Scenes/UI/BoilingMiniGameWindow.tscn") &&
             scene.Contains("[node name=\"BoilingMiniGameWindow\" parent=\"PotionBrewingStationView\" instance=ExtResource(\"55_boil_game\")]") &&
-            scene.Contains("BoilingMiniGameWindowPath = NodePath(\"../BoilingMiniGameWindow\")"));
+            !scene.Contains("BoilingMiniGameWindowPath = null"));
         AssertTrue("Boiling mini game scene uses existing cauldron art and simple gauges",
             miniGameScene.Contains("res://Assets/UI/cauldron_placeholder.png") &&
             miniGameScene.Contains("[node name=\"Temperature\" type=\"VBoxContainer\"") &&
             miniGameScene.Contains("[node name=\"Doneness\" type=\"VBoxContainer\"") &&
+            miniGameScene.Contains("StirringStickCuePath = NodePath(\"Panel/Margin/VBox/Body/CauldronFrame/StirringStickCue\")") &&
+            miniGameScene.Contains("StirringDirectionArrowPath = NodePath(\"Panel/Margin/VBox/Body/CauldronFrame/StirringDirectionArrow\")") &&
+            miniGameScene.Contains("[node name=\"StirringStickCue\" type=\"Control\"") &&
+            miniGameScene.Contains("[node name=\"StirringDirectionArrow\" type=\"Control\"") &&
+            miniGameScene.Contains("res://Scripts/UI/BoilingStirringCue.cs") &&
+            miniGameScene.Contains("IsDirectionArrow = true") &&
             miniGameScene.Contains("[node name=\"StirringArea\" type=\"Control\"") &&
             miniGameScene.Contains("mouse_filter = 1"));
     }

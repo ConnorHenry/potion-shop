@@ -1,7 +1,8 @@
-[gd_scene load_steps=4 format=3 uid="uid://d1p1ircme3kck"]
+[gd_scene load_steps=5 format=3 uid="uid://d1p1ircme3kck"]
 
 [ext_resource type="Script" uid="uid://dltd36apkfde7" path="res://Scripts/UI/BoilingMiniGameWindow.cs" id="1_boil"]
 [ext_resource type="Texture2D" uid="uid://d0yyrix6cjwbs" path="res://Assets/UI/cauldron_placeholder.png" id="2_cauldron"]
+[ext_resource type="Script" uid="uid://vl14h2wno6c1" path="res://Scripts/UI/BoilingStirringCue.cs" id="3_stir_cue"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
 content_margin_left = 18.0
@@ -43,6 +44,8 @@ DonenessTargetBandPath = NodePath("Panel/Margin/VBox/Body/Controls/Gauges/Donene
 DonenessCurrentLinePath = NodePath("Panel/Margin/VBox/Body/Controls/Gauges/Doneness/Track/CurrentLine")
 TakeOutButtonPath = NodePath("Panel/Margin/VBox/Body/Controls/Gauges/Doneness/TakeOut")
 StirringAreaPath = NodePath("Panel/Margin/VBox/Body/CauldronFrame/StirringArea")
+StirringStickCuePath = NodePath("Panel/Margin/VBox/Body/CauldronFrame/StirringStickCue")
+StirringDirectionArrowPath = NodePath("Panel/Margin/VBox/Body/CauldronFrame/StirringDirectionArrow")
 StirringProgressFillPath = NodePath("Panel/Margin/VBox/Body/Controls/StirringProgress/Fill")
 CancelButtonPath = NodePath("Panel/Margin/VBox/Header/Cancel")
 
@@ -127,6 +130,41 @@ mouse_filter = 2
 texture = ExtResource("2_cauldron")
 expand_mode = 1
 stretch_mode = 5
+
+[node name="StirringStickCue" type="Control" parent="Panel/Margin/VBox/Body/CauldronFrame"]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -160.0
+offset_top = -210.0
+offset_right = 160.0
+offset_bottom = 210.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("3_stir_cue")
+
+[node name="StirringDirectionArrow" type="Control" parent="Panel/Margin/VBox/Body/CauldronFrame"]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -132.0
+offset_top = -132.0
+offset_right = 132.0
+offset_bottom = 132.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("3_stir_cue")
+IsDirectionArrow = true
 
 [node name="StirringArea" type="Control" parent="Panel/Margin/VBox/Body/CauldronFrame"]
 layout_mode = 1

@@ -44,23 +44,8 @@ public partial class CustomerEventController : Node
 		if (TryDrawForcedInteraction(interactions, state, out var forcedInteraction))
 			return forcedInteraction;
 
-		if (TryDrawDayTwoFirstCustomerInteraction(interactions, state, out var dayTwoFirstCustomerInteraction))
-			return dayTwoFirstCustomerInteraction;
-
-		if (TryDrawDayTwoSecondCustomerInteraction(interactions, state, out var dayTwoSecondCustomerInteraction))
-			return dayTwoSecondCustomerInteraction;
-
-		if (TryDrawDayTwoThirdCustomerInteraction(interactions, state, out var dayTwoThirdCustomerInteraction))
-			return dayTwoThirdCustomerInteraction;
-
-		if (TryDrawNewGameOpeningCustomerInteraction(interactions, state, out var openingCustomerInteraction))
-			return openingCustomerInteraction;
-
-		if (TryDrawNewGameSecondCustomerInteraction(interactions, state, out var secondCustomerInteraction))
-			return secondCustomerInteraction;
-
-		if (TryDrawNewGameThirdCustomerInteraction(interactions, state, out var thirdCustomerInteraction))
-			return thirdCustomerInteraction;
+		if (TryDrawScheduledStoryCustomerInteraction(interactions, state, out var scheduledStoryInteraction))
+			return scheduledStoryInteraction;
 
 		var eligibleInteractions = interactions
 			.Where(interaction => Requirements.Met(state, interaction.Requires))
@@ -88,6 +73,41 @@ public partial class CustomerEventController : Node
 	public CustomerInteractionDef? DrawShopDayCustomerInteraction(DataDb db, GameState state)
 	{
 		return DrawCustomerInteraction(db, state);
+	}
+
+	public CustomerInteractionDef? DrawScheduledStoryCustomerInteraction(DataDb db, GameState state)
+	{
+		var interactions = db.CustomerInteractions;
+		return TryDrawScheduledStoryCustomerInteraction(interactions, state, out var interaction)
+			? interaction
+			: null;
+	}
+
+	private bool TryDrawScheduledStoryCustomerInteraction(
+		IReadOnlyList<CustomerInteractionDef> interactions,
+		GameState state,
+		out CustomerInteractionDef? interaction)
+	{
+		if (TryDrawDayTwoFirstCustomerInteraction(interactions, state, out interaction))
+			return true;
+
+		if (TryDrawDayTwoSecondCustomerInteraction(interactions, state, out interaction))
+			return true;
+
+		if (TryDrawDayTwoThirdCustomerInteraction(interactions, state, out interaction))
+			return true;
+
+		if (TryDrawNewGameOpeningCustomerInteraction(interactions, state, out interaction))
+			return true;
+
+		if (TryDrawNewGameSecondCustomerInteraction(interactions, state, out interaction))
+			return true;
+
+		if (TryDrawNewGameThirdCustomerInteraction(interactions, state, out interaction))
+			return true;
+
+		interaction = null;
+		return false;
 	}
 
 	private bool TryDrawDayTwoFirstCustomerInteraction(

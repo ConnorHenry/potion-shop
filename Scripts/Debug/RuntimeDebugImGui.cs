@@ -35,6 +35,7 @@ public partial class RuntimeDebugImGui : Node
 
 	private int _goldInput;
 	private int _dreadInput;
+	private int _targetDayInput;
 	private int _addPotionQuantity = 1;
 	private int _removePotionQuantity = 1;
 	private int _addConsumableQuantity = 1;
@@ -100,6 +101,7 @@ public partial class RuntimeDebugImGui : Node
 
 		_goldInput = _gameState.Gold;
 		_dreadInput = _gameState.Dread;
+		_targetDayInput = _gameState.Day;
 
 		RebuildDebugCatalog();
 		_runtimeContentDb.Changed += OnRuntimeContentChanged;
@@ -310,19 +312,20 @@ public partial class RuntimeDebugImGui : Node
 		}
 
 		ImGui.Text($"Current Day: {_gameState.Day}");
-		if (ImGui.Button("Advance Day +1"))
-		{
-			_gameState.NextDay();
-			_statusMessage = $"Advanced to day {_gameState.Day}.";
-		}
+		ImGui.InputInt("Forward To Day", ref _targetDayInput);
+		if (_targetDayInput < _gameState.Day)
+			_targetDayInput = _gameState.Day;
+
+		if (ImGui.Button("Forward To Day"))
+			TryFastForwardToDay(_targetDayInput);
 
 		ImGui.SameLine();
-		if (ImGui.SmallButton("Advance Day +5"))
-		{
-			for (var i = 0; i < 5; i++)
-				_gameState.NextDay();
-			_statusMessage = $"Advanced to day {_gameState.Day}.";
-		}
+		if (ImGui.SmallButton("+1 Day"))
+			TryFastForwardToDay(_gameState.Day + 1);
+
+		ImGui.SameLine();
+		if (ImGui.SmallButton("+5 Days"))
+			TryFastForwardToDay(_gameState.Day + 5);
 
 		ImGui.Separator();
 		if (ImGui.Button("Refresh State"))
@@ -336,12 +339,38 @@ public partial class RuntimeDebugImGui : Node
 	{
 		_goldInput = _gameState.Gold;
 		_dreadInput = _gameState.Dread;
+		_targetDayInput = _gameState.Day;
 		RebuildDebugCatalog();
 
 		var refreshedSlotViewCount = RefreshInventorySlotLayoutViews();
 		_statusMessage = refreshedSlotViewCount > 0
 			? $"Refreshed state and {refreshedSlotViewCount} inventory slot layout view(s)."
 			: "Refreshed state. No active inventory slot layout views were found in the current scene.";
+	}
+
+	private void TryFastForwardToDay(int targetDay)
+	{
+		if (_dayController is null)
+		{
+			_statusMessage = "DayController is unavailable, so day fast-forward cannot run gameplay progression.";
+			return;
+		}
+
+		var result = _dayController.TryFastForwardToDayFromDebug(targetDay);
+		_goldInput = _gameState.Gold;
+		_dreadInput = _gameState.Dread;
+		_targetDayInput = _gameState.Day;
+
+		if (!result.Applied)
+		{
+			_statusMessage = $"Day fast-forward ignored. Enter a day after current day {_gameState.Day}.";
+			return;
+		}
+
+		_statusMessage =
+			$"Forwarded from day {result.OriginalDay} to day {_gameState.Day}. " +
+			$"Resolved {result.ScheduledStoryCustomersResolved} scheduled story customer(s) and applied " +
+			$"{result.SharedOutcomeEffectsApplied} shared outcome effect(s).";
 	}
 
 	private int RefreshInventorySlotLayoutViews()
@@ -392,7 +421,8 @@ public partial class RuntimeDebugImGui : Node
 			return;
 		}
 
-		ImGui.Text($"Shop Day: open ({_dayController.CustomersArrivedToday}/{_dayController.MaxCustomersPerDay} customers)");
+		var shopDayStatus = _dayController.IsShopDayReadyToEnd ? "ready to end" : "open";
+		ImGui.Text($"Shop Day: {shopDayStatus} ({_dayController.CustomersArrivedToday}/{_dayController.MaxCustomersPerDay} customers)");
 		if (ImGui.Button("Close Shop Now"))
 			TryCloseShopDay();
 	}

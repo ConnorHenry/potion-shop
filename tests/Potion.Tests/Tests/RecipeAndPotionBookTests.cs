@@ -15,6 +15,7 @@ internal static class RecipeAndPotionBookTests
         var source = ReadProjectFile("Scripts/UI/PotionBookPanel.cs");
         var potionBookScene = ReadProjectFile("Scenes/UI/PotionBookPanel.tscn");
         var potionBookTheme = ReadProjectFile("Assets/UI/PotionBookTheme.tres");
+        var gameUiScene = ReadProjectFile("Scenes/UI/GameUi.tscn");
         var gameStateSource = ReadProjectFile("Scripts/Autoload/GameState.cs");
         var potionKnowledgeState = ReadProjectFile("Scripts/Systems/PotionKnowledgeState.cs");
         var saveDataSource = ReadProjectFile("Scripts/Persistence/SaveData.cs");
@@ -66,9 +67,11 @@ internal static class RecipeAndPotionBookTests
             potionBookScene.Contains("[node name=\"LeftPage\" type=\"VBoxContainer\" parent=\"BookRow/BookPanel/Margin/VBox/Pages\"]") &&
             potionBookScene.Contains("[node name=\"CenterFold\" type=\"ColorRect\" parent=\"BookRow/BookPanel/Margin/VBox/Pages\"]") &&
             potionBookScene.Contains("[node name=\"RightPage\" type=\"VBoxContainer\" parent=\"BookRow/BookPanel/Margin/VBox/Pages\"]"));
-        AssertTrue("PotionBookPanel scene renders above active brewing station UI",
+        AssertTrue("PotionBookPanel is instanced on the book overlay layer above active brewing station UI",
             potionBookScene.Contains("[node name=\"PotionBookPanel\" type=\"Control\"]") &&
-            potionBookScene.Contains("z_index = 5000"));
+            gameUiScene.Contains("[node name=\"BookOverlayLayer\" type=\"CanvasLayer\" parent=\".\"]") &&
+            gameUiScene.Contains("layer = 4096") &&
+            gameUiScene.Contains("[node name=\"PotionBookPanel\" parent=\"BookOverlayLayer\" instance=ExtResource(\"18_potion_book\")]"));
         AssertTrue("Potion book theme defines generated open-book StyleBoxFlat resources",
             potionBookTheme.Contains("OpenBookCover/base_type = &\"PanelContainer\"") &&
             potionBookTheme.Contains("OpenBookCover/styles/panel = SubResource(\"StyleBoxFlat_book_cover\")") &&
@@ -181,9 +184,11 @@ internal static class RecipeAndPotionBookTests
             scene.Contains("[node name=\"RightPage\" type=\"VBoxContainer\" parent=\"BookRow/BookPanel/Margin/VBox/Pages\"]") &&
             scene.Contains("[node name=\"UnknownIcon\" type=\"Label\" parent=\"BookRow/BookPanel/Margin/VBox/Pages/LeftPage/IngredientContent/IconFrame\"]") &&
             scene.Contains("[node name=\"UnknownIcon\" type=\"Label\" parent=\"BookRow/BookPanel/Margin/VBox/Pages/RightPage/IngredientContent/IconFrame\"]"));
-        AssertTrue("IngredientBookPanel scene renders above active brewing station UI",
+        AssertTrue("IngredientBookPanel is instanced on the book overlay layer above active brewing station UI",
             scene.Contains("[node name=\"IngredientBookPanel\" type=\"Control\"]") &&
-            scene.Contains("z_index = 5000"));
+            gameUiScene.Contains("[node name=\"BookOverlayLayer\" type=\"CanvasLayer\" parent=\".\"]") &&
+            gameUiScene.Contains("layer = 4096") &&
+            gameUiScene.Contains("[node name=\"IngredientBookPanel\" parent=\"BookOverlayLayer\" instance=ExtResource(\"41_ingredient_book\")]"));
         AssertTrue("IngredientBookPanel scene draws the generated open-book background behind page writing",
             scene.Contains("[node name=\"BookSurface\" type=\"Control\" parent=\"BookRow/BookPanel\"]") &&
             scene.Contains("[node name=\"LeftPageBackground\" type=\"PanelContainer\" parent=\"BookRow/BookPanel/BookSurface\"]") &&

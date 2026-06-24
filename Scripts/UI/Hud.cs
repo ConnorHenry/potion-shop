@@ -319,6 +319,12 @@ public partial class Hud : Control
 		if (_dayController is null)
 			return;
 
+		if (_dayController.IsShopDayReadyToEnd)
+		{
+			_dayController.EndDayAndRunNight();
+			return;
+		}
+
 		_dayController.StartShopDay();
 	}
 
@@ -879,6 +885,7 @@ public partial class Hud : Control
 	private void RefreshShopState()
 	{
 		var isShopOpen = _dayController is not null && _dayController.IsShopOpen;
+		var isShopDayReadyToEnd = _dayController is not null && _dayController.IsShopDayReadyToEnd;
 		var navigationBlocked = IsSceneNavigationBlocked();
 		var gardenUnlocked = _gameState is not null && _gameState.IsGardenUnlocked;
 		if (navigationBlocked)
@@ -886,8 +893,8 @@ public partial class Hud : Control
 			HideHudPopups();
 		}
 
-		_serveCustomerButton.Text = isShopOpen ? "Shop Open" : "Start Day";
-		_serveCustomerButton.Disabled = navigationBlocked || _dayController is null || isShopOpen;
+		_serveCustomerButton.Text = isShopDayReadyToEnd ? "End Day" : isShopOpen ? "Shop Open" : "Start Day";
+		_serveCustomerButton.Disabled = navigationBlocked || _dayController is null || (isShopOpen && !isShopDayReadyToEnd);
 		_gardenButton.Disabled = navigationBlocked || isShopOpen || !gardenUnlocked;
 		if (GetTree().CurrentScene is Garden)
 			_gardenButton.Disabled = true;

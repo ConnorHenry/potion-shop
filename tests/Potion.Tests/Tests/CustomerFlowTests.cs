@@ -18,6 +18,7 @@ internal static class CustomerFlowTests
         runner.Run("Customer flow creates detached ingredient snapshots", TestCustomerPanelBuildPotionIngredientDef);
         runner.Run("Customer events randomize shop-day order", TestCustomerEventControllerRandomizesOrder);
         runner.Run("Shop summary clears station customer presentation", TestShopSummaryClearsCustomerPresentation);
+        runner.Run("Shop day waits for End Day before showing summary", TestShopDayWaitsForEndDayBeforeSummary);
         runner.Run("Active customer request is owned by station panel", TestActiveCustomerRequestKeepsShopFrontCustomerClickable);
         runner.Run("Active customer request persists across scene reloads", TestActiveCustomerRequestPersistsAcrossSceneReloads);
         runner.Run("Forced customer fallback resolves legacy ids deterministically", TestForcedCustomerFallbackResolvesLegacyIdsDeterministically);
@@ -99,6 +100,8 @@ internal static class CustomerFlowTests
             source.Contains("TryDrawDayTwoFirstCustomerInteraction") &&
             source.Contains("TryDrawDayTwoSecondCustomerInteraction") &&
             source.Contains("TryDrawDayTwoThirdCustomerInteraction") &&
+            source.Contains("TryDrawScheduledStoryCustomerInteraction(interactions, state, out var scheduledStoryInteraction)") &&
+            source.Contains("public CustomerInteractionDef? DrawScheduledStoryCustomerInteraction") &&
             source.Contains("GameState.NewGameOpeningCustomerPendingStoryFlag") &&
             source.Contains("GameState.NewGameSecondCustomerPendingStoryFlag") &&
             source.Contains("GameState.NewGameThirdCustomerPendingStoryFlag") &&
@@ -119,16 +122,15 @@ internal static class CustomerFlowTests
             ReadProjectFile("Scripts/Autoload/GameState.cs").Contains("StoryFlags.Add(DayTwoSecondCustomerPendingStoryFlag)") &&
             ReadProjectFile("Scripts/Autoload/GameState.cs").Contains("StoryFlags.Add(DayTwoThirdCustomerPendingStoryFlag)") &&
             ReadProjectFile("Scripts/Autoload/GameState.cs").Contains("if (Day == 2)") &&
-            source.IndexOf("TryDrawForcedInteraction", StringComparison.Ordinal) < source.IndexOf("TryDrawNewGameOpeningCustomerInteraction", StringComparison.Ordinal) &&
-            source.IndexOf("TryDrawForcedInteraction", StringComparison.Ordinal) < source.IndexOf("TryDrawDayTwoFirstCustomerInteraction", StringComparison.Ordinal) &&
+            source.IndexOf("TryDrawForcedInteraction", StringComparison.Ordinal) < source.IndexOf("TryDrawScheduledStoryCustomerInteraction(interactions, state, out var scheduledStoryInteraction)", StringComparison.Ordinal) &&
+            source.IndexOf("TryDrawScheduledStoryCustomerInteraction(interactions, state, out var scheduledStoryInteraction)", StringComparison.Ordinal) < source.IndexOf("var eligibleInteractions", StringComparison.Ordinal) &&
             source.IndexOf("TryDrawDayTwoFirstCustomerInteraction", StringComparison.Ordinal) < source.IndexOf("TryDrawNewGameOpeningCustomerInteraction", StringComparison.Ordinal) &&
             source.IndexOf("TryDrawDayTwoFirstCustomerInteraction", StringComparison.Ordinal) < source.IndexOf("TryDrawDayTwoSecondCustomerInteraction", StringComparison.Ordinal) &&
             source.IndexOf("TryDrawDayTwoSecondCustomerInteraction", StringComparison.Ordinal) < source.IndexOf("TryDrawDayTwoThirdCustomerInteraction", StringComparison.Ordinal) &&
             source.IndexOf("TryDrawDayTwoThirdCustomerInteraction", StringComparison.Ordinal) < source.IndexOf("TryDrawNewGameOpeningCustomerInteraction", StringComparison.Ordinal) &&
             source.IndexOf("TryDrawDayTwoSecondCustomerInteraction", StringComparison.Ordinal) < source.IndexOf("TryDrawNewGameOpeningCustomerInteraction", StringComparison.Ordinal) &&
             source.IndexOf("TryDrawNewGameOpeningCustomerInteraction", StringComparison.Ordinal) < source.IndexOf("TryDrawNewGameSecondCustomerInteraction", StringComparison.Ordinal) &&
-            source.IndexOf("TryDrawNewGameSecondCustomerInteraction", StringComparison.Ordinal) < source.IndexOf("TryDrawNewGameThirdCustomerInteraction", StringComparison.Ordinal) &&
-            source.IndexOf("TryDrawNewGameThirdCustomerInteraction", StringComparison.Ordinal) < source.IndexOf("var eligibleInteractions", StringComparison.Ordinal));
+            source.IndexOf("TryDrawNewGameSecondCustomerInteraction", StringComparison.Ordinal) < source.IndexOf("TryDrawNewGameThirdCustomerInteraction", StringComparison.Ordinal));
         AssertTrue("DayController resets customer order when the shop opens", dayController.Contains("_customerEventController.BeginShopDay();"));
         AssertTrue("DayController caps shop-day customer arrivals at three",
             dayController.Contains("MaxCustomersPerShopDay = 3") &&
@@ -136,9 +138,9 @@ internal static class CustomerFlowTests
         AssertTrue("DayController counts customer arrivals when a customer is shown",
             dayController.Contains("_gameState.RecordShopDayCustomerArrived(interaction);") &&
             dayController.Contains("_customersArrived = _gameState.ShopDayCustomersArrived;"));
-        AssertTrue("DayController closes the shop after the current final customer is resolved",
+        AssertTrue("DayController waits for explicit End Day after the final customer is resolved",
             dayController.Contains("ShouldCloseShopAfterCurrentCustomer()") &&
-            dayController.Contains("CloseShopAndShowSummary();"));
+            dayController.Contains("MarkShopDayReadyToEnd();"));
         AssertTrue("StationCustomerPanel exposes active interaction state", stationCustomerPanel.Contains("HasActiveInteraction => ActiveCustomer is not null"));
         AssertTrue("StationCustomerPanel does not build visible customer queue controls",
             !stationCustomerPanel.Contains("Customer Queue") &&
@@ -167,6 +169,26 @@ internal static class CustomerFlowTests
             stationCustomerPanel.Contains("_gameState.ClearActiveCustomerRequest();") &&
             stationCustomerPanel.Contains("_title.Text = \"No customer waiting\"") &&
             stationCustomerPanel.Contains("SetServingControlsEnabled(false);"));
+    }
+
+    private static void TestShopDayWaitsForEndDayBeforeSummary()
+    {
+        var dayController = ReadProjectFile("Scripts/Controllers/DayController.cs");
+        var hud = ReadProjectFile("Scripts/UI/Hud.cs");
+
+        AssertTrue("DayController tracks a completed shop day without closing it immediately",
+            dayController.Contains("public bool IsShopDayReadyToEnd => _isShopDayReadyToEnd;") &&
+            dayController.Contains("private void MarkShopDayReadyToEnd()") &&
+            dayController.Contains("IsPersistedShopDayReadyToEnd()") &&
+            dayController.Contains("return _closeShopAfterCurrentCustomer;"));
+        AssertTrue("Final customer resolution marks the shop day ready instead of showing the summary directly",
+            dayController.Contains("_customersArrived >= MaxCustomersPerShopDay") &&
+            dayController.Contains("MarkShopDayReadyToEnd();"));
+        AssertTrue("HUD turns the shop button into the End Day action when the day is ready",
+            hud.Contains("IsShopDayReadyToEnd") &&
+            hud.Contains("\"End Day\"") &&
+            hud.Contains("_dayController.EndDayAndRunNight();") &&
+            hud.Contains("isShopOpen && !isShopDayReadyToEnd"));
     }
 
     private static void TestActiveCustomerRequestKeepsShopFrontCustomerClickable()
@@ -461,6 +483,7 @@ internal static class CustomerFlowTests
         var dataDb = ReadProjectFile("Scripts/Autoload/DataDb.cs");
         var saleRules = ReadProjectFile("Scripts/Systems/CustomerSaleRules.cs");
         var stationCustomerPanel = ReadProjectFile("Scripts/UI/StationCustomerPanel.cs");
+        var stationPresentation = ReadProjectFile("Scripts/UI/StationCustomerPotionPresentation.cs");
         var formatter = ReadProjectFile("Scripts/UI/CustomerDialogueTextFormatter.cs");
         var customers = ReadProjectFile("Data/customers_data.tres");
         var tieredCustomers = ReadProjectFile("Data/customers_tiered_test_data.tres");
@@ -487,7 +510,8 @@ internal static class CustomerFlowTests
             saleRules.Contains("AreRequiredMaxTraitsSatisfied") &&
             saleRules.Contains("AreBadTraitRangesSatisfied"));
         AssertTrue("StationCustomerPanel displays hard trait thresholds and ranges through the shared formatter",
-            stationCustomerPanel.Contains("BuildCustomerPotionRequestComparisonText") &&
+            stationCustomerPanel.Contains("StationCustomerPotionPresentation.BuildRequestFitText") &&
+            stationPresentation.Contains("BuildCustomerPotionRequestComparisonText") &&
             formatter.Contains("FormatTraitRange") &&
             formatter.Contains("FormatBadTraitListWithViolations") &&
             formatter.Contains("FormatMinTraitThresholdsWithMatches") &&
@@ -562,8 +586,8 @@ internal static class CustomerFlowTests
             catalog.Contains("Deterministic first shop customer"));
         AssertTrue("Tiered customer data includes the deterministic second request and arrival grant",
             tieredCustomers.Contains("\"id\": \"customer_requests_opening_silver_focus_tonic\"") &&
-            tieredCustomers.Contains("\"courage\": { \"min\": 8, \"max\": 8 }") &&
-            tieredCustomers.Contains("\"clarity\": { \"min\": 2, \"max\": 2 }") &&
+            tieredCustomers.Contains("\"clarity\": { \"min\": 4, \"max\": 4 }") &&
+            tieredCustomers.Contains("\"courage\": { \"min\": 3, \"max\": 3 }") &&
             tieredCustomers.Contains("\"vigor\": { \"min\": 3, \"max\": 3 }") &&
             tieredCustomers.Contains("\"onArrivalEffects\"") &&
             tieredCustomers.Contains("\"addItemId\": \"comfrey\"") &&
@@ -572,7 +596,7 @@ internal static class CustomerFlowTests
             catalog.Contains("Deterministic second shop customer"));
         AssertTrue("Tiered customer data includes the deterministic third request and restock grant",
             tieredCustomers.Contains("\"id\": \"customer_requests_opening_clean_vigor_tonic\"") &&
-            tieredCustomers.Contains("\"cleanse\": { \"min\": 7, \"max\": 7 }") &&
+            tieredCustomers.Contains("\"cleanse\": { \"min\": 4, \"max\": 4 }") &&
             tieredCustomers.Contains("\"soothe\": { \"min\": 4, \"max\": 4 }") &&
             tieredCustomers.Contains("\"vigor\": { \"min\": 3, \"max\": 3 }") &&
             tieredCustomers.Contains("\"restockItemId\": \"mint\"") &&
@@ -587,8 +611,8 @@ internal static class CustomerFlowTests
             tieredCustomers.Contains("\"id\": \"customer_requests_day_two_charmed_focus_tonic\"") &&
             tieredCustomers.Contains("\"dayExact\": 2") &&
             tieredCustomers.Contains("\"hasStoryFlag\": \"day_two_first_customer_pending\"") &&
-            tieredCustomers.Contains("\"courage\": { \"min\": 8, \"max\": 8 }") &&
             tieredCustomers.Contains("\"charm\": { \"min\": 4, \"max\": 4 }") &&
+            tieredCustomers.Contains("\"courage\": { \"min\": 3, \"max\": 3 }") &&
             tieredCustomers.Contains("\"vigor\": { \"min\": 3, \"max\": 3 }") &&
             catalog.Contains("Deterministic first customer on day 2"));
         AssertTrue("Tiered customer data includes the hidden deterministic day-two second request",
@@ -661,6 +685,10 @@ internal static class CustomerFlowTests
         var gameState = ReadProjectFile("Scripts/Autoload/GameState.cs");
         var storyVisitState = ReadProjectFile("Scripts/Systems/StoryCustomerVisitState.cs");
         var storyVisit = ReadProjectFile("Scripts/Models/StoryCustomerVisitRecord.cs");
+        var dialogueSession = ReadProjectFile("Scripts/Dialogue/DialogueSession.cs");
+        var dialogueGraph = ReadProjectFile("Scripts/Dialogue/DialogueGraph.cs");
+        var customerDialogueAdapter = ReadProjectFile("Scripts/Systems/CustomerDialogueAdapter.cs");
+        var customerDialogueGraphBuilder = ReadProjectFile("Scripts/Systems/CustomerDialogueGraphBuilder.cs");
         var tieredCustomers = ReadProjectFile("Data/customers_tiered_test_data.tres");
 
         AssertTrue("Customer interaction stores a dialogue start node",
@@ -712,6 +740,19 @@ internal static class CustomerFlowTests
             dataDb.Contains("ReadAuthoredLineArray(entry, \"responseLines\", \"lines\")") &&
             dataDb.Contains("PotionRefusedLines = ParseCustomerDialogueLines") &&
             dataDb.Contains("Lines = lines"));
+        AssertTrue("Dialogue runtime flow is not customer-coupled",
+            dialogueSession.Contains("namespace OccultShop.Dialogue") &&
+            dialogueSession.Contains("Func<DialogueOption, bool>") &&
+            dialogueGraph.Contains("TryGetStartNode") &&
+            !dialogueSession.Contains("CustomerInteractionDef") &&
+            !dialogueSession.Contains("GameState") &&
+            !dialogueSession.Contains("Potion"));
+        AssertTrue("Customer dialogue adapter maps authored customers into neutral dialogue",
+            customerDialogueAdapter.Contains("CustomerDialogueAdapter") &&
+            customerDialogueAdapter.Contains("DialogueGraph") &&
+            customerDialogueGraphBuilder.Contains("CustomerDialogueGraphBuilder") &&
+            customerDialogueGraphBuilder.Contains("new DialogueNode") &&
+            customerDialogueGraphBuilder.Contains("new DialogueOption"));
 
         AssertTrue("StationCustomerPanel starts story dialogue instead of serving controls",
             stationCustomerPanel.Contains("TryShowDialogueStart(interaction)") &&
@@ -724,8 +765,9 @@ internal static class CustomerFlowTests
             stationCustomerPanel.Contains("SetDialogueOptionButton") &&
             stationCustomerPanel.Contains("button.Text = option.Label"));
         AssertTrue("StationCustomerPanel records and greys repeatable seen dialogue options",
-            stationCustomerPanel.Contains("RecordStoryCustomerDialogueOptionSelected") &&
-            stationCustomerPanel.Contains("HasStoryCustomerDialogueOptionSelected") &&
+            customerDialogueAdapter.Contains("RecordStoryCustomerDialogueOptionSelected") &&
+            customerDialogueAdapter.Contains("HasStoryCustomerDialogueOptionSelected") &&
+            stationCustomerPanel.Contains("_customerDialogueAdapter?.HasOptionBeenSelected(option)") &&
             stationCustomerPanel.Contains("SeenDialogueOptionModulate"));
         AssertTrue("Story visit records persist selected dialogue option ids",
             storyVisit.Contains("SelectedDialogueOptionIds") &&
@@ -782,6 +824,7 @@ internal static class CustomerFlowTests
         AssertTrue("StationCustomerPanel renders structured customer dialogue lines",
             stationCustomerPanel.Contains("BuildAuthoredNarrativeLines") &&
             stationCustomerPanel.Contains("QueueAuthoredLines") &&
+            stationCustomerPanel.Contains("QueueDialogueLines") &&
             stationCustomerPanel.Contains("QueueDialogueOptionResponse") &&
             saleService.Contains("FormatPlainAuthoredLine"));
         AssertTrue("Authored data validation accepts structured option responses",
@@ -795,7 +838,8 @@ internal static class CustomerFlowTests
             stationCustomerPanel.Contains("TrySelectPotion(itemId);"));
         AssertTrue("StationCustomerPanel records terminal dialogue choices as story outcomes",
             stationCustomerPanel.Contains("RecordStoryCustomerInteractionOutcome(interaction, outcome)") &&
-            stationCustomerPanel.Contains("dialogue:"));
+            customerDialogueAdapter.Contains("dialogue:") &&
+            stationCustomerPanel.Contains("CompleteDialogueInteraction(adapter.BuildOutcome(option))"));
         AssertTrue("StationCustomerPanel signals and resolves completed dialogue flow",
             stationCustomerPanel.Contains("DialogueResolvedEventHandler") &&
             stationCustomerPanel.Contains("EmitSignal(SignalName.DialogueResolved)") &&
@@ -816,13 +860,15 @@ internal static class CustomerFlowTests
     {
         var stationCustomerPanel = ReadProjectFile("Scripts/UI/StationCustomerPanel.cs");
         var formatter = ReadProjectFile("Scripts/UI/CustomerDialogueTextFormatter.cs");
+        var dialogueNarrativeLineBuilder = ReadProjectFile("Scripts/UI/Text/DialogueNarrativeLineBuilder.cs");
 
         AssertTrue("Conversation formatter supports headerless narration",
             formatter.Contains("FormatNarrationLine") &&
             formatter.Contains("string.IsNullOrWhiteSpace(speaker)") &&
             formatter.Contains("return FormatNarrationLine(text);"));
         AssertTrue("StationCustomerPanel queues dialogue node text as narration",
-            stationCustomerPanel.Contains("QueueAuthoredLines(node.Lines, node.Text, null);"));
+            stationCustomerPanel.Contains("QueueDialogueLines(node.Lines, node.Text, null);") &&
+            dialogueNarrativeLineBuilder.Contains("string.IsNullOrWhiteSpace(line.Speaker) ? fallbackSpeaker : line.Speaker"));
         AssertTrue("StationCustomerPanel keeps legacy option responses under customer speaker",
             stationCustomerPanel.Contains("QueueDialogueOptionResponse(option);") &&
             stationCustomerPanel.Contains("option.ResponseText") &&
@@ -901,6 +947,7 @@ internal static class CustomerFlowTests
         var stationCustomerPanel = ReadProjectFile("Scripts/UI/StationCustomerPanel.cs");
         var potionRow = ReadProjectFile("Scripts/UI/PotionInventoryRow.cs");
         var formatter = ReadProjectFile("Scripts/UI/CustomerDialogueTextFormatter.cs");
+        var stationPresentation = ReadProjectFile("Scripts/UI/StationCustomerPotionPresentation.cs");
         var inventorySlot = ReadProjectFile("Scripts/UI/InventoryItemSlot.cs");
         var jarredSlot = ReadProjectFile("Scripts/UI/JarredInventorySlotView.cs");
         var layoutSettings = ReadProjectFile("Assets/UI/InventorySlotLayoutSettings.tres");
@@ -935,12 +982,14 @@ internal static class CustomerFlowTests
             potionRow.Contains("_gameState.Changed -= Refresh"));
         AssertTrue("StationCustomerPanel updates request comparison text for selected potion values",
             stationCustomerPanel.Contains("SetRequestFitText") &&
-            stationCustomerPanel.Contains("BuildCustomerPotionRequestComparisonText") &&
+            stationCustomerPanel.Contains("StationCustomerPotionPresentation.BuildRequestFitText") &&
             stationCustomerPanel.Contains("_saleService.GetPotionIngredientPortions(potionItemId)") &&
+            stationPresentation.Contains("BuildCustomerPotionRequestComparisonText") &&
             formatter.Contains("BuildCustomerPotionRequestComparisonText"));
         AssertTrue("StationCustomerPanel hides potion fit feedback for hidden requests",
             stationCustomerPanel.Contains("request.HideRequestDetails") &&
-            stationCustomerPanel.Contains("CustomerDialogueTextFormatter.HiddenRequestText") &&
+            stationCustomerPanel.Contains("StationCustomerPotionPresentation.BuildHiddenRequestFitText") &&
+            stationPresentation.Contains("CustomerDialogueTextFormatter.HiddenRequestText") &&
             stationCustomerPanel.Contains("ResolveSale(_selectedPotionItemId, _selectedPotionResult);"));
     }
 

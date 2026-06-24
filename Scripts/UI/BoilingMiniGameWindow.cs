@@ -33,6 +33,8 @@ public partial class BoilingMiniGameWindow : Control
 	[Export] public NodePath DonenessCurrentLinePath = default!;
 	[Export] public NodePath TakeOutButtonPath = default!;
 	[Export] public NodePath StirringAreaPath = default!;
+	[Export] public NodePath StirringStickCuePath = default!;
+	[Export] public NodePath StirringDirectionArrowPath = default!;
 	[Export] public NodePath StirringProgressFillPath = default!;
 	[Export] public NodePath CancelButtonPath = default!;
 
@@ -58,6 +60,8 @@ public partial class BoilingMiniGameWindow : Control
 	private ColorRect _donenessCurrentLine = default!;
 	private Button _takeOutButton = default!;
 	private Control _stirringArea = default!;
+	private BoilingStirringCue _stirringStickCue = default!;
+	private BoilingStirringCue _stirringDirectionArrow = default!;
 	private ColorRect _stirringProgressFill = default!;
 	private Button _cancelButton = default!;
 	private BoilingMiniGameDef _config = default!;
@@ -93,6 +97,8 @@ public partial class BoilingMiniGameWindow : Control
 		_donenessCurrentLine = GetNode<ColorRect>(DonenessCurrentLinePath);
 		_takeOutButton = GetNode<Button>(TakeOutButtonPath);
 		_stirringArea = GetNode<Control>(StirringAreaPath);
+		_stirringStickCue = GetNode<BoilingStirringCue>(StirringStickCuePath);
+		_stirringDirectionArrow = GetNode<BoilingStirringCue>(StirringDirectionArrowPath);
 		_stirringProgressFill = GetNode<ColorRect>(StirringProgressFillPath);
 		_cancelButton = GetNode<Button>(CancelButtonPath);
 
@@ -171,6 +177,7 @@ public partial class BoilingMiniGameWindow : Control
 		_lockHeatButton.Disabled = true;
 		_takeOutButton.Disabled = false;
 		_stirringArea.MouseFilter = MouseFilterEnum.Ignore;
+		HideStirringCues();
 		_phaseLabel.Text = "Temperature Control";
 		_statusLabel.Text = "Hold the heat inside the marked band.";
 	}
@@ -186,6 +193,7 @@ public partial class BoilingMiniGameWindow : Control
 		_lockHeatButton.Disabled = true;
 		_takeOutButton.Disabled = false;
 		_stirringArea.MouseFilter = MouseFilterEnum.Stop;
+		ShowStirringCues();
 		_phaseLabel.Text = "Stirring Rhythm";
 		_statusLabel.Text = BuildStirringStatusText();
 	}
@@ -253,6 +261,7 @@ public partial class BoilingMiniGameWindow : Control
 		{
 			_stirringComplete = true;
 			_stirringArea.MouseFilter = MouseFilterEnum.Ignore;
+			HideStirringCues();
 			RefreshCompletionStatus();
 		}
 	}
@@ -330,6 +339,9 @@ public partial class BoilingMiniGameWindow : Control
 		var angleDelta = MathF.Abs(_previousStirringVector.AngleTo(currentVector));
 		var clockwise = cross > 0.0f;
 		var radiansPerSecond = angleDelta / (float)elapsedSeconds;
+		var signedAngleDelta = clockwise ? angleDelta : -angleDelta;
+
+		_stirringStickCue.AddStickAngle(signedAngleDelta);
 
 		if (clockwise == ExpectsClockwise() && IsExpectedStirringSpeed(radiansPerSecond))
 			_lastValidStirringMotionSeconds = (float)nowSeconds;
@@ -353,6 +365,22 @@ public partial class BoilingMiniGameWindow : Control
 	private bool ExpectsFast()
 	{
 		return _config.StirringRhythm is BoilingStirringRhythm.ClockwiseFast or BoilingStirringRhythm.AntiClockwiseFast;
+	}
+
+	private void ShowStirringCues()
+	{
+		var clockwise = ExpectsClockwise();
+		var fast = ExpectsFast();
+		_stirringStickCue.SetCueState(active: true, clockwise: clockwise, fast: fast, resetStickAngle: true);
+		_stirringDirectionArrow.SetCueState(active: true, clockwise: clockwise, fast: fast, resetStickAngle: false);
+	}
+
+	private void HideStirringCues()
+	{
+		if (_stirringStickCue is not null)
+			_stirringStickCue.SetCueState(active: false, clockwise: true, fast: false, resetStickAngle: true);
+		if (_stirringDirectionArrow is not null)
+			_stirringDirectionArrow.SetCueState(active: false, clockwise: true, fast: false, resetStickAngle: false);
 	}
 
 	private bool IsExpectedStirringSpeed(float radiansPerSecond)
@@ -448,6 +476,7 @@ public partial class BoilingMiniGameWindow : Control
 		_draggingStirring = false;
 		_heatLocked = false;
 		_stirringComplete = false;
+		HideStirringCues();
 		Visible = false;
 		SetProcess(false);
 	}

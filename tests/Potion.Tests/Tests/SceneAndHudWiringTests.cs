@@ -474,6 +474,9 @@ internal static class SceneAndHudWiringTests
     {
         var runtimeDebug = ReadProjectFile("Scripts/Debug/RuntimeDebugImGui.cs");
         var dayController = ReadProjectFile("Scripts/Controllers/DayController.cs");
+        var customerController = ReadProjectFile("Scripts/Controllers/CustomerEventController.cs");
+        var fastForwardService = ReadProjectFile("Scripts/Systems/ShopDayFastForwardService.cs");
+        var customers = ReadProjectFile("Data/customers_data.tres");
         var shelf = ReadProjectFile("Scripts/UI/StationShelfInventory.cs");
         var row = ReadProjectFile("Scripts/UI/PotionInventoryRow.cs");
         var stationCustomerPanel = ReadProjectFile("Scripts/UI/StationCustomerPanel.cs");
@@ -489,6 +492,31 @@ internal static class SceneAndHudWiringTests
         AssertTrue("Scenario debugger closes the active shop through DayController",
             runtimeDebug.Contains("TryCloseShopDay()") &&
             runtimeDebug.Contains("TryCloseShopDayFromDebug"));
+        AssertTrue("Scenario debugger exposes a target-day fast-forward control",
+            runtimeDebug.Contains("Forward To Day") &&
+            runtimeDebug.Contains("TryFastForwardToDay(") &&
+            runtimeDebug.Contains("TryFastForwardToDayFromDebug") &&
+            !runtimeDebug.Contains("_gameState.NextDay();"));
+        AssertTrue("DayController runs debug day fast-forward through the progression service",
+            dayController.Contains("public ShopDayFastForwardResult TryFastForwardToDayFromDebug(int targetDay)") &&
+            dayController.Contains("ShopDayFastForwardService.FastForwardToDay(") &&
+            dayController.Contains("_stationCustomerPanel.ClearCustomers();") &&
+            dayController.Contains("_brewPanel.HidePanel();"));
+        AssertTrue("Debug day fast-forward uses scheduled story customers without random customer draws",
+            fastForwardService.Contains("DrawScheduledStoryCustomerInteraction(dataDb, gameState)") &&
+            customerController.Contains("public CustomerInteractionDef? DrawScheduledStoryCustomerInteraction") &&
+            customerController.Contains("TryDrawScheduledStoryCustomerInteraction(interactions, state, out var scheduledStoryInteraction)") &&
+            dayController.Contains("MaxCustomersPerShopDay") &&
+            fastForwardService.Contains("maxCustomersPerShopDay"));
+        AssertTrue("Debug day fast-forward applies authored progression effects and normal overnight advancement",
+            fastForwardService.Contains("EffectApplier.Apply(gameState, successEffect)") &&
+            fastForwardService.Contains("EffectsMatch(successEffect, failureEffect)") &&
+            fastForwardService.Contains("gameState.RecordShopDaySale(success: true, goldDelta: 0, dreadDelta: 0)") &&
+            fastForwardService.Contains("gameState.NextDay();"));
+        AssertTrue("Authored fast-forward examples remain data-driven",
+            customers.Contains("\"addItemId\": \"comfrey\"") &&
+            customers.Contains("\"restockItemId\": \"mint\"") &&
+            customers.Contains("\"enableIngredientPreparationMethodId\": \"boiled\""));
         AssertTrue("Scenario debugger can refresh runtime slot layout state from the editor resource",
             runtimeDebug.Contains("Refresh State") &&
             runtimeDebug.Contains("RefreshDebugState()") &&
@@ -789,6 +817,9 @@ internal static class SceneAndHudWiringTests
         var map = ReadProjectFile("Scripts/UI/Map.cs");
         var mapScene = ReadProjectFile("Scenes/Main/Map.tscn");
         var gathering = ReadProjectFile("Scripts/UI/ForestGathering.cs");
+        var gatheringCatalog = ReadProjectFile("Scripts/UI/ForestGatheringPlantCatalog.cs");
+        var gatheringLayout = ReadProjectFile("Scripts/UI/ForestGatheringPlantLayout.cs");
+        var gatheringFeedback = ReadProjectFile("Scripts/UI/ForestGatheringFeedbackFormatter.cs");
         var gatheringScene = ReadProjectFile("Scenes/Main/ForestGathering.tscn");
         var normalizedGatheringScene = gatheringScene.Replace("\r\n", "\n");
         var hud = ReadProjectFile("Scripts/UI/Hud.cs");
@@ -859,26 +890,26 @@ internal static class SceneAndHudWiringTests
             gatheringScene.Contains("SketchPreviewImagePath = NodePath(\"Root/SketchPreviewOverlay/PreviewFrame/Margin/SketchPreview\")") &&
             !gathering.Contains("SketchTexturePath = \"res://Assets/Items/mint.png\""));
         AssertTrue("Forest gathering keeps authored plant definitions over the forest art",
-            gathering.Contains("PlantDefinitions") &&
-            gathering.Contains("new(\"mint\", \"Specimen A\"") &&
-            gathering.Contains("new(\"thyme\", \"Specimen M\"") &&
-            gathering.Contains("new(\"yarrow\", \"Specimen S\"") &&
-            gathering.Contains("new(\"willow\", \"Specimen X\"") &&
-            gathering.Contains("new(\"thyme\", \"Specimen Y\"") &&
-            gathering.Contains("new(\"comfrey\", \"Specimen AI\"") &&
-            gathering.Contains("new(\"willow\", \"Specimen AJ\"") &&
+            gatheringCatalog.Contains("PlantDefinitions") &&
+            gatheringCatalog.Contains("new(\"mint\", \"Specimen A\"") &&
+            gatheringCatalog.Contains("new(\"thyme\", \"Specimen M\"") &&
+            gatheringCatalog.Contains("new(\"yarrow\", \"Specimen S\"") &&
+            gatheringCatalog.Contains("new(\"willow\", \"Specimen X\"") &&
+            gatheringCatalog.Contains("new(\"thyme\", \"Specimen Y\"") &&
+            gatheringCatalog.Contains("new(\"comfrey\", \"Specimen AI\"") &&
+            gatheringCatalog.Contains("new(\"willow\", \"Specimen AJ\"") &&
             gatheringScene.Contains("PlantHotspotsPath = NodePath(\"Root/PlantHotspots\")") &&
             gatheringScene.Contains("forest_gathering_mint.png"));
         AssertEqual("Forest gathering keeps exactly three authored mint targets",
             3,
-            gathering.Split("new(\"mint\",").Length - 1);
+            gatheringCatalog.Split("new(\"mint\",").Length - 1);
         AssertTrue("Forest gathering randomizes the selectable plant layout on load",
             gathering.Contains("RandomizePlantLayout();") &&
             gathering.Contains("new RandomNumberGenerator()") &&
             gathering.Contains("random.Randomize();") &&
-            gathering.Contains("FindPlantPlacement") &&
-            gathering.Contains("PlacementAttemptsPerPlant") &&
-            gathering.Contains("_activePlantEntries.Sort"));
+            gatheringLayout.Contains("FindPlantPlacement") &&
+            gatheringLayout.Contains("PlacementAttemptsPerPlant") &&
+            gatheringLayout.Contains("_placedEntries.Sort"));
         AssertTrue("Forest gathering renders randomized plant sprites above the forest art",
             gathering.Contains("CreatePlantVisuals();") &&
             gathering.Contains("new TextureRect") &&
@@ -886,8 +917,8 @@ internal static class SceneAndHudWiringTests
             gathering.Contains("SetNormalizedRect(visual, entry.Center, entry.Size)") &&
             gathering.Contains("PlantVisualDepthRange") &&
             gathering.Contains("_plantHotspots.AddChild(visual)") &&
-            gathering.Contains("mint_decoy_hidden_bud.png") &&
-            gathering.Contains("mint_decoy_wrong_veins.png"));
+            gatheringCatalog.Contains("mint_decoy_hidden_bud.png") &&
+            gatheringCatalog.Contains("mint_decoy_wrong_veins.png"));
         AssertTrue("Forest gathering keeps candidate debug borders disabled by default",
             gathering.Contains("ShowCandidateDebugBorders = false") &&
             gathering.Contains("CandidateDebugBorderZIndex = PlantVisualDepthRange + 1") &&
@@ -939,8 +970,8 @@ internal static class SceneAndHudWiringTests
             new FileInfo(Path.Combine(inspectionPlantSpriteDir, "inspection_mint_target_a.png")).Length > new FileInfo(Path.Combine(plantSpriteDir, "mint_target_a.png")).Length &&
             new FileInfo(Path.Combine(inspectionPlantSpriteDir, "inspection_mint_decoy_hidden_bud.png")).Length > new FileInfo(Path.Combine(plantSpriteDir, "mint_decoy_hidden_bud.png")).Length &&
             new FileInfo(Path.Combine(inspectionPlantSpriteDir, "inspection_forest_slender_stems.png")).Length > new FileInfo(Path.Combine(plantSpriteDir, "forest_slender_stems.png")).Length &&
-            gathering.Contains("InspectionPlantTexturePathPrefix = \"res://Assets/Gathering/InspectionPlants/\"") &&
-            gathering.Contains("BuildInspectionTexturePath(definition.TexturePath)") &&
+            gatheringCatalog.Contains("InspectionPlantTexturePathPrefix = \"res://Assets/Gathering/InspectionPlants/\"") &&
+            gatheringLayout.Contains("BuildInspectionTexturePath(definition.TexturePath)") &&
             gathering.Contains("entry.InspectionTexturePath"));
         AssertTrue("Forest gathering accepts free clicks to inspect plants instead of grid cells",
             gathering.Contains("_plantHotspots.GuiInput += _plantHotspotsGuiInputHandler") &&
@@ -1056,11 +1087,11 @@ internal static class SceneAndHudWiringTests
             gathering.Contains("private void OnHarvestPressed()") &&
             gathering.Contains("_remainingActions -= 1") &&
             gathering.Contains("BuildWrongPlantFeedback(_activePlantEntries[plantIndex])") &&
-            gathering.Contains("TryGetMintDecoyClueName") &&
-            gathering.Contains("decoyClueName = clueName.Replace('_', ' ')") &&
-            gathering.Contains("\"rounder leaf\"") &&
-            gathering.Contains("the leaves are too wide for {targetName}") &&
-            gathering.Contains("That was {plantName}, not {targetName}.") &&
+            gatheringFeedback.Contains("TryGetMintDecoyClueName") &&
+            gatheringFeedback.Contains("decoyClueName = clueName.Replace('_', ' ')") &&
+            gatheringFeedback.Contains("\"rounder leaf\"") &&
+            gatheringFeedback.Contains("the leaves are too wide for {targetName}") &&
+            gatheringFeedback.Contains("That was {plantName}, not {targetName}.") &&
             gathering.Contains("Harvests remaining: {_remainingActions}"));
         AssertTrue("Inspection can remove plants without staging rewards",
             gatheringScene.Contains("InspectionRemoveButtonPath = NodePath(\"Root/InspectionPanel/Margin/VBox/Actions/Remove\")") &&
@@ -1273,7 +1304,31 @@ internal static class SceneAndHudWiringTests
             "Assets",
             "Audio",
             "rain-sounds.mp3"));
+        const string soundtrackDirectory = "postcards_from_ireland_celtic_lofi_beats";
+        const string soundtrackPathPrefix = "res://Assets/Audio/Music/postcards_from_ireland_celtic_lofi_beats/";
         var musicAssetNames = new[]
+        {
+            "01_moonera_and_lucie_cravero_cliffs_of_eire.mp3",
+            "02_fugee_the_troublemakers.mp3",
+            "03_bogar_waking_the_strings.mp3",
+            "04_innigma_and_courtney_pinski_irish_sunset.mp3",
+            "05_hotpotatoes_and_scott_munro_ode_to_a_broken_mandolin.mp3",
+            "06_moonera_and_folkturia_fianna.mp3",
+            "07_stabilisers_and_hoxde_where_lambs_once_grazed.mp3",
+            "08_c4c_and_nathaniel_e_young_patrick_s_story.mp3",
+            "09_detuned_cafe_the_road_back_home.mp3",
+            "10_alpacca_an_old_story_told.mp3",
+            "11_atamatoki_moonera_and_courtney_pinski_selkie_s_song.mp3",
+            "12_pueblo_vista_whispers_of_a_home_barely_forgotten.mp3",
+            "13_eva_gomi_tenshi_and_prithvi_a_long_expected_party.mp3",
+            "14_moonera_and_joshua_hoe_where_we_began.mp3",
+            "15_atamatoki_and_early_garden_lash_the_kettle_on.mp3",
+            "16_stabilisers_and_myceliumbug_green_hills_of_home.mp3",
+            "17_odem_medo_honeycomb.mp3",
+            "18_weviis_and_atamatoki_river_shannon.mp3",
+            "19_moonera_outlander.mp3",
+        };
+        var removedMusicAssetNames = new[]
         {
             "almost_bliss.mp3",
             "danse_morialta.mp3",
@@ -1287,9 +1342,6 @@ internal static class SceneAndHudWiringTests
             "wet_riffs.mp3",
             "when_the_wind_blows.mp3",
             "windswept.mp3",
-        };
-        var removedMusicAssetNames = new[]
-        {
             "backed_vibes.mp3",
             "bass_vibes.mp3",
             "cattails.mp3",
@@ -1315,6 +1367,7 @@ internal static class SceneAndHudWiringTests
             "Assets",
             "Audio",
             "Music",
+            soundtrackDirectory,
             name)));
         var removedMusicPaths = removedMusicAssetNames.Select(name => Path.GetFullPath(Path.Combine(
             AppContext.BaseDirectory,
@@ -1369,18 +1422,7 @@ internal static class SceneAndHudWiringTests
             source.Contains("ambient_sounds_enabled") &&
             source.Contains("rainfall_volume"));
         AssertTrue("Hud loads and persists music settings",
-            source.Contains("res://Assets/Audio/Music/almost_bliss.mp3") &&
-            source.Contains("res://Assets/Audio/Music/danse_morialta.mp3") &&
-            source.Contains("res://Assets/Audio/Music/dream_culture.mp3") &&
-            source.Contains("res://Assets/Audio/Music/easy_lemon.mp3") &&
-            source.Contains("res://Assets/Audio/Music/healing.mp3") &&
-            source.Contains("res://Assets/Audio/Music/immersed.mp3") &&
-            source.Contains("res://Assets/Audio/Music/light_thought_var_1.mp3") &&
-            source.Contains("res://Assets/Audio/Music/silver_blue_light.mp3") &&
-            source.Contains("res://Assets/Audio/Music/southern_gothic.mp3") &&
-            source.Contains("res://Assets/Audio/Music/wet_riffs.mp3") &&
-            source.Contains("res://Assets/Audio/Music/when_the_wind_blows.mp3") &&
-            source.Contains("res://Assets/Audio/Music/windswept.mp3") &&
+            musicAssetNames.All(name => source.Contains($"{soundtrackPathPrefix}{name}")) &&
             removedMusicAssetNames.All(name => !source.Contains($"res://Assets/Audio/Music/{name}")) &&
             source.Contains("music_enabled") &&
             source.Contains("music_volume"));

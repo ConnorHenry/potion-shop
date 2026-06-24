@@ -9,11 +9,6 @@ namespace OccultShop.UI;
 public partial class ForestGathering : Control
 {
 	private const int RewardQuantityPerCorrectSelection = 1;
-	private const int PlacementAttemptsPerPlant = 220;
-	private const float PlacementEdgePadding = 0.025f;
-	private const float PlacementMinY = 0.18f;
-	private const float PlacementMaxY = 0.86f;
-	private const float PlacementAcceptablePenalty = 0.0008f;
 	private const int PlantVisualDepthRange = 20;
 	private const int CandidateDebugBorderZIndex = PlantVisualDepthRange + 1;
 	private const int TargetDebugHighlightZIndex = CandidateDebugBorderZIndex + 1;
@@ -22,55 +17,10 @@ public partial class ForestGathering : Control
 	private const float MinInspectionZoomScale = 1.3f;
 	private const float MaxInspectionZoomScale = 7.0f;
 	private const float InspectionZoomWheelStep = 0.35f;
-	private const string PlantTexturePathPrefix = "res://Assets/Gathering/Plants/";
-	private const string InspectionPlantTexturePathPrefix = "res://Assets/Gathering/InspectionPlants/";
-	private const string InspectionPlantTextureFilePrefix = "inspection_";
-	private const string MintDecoyTextureFilePrefix = "mint_decoy_";
-	private const string PngTextureFileExtension = ".png";
 	private static readonly Vector2 CluePanelSize = new(340.0f, 318.0f);
 	private static readonly Vector2 CluePanelTopRightOffset = new(-358.0f, 52.0f);
 	private static readonly Vector2 ClueSketchSize = new(316.0f, 176.0f);
 	private static readonly Vector2 MagnifyingGlassCursorHotspot = new(18.0f, 18.0f);
-
-	private static readonly GatheringPlantDefinition[] PlantDefinitions =
-	{
-		new("mint", "Specimen A", new Vector2(0.100f, 0.225f), "res://Assets/Gathering/Plants/mint_target_a.png"),
-		new("mint", "Specimen B", new Vector2(0.092f, 0.210f), "res://Assets/Gathering/Plants/mint_target_b.png"),
-		new("mint", "Specimen C", new Vector2(0.100f, 0.225f), "res://Assets/Gathering/Plants/mint_target_c.png"),
-		new("heather", "Specimen D", new Vector2(0.118f, 0.170f), "res://Assets/Gathering/Plants/forest_flowering_stems.png"),
-		new("gorse", "Specimen E", new Vector2(0.100f, 0.195f), "res://Assets/Gathering/Plants/forest_flowering_stems.png"),
-		new("elder", "Specimen F", new Vector2(0.118f, 0.205f), "res://Assets/Gathering/Plants/forest_leaf_cluster.png"),
-		new("rosemary", "Specimen G", new Vector2(0.085f, 0.205f), "res://Assets/Gathering/Plants/forest_slender_stems.png"),
-		new("willow", "Specimen H", new Vector2(0.120f, 0.190f), "res://Assets/Gathering/Plants/forest_willow_stems.png"),
-		new("juniper", "Specimen I", new Vector2(0.110f, 0.205f), "res://Assets/Gathering/Plants/forest_dark_cluster.png"),
-		new("comfrey", "Specimen J", new Vector2(0.110f, 0.205f), "res://Assets/Gathering/Plants/forest_leaf_cluster.png"),
-		new("thyme", "Specimen K", new Vector2(0.115f, 0.205f), "res://Assets/Gathering/Plants/forest_slender_stems.png"),
-		new("yarrow", "Specimen L", new Vector2(0.105f, 0.170f), "res://Assets/Gathering/Plants/forest_flowering_stems.png"),
-		new("thyme", "Specimen M", new Vector2(0.071f, 0.179f), "res://Assets/Gathering/Plants/mint_decoy_smooth_edge.png"),
-		new("comfrey", "Specimen N", new Vector2(0.077f, 0.185f), "res://Assets/Gathering/Plants/forest_dark_cluster.png"),
-		new("rosemary", "Specimen O", new Vector2(0.073f, 0.176f), "res://Assets/Gathering/Plants/forest_slender_stems.png"),
-		new("elder", "Specimen P", new Vector2(0.067f, 0.166f), "res://Assets/Gathering/Plants/forest_leaf_cluster.png"),
-		new("juniper", "Specimen Q", new Vector2(0.073f, 0.168f), "res://Assets/Gathering/Plants/forest_dark_cluster.png"),
-		new("willow", "Specimen R", new Vector2(0.067f, 0.172f), "res://Assets/Gathering/Plants/forest_willow_stems.png"),
-		new("yarrow", "Specimen S", new Vector2(0.062f, 0.149f), "res://Assets/Gathering/Plants/forest_flowering_stems.png"),
-		new("heather", "Specimen T", new Vector2(0.061f, 0.159f), "res://Assets/Gathering/Plants/forest_flowering_stems.png"),
-		new("elder", "Specimen U", new Vector2(0.062f, 0.157f), "res://Assets/Gathering/Plants/forest_smooth_cluster.png"),
-		new("thyme", "Specimen V", new Vector2(0.060f, 0.153f), "res://Assets/Gathering/Plants/forest_slender_stems.png"),
-		new("comfrey", "Specimen W", new Vector2(0.067f, 0.153f), "res://Assets/Gathering/Plants/forest_leaf_cluster.png"),
-		new("willow", "Specimen X", new Vector2(0.063f, 0.159f), "res://Assets/Gathering/Plants/forest_willow_stems.png"),
-		new("thyme", "Specimen Y", new Vector2(0.074f, 0.170f), "res://Assets/Gathering/Plants/mint_decoy_wrong_veins.png"),
-		new("elder", "Specimen Z", new Vector2(0.070f, 0.160f), "res://Assets/Gathering/Plants/mint_decoy_smooth_edge.png"),
-		new("rosemary", "Specimen AA", new Vector2(0.070f, 0.158f), "res://Assets/Gathering/Plants/mint_decoy_hidden_bud.png"),
-		new("willow", "Specimen AB", new Vector2(0.074f, 0.168f), "res://Assets/Gathering/Plants/mint_decoy_alternate_pairs.png"),
-		new("comfrey", "Specimen AC", new Vector2(0.068f, 0.155f), "res://Assets/Gathering/Plants/mint_decoy_rounder_leaf.png"),
-		new("juniper", "Specimen AD", new Vector2(0.070f, 0.160f), "res://Assets/Gathering/Plants/mint_decoy_extra_tip.png"),
-		new("yarrow", "Specimen AE", new Vector2(0.073f, 0.166f), "res://Assets/Gathering/Plants/mint_decoy_curved_stem.png"),
-		new("heather", "Specimen AF", new Vector2(0.069f, 0.158f), "res://Assets/Gathering/Plants/mint_decoy_wrong_veins.png"),
-		new("elder", "Specimen AG", new Vector2(0.067f, 0.151f), "res://Assets/Gathering/Plants/mint_decoy_smooth_edge.png"),
-		new("thyme", "Specimen AH", new Vector2(0.069f, 0.156f), "res://Assets/Gathering/Plants/mint_decoy_offset_leaf.png"),
-		new("comfrey", "Specimen AI", new Vector2(0.074f, 0.168f), "res://Assets/Gathering/Plants/mint_decoy_hidden_bud.png"),
-		new("willow", "Specimen AJ", new Vector2(0.066f, 0.150f), "res://Assets/Gathering/Plants/mint_decoy_extra_tip.png")
-	};
 
 	[Export] public NodePath ForestBackgroundPath = default!;
 	[Export] public NodePath ClueToggleButtonPath = default!;
@@ -130,7 +80,8 @@ public partial class ForestGathering : Control
 	private Control.GuiInputEventHandler? _sketchGuiInputHandler;
 	private Control.GuiInputEventHandler? _sketchPreviewOverlayGuiInputHandler;
 	private Control.GuiInputEventHandler? _inspectionImageGuiInputHandler;
-	private readonly List<GatheringPlantEntry> _activePlantEntries = new();
+	private readonly ForestGatheringPlantLayout _plantLayout = new();
+	private readonly List<ForestGatheringPlantEntry> _activePlantEntries = new();
 	private readonly List<TextureRect> _plantVisuals = new();
 	private readonly List<Panel> _candidateDebugBorders = new();
 	private readonly List<Panel> _targetDebugHighlights = new();
@@ -404,7 +355,7 @@ public partial class ForestGathering : Control
 		if (!_itemCatalog.TryGetItem(TargetItemId, out _))
 			GD.PushError($"ForestGathering: Target item '{TargetItemId}' is not in the item catalog.");
 
-		foreach (var entry in PlantDefinitions)
+		foreach (var entry in ForestGatheringPlantCatalog.Definitions)
 		{
 			if (!_itemCatalog.TryGetItem(entry.ItemId, out _))
 			{
@@ -448,7 +399,7 @@ public partial class ForestGathering : Control
 		}
 	}
 
-	private void ShowInspection(int plantIndex, GatheringPlantEntry entry)
+	private void ShowInspection(int plantIndex, ForestGatheringPlantEntry entry)
 	{
 		_inspectedPlantIndex = plantIndex;
 		_inspectionTitleLabel.Text = "Inspection";
@@ -584,7 +535,7 @@ public partial class ForestGathering : Control
 			_inspectionPanel.Visible = false;
 	}
 
-	private void RefreshInspectionImage(GatheringPlantEntry entry)
+	private void RefreshInspectionImage(ForestGatheringPlantEntry entry)
 	{
 		var texture = LoadPlantTexture(entry.InspectionTexturePath) ?? LoadPlantTexture(entry.TexturePath);
 		_inspectionSourceTexture = texture;
@@ -815,7 +766,7 @@ public partial class ForestGathering : Control
 			_inspectionImage.Texture = _inspectionSourceTexture;
 	}
 
-	private bool TryGetPlantEntryAtGlobalPosition(Vector2 globalPosition, out int plantIndex, out GatheringPlantEntry entry)
+	private bool TryGetPlantEntryAtGlobalPosition(Vector2 globalPosition, out int plantIndex, out ForestGatheringPlantEntry entry)
 	{
 		plantIndex = -1;
 		entry = default;
@@ -831,7 +782,7 @@ public partial class ForestGathering : Control
 		return TryGetPlantEntryAtNormalizedPosition(normalizedPosition, hotspotsRect.Size, out plantIndex, out entry);
 	}
 
-	private bool TryGetPlantEntryAtNormalizedPosition(Vector2 normalizedPosition, Vector2 surfaceSize, out int plantIndex, out GatheringPlantEntry entry)
+	private bool TryGetPlantEntryAtNormalizedPosition(Vector2 normalizedPosition, Vector2 surfaceSize, out int plantIndex, out ForestGatheringPlantEntry entry)
 	{
 		for (var index = _activePlantEntries.Count - 1; index >= 0; index--)
 		{
@@ -868,51 +819,16 @@ public partial class ForestGathering : Control
 		return IsTargetEntry(_activePlantEntries[plantIndex]);
 	}
 
-	private bool IsTargetEntry(GatheringPlantEntry entry)
+	private bool IsTargetEntry(ForestGatheringPlantEntry entry)
 	{
 		return string.Equals(entry.ItemId, TargetItemId, StringComparison.OrdinalIgnoreCase);
 	}
 
-	private string BuildWrongPlantFeedback(GatheringPlantEntry entry)
+	private string BuildWrongPlantFeedback(ForestGatheringPlantEntry entry)
 	{
 		var targetName = GetItemName(TargetItemId);
-		if (TryGetMintDecoyClueName(entry.TexturePath, out var decoyClueName))
-			return BuildMintDecoyFeedback(decoyClueName, targetName);
-
 		var plantName = GetItemName(entry.ItemId);
-		return $"That was {plantName}, not {targetName}.";
-	}
-
-	private static bool TryGetMintDecoyClueName(string texturePath, out string decoyClueName)
-	{
-		decoyClueName = string.Empty;
-		var slashIndex = texturePath.LastIndexOf('/');
-		var fileName = slashIndex >= 0 ? texturePath[(slashIndex + 1)..] : texturePath;
-		if (!fileName.StartsWith(MintDecoyTextureFilePrefix, StringComparison.OrdinalIgnoreCase))
-			return false;
-
-		var clueName = fileName[MintDecoyTextureFilePrefix.Length..];
-		if (clueName.EndsWith(PngTextureFileExtension, StringComparison.OrdinalIgnoreCase))
-			clueName = clueName[..^PngTextureFileExtension.Length];
-
-		decoyClueName = clueName.Replace('_', ' ');
-		return !string.IsNullOrWhiteSpace(decoyClueName);
-	}
-
-	private static string BuildMintDecoyFeedback(string decoyClueName, string targetName)
-	{
-		return decoyClueName switch
-		{
-			"alternate pairs" => $"Wrong plant: {decoyClueName}; {targetName} leaves should be even and opposite.",
-			"curved stem" => $"Wrong plant: {decoyClueName}; {targetName} stems should be crisp and straight.",
-			"extra tip" => $"Wrong plant: {decoyClueName}; the stem tip does not match {targetName}.",
-			"hidden bud" => $"Wrong plant: {decoyClueName}; {targetName} should not hide a bud.",
-			"offset leaf" => $"Wrong plant: {decoyClueName}; {targetName} leaves should sit in even pairs.",
-			"rounder leaf" => $"Wrong plant: {decoyClueName}; the leaves are too wide for {targetName}.",
-			"smooth edge" => $"Wrong plant: {decoyClueName}; {targetName} leaves should be lightly toothed.",
-			"wrong veins" => $"Wrong plant: {decoyClueName}; the leaf veins do not match {targetName}.",
-			_ => $"Wrong plant: {decoyClueName}; it does not match {targetName}."
-		};
+		return ForestGatheringFeedbackFormatter.BuildWrongPlantFeedback(entry, targetName, plantName);
 	}
 
 	private bool IsPlantUnavailable(int plantIndex)
@@ -1028,68 +944,9 @@ public partial class ForestGathering : Control
 		var random = new RandomNumberGenerator();
 		random.Randomize();
 
-		foreach (var definition in PlantDefinitions)
-		{
-			var center = FindPlantPlacement(definition.Size, random);
-			_activePlantEntries.Add(new GatheringPlantEntry(
-				definition.ItemId,
-				definition.Label,
-				center,
-				definition.Size,
-				definition.TexturePath,
-				BuildInspectionTexturePath(definition.TexturePath)));
-		}
-
-		_activePlantEntries.Sort((left, right) => left.Center.Y.CompareTo(right.Center.Y));
-	}
-
-	private Vector2 FindPlantPlacement(Vector2 size, RandomNumberGenerator random)
-	{
-		var halfSize = size * 0.5f;
-		var minX = Math.Clamp(halfSize.X + PlacementEdgePadding, 0.0f, 1.0f);
-		var maxX = Math.Clamp(1.0f - halfSize.X - PlacementEdgePadding, 0.0f, 1.0f);
-		var minY = Math.Clamp(Math.Max(PlacementMinY, halfSize.Y + PlacementEdgePadding), 0.0f, 1.0f);
-		var maxY = Math.Clamp(Math.Min(PlacementMaxY, 1.0f - halfSize.Y - PlacementEdgePadding), 0.0f, 1.0f);
-
-		if (minX > maxX)
-			(minX, maxX) = (maxX, minX);
-		if (minY > maxY)
-			(minY, maxY) = (maxY, minY);
-
-		var bestCenter = new Vector2(random.RandfRange(minX, maxX), random.RandfRange(minY, maxY));
-		var bestPenalty = CalculatePlacementPenalty(bestCenter, size);
-		for (var attempt = 0; attempt < PlacementAttemptsPerPlant; attempt++)
-		{
-			var candidate = new Vector2(random.RandfRange(minX, maxX), random.RandfRange(minY, maxY));
-			var penalty = CalculatePlacementPenalty(candidate, size);
-			if (penalty <= PlacementAcceptablePenalty)
-				return candidate;
-
-			if (penalty >= bestPenalty)
-				continue;
-
-			bestCenter = candidate;
-			bestPenalty = penalty;
-		}
-
-		return bestCenter;
-	}
-
-	private float CalculatePlacementPenalty(Vector2 center, Vector2 size)
-	{
-		var penalty = 0.0f;
-		foreach (var placed in _activePlantEntries)
-		{
-			var combinedHalfSize = (size + placed.Size) * 0.5f;
-			var overlapX = combinedHalfSize.X - MathF.Abs(center.X - placed.Center.X);
-			var overlapY = combinedHalfSize.Y - MathF.Abs(center.Y - placed.Center.Y);
-			if (overlapX <= 0.0f || overlapY <= 0.0f)
-				continue;
-
-			penalty += overlapX * overlapY;
-		}
-
-		return penalty;
+		_activePlantEntries.AddRange(_plantLayout.CreateRandomizedEntries(
+			ForestGatheringPlantCatalog.Definitions,
+			random));
 	}
 
 	private void CreatePlantVisuals()
@@ -1218,7 +1075,7 @@ public partial class ForestGathering : Control
 		return texture;
 	}
 
-	private Rect2 CalculateCandidateBounds(GatheringPlantEntry entry, Vector2 surfaceSize)
+	private Rect2 CalculateCandidateBounds(ForestGatheringPlantEntry entry, Vector2 surfaceSize)
 	{
 		var fallbackBounds = new Rect2(entry.Center - (entry.Size * 0.5f), entry.Size);
 		if (surfaceSize.X <= 0.0f || surfaceSize.Y <= 0.0f)
@@ -1303,16 +1160,4 @@ public partial class ForestGathering : Control
 		control.OffsetBottom = 0.0f;
 	}
 
-	private static string BuildInspectionTexturePath(string texturePath)
-	{
-		if (!texturePath.StartsWith(PlantTexturePathPrefix, StringComparison.OrdinalIgnoreCase))
-			return texturePath;
-
-		var textureFileName = texturePath.Substring(PlantTexturePathPrefix.Length);
-		return $"{InspectionPlantTexturePathPrefix}{InspectionPlantTextureFilePrefix}{textureFileName}";
-	}
-
-	private readonly record struct GatheringPlantDefinition(string ItemId, string Label, Vector2 Size, string TexturePath);
-
-	private readonly record struct GatheringPlantEntry(string ItemId, string Label, Vector2 Center, Vector2 Size, string TexturePath, string InspectionTexturePath);
 }
