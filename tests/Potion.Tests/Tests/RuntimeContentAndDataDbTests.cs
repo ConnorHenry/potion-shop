@@ -228,6 +228,7 @@ internal static class RuntimeContentAndDataDbTests
         AssertTrue("ItemCatalogService falls back to DataDb", itemCatalogService.Contains("_dataDb.TryGetItem(itemId, out item)"));
 
         var brewPanel = ReadProjectFile("Scripts/UI/BrewPanel.cs");
+        var brewWorkflow = ReadProjectFile("Scripts/Systems/BrewWorkflowService.cs");
         var stationShelf = ReadProjectFile("Scripts/UI/StationShelfInventory.cs");
         var stationCustomerPanel = ReadProjectFile("Scripts/UI/StationCustomerPanel.cs");
         var brewService = ReadProjectFile("Scripts/Systems/PotionInventoryBrewService.cs");
@@ -236,7 +237,7 @@ internal static class RuntimeContentAndDataDbTests
         AssertTrue("StationShelfInventory resolves ItemCatalogService through an exported path", stationShelf.Contains("GetNodeOrNull<ItemCatalogService>(ItemCatalogPath)"));
         AssertTrue("StationCustomerPanel resolves ItemCatalogService through an exported path", stationCustomerPanel.Contains("GetNodeOrNull<ItemCatalogService>(ItemCatalogPath)"));
         AssertTrue("PotionInventoryBrewService uses constructor-injected ItemCatalogService", brewService.Contains("PotionInventoryBrewService(GameState gameState, ItemCatalogService itemCatalog)"));
-        AssertTrue("BrewPanel still registers runtime potions separately", brewPanel.Contains("RegisterRuntimePotionItem"));
+        AssertTrue("Brew workflow still registers runtime potions separately", brewWorkflow.Contains("RegisterRuntimePotionItem"));
     }
 
     private static List<ItemDef> ReadAuthoredItems()

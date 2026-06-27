@@ -20,6 +20,12 @@ Entries = [
     "difficulty": 1,
     "storyCharacterId": "mother",
     "visitId": "visit_1",
+    "scheduledStoryFlags": [
+      "new_game_opening_customer_pending",
+      "bridget_welcome_pending"
+    ],
+    "scheduledShopDay": 1,
+    "scheduledArrivalIndex": 0,
     "requires": {
       "dayMin": 1
     },
@@ -44,6 +50,11 @@ Entries = [
     "difficulty": 1,
     "storyCharacterId": "opening_customer",
     "visitId": "visit_2",
+    "scheduledStoryFlags": [
+      "new_game_second_customer_pending"
+    ],
+    "scheduledShopDay": 1,
+    "scheduledArrivalIndex": 1,
     "requires": {
       "dayMin": 1,
       "hasStoryFlag": "new_game_second_customer_pending"
@@ -85,6 +96,11 @@ Entries = [
     "difficulty": 1,
     "storyCharacterId": "opening_customer",
     "visitId": "visit_3",
+    "scheduledStoryFlags": [
+      "new_game_third_customer_pending"
+    ],
+    "scheduledShopDay": 1,
+    "scheduledArrivalIndex": 2,
     "requires": {
       "dayMin": 1,
       "hasStoryFlag": "new_game_third_customer_pending"
@@ -138,6 +154,11 @@ Entries = [
     "difficulty": 2,
     "storyCharacterId": "day_two_customer",
     "visitId": "visit_1",
+    "scheduledStoryFlags": [
+      "day_two_first_customer_pending"
+    ],
+    "scheduledShopDay": 2,
+    "scheduledArrivalIndex": 0,
     "requires": {
       "dayExact": 2,
       "hasStoryFlag": "day_two_first_customer_pending"
@@ -165,6 +186,11 @@ Entries = [
     "difficulty": 2,
     "storyCharacterId": "day_two_customer",
     "visitId": "visit_2",
+    "scheduledStoryFlags": [
+      "day_two_second_customer_pending"
+    ],
+    "scheduledShopDay": 2,
+    "scheduledArrivalIndex": 1,
     "requires": {
       "dayExact": 2,
       "hasStoryFlag": "day_two_second_customer_pending"
@@ -203,6 +229,11 @@ Entries = [
     "difficulty": 2,
     "storyCharacterId": "day_two_customer",
     "visitId": "visit_3",
+    "scheduledStoryFlags": [
+      "day_two_third_customer_pending"
+    ],
+    "scheduledShopDay": 2,
+    "scheduledArrivalIndex": 2,
     "requires": {
       "dayExact": 2,
       "hasStoryFlag": "day_two_third_customer_pending"

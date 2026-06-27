@@ -352,7 +352,7 @@ internal static class SceneAndHudWiringTests
             scene.Contains("HudVisible = false"));
         AssertTrue("Woman in green cutscene scene exposes a dark narrative surface",
             scene.Contains("res://Scripts/UI/WomanInGreenCutscene.cs") &&
-            scene.Contains("Color(0.0, 0.0, 0.0, 1)") &&
+            (scene.Contains("Color(0.0, 0.0, 0.0, 1)") || scene.Contains("Color(0, 0, 0, 1)")) &&
             scene.Contains("[node name=\"Conversation\" type=\"RichTextLabel\""));
         AssertTrue("Woman in green cutscene contains the requested river text",
             source.Contains("After picking the juniper berries, you both walk home.") &&
@@ -774,15 +774,15 @@ internal static class SceneAndHudWiringTests
             dayController.Contains("_stationCustomerPanel.ClearCustomers();") &&
             dayController.Contains("_brewPanel.HidePanel();"));
         AssertTrue("Debug day fast-forward uses scheduled story customers without random customer draws",
-            fastForwardService.Contains("DrawScheduledStoryCustomerInteraction(dataDb, gameState)") &&
+            fastForwardService.Contains("DrawScheduledStoryCustomerInteraction(dataDb, gameState, shopSessionState)") &&
             customerController.Contains("public CustomerInteractionDef? DrawScheduledStoryCustomerInteraction") &&
-            customerController.Contains("TryDrawScheduledStoryCustomerInteraction(interactions, state, out var scheduledStoryInteraction)") &&
+            customerController.Contains("TryDrawScheduledStoryCustomerInteraction(interactions, state, shopSession, out var scheduledStoryInteraction)") &&
             dayController.Contains("MaxCustomersPerShopDay") &&
             fastForwardService.Contains("maxCustomersPerShopDay"));
         AssertTrue("Debug day fast-forward applies authored progression effects and normal overnight advancement",
             fastForwardService.Contains("EffectApplier.Apply(gameState, successEffect)") &&
             fastForwardService.Contains("EffectsMatch(successEffect, failureEffect)") &&
-            fastForwardService.Contains("gameState.RecordShopDaySale(success: true, goldDelta: 0, dreadDelta: 0)") &&
+            fastForwardService.Contains("shopSessionState.RecordShopDaySale(success: true, goldDelta: 0, dreadDelta: 0)") &&
             fastForwardService.Contains("gameState.NextDay();"));
         AssertTrue("Authored fast-forward examples remain data-driven",
             customers.Contains("\"addItemId\": \"comfrey\"") &&
@@ -918,6 +918,7 @@ internal static class SceneAndHudWiringTests
         var map = ReadProjectFile("Scripts/UI/Map.cs");
         var mapScene = ReadProjectFile("Scenes/Main/Map.tscn");
         var scenePaths = ReadProjectFile("Scripts/Infrastructure/ScenePaths.cs");
+        var hudNavigationService = ReadProjectFile("Scripts/UI/HudNavigationService.cs");
         var gardenButtonIndex = hudScene.IndexOf("[node name=\"Garden\" type=\"Button\" parent=\"Content/Actions\"]", StringComparison.Ordinal);
         var mapButtonIndex = hudScene.IndexOf("[node name=\"Map\" type=\"Button\" parent=\"Content/Actions\"]", StringComparison.Ordinal);
         var menuButtonIndex = hudScene.IndexOf("[node name=\"MainMenu\" type=\"Button\" parent=\"Content/Actions\"]", StringComparison.Ordinal);
@@ -938,7 +939,8 @@ internal static class SceneAndHudWiringTests
         AssertTrue("Hud opens the map scene and auto-saves first",
             hud.Contains("private void OnMapPressed()") &&
             hud.Contains("TryAutoSave(\"entering the map\")") &&
-            hud.Contains("GetTree().ChangeSceneToFile(ScenePaths.Map)"));
+            hud.Contains("HudNavigationService.TryOpenMap(this)") &&
+            hudNavigationService.Contains("ScenePaths.Map"));
         AssertTrue("Hud keeps the map button usable while the shop is open",
             hud.Contains("_mapButton.Disabled = navigationBlocked || GetTree().CurrentScene is Map;") &&
             !hud.Contains("_mapButton.Disabled = isShopOpen"));
@@ -1094,6 +1096,7 @@ internal static class SceneAndHudWiringTests
         var gatheringScene = ReadProjectFile("Scenes/Main/ForestGathering.tscn");
         var normalizedGatheringScene = gatheringScene.Replace("\r\n", "\n");
         var hud = ReadProjectFile("Scripts/UI/Hud.cs");
+        var hudNavigationService = ReadProjectFile("Scripts/UI/HudNavigationService.cs");
         var plantSpriteDir = Path.GetFullPath(Path.Combine(
             AppContext.BaseDirectory,
             "..",
@@ -1393,8 +1396,9 @@ internal static class SceneAndHudWiringTests
             gathering.Contains("_gameState.AddSeed(GameState.BuildSeedId(TargetItemId), _pendingSeedQuantity)") &&
             gathering.Contains("CommitGatheredRewards();"));
         AssertTrue("HUD blocks navigation while the gathering scene is active",
+            hudNavigationService.Contains("tree.CurrentScene is ForestGathering or JuniperGathering") &&
             hud.Contains("private bool IsSceneNavigationBlocked()") &&
-            hud.Contains("GetTree().CurrentScene is ForestGathering") &&
+            hud.Contains("HudNavigationService.IsNavigationBlocked(GetTree())") &&
             hud.Contains("if (IsSceneNavigationBlocked())") &&
             hud.Contains("_settingsButton.Disabled = navigationBlocked") &&
             hud.Contains("_mapButton.Disabled = navigationBlocked || GetTree().CurrentScene is Map"));
@@ -1407,6 +1411,7 @@ internal static class SceneAndHudWiringTests
         var gathering = ReadProjectFile("Scripts/UI/JuniperGathering.cs");
         var gatheringScene = ReadProjectFile("Scenes/Main/JuniperGathering.tscn");
         var hud = ReadProjectFile("Scripts/UI/Hud.cs");
+        var hudNavigationService = ReadProjectFile("Scripts/UI/HudNavigationService.cs");
         var items = ReadProjectFile("Data/items_data.tres");
 
         AssertTrue("ScenePaths exposes the juniper gathering scene",
@@ -1484,7 +1489,8 @@ internal static class SceneAndHudWiringTests
             gathering.Contains("ShouldShowWomanInGreenCutscene()") &&
             gathering.Contains("ScenePaths.WomanInGreenCutscene"));
         AssertTrue("HUD blocks navigation while either gathering scene is active",
-            hud.Contains("GetTree().CurrentScene is ForestGathering or JuniperGathering") &&
+            hudNavigationService.Contains("tree.CurrentScene is ForestGathering or JuniperGathering") &&
+            hud.Contains("HudNavigationService.IsNavigationBlocked(GetTree())") &&
             hud.Contains("_settingsButton.Disabled = navigationBlocked") &&
             hud.Contains("_mapButton.Disabled = navigationBlocked || GetTree().CurrentScene is Map"));
     }
@@ -1493,9 +1499,13 @@ internal static class SceneAndHudWiringTests
     {
         var source = ReadProjectFile("Scripts/UI/Hud.cs");
         var scenePaths = ReadProjectFile("Scripts/Infrastructure/ScenePaths.cs");
+        var hudNavigationService = ReadProjectFile("Scripts/UI/HudNavigationService.cs");
 
         AssertTrue("Hud return-to-menu handler exists", source.Contains("OnReturnToMainMenuPressed"));
-        AssertTrue("Hud return-to-menu still changes scenes", source.Contains("ScenePaths.MainMenu") && scenePaths.Contains("res://MainMenu.tscn"));
+        AssertTrue("Hud return-to-menu still changes scenes",
+            source.Contains("HudNavigationService.TryOpenMainMenu(this)") &&
+            hudNavigationService.Contains("ScenePaths.MainMenu") &&
+            scenePaths.Contains("res://MainMenu.tscn"));
         AssertTrue("Hud return-to-menu no longer auto-saves", !source.Contains("Could not save before returning to main menu"));
     }
 
@@ -1561,6 +1571,7 @@ internal static class SceneAndHudWiringTests
     private static void TestHudAmbientRainSettingsAreWired()
     {
         var source = ReadProjectFile("Scripts/UI/Hud.cs");
+        var audioSettingsStore = ReadProjectFile("Scripts/UI/HudAudioSettingsStore.cs");
         var scene = ReadProjectFile("Scenes/UI/Hud.tscn");
         var persistentHud = ReadProjectFile("Scripts/Autoload/PersistentHud.cs");
         var saveGameButtonIndex = scene.IndexOf("[node name=\"SaveGame\" type=\"Button\" parent=\"SettingsPanel/Margin/VBox\"]", StringComparison.Ordinal);
@@ -1690,15 +1701,19 @@ internal static class SceneAndHudWiringTests
             scene.Contains("text = \"Next track\""));
         AssertTrue("Hud loads and persists ambient rain settings",
             source.Contains("res://Assets/Audio/rain-sounds.mp3") &&
-            source.Contains("user://settings.cfg") &&
-            source.Contains("ConfigFile") &&
-            source.Contains("ambient_sounds_enabled") &&
-            source.Contains("rainfall_volume"));
+            source.Contains("HudAudioSettingsStore.Load()") &&
+            source.Contains("HudAudioSettingsStore.Save(new HudAudioSettings(") &&
+            source.Contains("HudAudioSettingsStore.GetVolumeDb(_rainfallVolume)") &&
+            source.Contains("HudAudioSettingsStore.ClampNormalizedVolume(value)") &&
+            audioSettingsStore.Contains("user://settings.cfg") &&
+            audioSettingsStore.Contains("ConfigFile") &&
+            audioSettingsStore.Contains("ambient_sounds_enabled") &&
+            audioSettingsStore.Contains("rainfall_volume"));
         AssertTrue("Hud loads and persists music settings",
             musicAssetNames.All(name => source.Contains($"{soundtrackPathPrefix}{name}")) &&
             removedMusicAssetNames.All(name => !source.Contains($"res://Assets/Audio/Music/{name}")) &&
-            source.Contains("music_enabled") &&
-            source.Contains("music_volume"));
+            audioSettingsStore.Contains("music_enabled") &&
+            audioSettingsStore.Contains("music_volume"));
         string rainImport = ReadProjectFile(Path.Combine("Assets", "Audio", "rain-sounds.mp3.import"));
         AssertTrue("Hud loops rainfall using the stream import setting",
             rainImport.Contains("loop=true") &&

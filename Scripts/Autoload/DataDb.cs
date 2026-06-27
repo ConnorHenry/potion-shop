@@ -370,6 +370,9 @@ public partial class DataDb : Node
 				Difficulty = Math.Max(1, ReadInt(entry, "difficulty", 1)),
 				StoryCharacterId = ReadString(entry, "storyCharacterId"),
 				VisitId = ReadString(entry, "visitId"),
+				ScheduledStoryFlags = ReadScheduledStoryFlags(entry),
+				ScheduledShopDay = Math.Max(0, ReadInt(entry, "scheduledShopDay", 0)),
+				ScheduledArrivalIndex = ReadInt(entry, "scheduledArrivalIndex", -1),
 				DialogueStartNodeId = ReadString(entry, "dialogueStartNodeId"),
 				DialogueNodes = ParseCustomerDialogueNodes(ReadArray(entry, "dialogueNodes")),
 				Requires = ParseRequirements(ReadDictionary(entry, "requires")),
@@ -394,6 +397,23 @@ public partial class DataDb : Node
 		}
 
 		return interactions;
+	}
+
+	private static List<string> ReadScheduledStoryFlags(Godot.Collections.Dictionary entry)
+	{
+		var flags = ReadStringList(entry, "scheduledStoryFlags")
+			.Select(x => x.Trim())
+			.Where(x => !string.IsNullOrWhiteSpace(x))
+			.Distinct(StringComparer.OrdinalIgnoreCase)
+			.ToList();
+		var singleFlag = ReadString(entry, "scheduledStoryFlag");
+		if (!string.IsNullOrWhiteSpace(singleFlag) &&
+			!flags.Any(x => string.Equals(x, singleFlag.Trim(), StringComparison.OrdinalIgnoreCase)))
+		{
+			flags.Add(singleFlag.Trim());
+		}
+
+		return flags;
 	}
 
 	private static List<CustomerDialogueNodeDef> ParseCustomerDialogueNodes(Godot.Collections.Array entries)

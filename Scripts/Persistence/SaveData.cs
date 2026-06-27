@@ -7,10 +7,25 @@ namespace OccultShop.Persistence;
 
 public sealed class SaveFileData
 {
-	public int Version { get; set; } = 2;
+	public int Version { get; set; } = 3;
 	public DateTime SavedAtUtc { get; set; } = DateTime.UtcNow;
 	public GameStateSnapshot GameState { get; set; } = new();
+	public ShopSessionSnapshot ShopSession { get; set; } = new();
 	public List<ItemDef> RuntimeItems { get; set; } = new();
+}
+
+public sealed class ShopSessionSnapshot
+{
+	public bool IsShopDayOpen { get; set; }
+	public int ShopDayCustomersArrived { get; set; }
+	public int ShopDayCustomersServed { get; set; }
+	public int ShopDaySuccessfulSales { get; set; }
+	public int ShopDayFailedSales { get; set; }
+	public int ShopDayGoldEarned { get; set; }
+	public int ShopDayDreadChange { get; set; }
+	public bool CloseShopAfterCurrentCustomer { get; set; }
+	public string ActiveCustomerInteractionId { get; set; } = "";
+	public CustomerRequestDef? ActiveCustomerRequest { get; set; }
 }
 
 public sealed class GameStateSnapshot
@@ -50,15 +65,5 @@ public sealed class GameStateSnapshot
 	public int GardenPotCount { get; set; }
 	public Dictionary<string, int> SeedInventory { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 	public List<GardenPotState> GardenPots { get; set; } = new();
-	public bool IsShopDayOpen { get; set; }
-	public int ShopDayCustomersArrived { get; set; }
-	public int ShopDayCustomersServed { get; set; }
-	public int ShopDaySuccessfulSales { get; set; }
-	public int ShopDayFailedSales { get; set; }
-	public int ShopDayGoldEarned { get; set; }
-	public int ShopDayDreadChange { get; set; }
-	public bool CloseShopAfterCurrentCustomer { get; set; }
-	public string ActiveCustomerInteractionId { get; set; } = "";
-	public CustomerRequestDef? ActiveCustomerRequest { get; set; }
 	public List<StoryCustomerVisitRecord> StoryCustomerVisits { get; set; } = new();
 }

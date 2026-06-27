@@ -19,13 +19,16 @@ public partial class TutorialController : Node
 	[Export] public NodePath DayControllerPath = default!;
 	[Export] public NodePath CustomerEventControllerPath = default!;
 	[Export] public NodePath GameStatePath = new(AutoloadNodePaths.GameState);
+	[Export] public NodePath ShopSessionStatePath = new(AutoloadNodePaths.ShopSessionState);
 	[Export] public NodePath HudStartDayButtonPath = new("Content/Actions/ServeCustomer");
+	[Export] public NodePath HudGardenButtonPath = new("Content/Actions/Garden");
 	[Export] public NodePath HudSettingsButtonPath = new("Content/Actions/MainMenu");
 	[Export] public NodePath HudDateControlPath = new("Content/Status/Day");
 	[Export] public NodePath BrewPanelFramePath = new("Panel");
 	[Export] public TutorialContentResource TutorialContent = new();
 
 	private GameState _gameState = default!;
+	private ShopSessionState _shopSessionState = default!;
 	private TutorialOverlay _overlay = default!;
 	private TutorialOverlayPresenter _overlayPresenter = default!;
 	private TutorialContentResource _tutorialContent = default!;
@@ -43,6 +46,7 @@ public partial class TutorialController : Node
 	private DayController? _dayController;
 	private CustomerEventController? _customerEventController;
 	private Button? _startDayButton;
+	private Button? _gardenButton;
 	private Button? _settingsButton;
 
 	private bool _isRunning;
@@ -52,6 +56,8 @@ public partial class TutorialController : Node
 	public override void _Ready()
 	{
 		if (!TryGetRequiredNode(GameStatePath, nameof(GameStatePath), out _gameState))
+			return;
+		if (!TryGetRequiredNode(ShopSessionStatePath, nameof(ShopSessionStatePath), out _shopSessionState))
 			return;
 		if (!TryGetRequiredNode(TutorialOverlayPath, nameof(TutorialOverlayPath), out _overlay))
 			return;
@@ -66,6 +72,7 @@ public partial class TutorialController : Node
 		_dayController = GetOptionalNode<DayController>(DayControllerPath, nameof(DayControllerPath));
 		_customerEventController = GetOptionalNode<CustomerEventController>(CustomerEventControllerPath, nameof(CustomerEventControllerPath));
 		_startDayButton = GetOptionalHudButton(HudStartDayButtonPath, nameof(HudStartDayButtonPath));
+		_gardenButton = GetOptionalHudButton(HudGardenButtonPath, nameof(HudGardenButtonPath));
 		_settingsButton = GetOptionalHudButton(HudSettingsButtonPath, nameof(HudSettingsButtonPath));
 		_hudDateControl = GetOptionalHudControl(HudDateControlPath, nameof(HudDateControlPath));
 
@@ -279,7 +286,7 @@ public partial class TutorialController : Node
 		if (!_isRunning)
 			return;
 
-		ApplyTransition(_stateMachine.EvaluateAmbiguousCustomerState(CurrentStep(), _gameState.ActiveCustomerRequest?.Id));
+		ApplyTransition(_stateMachine.EvaluateAmbiguousCustomerState(CurrentStep(), _shopSessionState.ActiveCustomerRequest?.Id));
 	}
 
 	private void ApplyTransition(TutorialTransition transition)
@@ -337,7 +344,7 @@ public partial class TutorialController : Node
 		{
 			var activeCustomerTransition = _stateMachine.EvaluateCustomerInteractionShown(
 				step,
-				_gameState.ActiveCustomerRequest?.Id ?? string.Empty);
+				_shopSessionState.ActiveCustomerRequest?.Id ?? string.Empty);
 			if (activeCustomerTransition.HasNextStep || activeCustomerTransition.ShouldComplete)
 			{
 				ApplyTransition(activeCustomerTransition);
@@ -636,26 +643,48 @@ public partial class TutorialController : Node
 		if (!stepContent.LockOtherButtons)
 		{
 			_interactionGate.Restore();
-			KeepRawPreparationButtonEnabled();
+			KeepAlwaysEnabledButtonsEnabled();
 			return;
 		}
 
 		_interactionGate.Apply(
 			new Node?[] { _hud, _brewPanel, _stationShelfInventory, _ingredientPreparationTray, _stationCustomerPanel, _daySummaryPanel },
-			BuildAllowedButtonsWithRawPreparation(allowedButtons));
-		KeepRawPreparationButtonEnabled();
+			BuildAllowedButtonsWithAlwaysEnabledButtons(allowedButtons));
+		KeepAlwaysEnabledButtonsEnabled();
 	}
 
-	private BaseButton?[] BuildAllowedButtonsWithRawPreparation(BaseButton?[] allowedButtons)
+	private BaseButton?[] BuildAllowedButtonsWithAlwaysEnabledButtons(BaseButton?[] allowedButtons)
 	{
 		var rawButton = FocusRawPreparationButton();
-		if (rawButton is null)
+		var extraButtonCount = 0;
+		if (rawButton is not null)
+			extraButtonCount += 1;
+		if (_gardenButton is not null)
+			extraButtonCount += 1;
+		if (extraButtonCount == 0)
 			return allowedButtons;
 
-		var allowedButtonsWithRaw = new BaseButton?[allowedButtons.Length + 1];
-		allowedButtons.CopyTo(allowedButtonsWithRaw, 0);
-		allowedButtonsWithRaw[^1] = rawButton;
-		return allowedButtonsWithRaw;
+		var allowedButtonsWithAlwaysEnabled = new BaseButton?[allowedButtons.Length + extraButtonCount];
+		allowedButtons.CopyTo(allowedButtonsWithAlwaysEnabled, 0);
+
+		var index = allowedButtons.Length;
+		if (rawButton is not null)
+		{
+			allowedButtonsWithAlwaysEnabled[index] = rawButton;
+			index += 1;
+		}
+
+		if (_gardenButton is not null)
+			allowedButtonsWithAlwaysEnabled[index] = _gardenButton;
+
+		return allowedButtonsWithAlwaysEnabled;
+	}
+
+	private void KeepAlwaysEnabledButtonsEnabled()
+	{
+		KeepRawPreparationButtonEnabled();
+		if (_gardenButton is not null)
+			_gardenButton.Disabled = false;
 	}
 
 	private void KeepRawPreparationButtonEnabled()

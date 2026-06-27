@@ -17,6 +17,7 @@ internal static class GardenTests
         runner.Run("Garden crop definitions cover authored ingredients", TestGardenCropDefinitionsCoverAuthoredIngredients);
         runner.Run("Garden state persists seeds and pots", TestGardenStatePersistenceWiring);
         runner.Run("Garden scene and HUD navigation are wired", TestGardenSceneAndHudNavigation);
+        runner.Run("HUD Garden button press opens garden", TestHudGardenButtonPressOpensGarden);
     }
 
     private static void TestGardenCropDefinitionsCoverAuthoredIngredients()
@@ -67,8 +68,8 @@ internal static class GardenTests
         var cropDefSource = ReadProjectFile("Scripts/Models/GardenCropDef.cs");
         var potStateSource = ReadProjectFile("Scripts/Models/GardenPotState.cs");
 
-        AssertTrue("Save files use version two for garden state", saveDataSource.Contains("public int Version { get; set; } = 2;"));
-        AssertTrue("Save manager accepts garden save version", saveManagerSource.Contains("private const int CurrentSaveVersion = 2;"));
+        AssertTrue("Save files use version three for split shop session state", saveDataSource.Contains("public int Version { get; set; } = 3;"));
+        AssertTrue("Save manager accepts current save version", saveManagerSource.Contains("private const int CurrentSaveVersion = 3;"));
         AssertTrue("Snapshot includes garden initialization marker", saveDataSource.Contains("public bool GardenInitialized { get; set; }"));
         AssertTrue("Snapshot includes garden pot count", saveDataSource.Contains("public int GardenPotCount { get; set; }"));
         AssertTrue("Snapshot includes seed inventory", saveDataSource.Contains("public Dictionary<string, int> SeedInventory"));
@@ -79,7 +80,7 @@ internal static class GardenTests
         AssertTrue("GameState persists garden unlock through story flags",
             gameStateSource.Contains("public const string GardenUnlockedStoryFlag") &&
             gameStateSource.Contains("public bool IsGardenUnlocked => HasStoryFlag(GardenUnlockedStoryFlag);") &&
-            gameStateSource.Contains("StoryFlags.Add(GardenUnlockedStoryFlag);"));
+            gameStateSource.Contains("AddStoryFlag(GardenUnlockedStoryFlag);"));
         AssertTrue("GameState seeds starting garden pots", gameStateSource.Contains("_gardenState.InitializeNewGarden();") && gardenState.Contains("EnsurePotCount(StartingPotCount);"));
         AssertTrue("GameState seeds starter seed inventory", gardenState.Contains("SeedStartingSeedInventory();"));
         AssertTrue("GameState migrates old saves into a garden state", gameStateSource.Contains("_gardenState.Restore(snapshot.GardenInitialized") && gardenState.Contains("if (gardenInitialized)") && gardenState.Contains("InitializeNewGarden();"));
@@ -102,16 +103,27 @@ internal static class GardenTests
         var gardenSource = ReadProjectFile("Scripts/UI/Garden.cs");
         var gardenScene = ReadProjectFile("Scenes/Main/Garden.tscn");
         var scenePaths = ReadProjectFile("Scripts/Infrastructure/ScenePaths.cs");
+        var hudNavigationService = ReadProjectFile("Scripts/UI/HudNavigationService.cs");
+        var gardenButtonIndex = hudScene.IndexOf("[node name=\"Garden\" type=\"Button\" parent=\"Content/Actions\"]", StringComparison.Ordinal);
+        var mapButtonIndex = gardenButtonIndex >= 0
+            ? hudScene.IndexOf("[node name=\"Map\" type=\"Button\" parent=\"Content/Actions\"]", gardenButtonIndex, StringComparison.Ordinal)
+            : -1;
+        var gardenButtonBlock = gardenButtonIndex >= 0 && mapButtonIndex > gardenButtonIndex
+            ? hudScene[gardenButtonIndex..mapButtonIndex]
+            : string.Empty;
 
-        AssertTrue("Hud points to the garden scene", hudSource.Contains("ScenePaths.Garden") && scenePaths.Contains("res://Scenes/Main/Garden.tscn"));
+        AssertTrue("Hud points to the garden scene through its navigation helper",
+            hudSource.Contains("HudNavigationService.TryOpenGarden(this)") &&
+            hudNavigationService.Contains("ScenePaths.Garden") &&
+            scenePaths.Contains("res://Scenes/Main/Garden.tscn"));
         AssertTrue("Hud has a garden button field", hudSource.Contains("private Button _gardenButton"));
         AssertTrue("Hud resolves the garden button", hudSource.Contains("GetNode<Button>(GardenButtonPath)"));
-        AssertTrue("Hud disables garden until unlocked and while shop is open",
-            hudSource.Contains("var gardenUnlocked = _gameState is not null && _gameState.IsGardenUnlocked;") &&
-            hudSource.Contains("_gardenButton.Disabled = navigationBlocked || isShopOpen || !gardenUnlocked;"));
+        AssertTrue("Hud keeps the garden button enabled during refresh",
+            hudSource.Contains("_gardenButton.Disabled = false;") &&
+            !hudSource.Contains("_gardenButton.Disabled = navigationBlocked || isShopOpen || !gardenUnlocked;"));
         AssertTrue("Hud autosaves before entering garden", hudSource.Contains("TryAutoSave(\"entering the garden\")"));
         AssertTrue("Hud scene includes Garden button", hudScene.Contains("[node name=\"Garden\" type=\"Button\" parent=\"Content/Actions\"]"));
-        AssertTrue("Garden button starts disabled in the HUD scene", hudScene.Contains("disabled = true"));
+        AssertTrue("Garden button starts enabled in the HUD scene", !gardenButtonBlock.Contains("disabled = true"));
         AssertTrue("Garden button stays in the HUD menu", hudScene.Contains("text = \"Garden\""));
 
         AssertTrue("Garden script exists", gardenSource.Contains("public partial class Garden : Control"));
@@ -124,5 +136,26 @@ internal static class GardenTests
         AssertTrue("Garden scene wires pots container", gardenScene.Contains("PotsContainerPath = NodePath(\"Root/Margin/Main/Content/PotsColumn/Pots\")"));
         AssertTrue("Garden scene wires seeds container", gardenScene.Contains("SeedsContainerPath = NodePath(\"Root/Margin/Main/Content/SeedsColumn/Seeds\")"));
         AssertTrue("Garden scene wires back button", gardenScene.Contains("BackButtonPath = NodePath(\"Root/Margin/Main/Header/Back\")"));
+    }
+
+    private static void TestHudGardenButtonPressOpensGarden()
+    {
+        var hudSource = ReadProjectFile("Scripts/UI/Hud.cs").Replace("\r\n", "\n");
+        var methodStart = hudSource.IndexOf("private void OnGardenPressed()", StringComparison.Ordinal);
+        var methodEnd = hudSource.IndexOf("\n\tprivate void OnMapPressed()", methodStart, StringComparison.Ordinal);
+        var methodBody = methodStart >= 0 && methodEnd > methodStart
+            ? hudSource[methodStart..methodEnd]
+            : string.Empty;
+
+        var saveIndex = methodBody.IndexOf("TryAutoSave(\"entering the garden\")", StringComparison.Ordinal);
+        var openIndex = methodBody.IndexOf("HudNavigationService.TryOpenGarden(this)", StringComparison.Ordinal);
+
+        AssertTrue("Hud wires Garden button presses", hudSource.Contains("_gardenButton.Pressed += OnGardenPressed;"));
+        AssertTrue("Garden button press opens the garden scene",
+            saveIndex >= 0 &&
+            openIndex > saveIndex);
+        AssertTrue("Garden button press is not blocked by the unlock flag or shop-open state",
+            !methodBody.Contains("IsGardenUnlocked") &&
+            !methodBody.Contains("IsShopOpen"));
     }
 }

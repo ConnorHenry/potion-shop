@@ -86,62 +86,57 @@ internal static class CustomerFlowTests
         var source = ReadProjectFile("Scripts/Controllers/CustomerEventController.cs");
         var dayController = ReadProjectFile("Scripts/Controllers/DayController.cs");
         var stationCustomerPanel = ReadProjectFile("Scripts/UI/StationCustomerPanel.cs");
+        var customerDef = ReadProjectFile("Scripts/Models/CustomerInteractionDef.cs");
+        var dataDb = ReadProjectFile("Scripts/Autoload/DataDb.cs");
+        var customers = ReadProjectFile("Data/customers_data.tres");
+        var tieredCustomers = ReadProjectFile("Data/customers_tiered_test_data.tres");
 
         AssertTrue("CustomerEventController no longer uses a fixed index walk", !source.Contains("_nextCustomerIndex"));
         AssertTrue("CustomerEventController keeps a randomized order buffer", source.Contains("_customerOrder"));
         AssertTrue("CustomerEventController randomizes the customer order", source.Contains("_random.Next("));
         AssertTrue("CustomerEventController resets the order at the start of a shop day", source.Contains("BeginShopDay()"));
-        AssertTrue("CustomerEventController makes the fixed opening requests the first normal new-game customers",
-            source.Contains("NewGameOpeningCustomerInteractionId = \"customer_requests_opening_gravekeepers_balm\"") &&
-            source.Contains("NewGameSecondCustomerInteractionId = \"customer_requests_opening_silver_focus_tonic\"") &&
-            source.Contains("NewGameThirdCustomerInteractionId = \"customer_requests_opening_clean_vigor_tonic\"") &&
-            source.Contains("DayTwoFirstCustomerInteractionId = \"customer_requests_day_two_charmed_focus_tonic\"") &&
-            source.Contains("DayTwoSecondCustomerInteractionId = \"customer_requests_day_two_crowded_head_tonic\"") &&
-            source.Contains("DayTwoThirdCustomerInteractionId = \"customer_requests_day_two_rest_memory_clarity\"") &&
-            source.Contains("TryDrawNewGameOpeningCustomerInteraction") &&
-            source.Contains("TryDrawNewGameSecondCustomerInteraction") &&
-            source.Contains("TryDrawNewGameThirdCustomerInteraction") &&
-            source.Contains("TryDrawDayTwoFirstCustomerInteraction") &&
-            source.Contains("TryDrawDayTwoSecondCustomerInteraction") &&
-            source.Contains("TryDrawDayTwoThirdCustomerInteraction") &&
-            source.Contains("TryDrawScheduledStoryCustomerInteraction(interactions, state, out var scheduledStoryInteraction)") &&
-            source.Contains("public CustomerInteractionDef? DrawScheduledStoryCustomerInteraction") &&
-            source.Contains("GameState.NewGameOpeningCustomerPendingStoryFlag") &&
-            source.Contains("GameState.NewGameSecondCustomerPendingStoryFlag") &&
-            source.Contains("GameState.NewGameThirdCustomerPendingStoryFlag") &&
-            source.Contains("GameState.DayTwoFirstCustomerPendingStoryFlag") &&
-            source.Contains("GameState.DayTwoSecondCustomerPendingStoryFlag") &&
-            source.Contains("GameState.DayTwoThirdCustomerPendingStoryFlag") &&
-            source.Contains("state.RemoveStoryFlag(GameState.NewGameOpeningCustomerPendingStoryFlag)") &&
-            source.Contains("state.RemoveStoryFlag(GameState.NewGameSecondCustomerPendingStoryFlag)") &&
-            source.Contains("state.RemoveStoryFlag(GameState.NewGameThirdCustomerPendingStoryFlag)") &&
-            source.Contains("state.RemoveStoryFlag(GameState.DayTwoFirstCustomerPendingStoryFlag)") &&
-            source.Contains("state.RemoveStoryFlag(GameState.DayTwoSecondCustomerPendingStoryFlag)") &&
-            source.Contains("state.RemoveStoryFlag(GameState.DayTwoThirdCustomerPendingStoryFlag)") &&
-            source.Contains("state.RemoveStoryFlag(GameState.BridgetWelcomePendingStoryFlag)") &&
-            ReadProjectFile("Scripts/Autoload/GameState.cs").Contains("StoryFlags.Add(NewGameOpeningCustomerPendingStoryFlag)") &&
-            ReadProjectFile("Scripts/Autoload/GameState.cs").Contains("StoryFlags.Add(NewGameSecondCustomerPendingStoryFlag)") &&
-            ReadProjectFile("Scripts/Autoload/GameState.cs").Contains("StoryFlags.Add(NewGameThirdCustomerPendingStoryFlag)") &&
-            ReadProjectFile("Scripts/Autoload/GameState.cs").Contains("StoryFlags.Add(DayTwoFirstCustomerPendingStoryFlag)") &&
-            ReadProjectFile("Scripts/Autoload/GameState.cs").Contains("StoryFlags.Add(DayTwoSecondCustomerPendingStoryFlag)") &&
-            ReadProjectFile("Scripts/Autoload/GameState.cs").Contains("StoryFlags.Add(DayTwoThirdCustomerPendingStoryFlag)") &&
-            ReadProjectFile("Scripts/Autoload/GameState.cs").Contains("if (Day == 2)") &&
-            source.IndexOf("TryDrawForcedInteraction", StringComparison.Ordinal) < source.IndexOf("TryDrawScheduledStoryCustomerInteraction(interactions, state, out var scheduledStoryInteraction)", StringComparison.Ordinal) &&
-            source.IndexOf("TryDrawScheduledStoryCustomerInteraction(interactions, state, out var scheduledStoryInteraction)", StringComparison.Ordinal) < source.IndexOf("var eligibleInteractions", StringComparison.Ordinal) &&
-            source.IndexOf("TryDrawDayTwoFirstCustomerInteraction", StringComparison.Ordinal) < source.IndexOf("TryDrawNewGameOpeningCustomerInteraction", StringComparison.Ordinal) &&
-            source.IndexOf("TryDrawDayTwoFirstCustomerInteraction", StringComparison.Ordinal) < source.IndexOf("TryDrawDayTwoSecondCustomerInteraction", StringComparison.Ordinal) &&
-            source.IndexOf("TryDrawDayTwoSecondCustomerInteraction", StringComparison.Ordinal) < source.IndexOf("TryDrawDayTwoThirdCustomerInteraction", StringComparison.Ordinal) &&
-            source.IndexOf("TryDrawDayTwoThirdCustomerInteraction", StringComparison.Ordinal) < source.IndexOf("TryDrawNewGameOpeningCustomerInteraction", StringComparison.Ordinal) &&
-            source.IndexOf("TryDrawDayTwoSecondCustomerInteraction", StringComparison.Ordinal) < source.IndexOf("TryDrawNewGameOpeningCustomerInteraction", StringComparison.Ordinal) &&
-            source.IndexOf("TryDrawNewGameOpeningCustomerInteraction", StringComparison.Ordinal) < source.IndexOf("TryDrawNewGameSecondCustomerInteraction", StringComparison.Ordinal) &&
-            source.IndexOf("TryDrawNewGameSecondCustomerInteraction", StringComparison.Ordinal) < source.IndexOf("TryDrawNewGameThirdCustomerInteraction", StringComparison.Ordinal));
+        AssertTrue("Customer interactions expose authored scheduled story slots",
+            customerDef.Contains("ScheduledStoryFlags") &&
+            customerDef.Contains("ScheduledShopDay") &&
+            customerDef.Contains("ScheduledArrivalIndex") &&
+            customerDef.Contains("HasScheduledStorySlot"));
+        AssertTrue("DataDb parses scheduled story slots from authored data",
+            dataDb.Contains("ReadScheduledStoryFlags") &&
+            dataDb.Contains("\"scheduledStoryFlags\"") &&
+            dataDb.Contains("\"scheduledStoryFlag\"") &&
+            dataDb.Contains("\"scheduledShopDay\"") &&
+            dataDb.Contains("\"scheduledArrivalIndex\""));
+        AssertTrue("CustomerEventController draws scheduled story customers from authored metadata",
+            source.Contains("BuildScheduledCandidates") &&
+            source.Contains("HasPendingScheduledStoryFlag") &&
+            source.Contains("IsScheduledForCurrentShopSlot") &&
+            source.Contains("ClearScheduledStoryFlags") &&
+            source.Contains("interaction.ScheduledShopDay") &&
+            source.Contains("interaction.ScheduledArrivalIndex") &&
+            source.Contains("interaction.ScheduledStoryFlags") &&
+            source.Contains("DrawScheduledStoryCustomerInteraction(DataDb db, GameState state, ShopSessionState shopSession)") &&
+            source.Contains("TryDrawScheduledStoryCustomerInteraction(interactions, state, shopSession, out var scheduledStoryInteraction)") &&
+            source.IndexOf("TryDrawForcedInteraction", StringComparison.Ordinal) < source.IndexOf("TryDrawScheduledStoryCustomerInteraction(interactions, state, shopSession, out var scheduledStoryInteraction)", StringComparison.Ordinal) &&
+            source.IndexOf("TryDrawScheduledStoryCustomerInteraction(interactions, state, shopSession, out var scheduledStoryInteraction)", StringComparison.Ordinal) < source.IndexOf("var eligibleInteractions", StringComparison.Ordinal));
+        AssertTrue("Authored customer data schedules the opening and day-two story customers",
+            customers.Contains("\"scheduledStoryFlags\"") &&
+            customers.Contains("\"scheduledShopDay\": 1") &&
+            customers.Contains("\"scheduledShopDay\": 2") &&
+            customers.Contains("\"scheduledArrivalIndex\": 0") &&
+            customers.Contains("\"scheduledArrivalIndex\": 1") &&
+            customers.Contains("\"scheduledArrivalIndex\": 2") &&
+            customers.Contains("\"new_game_opening_customer_pending\"") &&
+            customers.Contains("\"day_two_third_customer_pending\"") &&
+            tieredCustomers.Contains("\"scheduledStoryFlags\"") &&
+            tieredCustomers.Contains("\"scheduledShopDay\": 1") &&
+            tieredCustomers.Contains("\"scheduledShopDay\": 2"));
         AssertTrue("DayController resets customer order when the shop opens", dayController.Contains("_customerEventController.BeginShopDay();"));
         AssertTrue("DayController caps shop-day customer arrivals at three",
             dayController.Contains("MaxCustomersPerShopDay = 3") &&
             dayController.Contains("_customersArrived >= MaxCustomersPerShopDay"));
         AssertTrue("DayController counts customer arrivals when a customer is shown",
-            dayController.Contains("_gameState.RecordShopDayCustomerArrived(interaction);") &&
-            dayController.Contains("_customersArrived = _gameState.ShopDayCustomersArrived;"));
+            dayController.Contains("_shopSessionState.RecordShopDayCustomerArrived(interaction);") &&
+            dayController.Contains("_customersArrived = _shopSessionState.ShopDayCustomersArrived;"));
         AssertTrue("DayController waits for explicit End Day after the final customer is resolved",
             dayController.Contains("ShouldCloseShopAfterCurrentCustomer()") &&
             dayController.Contains("MarkShopDayReadyToEnd();"));
@@ -170,7 +165,7 @@ internal static class CustomerFlowTests
             dayController.Contains("_stationCustomerPanel.ClearCustomers();") &&
             dayController.Contains("_brewPanel.HidePanel();"));
         AssertTrue("StationCustomerPanel clears active request and serving controls when empty",
-            stationCustomerPanel.Contains("_gameState.ClearActiveCustomerRequest();") &&
+            stationCustomerPanel.Contains("_shopSessionState.ClearActiveCustomerRequest();") &&
             stationCustomerPanel.Contains("_title.Text = \"No customer waiting\"") &&
             stationCustomerPanel.Contains("SetServingControlsEnabled(false);"));
     }
@@ -199,12 +194,12 @@ internal static class CustomerFlowTests
     {
         var stationCustomerPanel = ReadProjectFile("Scripts/UI/StationCustomerPanel.cs");
 
-        AssertTrue("StationCustomerPanel publishes normal customer requests to GameState",
-            stationCustomerPanel.Contains("_gameState.SetActiveCustomerRequest(request);") &&
+        AssertTrue("StationCustomerPanel publishes normal customer requests to ShopSessionState",
+            stationCustomerPanel.Contains("_shopSessionState.SetActiveCustomerRequest(request);") &&
             stationCustomerPanel.Contains("interaction.BuildRequest()"));
         AssertTrue("StationCustomerPanel clears active requests for dialogue and empty states",
             stationCustomerPanel.Contains("TryShowDialogueStart(interaction)") &&
-            stationCustomerPanel.Contains("_gameState.ClearActiveCustomerRequest();") &&
+            stationCustomerPanel.Contains("_shopSessionState.ClearActiveCustomerRequest();") &&
             stationCustomerPanel.Contains("EnterPotionSellingMode"));
         AssertTrue("StationCustomerPanel gates serving while plot dialogue is active",
             stationCustomerPanel.Contains("private bool CanServeActiveCustomer()") &&
@@ -213,25 +208,35 @@ internal static class CustomerFlowTests
 
     private static void TestActiveCustomerRequestPersistsAcrossSceneReloads()
     {
-        var gameState = ReadProjectFile("Scripts/Autoload/GameState.cs");
+        var shopSessionState = ReadProjectFile("Scripts/Autoload/ShopSessionState.cs");
         var saveData = ReadProjectFile("Scripts/Persistence/SaveData.cs");
+        var saveManager = ReadProjectFile("Scripts/Autoload/SaveGameManager.cs");
         var dayController = ReadProjectFile("Scripts/Controllers/DayController.cs");
         var stationCustomerPanel = ReadProjectFile("Scripts/UI/StationCustomerPanel.cs");
+        var project = ReadProjectFile("project.godot");
 
-        AssertTrue("GameState persists the active shop session and customer interaction id",
-            gameState.Contains("IsShopDayOpen") &&
-            gameState.Contains("ActiveCustomerInteractionId") &&
-            gameState.Contains("RecordShopDayCustomerArrived") &&
-            gameState.Contains("EnsureActiveShopCustomerForRequest(request);") &&
-            saveData.Contains("ActiveCustomerInteractionId") &&
-            saveData.Contains("ShopDayCustomersArrived"));
-        AssertTrue("GameState snapshots active shop-day counters for scene reloads and saves",
-            gameState.Contains("ShopDayCustomersServed") &&
-            gameState.Contains("ShopDaySuccessfulSales") &&
-            gameState.Contains("ShopDayFailedSales") &&
-            gameState.Contains("ShopDayGoldEarned") &&
-            gameState.Contains("ShopDayDreadChange") &&
+        AssertTrue("ShopSessionState is the autoloaded owner for active shop session state",
+            project.Contains("ShopSessionState=\"*res://Scripts/Autoload/ShopSessionState.cs\"") &&
+            shopSessionState.Contains("public partial class ShopSessionState : Node") &&
+            shopSessionState.Contains("IsShopDayOpen") &&
+            shopSessionState.Contains("ActiveCustomerInteractionId") &&
+            shopSessionState.Contains("RecordShopDayCustomerArrived") &&
+            shopSessionState.Contains("EnsureActiveShopCustomerForRequest(ActiveCustomerRequest)"));
+        AssertTrue("ShopSessionState snapshots active shop-day counters for scene reloads and saves",
+            shopSessionState.Contains("BuildSnapshot()") &&
+            shopSessionState.Contains("ApplySnapshot(ShopSessionSnapshot? snapshot)") &&
+            shopSessionState.Contains("ShopDayCustomersServed") &&
+            shopSessionState.Contains("ShopDaySuccessfulSales") &&
+            shopSessionState.Contains("ShopDayFailedSales") &&
+            shopSessionState.Contains("ShopDayGoldEarned") &&
+            shopSessionState.Contains("ShopDayDreadChange") &&
+            saveData.Contains("public ShopSessionSnapshot ShopSession { get; set; } = new();") &&
+            saveData.Contains("public sealed class ShopSessionSnapshot") &&
             saveData.Contains("ShopDayDreadChange"));
+        AssertTrue("SaveGameManager persists and restores the shop session snapshot",
+            saveManager.Contains("ShopSessionStatePath") &&
+            saveManager.Contains("_shopSessionState.BuildSnapshot()") &&
+            saveManager.Contains("_shopSessionState.ApplySnapshot(saveData.ShopSession)"));
         AssertTrue("DayController defers active shop restore until scene UI nodes finish ready",
             dayController.Contains("Callable.From(RestoreShopDayState).CallDeferred();") &&
             dayController.Contains("_stationCustomerPanel.RestoreActiveCustomer(interaction);") &&
@@ -877,8 +882,8 @@ internal static class CustomerFlowTests
             stationCustomerPanel.Contains("SetSellingModeState") &&
             stationCustomerPanel.Contains("OnReturnToDialoguePressed"));
         AssertTrue("StationCustomerPanel shows request details immediately for normal customers and after reveal for story customers",
-            stationCustomerPanel.Contains("_gameState.SetActiveCustomerRequest(request);") &&
-            stationCustomerPanel.Contains("_gameState.SetActiveCustomerRequest(interaction.BuildRequest());") &&
+            stationCustomerPanel.Contains("_shopSessionState.SetActiveCustomerRequest(request);") &&
+            stationCustomerPanel.Contains("_shopSessionState.SetActiveCustomerRequest(interaction.BuildRequest());") &&
             stationCustomerPanel.Contains("private bool CanServeActiveCustomer()") &&
             stationCustomerPanel.Contains("return !HasActiveDialogueInteraction() || _sellingMode;"));
         AssertTrue("StationCustomerPanel does not create a give-potion dialogue action",

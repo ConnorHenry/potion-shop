@@ -19,6 +19,9 @@ public sealed class CustomerInteractionDef
     public int Difficulty { get; set; } = 1;
     public string StoryCharacterId { get; set; } = "";
     public string VisitId { get; set; } = "";
+    public List<string> ScheduledStoryFlags { get; set; } = new();
+    public int ScheduledShopDay { get; set; }
+    public int ScheduledArrivalIndex { get; set; } = -1;
     public string DialogueStartNodeId { get; set; } = "";
     public List<CustomerDialogueNodeDef> DialogueNodes { get; set; } = new();
     public RequirementsDef? Requires { get; set; }
@@ -43,6 +46,7 @@ public sealed class CustomerInteractionDef
     public List<CustomerPotionResponseDef> PotionResponses { get; set; } = new();
 
     public bool IsStoryInteraction => !string.IsNullOrWhiteSpace(StoryCharacterId);
+    public bool HasScheduledStorySlot => ScheduledStoryFlags.Count > 0;
 
     public string GetStoryVisitId()
     {

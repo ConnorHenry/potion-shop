@@ -38,18 +38,13 @@ public partial class StationCustomerPanel : Control
 	private const float CustomerImageHeight = 104.0f;
 	private const float DialogueMinimumHeight = 76.0f;
 	private const float SelectedPotionFitMinimumHeight = 154.0f;
-	private const string OpeningMotherInteractionId = "customer_requests_opening_gravekeepers_balm";
-	private const string MotherSpeakerName = "Mother";
-	private const string MotherPostServeQuestionOption = "Are you going to tell me what's wrong?";
-	private const string MotherPostServeQuestionResponse = "I told you not to worry about it. Everything is fine";
-	private const string MotherPostServeRestOption = "It's okay Ma. Here you need to get back to bed and rest.";
-	private const string MotherPostServeRestResponse = "Thank you dear.";
 	private const string FailedServeConsequenceText = "Filler consequence text: this potion may disappoint the customer and affect future outcomes.";
 	private const string RefuseConsequenceText = "Filler consequence text: refusing a customer may affect future outcomes.";
 
 	[Export] public NodePath PotionInventoryRowPath = new("../PotionInventoryRow");
 	[Export] public NodePath GameStatePath = new(AutoloadNodePaths.GameState);
 	[Export] public NodePath ItemCatalogPath = new(AutoloadNodePaths.ItemCatalog);
+	[Export] public NodePath ShopSessionStatePath = new(AutoloadNodePaths.ShopSessionState);
 	[Export] public int DialogueTypewriterCharactersPerSecond = 45;
 
 	private readonly List<CustomerInteractionDef> _customers = new();
@@ -59,6 +54,7 @@ public partial class StationCustomerPanel : Control
 
 	private GameState _gameState = default!;
 	private ItemCatalogService _itemCatalog = default!;
+	private ShopSessionState _shopSessionState = default!;
 	private PotionInventoryRow? _potionInventoryRow;
 	private CustomerSaleService _saleService = default!;
 
@@ -120,8 +116,16 @@ public partial class StationCustomerPanel : Control
 			return;
 		}
 
+		var shopSessionState = GetNodeOrNull<ShopSessionState>(ShopSessionStatePath);
+		if (shopSessionState is null)
+		{
+			GD.PushError($"StationCustomerPanel: ShopSessionState was not found at '{ShopSessionStatePath}'.");
+			return;
+		}
+
 		_gameState = gameState;
 		_itemCatalog = itemCatalog;
+		_shopSessionState = shopSessionState;
 		_saleService = new CustomerSaleService(_gameState, _itemCatalog);
 		_potionInventoryRow = GetNodeOrNull<PotionInventoryRow>(PotionInventoryRowPath);
 		if (_potionInventoryRow is null)
@@ -242,7 +246,7 @@ public partial class StationCustomerPanel : Control
 			return;
 
 		_dialoguePresenter?.AddHistoryLine(new NarrativeTextLine(
-			MotherSpeakerName,
+			MotherPostServeDialogueFlow.MotherSpeakerName,
 			text,
 			allowMarkup: false));
 	}
@@ -551,7 +555,7 @@ public partial class StationCustomerPanel : Control
 
 		if (TryShowDialogueStart(interaction))
 		{
-			_gameState.ClearActiveCustomerRequest();
+			_shopSessionState.ClearActiveCustomerRequest();
 			SetServingControlsVisible(false);
 			SetServingControlsEnabled(false);
 			EmitSignal(SignalName.PlotConversationStarted);
@@ -566,7 +570,7 @@ public partial class StationCustomerPanel : Control
 			CustomerDialogueTextFormatter.CustomerSpeakerName));
 
 		var request = interaction.BuildRequest();
-		_gameState.SetActiveCustomerRequest(request);
+		_shopSessionState.SetActiveCustomerRequest(request);
 		_sellingMode = true;
 		SetServingControlsVisible(true);
 		SetServingControlsEnabled(true);
@@ -661,7 +665,7 @@ public partial class StationCustomerPanel : Control
 	private void ShowEmptyCustomerPresentation(bool clearActiveRequest)
 	{
 		if (clearActiveRequest)
-			_gameState.ClearActiveCustomerRequest();
+			_shopSessionState.ClearActiveCustomerRequest();
 
 		ResetDialogueState();
 		ClearSelectedPotion();
@@ -680,7 +684,7 @@ public partial class StationCustomerPanel : Control
 
 	private bool TryRestorePublishedRequest(CustomerInteractionDef interaction, bool emitShownSignal)
 	{
-		var request = _gameState.ActiveCustomerRequest;
+		var request = _shopSessionState.ActiveCustomerRequest;
 		if (request is null ||
 			!string.Equals(request.Id, interaction.Id, StringComparison.OrdinalIgnoreCase))
 		{
@@ -976,7 +980,7 @@ public partial class StationCustomerPanel : Control
 			? option.ReturnNodeId
 			: _dialogueSession?.ActiveNodeId ?? string.Empty;
 
-		_gameState.SetActiveCustomerRequest(interaction.BuildRequest());
+		_shopSessionState.SetActiveCustomerRequest(interaction.BuildRequest());
 		SetSellingModeState();
 		RefreshSelectedPotionComparison();
 	}
@@ -990,7 +994,7 @@ public partial class StationCustomerPanel : Control
 		StopQueuedDialoguePresentation();
 		SetDialoguePresentationState();
 		QueuePlayerLine(_returnToDialogueButton.Text);
-		_gameState.ClearActiveCustomerRequest();
+		_shopSessionState.ClearActiveCustomerRequest();
 		_sellingMode = false;
 
 		var session = _dialogueSession;
@@ -1013,7 +1017,7 @@ public partial class StationCustomerPanel : Control
 			return;
 
 		_gameState.RecordStoryCustomerInteractionOutcome(interaction, outcome);
-		_gameState.ClearActiveCustomerRequest();
+		_shopSessionState.ClearActiveCustomerRequest();
 		_sellingMode = false;
 		SetServingControlsVisible(false);
 		SetServingControlsEnabled(false);
@@ -1071,17 +1075,12 @@ public partial class StationCustomerPanel : Control
 
 	private bool TryBeginMotherPostServeDialogue(CustomerInteractionDef interaction, bool saleSucceeded)
 	{
-		if (!saleSucceeded || !IsOpeningMotherInteraction(interaction))
+		if (!MotherPostServeDialogueFlow.ShouldBegin(interaction, saleSucceeded))
 			return false;
 
 		_isShowingMotherPostServeDialogue = true;
 		_motherPostServeDialogueOptions.Clear();
-		_motherPostServeDialogueOptions.Add(new MotherPostServeDialogueOption(
-			MotherPostServeQuestionOption,
-			MotherPostServeQuestionResponse));
-		_motherPostServeDialogueOptions.Add(new MotherPostServeDialogueOption(
-			MotherPostServeRestOption,
-			MotherPostServeRestResponse));
+		_motherPostServeDialogueOptions.AddRange(MotherPostServeDialogueFlow.BuildOptions());
 
 		_dialoguePresenter?.Clear();
 		_visibleDialogueOptions.Clear();
@@ -1093,8 +1092,8 @@ public partial class StationCustomerPanel : Control
 		SetDialoguePresentationState();
 
 		_dialoguePresenter?.QueueLine(new NarrativeTextLine(
-			MotherSpeakerName,
-			$"Thank you so much {GetPlayerNameForMotherDialogue()}.",
+			MotherPostServeDialogueFlow.MotherSpeakerName,
+			MotherPostServeDialogueFlow.BuildThankYouText(_gameState.PlayerName),
 			allowMarkup: false));
 		PlayQueuedDialogueLines(ShowMotherPostServeDialogueOptions);
 		return true;
@@ -1138,7 +1137,7 @@ public partial class StationCustomerPanel : Control
 		SetDialoguePresentationState();
 		QueuePlayerLine(option.Label);
 		_dialoguePresenter?.QueueLine(new NarrativeTextLine(
-			MotherSpeakerName,
+			MotherPostServeDialogueFlow.MotherSpeakerName,
 			option.ResponseText,
 			allowMarkup: false));
 		PlayQueuedDialogueLines(FinishMotherPostServeDialogue);
@@ -1154,18 +1153,6 @@ public partial class StationCustomerPanel : Control
 		_motherPostServeDialogueOptions.Clear();
 		EmitSignal(SignalName.MotherPostServeDialogueResolved);
 		BeginResolveActiveCustomer();
-	}
-
-	private string GetPlayerNameForMotherDialogue()
-	{
-		return string.IsNullOrWhiteSpace(_gameState.PlayerName)
-			? "there"
-			: _gameState.PlayerName.Trim();
-	}
-
-	private static bool IsOpeningMotherInteraction(CustomerInteractionDef interaction)
-	{
-		return string.Equals(interaction.Id, OpeningMotherInteractionId, StringComparison.OrdinalIgnoreCase);
 	}
 
 	private void SetSellingModeState()
@@ -1437,11 +1424,11 @@ public partial class StationCustomerPanel : Control
 		if (interaction is null || _isResolvingCustomer)
 			return;
 
-		var outcomeText = _saleService.BuildOutcomeText(interaction, itemId, brewResult);
-		var saleResult = _saleService.ApplySale(interaction, itemId, brewResult);
-		_outcomeLabel.Text = outcomeText;
+		var resolution = _saleService.ResolveSale(interaction, itemId, brewResult);
+		var saleResult = resolution.SaleResult;
+		_outcomeLabel.Text = resolution.OutcomeText;
 		ClearSelectedPotion();
-		_gameState.ClearActiveCustomerRequest();
+		_shopSessionState.ClearActiveCustomerRequest();
 
 		EmitSignal(
 			SignalName.SaleResolved,
@@ -1463,10 +1450,9 @@ public partial class StationCustomerPanel : Control
 		if (interaction is null || _isResolvingCustomer)
 			return;
 
-		_saleService.ApplyRefusal(interaction);
-		_outcomeLabel.Text = _saleService.BuildRefusalText(interaction);
+		_outcomeLabel.Text = _saleService.ResolveRefusal(interaction);
 		ClearSelectedPotion();
-		_gameState.ClearActiveCustomerRequest();
+		_shopSessionState.ClearActiveCustomerRequest();
 		EmitSignal(SignalName.CustomerSkipped);
 		BeginResolveActiveCustomer();
 	}
@@ -1515,18 +1501,6 @@ public partial class StationCustomerPanel : Control
 
 		if (_customers.Count == 0)
 			EmitSignal(SignalName.CustomerQueueEmptied);
-	}
-
-	private sealed class MotherPostServeDialogueOption
-	{
-		public MotherPostServeDialogueOption(string label, string responseText)
-		{
-			Label = label;
-			ResponseText = responseText;
-		}
-
-		public string Label { get; }
-		public string ResponseText { get; }
 	}
 
 	private enum ConfirmationKind

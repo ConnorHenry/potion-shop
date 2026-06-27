@@ -160,7 +160,7 @@ internal static class InventoryAndBrewPanelTests
         AssertTrue("BrewPanel caches the current preview name",
             source.Contains("_previewPotionName"));
         AssertTrue("BrewPanel resolves the preview name before brewing",
-            source.Contains("var potionDisplayName = GetPreviewPotionName(combinationKey);"));
+            source.Contains("GetPreviewPotionName(combinationKey)"));
         AssertTrue("BrewPanel regenerates preview names from the combination key",
             source.Contains("GetPreviewPotionName(string combinationKey)"));
         AssertTrue("BrewPanel scene uses simple shape art instead of generated brew panel textures",
@@ -193,17 +193,18 @@ internal static class InventoryAndBrewPanelTests
     private static void TestBrewPanelPreviewsLivePartialResults()
     {
         var source = ReadProjectFile("Scripts/UI/BrewPanel.cs");
+        var workflow = ReadProjectFile("Scripts/Systems/BrewWorkflowService.cs");
         var scene = ReadProjectFile("Scenes/UI/GameUi.tscn");
         AssertTrue("BrewPanel clears request checklist preview for an empty queue",
             source.Contains("if (ingredientCount == 0)") &&
             source.Contains("RefreshRequestChecklist(null);") &&
             source.Contains("RefreshBrewTraitRiskPreview(null, showCarriedRisks: false);"));
         AssertTrue("BrewPanel calculates a live preview for request checklist matching",
-            source.Contains("var previewResult = _brewingService.PreviewPotion(") &&
-            source.Contains("knownStatsOnly: true") &&
-            source.Contains("ingredient.Traits.Clear();") &&
-            source.Contains("ingredient.Risks.Clear();") &&
-            source.Contains("ingredient.IngredientEffects.Clear();") &&
+            source.Contains("_brewWorkflowService.TryPreviewQueuedPotion(_queuedIngredients, out var previewResult)") &&
+            workflow.Contains("knownStatsOnly: true") &&
+            workflow.Contains("ingredientDef.Traits.Clear();") &&
+            workflow.Contains("ingredientDef.Risks.Clear();") &&
+            workflow.Contains("ingredientDef.IngredientEffects.Clear();") &&
             source.Contains("RefreshRequestChecklist(previewResult);") &&
             source.Contains("RefreshBrewTraitRiskPreview(previewResult, showCarriedRisks: false);"));
         AssertTrue("BrewPanel renders current brew traits and carried risks in the enlarged panel",
@@ -226,7 +227,7 @@ internal static class InventoryAndBrewPanelTests
             source.Contains("BrewPanelTextFormatter.BuildStatListText(previewResult.Traits, PreviewTraitLineCount)") &&
             source.Contains("BrewPanelTextFormatter.BuildRiskChanceListText(previewResult?.PossibleRisks ?? new Dictionary<string, int>(), PreviewRiskLineCount)") &&
             source.Contains("BrewPanelTextFormatter.BuildCarriedRiskListText(previewResult.Risks, PreviewRiskLineCount)") &&
-            source.Contains("RefreshBrewTraitRiskPreview(brewResult, showCarriedRisks: true);") &&
+            source.Contains("RefreshBrewTraitRiskPreview(workflowResult.BrewResult, showCarriedRisks: true);") &&
             !source.Contains("BuildPreviewEffectText(previewResult)"));
     }
 
@@ -243,7 +244,7 @@ internal static class InventoryAndBrewPanelTests
         AssertTrue("BrewPanel refreshes the checklist from the active request and queued ingredients",
             source.Contains("RefreshRequestChecklist(previewResult);") &&
             source.Contains("RefreshRequestChecklist(null);") &&
-            source.Contains("_gameState.ActiveCustomerRequest") &&
+            source.Contains("_shopSessionState.ActiveCustomerRequest") &&
             source.Contains("previewResult?.PossibleRisks") &&
             source.Contains("_queuedIngredients"));
         AssertTrue("BrewPanel scene keeps the request checklist binding hidden from the focused current brew panel",
@@ -340,6 +341,7 @@ internal static class InventoryAndBrewPanelTests
     private static void TestPotionInventoryCap()
     {
         var brewService = ReadProjectFile("Scripts/Systems/PotionInventoryBrewService.cs");
+        var workflow = ReadProjectFile("Scripts/Systems/BrewWorkflowService.cs");
         var brewPanel = ReadProjectFile("Scripts/UI/BrewPanel.cs");
         var gameState = ReadProjectFile("Scripts/Autoload/GameState.cs");
         var inventoryState = ReadProjectFile("Scripts/Systems/InventoryState.cs");
@@ -360,11 +362,12 @@ internal static class InventoryAndBrewPanelTests
             brewService.Contains("CountOwnedUniquePotions() < MaxUniquePotionInventoryQuantity") &&
             brewService.Contains("currentQuantity + quantity > MaxPotionStackQuantity") &&
             brewService.Contains("PotionInventoryFullMessage"));
-        AssertTrue("BrewPanel shows the full-inventory warning through brew feedback",
-            brewPanel.Contains("ShowBrewFeedback(PotionInventoryBrewService.PotionInventoryFullMessage);"));
-        AssertTrue("BrewPanel checks the cap before adding the brewed potion",
-            brewPanel.Contains("_inventoryBrewService.CanAddPotion(potionItemId, BrewedPotionOutputQuantity)") &&
-            brewPanel.Contains("_gameState.AddItem(potionItemId, BrewedPotionOutputQuantity);"));
+        AssertTrue("Brew workflow returns the full-inventory warning for brew feedback",
+            workflow.Contains("BrewWorkflowResult.Failure(PotionInventoryBrewService.PotionInventoryFullMessage)") &&
+            brewPanel.Contains("ShowBrewFeedback(workflowResult.Error);"));
+        AssertTrue("Brew workflow checks the cap before adding the brewed potion",
+            workflow.Contains("_inventoryBrewService.CanAddPotion(potionItemId, BrewedPotionOutputQuantity)") &&
+            workflow.Contains("_gameState.AddItem(potionItemId, BrewedPotionOutputQuantity);"));
         AssertTrue("Potion inventory row stays capped to the unique potion limit",
             potionRow.Contains("VisiblePotionSlots = GameState.MaxUniquePotionInventoryQuantity") &&
             potionRow.Contains("if (stacks.Count >= VisiblePotionSlots)") &&
@@ -470,6 +473,7 @@ internal static class InventoryAndBrewPanelTests
     private static void TestMeasuredIngredientPersistenceWiring()
     {
         var brewPanel = ReadProjectFile("Scripts/UI/BrewPanel.cs");
+        var workflow = ReadProjectFile("Scripts/Systems/BrewWorkflowService.cs");
         var gameState = ReadProjectFile("Scripts/Autoload/GameState.cs");
         var potionBatchStore = ReadProjectFile("Scripts/Systems/PotionBatchStore.cs");
         var saveData = ReadProjectFile("Scripts/Persistence/SaveData.cs");
@@ -481,8 +485,8 @@ internal static class InventoryAndBrewPanelTests
         AssertTrue("BrewPanel stores queued ingredients as portions",
             brewPanel.Contains("private readonly List<IngredientPortionDef> _queuedIngredients = new();") &&
             brewPanel.Contains("FormatIngredientPortionLabel") &&
-            brewPanel.Contains("RecordPotionRecipe(potionItemId, BuildIngredientIdList(_queuedIngredients))") &&
-            brewPanel.Contains("RecordPotionBatch(potionItemId, _queuedIngredients)"));
+            workflow.Contains("RecordPotionRecipe(potionItemId, BuildIngredientIdList(queuedIngredients))") &&
+            workflow.Contains("RecordPotionBatch(potionItemId, queuedIngredients)"));
         AssertTrue("GameState stores exact portion batches alongside legacy batches",
             potionBatchStore.Contains("_potionIngredientPortionBatches") &&
             gameState.Contains("RecordPotionBatch(string potionItemId, IReadOnlyList<IngredientPortionDef> ingredientPortions)") &&
@@ -603,6 +607,7 @@ internal static class InventoryAndBrewPanelTests
     {
         var tray = ReadProjectFile("Scripts/UI/IngredientPreparationTray.cs");
         var brewPanel = ReadProjectFile("Scripts/UI/BrewPanel.cs");
+        var workflow = ReadProjectFile("Scripts/Systems/BrewWorkflowService.cs");
 
         AssertTrue("IngredientPreparationTray resolves BrewPanel for prepared output handoff",
             tray.Contains("BrewPanelPath = new(\"../BrewPanel\")") &&
@@ -621,7 +626,7 @@ internal static class InventoryAndBrewPanelTests
             brewPanel.Contains("_queuedIngredients.RemoveAt(slotIndex);"));
         AssertTrue("Preparation trait knowledge is recorded only by successful brew paths",
             !tray.Contains("RecordIngredientPreparationKnowledge") &&
-            brewPanel.Contains("_gameState.RecordIngredientPreparationKnowledge(_queuedIngredients);"));
+            workflow.Contains("_gameState.RecordIngredientPreparationKnowledge(queuedIngredients);"));
     }
 
     private static void TestBoiledPreparationMiniGameWiring()
@@ -833,16 +838,17 @@ internal static class InventoryAndBrewPanelTests
     private static void TestBrewAndInventoryPriceWiring()
     {
         var brewPanel = ReadProjectFile("Scripts/UI/BrewPanel.cs");
+        var workflow = ReadProjectFile("Scripts/Systems/BrewWorkflowService.cs");
         var gameUiScene = ReadProjectFile("Scenes/UI/GameUi.tscn");
-        AssertTrue("BrewPanel calculates potion price from ingredient totals",
-            brewPanel.Contains("CalculateIngredientTotalPrice(_queuedIngredients)"));
+        AssertTrue("Brew workflow calculates potion price from ingredient totals",
+            workflow.Contains("CalculateIngredientTotalPrice(queuedIngredients)"));
         AssertTrue("BrewPanel no longer renders the removed estimated value field",
             !brewPanel.Contains("\\u00A3{totalIngredientPrice}") &&
             !gameUiScene.Contains("[node name=\"EstimatedValue\" type=\"Control\" parent=\"PotionBrewingStationView/BrewPanel/Panel\"]"));
-        AssertTrue("BrewPanel stores the potion base price in state",
-            brewPanel.Contains("RegisterPotionBasePrice(potionItemId, potionBasePrice)"));
-        AssertTrue("BrewPanel sums ingredient BasePrice values",
-            brewPanel.Contains("totalPrice += Math.Max(0, item.BasePrice);"));
+        AssertTrue("Brew workflow stores the potion base price in state",
+            workflow.Contains("RegisterPotionBasePrice(potionItemId, potionBasePrice)"));
+        AssertTrue("Brew workflow sums ingredient BasePrice values",
+            workflow.Contains("total += Math.Max(0, item.BasePrice);"));
 
         var gameState = ReadProjectFile("Scripts/Autoload/GameState.cs");
         var potionInventoryBrewService = ReadProjectFile("Scripts/Systems/PotionInventoryBrewService.cs");
@@ -855,18 +861,18 @@ internal static class InventoryAndBrewPanelTests
 
     private static void TestBrewPanelSplitsRiskVariantsForKnownCombinations()
     {
-        var brewPanel = ReadProjectFile("Scripts/UI/BrewPanel.cs");
+        var workflow = ReadProjectFile("Scripts/Systems/BrewWorkflowService.cs");
 
-        AssertTrue("BrewPanel compares the known potion risks against the new brew result",
-            brewPanel.Contains("PotionVariantIdBuilder.RisksMatch(basePotionItem.Risks, brewResult.Risks)"));
-        AssertTrue("BrewPanel builds a distinct item id for changed carried risks",
-            brewPanel.Contains("PotionVariantIdBuilder.BuildRiskVariantItemId(potionItemId, brewResult.Risks)"));
-        AssertTrue("BrewPanel registers the variant with the newly rolled risks",
-            brewPanel.Contains("variantPotionItemId") &&
-            brewPanel.Contains("new Dictionary<string, int>(brewResult.Risks)"));
-        AssertTrue("BrewPanel adds the variant item to inventory after risk splitting",
-            brewPanel.Contains("potionItemId = variantPotionItemId;") &&
-            brewPanel.Contains("_gameState.AddItem(potionItemId, BrewedPotionOutputQuantity);"));
+        AssertTrue("Brew workflow compares the known potion risks against the new brew result",
+            workflow.Contains("PotionVariantIdBuilder.RisksMatch(basePotionItem.Risks, brewResult.Risks)"));
+        AssertTrue("Brew workflow builds a distinct item id for changed carried risks",
+            workflow.Contains("PotionVariantIdBuilder.BuildRiskVariantItemId(potionItemId, brewResult.Risks)"));
+        AssertTrue("Brew workflow registers the variant with the newly rolled risks",
+            workflow.Contains("variantPotionItemId") &&
+            workflow.Contains("new Dictionary<string, int>(brewResult.Risks)"));
+        AssertTrue("Brew workflow adds the variant item to inventory after risk splitting",
+            workflow.Contains("potionItemId = variantPotionItemId;") &&
+            workflow.Contains("_gameState.AddItem(potionItemId, BrewedPotionOutputQuantity);"));
     }
 
     private static void TestBrewPanelRiskVariantIdsAreDeterministic()

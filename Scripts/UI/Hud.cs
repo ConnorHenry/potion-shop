@@ -2,7 +2,6 @@ using Godot;
 using ImGuiGodot;
 using OccultShop.Autoload;
 using OccultShop.Controllers;
-using OccultShop.Infrastructure;
 using OccultShop.Systems;
 
 namespace OccultShop.UI;
@@ -15,18 +14,8 @@ public partial class Hud : Control
 	private const string SaveGameButtonSavingText = "Saving Game...";
 	private const string SaveGameButtonSavedText = "Game Saved!";
 	private const string RainfallAudioPath = "res://Assets/Audio/rain-sounds.mp3";
-	private const string AmbientSettingsPath = "user://settings.cfg";
-	private const string AmbientSettingsSection = "audio";
-	private const string AmbientSoundsEnabledKey = "ambient_sounds_enabled";
-	private const string RainfallVolumeKey = "rainfall_volume";
-	private const string MusicEnabledKey = "music_enabled";
-	private const string MusicVolumeKey = "music_volume";
 	private const double MusicFadeSeconds = 5.0;
 	private const float SilentMusicVolumeDb = -80.0f;
-	private const bool DefaultAmbientSoundsEnabled = true;
-	private const double DefaultRainfallVolume = 0.7;
-	private const bool DefaultMusicEnabled = true;
-	private const double DefaultMusicVolume = 0.55;
 	private static readonly string[] SoundtrackAudioPaths =
 	[
 		"res://Assets/Audio/Music/postcards_from_ireland_celtic_lofi_beats/01_moonera_and_lucie_cravero_cliffs_of_eire.mp3",
@@ -95,11 +84,11 @@ public partial class Hud : Control
 	private Control _settingsPanel = default!;
 	private Control _settingsDetailsPanel = default!;
 	private bool _isSavingGame;
-	private bool _ambientSoundsEnabled = DefaultAmbientSoundsEnabled;
+	private bool _ambientSoundsEnabled = HudAudioSettingsStore.DefaultAmbientSoundsEnabled;
 	private bool _ambientPlaybackAllowed;
-	private double _rainfallVolume = DefaultRainfallVolume;
-	private bool _musicEnabled = DefaultMusicEnabled;
-	private double _musicVolume = DefaultMusicVolume;
+	private double _rainfallVolume = HudAudioSettingsStore.DefaultRainfallVolume;
+	private bool _musicEnabled = HudAudioSettingsStore.DefaultMusicEnabled;
+	private double _musicVolume = HudAudioSettingsStore.DefaultMusicVolume;
 	private readonly Random _soundtrackRandom = new();
 	private int[] _soundtrackOrder = [];
 	private int _soundtrackOrderIndex;
@@ -342,19 +331,11 @@ public partial class Hud : Control
 	{
 		if (IsSceneNavigationBlocked())
 			return;
-		if (_dayController is not null && _dayController.IsShopOpen)
-			return;
-		if (_gameState is null || !_gameState.IsGardenUnlocked)
-			return;
 		if (GetTree().CurrentScene is Garden)
 			return;
 
 		TryAutoSave("entering the garden");
-		Error error = GetTree().ChangeSceneToFile(ScenePaths.Garden);
-		if (error != Error.Ok)
-		{
-			GD.PushError($"Hud: Failed to load garden scene. Error: {error}");
-		}
+		HudNavigationService.TryOpenGarden(this);
 	}
 
 	private void OnMapPressed()
@@ -365,11 +346,7 @@ public partial class Hud : Control
 			return;
 
 		TryAutoSave("entering the map");
-		Error error = GetTree().ChangeSceneToFile(ScenePaths.Map);
-		if (error != Error.Ok)
-		{
-			GD.PushError($"Hud: Failed to load map scene. Error: {error}");
-		}
+		HudNavigationService.TryOpenMap(this);
 	}
 
 	private void OnSettingsPressed()
@@ -397,11 +374,7 @@ public partial class Hud : Control
 		if (IsSceneNavigationBlocked())
 			return;
 
-		Error error = GetTree().ChangeSceneToFile(ScenePaths.MainMenu);
-		if (error != Error.Ok)
-		{
-			GD.PushError($"Hud: Failed to load main menu scene. Error: {error}");
-		}
+		HudNavigationService.TryOpenMainMenu(this);
 	}
 
 	private void OnSaveGamePressed()
@@ -457,7 +430,7 @@ public partial class Hud : Control
 
 	private void OnRainfallVolumeChanged(double value)
 	{
-		_rainfallVolume = ClampNormalizedVolume(value);
+		_rainfallVolume = HudAudioSettingsStore.ClampNormalizedVolume(value);
 		SaveAudioSettings();
 		RefreshAmbientRainPlayback();
 	}
@@ -471,7 +444,7 @@ public partial class Hud : Control
 
 	private void OnMusicVolumeChanged(double value)
 	{
-		_musicVolume = ClampNormalizedVolume(value);
+		_musicVolume = HudAudioSettingsStore.ClampNormalizedVolume(value);
 		SaveAudioSettings();
 		RefreshSoundtrackVolume();
 	}
@@ -552,41 +525,20 @@ public partial class Hud : Control
 
 	private void LoadAudioSettings()
 	{
-		var config = new ConfigFile();
-		Error error = config.Load(AmbientSettingsPath);
-		if (error == Error.FileNotFound)
-			return;
-		if (error != Error.Ok)
-		{
-			GD.PushError($"Hud: Failed to load audio settings. Error: {error}");
-			return;
-		}
-
-		_ambientSoundsEnabled = config
-			.GetValue(AmbientSettingsSection, AmbientSoundsEnabledKey, DefaultAmbientSoundsEnabled)
-			.AsBool();
-		_rainfallVolume = ClampNormalizedVolume(config
-			.GetValue(AmbientSettingsSection, RainfallVolumeKey, DefaultRainfallVolume)
-			.AsDouble());
-		_musicEnabled = config
-			.GetValue(AmbientSettingsSection, MusicEnabledKey, DefaultMusicEnabled)
-			.AsBool();
-		_musicVolume = ClampNormalizedVolume(config
-			.GetValue(AmbientSettingsSection, MusicVolumeKey, DefaultMusicVolume)
-			.AsDouble());
+		var settings = HudAudioSettingsStore.Load();
+		_ambientSoundsEnabled = settings.AmbientSoundsEnabled;
+		_rainfallVolume = settings.RainfallVolume;
+		_musicEnabled = settings.MusicEnabled;
+		_musicVolume = settings.MusicVolume;
 	}
 
 	private void SaveAudioSettings()
 	{
-		var config = new ConfigFile();
-		config.SetValue(AmbientSettingsSection, AmbientSoundsEnabledKey, _ambientSoundsEnabled);
-		config.SetValue(AmbientSettingsSection, RainfallVolumeKey, _rainfallVolume);
-		config.SetValue(AmbientSettingsSection, MusicEnabledKey, _musicEnabled);
-		config.SetValue(AmbientSettingsSection, MusicVolumeKey, _musicVolume);
-
-		Error error = config.Save(AmbientSettingsPath);
-		if (error != Error.Ok)
-			GD.PushError($"Hud: Failed to save audio settings. Error: {error}");
+		HudAudioSettingsStore.Save(new HudAudioSettings(
+			_ambientSoundsEnabled,
+			_rainfallVolume,
+			_musicEnabled,
+			_musicVolume));
 	}
 
 	private void ConfigureAmbientRainPlayer()
@@ -843,26 +795,12 @@ public partial class Hud : Control
 
 	private float GetRainfallVolumeDb()
 	{
-		return _rainfallVolume <= 0.0001
-			? -80.0f
-			: Mathf.LinearToDb((float)_rainfallVolume);
+		return HudAudioSettingsStore.GetVolumeDb(_rainfallVolume);
 	}
 
 	private float GetMusicVolumeDb()
 	{
-		return _musicVolume <= 0.0001
-			? -80.0f
-			: Mathf.LinearToDb((float)_musicVolume);
-	}
-
-	private static double ClampNormalizedVolume(double value)
-	{
-		if (value < 0.0)
-			return 0.0;
-		if (value > 1.0)
-			return 1.0;
-
-		return value;
+		return HudAudioSettingsStore.GetVolumeDb(_musicVolume);
 	}
 
 	private static bool IsPointInsideVisibleControl(Control control, Vector2 point)
@@ -879,7 +817,7 @@ public partial class Hud : Control
 
 	private bool IsSceneNavigationBlocked()
 	{
-		return GetTree().CurrentScene is ForestGathering or JuniperGathering;
+		return HudNavigationService.IsNavigationBlocked(GetTree());
 	}
 
 	private void RefreshShopState()
@@ -887,7 +825,6 @@ public partial class Hud : Control
 		var isShopOpen = _dayController is not null && _dayController.IsShopOpen;
 		var isShopDayReadyToEnd = _dayController is not null && _dayController.IsShopDayReadyToEnd;
 		var navigationBlocked = IsSceneNavigationBlocked();
-		var gardenUnlocked = _gameState is not null && _gameState.IsGardenUnlocked;
 		if (navigationBlocked)
 		{
 			HideHudPopups();
@@ -895,9 +832,7 @@ public partial class Hud : Control
 
 		_serveCustomerButton.Text = isShopDayReadyToEnd ? "End Day" : isShopOpen ? "Shop Open" : "Start Day";
 		_serveCustomerButton.Disabled = navigationBlocked || _dayController is null || (isShopOpen && !isShopDayReadyToEnd);
-		_gardenButton.Disabled = navigationBlocked || isShopOpen || !gardenUnlocked;
-		if (GetTree().CurrentScene is Garden)
-			_gardenButton.Disabled = true;
+		_gardenButton.Disabled = false;
 		_mapButton.Disabled = navigationBlocked || GetTree().CurrentScene is Map;
 		_settingsButton.Disabled = navigationBlocked;
 	}

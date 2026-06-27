@@ -22,6 +22,7 @@ public static class ShopDayFastForwardService
 	public static ShopDayFastForwardResult FastForwardToDay(
 		DataDb dataDb,
 		GameState gameState,
+		ShopSessionState shopSessionState,
 		CustomerEventController customerEventController,
 		int targetDay,
 		int maxCustomersPerShopDay)
@@ -30,6 +31,8 @@ public static class ShopDayFastForwardService
 			throw new ArgumentNullException(nameof(dataDb));
 		if (gameState is null)
 			throw new ArgumentNullException(nameof(gameState));
+		if (shopSessionState is null)
+			throw new ArgumentNullException(nameof(shopSessionState));
 		if (customerEventController is null)
 			throw new ArgumentNullException(nameof(customerEventController));
 
@@ -47,6 +50,7 @@ public static class ShopDayFastForwardService
 			ResolveCurrentShopDay(
 				dataDb,
 				gameState,
+				shopSessionState,
 				customerEventController,
 				safeMaxCustomersPerShopDay,
 				ref scheduledStoryCustomersResolved,
@@ -65,51 +69,55 @@ public static class ShopDayFastForwardService
 	private static void ResolveCurrentShopDay(
 		DataDb dataDb,
 		GameState gameState,
+		ShopSessionState shopSessionState,
 		CustomerEventController customerEventController,
 		int maxCustomersPerShopDay,
 		ref int scheduledStoryCustomersResolved,
 		ref int sharedOutcomeEffectsApplied)
 	{
-		var wasShopOpen = gameState.IsShopDayOpen;
+		var wasShopOpen = shopSessionState.IsShopDayOpen;
 		customerEventController.BeginShopDay();
 		if (!wasShopOpen)
-			gameState.BeginShopDayState();
+			shopSessionState.BeginShopDayState();
 
 		if (TryResolveActiveStoryCustomer(
 			dataDb,
 			gameState,
+			shopSessionState,
 			ref scheduledStoryCustomersResolved,
 			ref sharedOutcomeEffectsApplied))
 		{
-			gameState.ClearActiveShopCustomer();
+			shopSessionState.ClearActiveShopCustomer();
 		}
 
-		while (gameState.ShopDayCustomersArrived < maxCustomersPerShopDay)
+		while (shopSessionState.ShopDayCustomersArrived < maxCustomersPerShopDay)
 		{
-			var interaction = customerEventController.DrawScheduledStoryCustomerInteraction(dataDb, gameState);
+			var interaction = customerEventController.DrawScheduledStoryCustomerInteraction(dataDb, gameState, shopSessionState);
 			if (interaction is null)
 				break;
 
-			gameState.RecordShopDayCustomerArrived(interaction);
+			shopSessionState.RecordShopDayCustomerArrived(interaction);
 			ResolveStoryCustomerForFastForward(
 				gameState,
+				shopSessionState,
 				interaction,
 				ref scheduledStoryCustomersResolved,
 				ref sharedOutcomeEffectsApplied);
 		}
 
-		gameState.CloseShopDayState();
+		shopSessionState.CloseShopDayState();
 	}
 
 	private static bool TryResolveActiveStoryCustomer(
 		DataDb dataDb,
 		GameState gameState,
+		ShopSessionState shopSessionState,
 		ref int scheduledStoryCustomersResolved,
 		ref int sharedOutcomeEffectsApplied)
 	{
-		var interactionId = gameState.ActiveCustomerInteractionId;
+		var interactionId = shopSessionState.ActiveCustomerInteractionId;
 		if (string.IsNullOrWhiteSpace(interactionId))
-			interactionId = gameState.ActiveCustomerRequest?.Id ?? string.Empty;
+			interactionId = shopSessionState.ActiveCustomerRequest?.Id ?? string.Empty;
 		if (string.IsNullOrWhiteSpace(interactionId))
 			return false;
 
@@ -120,6 +128,7 @@ public static class ShopDayFastForwardService
 
 		ResolveStoryCustomerForFastForward(
 			gameState,
+			shopSessionState,
 			interaction,
 			ref scheduledStoryCustomersResolved,
 			ref sharedOutcomeEffectsApplied);
@@ -149,14 +158,16 @@ public static class ShopDayFastForwardService
 
 	private static void ResolveStoryCustomerForFastForward(
 		GameState gameState,
+		ShopSessionState shopSessionState,
 		CustomerInteractionDef interaction,
 		ref int scheduledStoryCustomersResolved,
 		ref int sharedOutcomeEffectsApplied)
 	{
 		sharedOutcomeEffectsApplied += ApplySharedOutcomeEffects(gameState, interaction);
 		gameState.RecordStoryCustomerInteractionOutcome(interaction, DebugFastForwardOutcome);
-		gameState.RecordShopDaySale(success: true, goldDelta: 0, dreadDelta: 0);
-		gameState.ClearActiveShopCustomer();
+		shopSessionState.RecordShopDaySale(success: true, goldDelta: 0, dreadDelta: 0);
+		gameState.TryUnlockGardenAfterShopSales(shopSessionState.ShopDayCustomersServed);
+		shopSessionState.ClearActiveShopCustomer();
 		scheduledStoryCustomersResolved += 1;
 	}
 

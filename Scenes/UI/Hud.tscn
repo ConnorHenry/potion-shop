@@ -94,7 +94,6 @@ text = "Start Day"
 custom_minimum_size = Vector2(96, 34)
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
-disabled = true
 text = "Garden"
 
 [node name="Map" type="Button" parent="Content/Actions"]

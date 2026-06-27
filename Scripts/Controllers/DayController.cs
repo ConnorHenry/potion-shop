@@ -9,7 +9,6 @@ namespace OccultShop.Controllers;
 public partial class DayController : Node
 {
 	private const int MaxCustomersPerShopDay = 3;
-	private const string OpeningMotherInteractionId = "customer_requests_opening_gravekeepers_balm";
 	private const string OpeningMotherPotionItemId = "potion_gravekeepers_balm";
 
 	[Export] public NodePath CustomerEventControllerPath = default!;
@@ -19,6 +18,7 @@ public partial class DayController : Node
 	[Export] public NodePath DataDbPath = new(AutoloadNodePaths.DataDb);
 	[Export] public NodePath GameStatePath = new(AutoloadNodePaths.GameState);
 	[Export] public NodePath SceneTransitionPath = new(AutoloadNodePaths.SceneTransition);
+	[Export] public NodePath ShopSessionStatePath = new(AutoloadNodePaths.ShopSessionState);
 
 	private CustomerEventController _customerEventController = default!;
 	private UI.StationCustomerPanel _stationCustomerPanel = default!;
@@ -27,6 +27,7 @@ public partial class DayController : Node
 	private readonly ShopDayStats _shopDayStats = new();
 	private DataDb _dataDb = default!;
 	private GameState _gameState = default!;
+	private ShopSessionState _shopSessionState = default!;
 	private SceneTransition? _sceneTransition;
 	private int _customersArrived;
 	private bool _closeShopAfterCurrentCustomer;
@@ -62,6 +63,16 @@ public partial class DayController : Node
 
 		_dataDb = dataDb;
 		_gameState = gameState;
+		if (!NodeLookup.TryGetRequiredNode<ShopSessionState>(
+			this,
+			ShopSessionStatePath,
+			nameof(DayController),
+			nameof(ShopSessionStatePath),
+			out _shopSessionState))
+		{
+			return;
+		}
+
 		_sceneTransition = GetNodeOrNull<SceneTransition>(SceneTransitionPath);
 		if (_sceneTransition is null)
 			GD.PushError($"DayController: SceneTransition was not found at '{SceneTransitionPath}'.");
@@ -104,7 +115,7 @@ public partial class DayController : Node
 		_closeShopAfterCurrentCustomer = false;
 		_isShopDayReadyToEnd = false;
 		IsShopOpen = true;
-		_gameState.BeginShopDayState();
+		_shopSessionState.BeginShopDayState();
 		_openingMotherServeSucceededForCutscene = false;
 		_tenYearsLaterCutsceneTransitionStarted = false;
 		EmitShopStateChanged();
@@ -127,7 +138,7 @@ public partial class DayController : Node
 
 	public void CloseShopDayForStoryCutscene()
 	{
-		if (!IsShopOpen && !_gameState.IsShopDayOpen)
+		if (!IsShopOpen && !_shopSessionState.IsShopDayOpen)
 			return;
 
 		IsShopOpen = false;
@@ -138,17 +149,17 @@ public partial class DayController : Node
 		_stationCustomerPanel.ClearCustomers();
 		_brewPanel.HidePanel();
 		_daySummaryPanel.HidePanel();
-		_gameState.CloseShopDayState();
+		_shopSessionState.CloseShopDayState();
 		EmitShopStateChanged();
 	}
 
 	private void RequestCloseShopAfterCurrentCustomer()
 	{
-		if (_closeShopAfterCurrentCustomer && _gameState.CloseShopAfterCurrentCustomer)
+		if (_closeShopAfterCurrentCustomer && _shopSessionState.CloseShopAfterCurrentCustomer)
 			return;
 
 		_closeShopAfterCurrentCustomer = true;
-		_gameState.RequestCloseShopAfterCurrentCustomer();
+		_shopSessionState.RequestCloseShopAfterCurrentCustomer();
 		EmitShopStateChanged();
 	}
 
@@ -166,6 +177,7 @@ public partial class DayController : Node
 		var result = ShopDayFastForwardService.FastForwardToDay(
 			_dataDb,
 			_gameState,
+			_shopSessionState,
 			_customerEventController,
 			targetDay,
 			MaxCustomersPerShopDay);
@@ -212,7 +224,8 @@ public partial class DayController : Node
 		else
 			_shopDayStats.FailedSales += 1;
 
-		_gameState.RecordShopDaySale(success, goldDelta, dreadDelta);
+		_shopSessionState.RecordShopDaySale(success, goldDelta, dreadDelta);
+		_gameState.TryUnlockGardenAfterShopSales(_shopSessionState.ShopDayCustomersServed);
 		EmitShopStateChanged();
 	}
 
@@ -220,7 +233,7 @@ public partial class DayController : Node
 	{
 		if (!IsShopOpen)
 			return;
-		if (!string.Equals(_gameState.ActiveCustomerInteractionId, OpeningMotherInteractionId, StringComparison.OrdinalIgnoreCase))
+		if (!string.Equals(_shopSessionState.ActiveCustomerInteractionId, MotherPostServeDialogueFlow.OpeningMotherInteractionId, StringComparison.OrdinalIgnoreCase))
 			return;
 
 		_openingMotherServeSucceededForCutscene =
@@ -250,7 +263,7 @@ public partial class DayController : Node
 		if (!IsShopOpen)
 			return;
 
-		_gameState.ClearActiveShopCustomer();
+		_shopSessionState.ClearActiveShopCustomer();
 		if (ShouldCloseShopAfterCurrentCustomer())
 		{
 			CloseShopAndShowSummary();
@@ -298,7 +311,7 @@ public partial class DayController : Node
 			return false;
 		}
 
-		var interaction = _customerEventController.DrawShopDayCustomerInteraction(_dataDb, _gameState);
+		var interaction = _customerEventController.DrawShopDayCustomerInteraction(_dataDb, _gameState, _shopSessionState);
 		if (interaction is null)
 		{
 			_stationCustomerPanel.ClearCustomers();
@@ -306,8 +319,8 @@ public partial class DayController : Node
 		}
 
 		var customers = new System.Collections.Generic.List<OccultShop.Models.CustomerInteractionDef> { interaction };
-		_gameState.RecordShopDayCustomerArrived(interaction);
-		_customersArrived = _gameState.ShopDayCustomersArrived;
+		_shopSessionState.RecordShopDayCustomerArrived(interaction);
+		_customersArrived = _shopSessionState.ShopDayCustomersArrived;
 		_stationCustomerPanel.SetCustomers(customers);
 		_brewPanel.ShowPanel();
 		EmitShopStateChanged();
@@ -332,7 +345,7 @@ public partial class DayController : Node
 			_shopDayStats.DreadChange,
 			_gameState.Gold,
 			_gameState.Dread);
-		_gameState.CloseShopDayState();
+		_shopSessionState.CloseShopDayState();
 
 		EmitShopStateChanged();
 	}
@@ -388,16 +401,16 @@ public partial class DayController : Node
 
 	private void RestoreShopDayState()
 	{
-		IsShopOpen = _gameState.IsShopDayOpen;
-		_customersArrived = _gameState.ShopDayCustomersArrived;
-		_closeShopAfterCurrentCustomer = _gameState.CloseShopAfterCurrentCustomer;
+		IsShopOpen = _shopSessionState.IsShopDayOpen;
+		_customersArrived = _shopSessionState.ShopDayCustomersArrived;
+		_closeShopAfterCurrentCustomer = _shopSessionState.CloseShopAfterCurrentCustomer;
 		_isShopDayReadyToEnd = false;
 		_shopDayStats.Restore(
-			_gameState.ShopDayCustomersServed,
-			_gameState.ShopDaySuccessfulSales,
-			_gameState.ShopDayFailedSales,
-			_gameState.ShopDayGoldEarned,
-			_gameState.ShopDayDreadChange);
+			_shopSessionState.ShopDayCustomersServed,
+			_shopSessionState.ShopDaySuccessfulSales,
+			_shopSessionState.ShopDayFailedSales,
+			_shopSessionState.ShopDayGoldEarned,
+			_shopSessionState.ShopDayDreadChange);
 
 		if (!IsShopOpen)
 		{
@@ -436,16 +449,16 @@ public partial class DayController : Node
 	private bool IsPersistedShopDayReadyToEnd()
 	{
 		return _customersArrived >= MaxCustomersPerShopDay &&
-			string.IsNullOrWhiteSpace(_gameState.ActiveCustomerInteractionId) &&
-			_gameState.ActiveCustomerRequest is null;
+			string.IsNullOrWhiteSpace(_shopSessionState.ActiveCustomerInteractionId) &&
+			_shopSessionState.ActiveCustomerRequest is null;
 	}
 
 	private bool TryResolveActiveCustomerInteraction(out OccultShop.Models.CustomerInteractionDef? interaction)
 	{
 		interaction = null;
-		var interactionId = _gameState.ActiveCustomerInteractionId;
+		var interactionId = _shopSessionState.ActiveCustomerInteractionId;
 		if (string.IsNullOrWhiteSpace(interactionId))
-			interactionId = _gameState.ActiveCustomerRequest?.Id ?? string.Empty;
+			interactionId = _shopSessionState.ActiveCustomerRequest?.Id ?? string.Empty;
 		if (string.IsNullOrWhiteSpace(interactionId))
 			return false;
 
@@ -467,8 +480,8 @@ public partial class DayController : Node
 		return _gameState.Day == 1 &&
 			_gameState.HasStoryFlag(GameState.IntroCutsceneCompletedStoryFlag) &&
 			_gameState.HasStoryFlag(GameState.NewGameOpeningCustomerPendingStoryFlag) &&
-			string.IsNullOrWhiteSpace(_gameState.ActiveCustomerInteractionId) &&
-			_gameState.ActiveCustomerRequest is null;
+			string.IsNullOrWhiteSpace(_shopSessionState.ActiveCustomerInteractionId) &&
+			_shopSessionState.ActiveCustomerRequest is null;
 	}
 
 	private sealed class ShopDayStats

@@ -15,14 +15,16 @@ public partial class SaveGameManager : Node
 {
 	private const string SaveDirectoryPath = "user://saves";
 	private const string SaveFilePrefix = "save_";
-	private const int CurrentSaveVersion = 2;
+	private const int CurrentSaveVersion = 3;
 
 	[Export] public NodePath GameStatePath { get; set; } = new(AutoloadNodePaths.GameState);
 	[Export] public NodePath RuntimeContentDbPath { get; set; } = new(AutoloadNodePaths.RuntimeContentDb);
+	[Export] public NodePath ShopSessionStatePath { get; set; } = new(AutoloadNodePaths.ShopSessionState);
 
 	private string? _activeSaveFilePath;
 	private GameState _gameState = default!;
 	private RuntimeContentDb _runtimeContentDb = default!;
+	private ShopSessionState _shopSessionState = default!;
 
 	private static readonly JsonSerializerOptions JsonOpts = new()
 	{
@@ -51,6 +53,16 @@ public partial class SaveGameManager : Node
 		{
 			return;
 		}
+
+		if (!NodeLookup.TryGetRequiredNode<ShopSessionState>(
+			this,
+			ShopSessionStatePath,
+			nameof(SaveGameManager),
+			nameof(ShopSessionStatePath),
+			out _shopSessionState))
+		{
+			return;
+		}
 	}
 
 	public bool HasSaveFile()
@@ -74,6 +86,7 @@ public partial class SaveGameManager : Node
 				Version = CurrentSaveVersion,
 				SavedAtUtc = DateTime.UtcNow,
 				GameState = _gameState.BuildSnapshot(),
+				ShopSession = _shopSessionState.BuildSnapshot(),
 				RuntimeItems = _runtimeContentDb.BuildRuntimeItemSnapshot()
 			};
 
@@ -164,6 +177,7 @@ public partial class SaveGameManager : Node
 
 		_runtimeContentDb.RestoreRuntimeItems(saveData.RuntimeItems);
 		_gameState.ApplySnapshot(saveData.GameState);
+		_shopSessionState.ApplySnapshot(saveData.ShopSession);
 		_activeSaveFilePath = saveFilePath;
 		return true;
 	}
@@ -289,6 +303,7 @@ public partial class SaveGameManager : Node
 	private static SaveFileData NormalizeSaveData(SaveFileData parsed)
 	{
 		parsed.GameState ??= new GameStateSnapshot();
+		parsed.ShopSession ??= new ShopSessionSnapshot();
 		parsed.RuntimeItems ??= new List<ItemDef>();
 		return parsed;
 	}

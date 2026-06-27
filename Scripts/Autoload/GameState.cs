@@ -108,20 +108,22 @@ public partial class GameState : Node
 	private readonly PotionBatchStore _potionBatchStore = new();
 	private readonly StoryCustomerVisitState _storyCustomerVisitState = new();
 	private readonly TutorialProgressState _tutorialProgressState = new();
-	public CustomerRequestDef? ActiveCustomerRequest { get; private set; }
-	public bool IsShopDayOpen { get; private set; }
-	public int ShopDayCustomersArrived { get; private set; }
-	public int ShopDayCustomersServed { get; private set; }
-	public int ShopDaySuccessfulSales { get; private set; }
-	public int ShopDayFailedSales { get; private set; }
-	public int ShopDayGoldEarned { get; private set; }
-	public int ShopDayDreadChange { get; private set; }
-	public bool CloseShopAfterCurrentCustomer { get; private set; }
-	public string ActiveCustomerInteractionId { get; private set; } = string.Empty;
+	public CustomerRequestDef? ActiveCustomerRequest => ShopSession?.ActiveCustomerRequest;
+	public bool IsShopDayOpen => ShopSession?.IsShopDayOpen ?? false;
+	public int ShopDayCustomersArrived => ShopSession?.ShopDayCustomersArrived ?? 0;
+	public int ShopDayCustomersServed => ShopSession?.ShopDayCustomersServed ?? 0;
+	public int ShopDaySuccessfulSales => ShopSession?.ShopDaySuccessfulSales ?? 0;
+	public int ShopDayFailedSales => ShopSession?.ShopDayFailedSales ?? 0;
+	public int ShopDayGoldEarned => ShopSession?.ShopDayGoldEarned ?? 0;
+	public int ShopDayDreadChange => ShopSession?.ShopDayDreadChange ?? 0;
+	public bool CloseShopAfterCurrentCustomer => ShopSession?.CloseShopAfterCurrentCustomer ?? false;
+	public string ActiveCustomerInteractionId => ShopSession?.ActiveCustomerInteractionId ?? string.Empty;
 
 	public event Action? Changed;
 	private ItemCatalogService _itemCatalog = default!;
 	private DataDb? _dataDb;
+	private ShopSessionState? _shopSessionState;
+	private ShopSessionState? ShopSession => _shopSessionState ??= GetNodeOrNull<ShopSessionState>(AutoloadNodePaths.ShopSessionState);
 
 	public GameState()
 	{
@@ -189,7 +191,7 @@ public partial class GameState : Node
 		_queuedBrewIngredients.Clear();
 		_potionBatchStore.Clear();
 		_gardenState.InitializeNewGarden();
-		ResetShopDayState();
+		ShopSession?.ResetSession();
 
 		SeedStartingInventory();
 		SeedStartingIngredientBookKnowledge();
@@ -258,17 +260,7 @@ public partial class GameState : Node
 			GardenPotCount = _gardenState.PotCount,
 			SeedInventory = _gardenState.CloneSeedInventory(),
 			GardenPots = _gardenState.CloneGardenPots(),
-			StoryCustomerVisits = _storyCustomerVisitState.CloneStoryCustomerVisits(),
-			IsShopDayOpen = IsShopDayOpen,
-			ShopDayCustomersArrived = ShopDayCustomersArrived,
-			ShopDayCustomersServed = ShopDayCustomersServed,
-			ShopDaySuccessfulSales = ShopDaySuccessfulSales,
-			ShopDayFailedSales = ShopDayFailedSales,
-			ShopDayGoldEarned = ShopDayGoldEarned,
-			ShopDayDreadChange = ShopDayDreadChange,
-			CloseShopAfterCurrentCustomer = CloseShopAfterCurrentCustomer,
-			ActiveCustomerInteractionId = ActiveCustomerInteractionId,
-			ActiveCustomerRequest = CloneCustomerRequest(ActiveCustomerRequest)
+			StoryCustomerVisits = _storyCustomerVisitState.CloneStoryCustomerVisits()
 		};
 
 		return snapshot;
@@ -324,24 +316,6 @@ public partial class GameState : Node
 
 		_gardenState.Restore(snapshot.GardenInitialized, snapshot.SeedInventory, snapshot.GardenPots, snapshot.GardenPotCount);
 
-		IsShopDayOpen = snapshot.IsShopDayOpen;
-		ShopDayCustomersArrived = Math.Max(0, snapshot.ShopDayCustomersArrived);
-		ShopDayCustomersServed = Math.Max(0, snapshot.ShopDayCustomersServed);
-		ShopDaySuccessfulSales = Math.Max(0, snapshot.ShopDaySuccessfulSales);
-		ShopDayFailedSales = Math.Max(0, snapshot.ShopDayFailedSales);
-		ShopDayGoldEarned = snapshot.ShopDayGoldEarned;
-		ShopDayDreadChange = snapshot.ShopDayDreadChange;
-		CloseShopAfterCurrentCustomer = snapshot.CloseShopAfterCurrentCustomer;
-		ActiveCustomerInteractionId = string.IsNullOrWhiteSpace(snapshot.ActiveCustomerInteractionId)
-			? string.Empty
-			: snapshot.ActiveCustomerInteractionId.Trim();
-		ActiveCustomerRequest = CloneCustomerRequest(snapshot.ActiveCustomerRequest);
-		if (string.IsNullOrWhiteSpace(ActiveCustomerInteractionId) && ActiveCustomerRequest is not null)
-			ActiveCustomerInteractionId = ActiveCustomerRequest.Id.Trim();
-		if (!IsShopDayOpen && !string.IsNullOrWhiteSpace(ActiveCustomerInteractionId))
-			IsShopDayOpen = true;
-		if (IsShopDayOpen && ShopDayCustomersArrived == 0 && !string.IsNullOrWhiteSpace(ActiveCustomerInteractionId))
-			ShopDayCustomersArrived = 1;
 		BackfillKnownIngredients();
 		EmitChanged();
 	}
@@ -1018,103 +992,54 @@ public partial class GameState : Node
 
 	public void BeginShopDayState()
 	{
-		IsShopDayOpen = true;
-		ShopDayCustomersArrived = 0;
-		ShopDayCustomersServed = 0;
-		ShopDaySuccessfulSales = 0;
-		ShopDayFailedSales = 0;
-		ShopDayGoldEarned = 0;
-		ShopDayDreadChange = 0;
-		CloseShopAfterCurrentCustomer = false;
-		ActiveCustomerInteractionId = string.Empty;
-		ActiveCustomerRequest = null;
-		EmitChanged();
+		ShopSession?.BeginShopDayState();
 	}
 
 	public void CloseShopDayState()
 	{
-		if (!IsShopDayOpen &&
-			ShopDayCustomersArrived == 0 &&
-			string.IsNullOrWhiteSpace(ActiveCustomerInteractionId) &&
-			ActiveCustomerRequest is null)
-		{
-			return;
-		}
-
-		ResetShopDayState();
-		EmitChanged();
+		ShopSession?.CloseShopDayState();
 	}
 
 	public void RecordShopDayCustomerArrived(CustomerInteractionDef interaction)
 	{
-		if (interaction is null || string.IsNullOrWhiteSpace(interaction.Id))
-		{
-			GD.PushError("GameState: Cannot record an active shop customer without an interaction id.");
-			return;
-		}
-
-		ActiveCustomerInteractionId = interaction.Id.Trim();
-		ShopDayCustomersArrived += 1;
-		EmitChanged();
+		ShopSession?.RecordShopDayCustomerArrived(interaction);
 	}
 
 	public void ClearActiveShopCustomer()
 	{
-		if (string.IsNullOrWhiteSpace(ActiveCustomerInteractionId))
-			return;
-
-		ActiveCustomerInteractionId = string.Empty;
-		EmitChanged();
+		ShopSession?.ClearActiveShopCustomer();
 	}
 
 	public void RecordShopDaySale(bool success, int goldDelta, int dreadDelta)
 	{
-		ShopDayCustomersServed += 1;
-		if (success)
-			ShopDaySuccessfulSales += 1;
-		else
-			ShopDayFailedSales += 1;
-
-		ShopDayGoldEarned += goldDelta;
-		ShopDayDreadChange += dreadDelta;
-		UnlockGardenIfReady();
-		EmitChanged();
+		ShopSession?.RecordShopDaySale(success, goldDelta, dreadDelta);
+		TryUnlockGardenAfterShopSales(ShopDayCustomersServed);
 	}
 
 	public void RequestCloseShopAfterCurrentCustomer()
 	{
-		if (CloseShopAfterCurrentCustomer)
-			return;
-
-		CloseShopAfterCurrentCustomer = true;
-		EmitChanged();
+		ShopSession?.RequestCloseShopAfterCurrentCustomer();
 	}
 
 	public void SetActiveCustomerRequest(CustomerRequestDef? request)
 	{
-		ActiveCustomerRequest = request;
-		EnsureActiveShopCustomerForRequest(request);
-		EmitChanged();
+		ShopSession?.SetActiveCustomerRequest(request);
 	}
 
 	public void ClearActiveCustomerRequest()
 	{
-		if (ActiveCustomerRequest is null)
+		ShopSession?.ClearActiveCustomerRequest();
+	}
+
+	public void TryUnlockGardenAfterShopSales(int shopDayCustomersServed)
+	{
+		if (Day != 2 || shopDayCustomersServed < 3)
 			return;
 
-		ActiveCustomerRequest = null;
-		EmitChanged();
+		AddStoryFlag(GardenUnlockedStoryFlag);
 	}
 
 	private void EmitChanged() => Changed?.Invoke();
-
-	private void UnlockGardenIfReady()
-	{
-		if (Day != 2 || ShopDayCustomersServed < 3)
-			return;
-
-		StoryFlags.Add(GardenUnlockedStoryFlag);
-	}
 
 	private void SeedStartingInventory()
 	{
@@ -1479,56 +1404,6 @@ public partial class GameState : Node
 	private static void PushGameStateError(string message)
 	{
 		GD.PushError(message);
-	}
-
-	private void ResetShopDayState()
-	{
-		IsShopDayOpen = false;
-		ShopDayCustomersArrived = 0;
-		ShopDayCustomersServed = 0;
-		ShopDaySuccessfulSales = 0;
-		ShopDayFailedSales = 0;
-		ShopDayGoldEarned = 0;
-		ShopDayDreadChange = 0;
-		CloseShopAfterCurrentCustomer = false;
-		ActiveCustomerInteractionId = string.Empty;
-		ActiveCustomerRequest = null;
-	}
-
-	private void EnsureActiveShopCustomerForRequest(CustomerRequestDef? request)
-	{
-		if (request is null || string.IsNullOrWhiteSpace(request.Id))
-			return;
-
-		var requestId = request.Id.Trim();
-		IsShopDayOpen = true;
-		if (ShopDayCustomersArrived == 0)
-			ShopDayCustomersArrived = 1;
-
-		if (!string.Equals(ActiveCustomerInteractionId, requestId, StringComparison.OrdinalIgnoreCase))
-			ActiveCustomerInteractionId = requestId;
-	}
-
-	private static CustomerRequestDef? CloneCustomerRequest(CustomerRequestDef? request)
-	{
-		if (request is null)
-			return null;
-
-		return new CustomerRequestDef
-		{
-			Id = request.Id,
-			Description = request.Description,
-			HideRequestDetails = request.HideRequestDetails,
-			DesiredTraits = CustomerTraitRangeDef.CloneDictionary(request.DesiredTraits),
-			BadTraits = CustomerTraitRangeDef.CloneDictionary(request.BadTraits),
-			RequiredPotionItemId = request.RequiredPotionItemId,
-			RequiredPotionDisplayName = request.RequiredPotionDisplayName,
-			RequiredMinTraits = request.RequiredMinTraits is null ? new Dictionary<string, int>() : new Dictionary<string, int>(request.RequiredMinTraits),
-			RequiredMaxTraits = request.RequiredMaxTraits is null ? new Dictionary<string, int>() : new Dictionary<string, int>(request.RequiredMaxTraits),
-			RequiredIngredientAmounts = request.RequiredIngredientAmounts is null
-				? new List<IngredientPortionDef>()
-				: request.RequiredIngredientAmounts.Select(x => x.Clone()).ToList()
-		};
 	}
 
 }

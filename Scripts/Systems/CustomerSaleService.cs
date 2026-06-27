@@ -27,6 +27,22 @@ public sealed class CustomerSaleService
 		_itemCatalog = itemCatalog;
 	}
 
+	public CustomerSaleResolutionResult ResolveSale(
+		CustomerInteractionDef interaction,
+		string itemId,
+		PotionResult brewResult)
+	{
+		var outcomeText = BuildOutcomeText(interaction, itemId, brewResult);
+		var saleResult = ApplySale(interaction, itemId, brewResult);
+		return new CustomerSaleResolutionResult(outcomeText, saleResult);
+	}
+
+	public string ResolveRefusal(CustomerInteractionDef interaction)
+	{
+		ApplyRefusal(interaction);
+		return BuildRefusalText(interaction);
+	}
+
 	public bool TryEvaluatePotion(
 		CustomerInteractionDef interaction,
 		string itemId,
@@ -283,6 +299,10 @@ public sealed class CustomerSaleService
 		return "The customer is disappointed";
 	}
 }
+
+public readonly record struct CustomerSaleResolutionResult(
+	string OutcomeText,
+	CustomerSaleApplicationResult SaleResult);
 
 public readonly record struct CustomerSaleApplicationResult(
 	bool IsSuccess,

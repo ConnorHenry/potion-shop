@@ -20,7 +20,7 @@ internal static class TutorialTests
         runner.Run("Tutorial overlay scene wiring stays intact", TestTutorialOverlaySceneWiring);
         runner.Run("Tutorial architecture extraction stays intact", TestTutorialArchitectureExtraction);
         runner.Run("Tutorial Mother post-serve dialogue replaces next customer", TestTutorialMotherPostServeDialogueReplacesNextCustomer);
-        runner.Run("Tutorial raw prep button stays enabled", TestTutorialRawPrepButtonStaysEnabled);
+        runner.Run("Tutorial raw prep and HUD Garden buttons stay enabled", TestTutorialAlwaysEnabledButtonsStayEnabled);
         runner.Run("Tutorial overlay keeps one dimming strategy", TestTutorialOverlayUsesDynamicCutoutsOnly);
     }
 
@@ -121,6 +121,7 @@ internal static class TutorialTests
         var preparationTray = ReadProjectFile("Scripts/UI/IngredientPreparationTray.cs");
         var stationCustomerPanel = ReadProjectFile("Scripts/UI/StationCustomerPanel.cs");
         var dayControllerSource = ReadProjectFile("Scripts/Controllers/DayController.cs");
+        var shopSessionState = ReadProjectFile("Scripts/Autoload/ShopSessionState.cs");
 
         AssertTrue("TutorialController uses extracted state machine", controller.Contains("private TutorialStateMachine _stateMachine"));
         AssertTrue("TutorialController uses extracted overlay presenter", controller.Contains("private TutorialOverlayPresenter _overlayPresenter"));
@@ -170,7 +171,8 @@ internal static class TutorialTests
             dayControllerSource.Contains("CloseShopDayForStoryCutscene()") &&
             dayControllerSource.Contains("ChangeSceneWithFade(ScenePaths.TenYearsLaterCutscene)"));
         AssertTrue("TutorialController advances if the tutorial customer is already active after the intro",
-            controller.Contains("_gameState.ActiveCustomerRequest?.Id ?? string.Empty") &&
+            controller.Contains("_shopSessionState.ActiveCustomerRequest?.Id ?? string.Empty") &&
+            shopSessionState.Contains("public CustomerRequestDef? ActiveCustomerRequest") &&
             controller.Contains("EvaluateCustomerInteractionShown("));
         AssertTrue("TutorialController highlights status step with a combined HUD rect", controller.Contains("ShowForHighlightRect(stepContent, statusHighlightRect)"));
         AssertTrue("TutorialController builds a combined status highlight rectangle", controller.Contains("TryGetStatusHighlightRect(out var statusHighlightRect)"));
@@ -209,7 +211,7 @@ internal static class TutorialTests
         AssertTrue("DayController can close the shop for the story cutscene without a summary",
             dayControllerSource.Contains("public void CloseShopDayForStoryCutscene()") &&
             dayControllerSource.Contains("_daySummaryPanel.HidePanel();") &&
-            dayControllerSource.Contains("_gameState.CloseShopDayState();"));
+            dayControllerSource.Contains("_shopSessionState.CloseShopDayState();"));
         AssertTrue("TutorialContentResource exists", tutorialContent.Contains("public partial class TutorialContentResource : Resource"));
         AssertTrue("TutorialContentResource uses the opening Mother customer and Minor Healing Potion copy",
             tutorialContent.Contains("TutorialCustomerId { get; set; } = \"customer_requests_opening_gravekeepers_balm\"") &&
@@ -252,6 +254,7 @@ internal static class TutorialTests
         var stepIds = ReadProjectFile("Scripts/Tutorial/TutorialStepId.cs");
         var tutorialContent = ReadProjectFile("Scripts/Tutorial/TutorialContentResource.cs");
         var stationCustomerPanel = ReadProjectFile("Scripts/UI/StationCustomerPanel.cs");
+        var motherPostServeDialogueFlow = ReadProjectFile("Scripts/Systems/MotherPostServeDialogueFlow.cs");
         var dayController = ReadProjectFile("Scripts/Controllers/DayController.cs");
         var scenePaths = ReadProjectFile("Scripts/Infrastructure/ScenePaths.cs");
         var cutscene = ReadProjectFile("Scripts/UI/TenYearsLaterCutscene.cs");
@@ -279,13 +282,15 @@ internal static class TutorialTests
             !controller.Contains("ForceNextCustomerInteraction(_tutorialContent.AmbiguousTutorialCustomerId)") &&
             !stateMachine.Contains("IsCustomerInteractionMatch(interactionId, _ambiguousCustomerId)") &&
             !stateMachine.Contains("IsCustomerInteractionMatch(activeCustomerRequestId ?? string.Empty, _ambiguousCustomerId)"));
-        AssertTrue("Station customer panel owns the requested Mother post-serve dialogue copy",
+        AssertTrue("Mother post-serve dialogue flow owns the requested dialogue copy",
             stationCustomerPanel.Contains("MotherPostServeDialogueResolvedEventHandler") &&
-            stationCustomerPanel.Contains("Thank you so much {GetPlayerNameForMotherDialogue()}.") &&
-            stationCustomerPanel.Contains("Are you going to tell me what's wrong?") &&
-            stationCustomerPanel.Contains("It's okay Ma. Here you need to get back to bed and rest.") &&
-            stationCustomerPanel.Contains("I told you not to worry about it. Everything is fine") &&
-            stationCustomerPanel.Contains("Thank you dear."));
+            stationCustomerPanel.Contains("MotherPostServeDialogueFlow.BuildThankYouText(_gameState.PlayerName)") &&
+            stationCustomerPanel.Contains("MotherPostServeDialogueFlow.BuildOptions()") &&
+            motherPostServeDialogueFlow.Contains("Thank you so much {normalizedPlayerName}.") &&
+            motherPostServeDialogueFlow.Contains("Are you going to tell me what's wrong?") &&
+            motherPostServeDialogueFlow.Contains("It's okay Ma. Here you need to get back to bed and rest.") &&
+            motherPostServeDialogueFlow.Contains("I told you not to worry about it. Everything is fine") &&
+            motherPostServeDialogueFlow.Contains("Thank you dear."));
         AssertTrue("Station customer panel delays resolving Mother until the post-serve dialogue finishes",
             stationCustomerPanel.Contains("TryBeginMotherPostServeDialogue(interaction, saleResult.IsSuccess)") &&
             stationCustomerPanel.Contains("FinishMotherPostServeDialogue") &&
@@ -293,8 +298,8 @@ internal static class TutorialTests
             stationCustomerPanel.Contains("BeginResolveActiveCustomer();"));
         AssertTrue("DayController closes the shop after opening Mother so no next customer enters",
             dayController.Contains("_stationCustomerPanel.PotionSold += OnStationPotionSold;") &&
-            dayController.Contains("OpeningMotherInteractionId = \"customer_requests_opening_gravekeepers_balm\"") &&
-            dayController.Contains("_gameState.ActiveCustomerInteractionId") &&
+            dayController.Contains("MotherPostServeDialogueFlow.OpeningMotherInteractionId") &&
+            dayController.Contains("_shopSessionState.ActiveCustomerInteractionId") &&
             dayController.Contains("RequestCloseShopAfterCurrentCustomer();") &&
             dayController.Contains("CloseShopDayForStoryCutscene()"));
         AssertTrue("Ten years later cutscene owns the requested bridge into juniper picking",
@@ -319,7 +324,7 @@ internal static class TutorialTests
             womanInGreenCutscene.Contains("ChangeSceneWithFade(ScenePaths.Main)"));
     }
 
-    private static void TestTutorialRawPrepButtonStaysEnabled()
+    private static void TestTutorialAlwaysEnabledButtonsStayEnabled()
     {
         var controller = ReadProjectFile("Scripts/Controllers/TutorialController.cs");
         var preparationTray = ReadProjectFile("Scripts/UI/IngredientPreparationTray.cs").Replace("\r\n", "\n");
@@ -340,10 +345,13 @@ internal static class TutorialTests
         AssertTrue("IngredientPreparationTray never disables the Raw preparation button",
             preparationTray.Contains("IngredientPreparationCatalog.RawPreparationId") &&
             preparationTray.Contains("button.Disabled = isRawPreparation ? false : !hasSelection || !preparationEnabled;"));
-        AssertTrue("TutorialController keeps Raw enabled through tutorial button locks",
-            controller.Contains("BuildAllowedButtonsWithRawPreparation(allowedButtons)") &&
-            controller.Contains("KeepRawPreparationButtonEnabled();") &&
-            controller.Contains("rawButton.Disabled = false;"));
+        AssertTrue("TutorialController keeps Raw and HUD Garden enabled through tutorial button locks",
+            controller.Contains("HudGardenButtonPath = new(\"Content/Actions/Garden\")") &&
+            controller.Contains("_gardenButton = GetOptionalHudButton(HudGardenButtonPath") &&
+            controller.Contains("BuildAllowedButtonsWithAlwaysEnabledButtons(allowedButtons)") &&
+            controller.Contains("KeepAlwaysEnabledButtonsEnabled();") &&
+            controller.Contains("rawButton.Disabled = false;") &&
+            controller.Contains("_gardenButton.Disabled = false;"));
     }
 
     private static void TestTutorialOverlayUsesDynamicCutoutsOnly()

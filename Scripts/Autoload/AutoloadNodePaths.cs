@@ -9,4 +9,5 @@ public static class AutoloadNodePaths
 	public const string RuntimeContentDb = "/root/RuntimeContentDb";
 	public const string SceneTransition = "/root/SceneTransition";
 	public const string SaveGameManager = "/root/SaveGameManager";
+	public const string ShopSessionState = "/root/ShopSessionState";
 }
