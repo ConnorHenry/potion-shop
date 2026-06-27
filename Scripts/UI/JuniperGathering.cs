@@ -45,6 +45,7 @@ public partial class JuniperGathering : Control
 	[Export] public NodePath GameStatePath = new(AutoloadNodePaths.GameState);
 	[Export] public NodePath ItemCatalogPath = new(AutoloadNodePaths.ItemCatalog);
 	[Export] public NodePath SaveGameManagerPath = new(AutoloadNodePaths.SaveGameManager);
+	[Export] public NodePath SceneTransitionPath = new(AutoloadNodePaths.SceneTransition);
 	[Export] public string TargetItemId = "juniper";
 	[Export] public string RipeBerryTexturePath = "res://Assets/Gathering/Juniper/juniper_berry_ripe.png";
 	[Export] public string WrongBerryRedTexturePath = "res://Assets/Gathering/Juniper/juniper_berry_wrong_red.png";
@@ -72,6 +73,7 @@ public partial class JuniperGathering : Control
 	private GameState _gameState = default!;
 	private ItemCatalogService _itemCatalog = default!;
 	private SaveGameManager _saveGameManager = default!;
+	private SceneTransition _sceneTransition = default!;
 	private Vector2 _basketDragOffset;
 	private Vector2 _lastShakeGlobalPosition;
 	private Vector2 _bushBasePosition;
@@ -212,9 +214,17 @@ public partial class JuniperGathering : Control
 			return false;
 		}
 
+		var sceneTransition = GetNodeOrNull<SceneTransition>(SceneTransitionPath);
+		if (sceneTransition is null)
+		{
+			GD.PushError($"JuniperGathering: SceneTransition was not found at '{SceneTransitionPath}'.");
+			return false;
+		}
+
 		_gameState = gameState;
 		_itemCatalog = itemCatalog;
 		_saveGameManager = saveGameManager;
+		_sceneTransition = sceneTransition;
 		return true;
 	}
 
@@ -597,9 +607,22 @@ public partial class JuniperGathering : Control
 	{
 		CommitGatheredRewards();
 		TryAutoSave("returning from the juniper gathering scene");
+		if (ShouldShowWomanInGreenCutscene())
+		{
+			_sceneTransition.ChangeSceneWithFade(ScenePaths.WomanInGreenCutscene);
+			return;
+		}
+
 		Error error = GetTree().ChangeSceneToFile(ScenePaths.Main);
 		if (error != Error.Ok)
 			GD.PushError($"JuniperGathering: Failed to load main scene. Error: {error}");
+	}
+
+	private bool ShouldShowWomanInGreenCutscene()
+	{
+		return _gameState.HasStoryFlag(GameState.TenYearsLaterCutsceneCompletedStoryFlag) &&
+			!_gameState.HasStoryFlag(GameState.WomanInGreenCutsceneStartedStoryFlag) &&
+			!_gameState.HasStoryFlag(GameState.WomanInGreenCutsceneCompletedStoryFlag);
 	}
 
 	private void CommitGatheredRewards()

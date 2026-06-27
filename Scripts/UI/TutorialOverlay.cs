@@ -7,6 +7,10 @@ namespace OccultShop.UI;
 public partial class TutorialOverlay : Control
 {
 	private static readonly Vector2 HighlightPadding = new(8.0f, 8.0f);
+	private static readonly Color ArrowColor = new(0.94f, 0.79f, 0.31f, 0.96f);
+	private const float ArrowLineWidth = 4.0f;
+	private const float ArrowHeadLength = 18.0f;
+	private const float ArrowHeadHalfWidth = 9.0f;
 
 	[Signal]
 	public delegate void NextPressedEventHandler();
@@ -32,6 +36,7 @@ public partial class TutorialOverlay : Control
 	private Button _skipButton = default!;
 	private readonly List<ColorRect> _dynamicDimRects = new();
 	private readonly List<Control> _highlightControls = new();
+	private readonly List<Node> _arrowNodes = new();
 
 	public override void _Ready()
 	{
@@ -128,6 +133,32 @@ public partial class TutorialOverlay : Control
 		ShowWithHighlights(title, body, globalRects);
 	}
 
+	public void ShowForTargetsWithArrow(string title, string body, Control? fromControl, Control? toControl, params Control?[] targetControls)
+	{
+		if (fromControl is null || toControl is null)
+		{
+			ShowForTargets(title, body, targetControls);
+			return;
+		}
+
+		var globalRects = new List<Rect2>
+		{
+			fromControl.GetGlobalRect(),
+			toControl.GetGlobalRect()
+		};
+		foreach (var targetControl in targetControls)
+		{
+			if (targetControl is null)
+				continue;
+
+			globalRects.Add(targetControl.GetGlobalRect());
+		}
+
+		SetHighlightRects(globalRects);
+		SetArrow(fromControl.GetGlobalRect(), toControl.GetGlobalRect());
+		ShowPanel(title, body);
+	}
+
 	public void ShowWithHighlight(string title, string body, Rect2 globalRect)
 	{
 		SetHighlightRects(new List<Rect2> { globalRect });
@@ -203,6 +234,7 @@ public partial class TutorialOverlay : Control
 
 	private void SetHighlightRects(IReadOnlyList<Rect2> globalRects)
 	{
+		ClearArrows();
 		_dim.Visible = false;
 
 		var highlightRects = new List<Rect2>();
@@ -245,10 +277,72 @@ public partial class TutorialOverlay : Control
 		if (_highlight is null)
 			return;
 
+		ClearArrows();
 		_dim.Visible = true;
 		HideDynamicDimRects();
 		foreach (var highlightControl in _highlightControls)
 			HideHighlightControl(highlightControl);
+	}
+
+	private void SetArrow(Rect2 fromGlobalRect, Rect2 toGlobalRect)
+	{
+		ClearArrows();
+
+		var start = ToOverlayLocal(GetRectCenter(fromGlobalRect));
+		var end = ToOverlayLocal(GetRectCenter(toGlobalRect));
+		var vector = end - start;
+		if (vector.Length() < 1.0f)
+			return;
+
+		var direction = vector.Normalized();
+		var lineEnd = end - direction * (ArrowHeadLength * 0.55f);
+		var line = new Line2D
+		{
+			Width = ArrowLineWidth,
+			DefaultColor = ArrowColor,
+			Points = new[] { start, lineEnd },
+			ZIndex = 1
+		};
+
+		var arrowHead = new Polygon2D
+		{
+			Color = ArrowColor,
+			Position = end,
+			Rotation = direction.Angle(),
+			Polygon = new[]
+			{
+				Vector2.Zero,
+				new Vector2(-ArrowHeadLength, -ArrowHeadHalfWidth),
+				new Vector2(-ArrowHeadLength, ArrowHeadHalfWidth)
+			},
+			ZIndex = 1
+		};
+
+		AddChild(line);
+		AddChild(arrowHead);
+		_arrowNodes.Add(line);
+		_arrowNodes.Add(arrowHead);
+	}
+
+	private void ClearArrows()
+	{
+		foreach (var arrowNode in _arrowNodes)
+		{
+			if (GodotObject.IsInstanceValid(arrowNode))
+				arrowNode.QueueFree();
+		}
+
+		_arrowNodes.Clear();
+	}
+
+	private Vector2 ToOverlayLocal(Vector2 globalPoint)
+	{
+		return GetGlobalTransformWithCanvas().AffineInverse() * globalPoint;
+	}
+
+	private static Vector2 GetRectCenter(Rect2 rect)
+	{
+		return rect.Position + rect.Size * 0.5f;
 	}
 
 	private static void HideHighlightControl(Control highlightControl)

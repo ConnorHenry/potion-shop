@@ -7,28 +7,26 @@ script = ExtResource("1")
 Entries = [
   {
     "id": "customer_requests_opening_gravekeepers_balm",
-    "title": "First Customer",
-    "text": "A customer asks for a simple balanced balm: Cleanse +4, Mend +4, and Soothe +4.",
+    "title": "Mother",
+    "text": "Mother asks you to brew a Minor Healing potion.",
     "lines": [
       {
-        "speaker": "Customer",
-        "text": "'I need something clean, mending, and gentle. Cleanse +4, Mend +4, and Soothe +4, if you can.'"
+        "speaker": "Mother",
+        "text": "I'm feeling a bit frail today and can't reach the ingredients on top of the shelf. Could you reach for them and brew me a Minor Healing potion please?"
       }
     ],
-    "characterImagePath": "res://art/placeholder_head_outline.svg",
+    "characterImagePath": "res://Assets/Characters/mother_placeholder.svg",
     "pool": "plot",
     "difficulty": 1,
-    "storyCharacterId": "opening_customer",
+    "storyCharacterId": "mother",
     "visitId": "visit_1",
     "requires": {
       "dayMin": 1
     },
     "weight": 1,
-    "desiredTraits": {
-      "cleanse": { "min": 4, "max": 4 },
-      "mend": { "min": 4, "max": 4 },
-      "soothe": { "min": 4, "max": 4 }
-    },
+    "requiredPotionItemId": "potion_gravekeepers_balm",
+    "requiredPotionDisplayName": "Minor Healing Potion",
+    "desiredTraits": {},
     "badTraits": {}
   },
   {
@@ -524,8 +522,8 @@ Entries = [
   },
   {
     "id": "customer_requests_gravekeepers_balm",
-    "title": "Gravekeeper's Balm",
-    "text": "A cemetery keeper arrives with cracked hands and a stained recipe note. They ask for Gravekeeper's Balm, insisting the book says it soothes, mends, and cleanses.",
+    "title": "Minor Healing Potion",
+    "text": "A cemetery keeper arrives with cracked hands and a stained recipe note. They ask for Minor Healing Potion, insisting the book says it soothes, mends, and cleanses.",
     "characterImagePath": "res://Assets/Characters/gravekeepers_balm_customer.svg",
     "pool": "recipe",
     "difficulty": 3,

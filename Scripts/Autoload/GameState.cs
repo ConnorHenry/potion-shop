@@ -21,6 +21,11 @@ public partial class GameState : Node
 	public const string DayTwoFirstCustomerPendingStoryFlag = "day_two_first_customer_pending";
 	public const string DayTwoSecondCustomerPendingStoryFlag = "day_two_second_customer_pending";
 	public const string DayTwoThirdCustomerPendingStoryFlag = "day_two_third_customer_pending";
+	public const string IntroCutsceneCompletedStoryFlag = "intro_cutscene_completed";
+	public const string TenYearsLaterCutsceneStartedStoryFlag = "ten_years_later_cutscene_started";
+	public const string TenYearsLaterCutsceneCompletedStoryFlag = "ten_years_later_cutscene_completed";
+	public const string WomanInGreenCutsceneStartedStoryFlag = "woman_in_green_cutscene_started";
+	public const string WomanInGreenCutsceneCompletedStoryFlag = "woman_in_green_cutscene_completed";
 	public const string GardenUnlockedStoryFlag = "garden_unlocked";
 	// Legacy flag retained so old pre-shop saves route to the current opening request.
 	public const string BridgetWelcomePendingStoryFlag = "bridget_welcome_pending";
@@ -30,6 +35,10 @@ public partial class GameState : Node
 	public const int MaxPotionStackQuantity = 10;
 	public const int MaxUniqueConsumableInventoryQuantity = 4;
 	public const int MaxConsumableStackQuantity = 10;
+	public const int MinStoryScore = 0;
+	public const int MaxStoryScore = 100;
+	public const int StartingOverallReputation = 50;
+	public const int DefaultRelationshipScore = 50;
 
 	[Export] public NodePath DataDbPath { get; set; } = new(AutoloadNodePaths.DataDb);
 	[Export] public NodePath ItemCatalogPath { get; set; } = new(AutoloadNodePaths.ItemCatalog);
@@ -37,6 +46,8 @@ public partial class GameState : Node
 	public int Day { get; private set; } = 1;
 	public int Gold { get; private set; } = 50000;
 	public int Dread { get; private set; } = 0;
+	public int OverallReputation { get; private set; } = StartingOverallReputation;
+	public string PlayerName { get; private set; } = "";
 	public TutorialStatus TutorialProgressStatus => _tutorialProgressState.Status;
 	public bool TutorialRequested => _tutorialProgressState.Requested;
 	public bool TutorialCompleted => _tutorialProgressState.Completed;
@@ -51,6 +62,8 @@ public partial class GameState : Node
 	public Dictionary<string, int> Inventory { get; } = new();
 	public HashSet<string> ActiveRules { get; } = new();
 	public HashSet<string> StoryFlags { get; } = new(StringComparer.OrdinalIgnoreCase);
+	public Dictionary<string, int> RelationshipScores { get; } = new(StringComparer.OrdinalIgnoreCase);
+	public Dictionary<string, QuestStatus> QuestStates { get; } = new(StringComparer.OrdinalIgnoreCase);
 	public IReadOnlyDictionary<string, StoryCustomerVisitRecord> StoryCustomerVisits => _storyCustomerVisitState.Visits;
 	public HashSet<string> KnownPotions { get; } = new();
 	public List<string> KnownPotionOrder { get; } = new();
@@ -153,9 +166,11 @@ public partial class GameState : Node
 
 	public void ResetForNewGame()
 	{
+		PlayerName = "";
 		Day = 1;
 		Gold = 50000;
 		Dread = 0;
+		OverallReputation = StartingOverallReputation;
 		_tutorialProgressState.Reset();
 		_inventoryState.Clear();
 		ActiveRules.Clear();
@@ -167,6 +182,8 @@ public partial class GameState : Node
 		StoryFlags.Add(DayTwoFirstCustomerPendingStoryFlag);
 		StoryFlags.Add(DayTwoSecondCustomerPendingStoryFlag);
 		StoryFlags.Add(DayTwoThirdCustomerPendingStoryFlag);
+		RelationshipScores.Clear();
+		QuestStates.Clear();
 		_storyCustomerVisitState.Clear();
 		_potionKnowledgeState.Clear();
 		_queuedBrewIngredients.Clear();
@@ -206,9 +223,11 @@ public partial class GameState : Node
 	{
 		var snapshot = new GameStateSnapshot
 		{
+			PlayerName = PlayerName,
 			Day = Day,
 			Gold = Gold,
 			Dread = Dread,
+			OverallReputation = OverallReputation,
 			TutorialStatus = TutorialProgressStatus,
 			TutorialStepIndex = TutorialStep,
 			TutorialRequested = TutorialRequested,
@@ -221,6 +240,8 @@ public partial class GameState : Node
 			QueuedBrewIngredients = CloneIngredientPortions(_queuedBrewIngredients),
 			ActiveRules = ActiveRules.ToList(),
 			StoryFlags = StoryFlags.ToList(),
+			RelationshipScores = CloneRelationshipScores(),
+			QuestStates = CloneQuestStates(),
 			KnownPotions = _potionKnowledgeState.BuildKnownPotionSnapshot(),
 			KnownPotionOrder = _potionKnowledgeState.CloneKnownPotionOrder(),
 			KnownIngredients = _potionKnowledgeState.BuildKnownIngredientSnapshot(),
@@ -261,9 +282,11 @@ public partial class GameState : Node
 			return;
 		}
 
+		SetPlayerName(snapshot.PlayerName, emitChanged: false);
 		Day = Math.Max(1, snapshot.Day);
 		Gold = Math.Max(0, snapshot.Gold);
 		Dread = Math.Clamp(snapshot.Dread, 0, 100);
+		OverallReputation = ClampStoryScore(snapshot.OverallReputation);
 		_tutorialProgressState.ApplySnapshot(snapshot);
 
 		_inventoryState.Restore(snapshot.Inventory, snapshot.PendingConsumableItemId, snapshot.PendingConsumableQuantity);
@@ -291,6 +314,8 @@ public partial class GameState : Node
 			}
 		}
 
+		RestoreRelationshipScores(snapshot.RelationshipScores);
+		RestoreQuestStates(snapshot.QuestStates);
 		_storyCustomerVisitState.Restore(snapshot.StoryCustomerVisits, StoryCustomerOutcomeArrived);
 
 		_potionKnowledgeState.Restore(snapshot);
@@ -346,6 +371,124 @@ public partial class GameState : Node
 		EmitChanged();
 	}
 
+	public void AddReputation(int amount)
+	{
+		SetOverallReputation(OverallReputation + amount);
+	}
+
+	public void SetOverallReputation(int value)
+	{
+		var clampedValue = ClampStoryScore(value);
+		if (OverallReputation == clampedValue)
+			return;
+
+		OverallReputation = clampedValue;
+		EmitChanged();
+	}
+
+	public void SetPlayerName(string playerName)
+	{
+		SetPlayerName(playerName, emitChanged: true);
+	}
+
+	private void SetPlayerName(string? playerName, bool emitChanged)
+	{
+		var normalizedName = string.IsNullOrWhiteSpace(playerName)
+			? string.Empty
+			: playerName.Trim();
+		if (PlayerName == normalizedName)
+			return;
+
+		PlayerName = normalizedName;
+		if (emitChanged)
+			EmitChanged();
+	}
+
+	public int GetRelationshipScore(string storyCharacterId)
+	{
+		var normalizedCharacterId = NormalizeStoryStateId(storyCharacterId);
+		if (string.IsNullOrWhiteSpace(normalizedCharacterId))
+			return MinStoryScore;
+
+		return RelationshipScores.TryGetValue(normalizedCharacterId, out var score)
+			? ClampStoryScore(score)
+			: DefaultRelationshipScore;
+	}
+
+	public void AddRelationship(string storyCharacterId, int amount)
+	{
+		SetRelationshipScore(storyCharacterId, GetRelationshipScore(storyCharacterId) + amount);
+	}
+
+	public void SetRelationshipScore(string storyCharacterId, int value)
+	{
+		var normalizedCharacterId = NormalizeStoryStateId(storyCharacterId);
+		if (string.IsNullOrWhiteSpace(normalizedCharacterId))
+			return;
+
+		var clampedValue = ClampStoryScore(value);
+		if (RelationshipScores.TryGetValue(normalizedCharacterId, out var existingScore) &&
+			ClampStoryScore(existingScore) == clampedValue)
+		{
+			return;
+		}
+
+		RelationshipScores[normalizedCharacterId] = clampedValue;
+		EmitChanged();
+	}
+
+	public QuestStatus GetQuestStatus(string questId)
+	{
+		var normalizedQuestId = NormalizeStoryStateId(questId);
+		if (string.IsNullOrWhiteSpace(normalizedQuestId))
+			return QuestStatus.NotStarted;
+
+		return QuestStates.TryGetValue(normalizedQuestId, out var status)
+			? status
+			: QuestStatus.NotStarted;
+	}
+
+	public bool IsQuestStatus(string questId, string? statusId)
+	{
+		return TryParseQuestStatus(statusId, out var status) &&
+			GetQuestStatus(questId) == status;
+	}
+
+	public void SetQuestStatus(string questId, string? statusId)
+	{
+		if (!TryParseQuestStatus(statusId, out var status))
+			return;
+
+		SetQuestStatus(questId, status);
+	}
+
+	public void SetQuestStatus(string questId, QuestStatus status)
+	{
+		var normalizedQuestId = NormalizeStoryStateId(questId);
+		if (string.IsNullOrWhiteSpace(normalizedQuestId))
+			return;
+
+		if (status == QuestStatus.NotStarted)
+		{
+			if (QuestStates.Remove(normalizedQuestId))
+				EmitChanged();
+			return;
+		}
+
+		if (QuestStates.TryGetValue(normalizedQuestId, out var existingStatus) && existingStatus == status)
+			return;
+
+		QuestStates[normalizedQuestId] = status;
+		EmitChanged();
+	}
+
+	public static bool TryParseQuestStatus(string? statusId, out QuestStatus status)
+	{
+		status = QuestStatus.NotStarted;
+		return !string.IsNullOrWhiteSpace(statusId) &&
+			Enum.TryParse(statusId.Trim(), ignoreCase: true, out status);
+	}
+
 	public void AddRule(string ruleId)
 	{
 		if (string.IsNullOrWhiteSpace(ruleId)) return;
@@ -374,6 +517,31 @@ public partial class GameState : Node
 
 		if (StoryFlags.Remove(storyFlag))
 			EmitChanged();
+	}
+
+	public void RecordIntroCutsceneCompleted()
+	{
+		AddStoryFlag(IntroCutsceneCompletedStoryFlag);
+	}
+
+	public void RecordTenYearsLaterCutsceneStarted()
+	{
+		AddStoryFlag(TenYearsLaterCutsceneStartedStoryFlag);
+	}
+
+	public void RecordTenYearsLaterCutsceneCompleted()
+	{
+		AddStoryFlag(TenYearsLaterCutsceneCompletedStoryFlag);
+	}
+
+	public void RecordWomanInGreenCutsceneStarted()
+	{
+		AddStoryFlag(WomanInGreenCutsceneStartedStoryFlag);
+	}
+
+	public void RecordWomanInGreenCutsceneCompleted()
+	{
+		AddStoryFlag(WomanInGreenCutsceneCompletedStoryFlag);
 	}
 
 	public bool HasStoryCustomerVisitArrived(CustomerInteractionDef interaction)
@@ -1035,6 +1203,84 @@ public partial class GameState : Node
 		}
 	}
 
+	private Dictionary<string, int> CloneRelationshipScores()
+	{
+		var clone = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+		foreach (var pair in RelationshipScores)
+		{
+			var characterId = NormalizeStoryStateId(pair.Key);
+			if (string.IsNullOrWhiteSpace(characterId))
+				continue;
+
+			clone[characterId] = ClampStoryScore(pair.Value);
+		}
+
+		return clone;
+	}
+
+	private Dictionary<string, string> CloneQuestStates()
+	{
+		var clone = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+		foreach (var pair in QuestStates)
+		{
+			var questId = NormalizeStoryStateId(pair.Key);
+			if (string.IsNullOrWhiteSpace(questId))
+				continue;
+			if (pair.Value == QuestStatus.NotStarted)
+				continue;
+
+			clone[questId] = pair.Value.ToString();
+		}
+
+		return clone;
+	}
+
+	private void RestoreRelationshipScores(IReadOnlyDictionary<string, int>? relationshipScores)
+	{
+		RelationshipScores.Clear();
+		if (relationshipScores is null)
+			return;
+
+		foreach (var pair in relationshipScores)
+		{
+			var characterId = NormalizeStoryStateId(pair.Key);
+			if (string.IsNullOrWhiteSpace(characterId))
+				continue;
+
+			RelationshipScores[characterId] = ClampStoryScore(pair.Value);
+		}
+	}
+
+	private void RestoreQuestStates(IReadOnlyDictionary<string, string>? questStates)
+	{
+		QuestStates.Clear();
+		if (questStates is null)
+			return;
+
+		foreach (var pair in questStates)
+		{
+			var questId = NormalizeStoryStateId(pair.Key);
+			if (string.IsNullOrWhiteSpace(questId))
+				continue;
+			if (!TryParseQuestStatus(pair.Value, out var status))
+				continue;
+			if (status == QuestStatus.NotStarted)
+				continue;
+
+			QuestStates[questId] = status;
+		}
+	}
+
+	private static int ClampStoryScore(int value)
+	{
+		return Math.Clamp(value, MinStoryScore, MaxStoryScore);
+	}
+
+	private static string NormalizeStoryStateId(string? id)
+	{
+		return string.IsNullOrWhiteSpace(id) ? string.Empty : id.Trim();
+	}
+
 	private void RestoreQueuedBrewIngredients(IReadOnlyList<IngredientPortionDef>? ingredientPortions)
 	{
 		_queuedBrewIngredients.Clear();
@@ -1275,6 +1521,8 @@ public partial class GameState : Node
 			HideRequestDetails = request.HideRequestDetails,
 			DesiredTraits = CustomerTraitRangeDef.CloneDictionary(request.DesiredTraits),
 			BadTraits = CustomerTraitRangeDef.CloneDictionary(request.BadTraits),
+			RequiredPotionItemId = request.RequiredPotionItemId,
+			RequiredPotionDisplayName = request.RequiredPotionDisplayName,
 			RequiredMinTraits = request.RequiredMinTraits is null ? new Dictionary<string, int>() : new Dictionary<string, int>(request.RequiredMinTraits),
 			RequiredMaxTraits = request.RequiredMaxTraits is null ? new Dictionary<string, int>() : new Dictionary<string, int>(request.RequiredMaxTraits),
 			RequiredIngredientAmounts = request.RequiredIngredientAmounts is null

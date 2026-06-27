@@ -54,6 +54,19 @@ public sealed class TutorialOverlayPresenter
 		_overlay.ShowForTargets(stepContent.Title, body, targets);
 	}
 
+	public void ShowForTargetsWithArrow(TutorialStepContentResource stepContent, Control? fromTarget, Control? toTarget, string? bodyOverride = null, params Control?[] targets)
+	{
+		Prepare(stepContent);
+		var body = bodyOverride ?? stepContent.Body;
+		if (!stepContent.DimBackground)
+		{
+			_overlay.ShowMessageWithoutDim(stepContent.Title, body);
+			return;
+		}
+
+		_overlay.ShowForTargetsWithArrow(stepContent.Title, body, fromTarget, toTarget, targets);
+	}
+
 	public void ShowMessage(TutorialStepContentResource stepContent, string? bodyOverride = null)
 	{
 		Prepare(stepContent);

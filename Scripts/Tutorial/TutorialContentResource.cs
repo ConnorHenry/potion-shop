@@ -21,7 +21,7 @@ public partial class TutorialContentResource : Resource
 	public string TutorialPotionId { get; set; } = "potion_gravekeepers_balm";
 
 	[Export]
-	public string TutorialCustomerId { get; set; } = "customer_requests_gravekeepers_balm";
+	public string TutorialCustomerId { get; set; } = "customer_requests_opening_gravekeepers_balm";
 
 	[Export]
 	public string AmbiguousTutorialCustomerId { get; set; } = "customer_requests_sleep_draught";
@@ -79,7 +79,7 @@ public partial class TutorialContentResource : Resource
 			{
 				StepId = (int)TutorialStepId.Welcome,
 				Title = "Welcome to the Shop",
-				Body = "This tutorial walks through your stock, brewing your first potion, Gravekeeper's Balm, and selling it to your first customer.",
+				Body = "This tutorial walks through your stock, brewing your first potion, Minor Healing Potion, and selling it to your first customer.",
 				ShowNextButton = true,
 				PanelAtTop = false
 			},
@@ -103,8 +103,17 @@ public partial class TutorialContentResource : Resource
 			new()
 			{
 				StepId = (int)TutorialStepId.QueueMint,
-				Title = "Add Mint",
-				Body = "Add Mint to the brew. You can right-click an ingredient slot or drag it out if you add the wrong item.",
+				Title = "Choose Mint",
+				Body = "Right click or drag an ingredient to the preparation tray.",
+				ShowNextButton = false,
+				PanelAtTop = true,
+				LockOtherButtons = true
+			},
+			new()
+			{
+				StepId = (int)TutorialStepId.PrepareMintRaw,
+				Title = "Prepare Mint",
+				Body = "Ingredients can be prepared in different ways. For this potion, choose Raw.",
 				ShowNextButton = false,
 				PanelAtTop = true,
 				LockOtherButtons = true
@@ -112,8 +121,17 @@ public partial class TutorialContentResource : Resource
 			new()
 			{
 				StepId = (int)TutorialStepId.QueueGorse,
-				Title = "Add Gorse",
-				Body = "Add Gorse as the second ingredient.",
+				Title = "Choose Gorse",
+				Body = "Right click or drag Gorse to the preparation tray.",
+				ShowNextButton = false,
+				PanelAtTop = true,
+				LockOtherButtons = true
+			},
+			new()
+			{
+				StepId = (int)TutorialStepId.PrepareGorseRaw,
+				Title = "Prepare Gorse",
+				Body = "Keep this ingredient Raw as well.",
 				ShowNextButton = false,
 				PanelAtTop = true,
 				LockOtherButtons = true
@@ -121,8 +139,17 @@ public partial class TutorialContentResource : Resource
 			new()
 			{
 				StepId = (int)TutorialStepId.QueueThyme,
-				Title = "Add Thyme",
-				Body = "Add Thyme as the third ingredient. The preview should show Gravekeeper's Balm.",
+				Title = "Choose Thyme",
+				Body = "Right click or drag Thyme to the preparation tray.",
+				ShowNextButton = false,
+				PanelAtTop = true,
+				LockOtherButtons = true
+			},
+			new()
+			{
+				StepId = (int)TutorialStepId.PrepareThymeRaw,
+				Title = "Prepare Thyme",
+				Body = "Choose Raw one more time.",
 				ShowNextButton = false,
 				PanelAtTop = true,
 				LockOtherButtons = true
@@ -130,8 +157,8 @@ public partial class TutorialContentResource : Resource
 			new()
 			{
 				StepId = (int)TutorialStepId.BrewPotion,
-				Title = "Brew Gravekeeper's Balm",
-				Body = "Click Brew in the brew panel to create Gravekeeper's Balm. It will appear in your inventory.",
+				Title = "Brew Minor Healing Potion",
+				Body = "Click Brew to create Minor Healing Potion. It will appear in your inventory.",
 				ShowNextButton = false,
 				PanelAtTop = true,
 				LockOtherButtons = true
@@ -148,11 +175,30 @@ public partial class TutorialContentResource : Resource
 			new()
 			{
 				StepId = (int)TutorialStepId.SellPotion,
-				Title = "Sell the Potion",
-				Body = "Drag Gravekeeper's Balm from your inventory to the customer's Drop potion here box.",
+				Title = "Bring It to Mother",
+				Body = "Drag Minor Healing Potion from your inventory to the Serving Slot.",
 				ShowNextButton = false,
 				PanelAtTop = false,
 				LockOtherButtons = true
+			},
+			new()
+			{
+				StepId = (int)TutorialStepId.ConfirmServe,
+				Title = "Serve the Potion",
+				Body = "Click Serve to give the Minor Healing Potion to Mother.",
+				ShowNextButton = false,
+				PanelAtTop = false,
+				LockOtherButtons = true
+			},
+			new()
+			{
+				StepId = (int)TutorialStepId.PostServeMotherDialogue,
+				Title = "Talk With Mother",
+				Body = "Answer Mother in the customer dialog box.",
+				ShowNextButton = false,
+				PanelAtTop = false,
+				DimBackground = false,
+				LockOtherButtons = false
 			},
 			new()
 			{

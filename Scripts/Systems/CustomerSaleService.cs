@@ -10,6 +10,12 @@ public sealed class CustomerSaleService
 {
 	private const int SuccessDreadChange = -2;
 	private const int FailureDreadChange = 4;
+	private const int SuccessReputationChange = 2;
+	private const int FailureReputationChange = -3;
+	private const int RefusalReputationChange = -1;
+	private const int StoryCustomerSuccessRelationshipChange = 5;
+	private const int StoryCustomerFailureRelationshipChange = -5;
+	private const int StoryCustomerRefusalRelationshipChange = -2;
 
 	private readonly GameState _gameState;
 	private readonly ItemCatalogService _itemCatalog;
@@ -45,6 +51,7 @@ public sealed class CustomerSaleService
 		PotionResult brewResult)
 	{
 		return CustomerSaleRules.IsRequestSatisfiedByPotion(
+			potionItemId,
 			request,
 			brewResult,
 			DoesPotionBatchSatisfyIngredientAmountRequirements(potionItemId, request.RequiredIngredientAmounts));
@@ -64,6 +71,7 @@ public sealed class CustomerSaleService
 		_gameState.AddDread(dreadDelta);
 		_gameState.ConsumeItem(itemId, 1);
 
+		ApplyAutomaticSaleOutcome(interaction, isSuccess);
 		ApplyOutcomeEffects(isSuccess ? interaction.OnSuccessEffects : interaction.OnFailureEffects);
 		var response = FindPotionResponse(interaction, itemId, request, brewResult, isSuccess);
 		ApplyOutcomeEffects(response?.Effects);
@@ -78,6 +86,7 @@ public sealed class CustomerSaleService
 
 	public void ApplyRefusal(CustomerInteractionDef interaction)
 	{
+		ApplyAutomaticRefusalOutcome(interaction);
 		var effects = interaction.OnPotionRefusedEffects.Count > 0
 			? interaction.OnPotionRefusedEffects
 			: interaction.OnSkipEffects;
@@ -213,6 +222,26 @@ public sealed class CustomerSaleService
 
 		foreach (var effect in effects)
 			EffectApplier.Apply(_gameState, effect);
+	}
+
+	private void ApplyAutomaticSaleOutcome(CustomerInteractionDef interaction, bool isSuccess)
+	{
+		_gameState.AddReputation(isSuccess ? SuccessReputationChange : FailureReputationChange);
+		if (string.IsNullOrWhiteSpace(interaction.StoryCharacterId))
+			return;
+
+		_gameState.AddRelationship(
+			interaction.StoryCharacterId,
+			isSuccess ? StoryCustomerSuccessRelationshipChange : StoryCustomerFailureRelationshipChange);
+	}
+
+	private void ApplyAutomaticRefusalOutcome(CustomerInteractionDef interaction)
+	{
+		_gameState.AddReputation(RefusalReputationChange);
+		if (string.IsNullOrWhiteSpace(interaction.StoryCharacterId))
+			return;
+
+		_gameState.AddRelationship(interaction.StoryCharacterId, StoryCustomerRefusalRelationshipChange);
 	}
 
 	private int GetSalePrice(string itemId)

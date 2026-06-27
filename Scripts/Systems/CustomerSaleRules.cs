@@ -7,6 +7,16 @@ namespace OccultShop.Systems;
 public static class CustomerSaleRules
 {
 	public static bool IsRequestSatisfiedByPotion(
+		string potionItemId,
+		CustomerRequestDef request,
+		PotionResult brewResult,
+		bool ingredientAmountRequirementsMet)
+	{
+		return IsRequiredPotionSatisfied(potionItemId, request.RequiredPotionItemId) &&
+			IsRequestSatisfiedByPotion(request, brewResult, ingredientAmountRequirementsMet);
+	}
+
+	public static bool IsRequestSatisfiedByPotion(
 		CustomerRequestDef request,
 		PotionResult brewResult,
 		bool ingredientAmountRequirementsMet)
@@ -15,6 +25,15 @@ public static class CustomerSaleRules
 			AreBadTraitRangesSatisfied(request, brewResult.Traits, brewResult.Risks) &&
 			AreRequiredTraitThresholdsSatisfied(request, brewResult.Traits) &&
 			ingredientAmountRequirementsMet;
+	}
+
+	public static bool IsRequiredPotionSatisfied(string potionItemId, string requiredPotionItemId)
+	{
+		if (string.IsNullOrWhiteSpace(requiredPotionItemId))
+			return true;
+
+		return !string.IsNullOrWhiteSpace(potionItemId) &&
+			string.Equals(potionItemId.Trim(), requiredPotionItemId.Trim(), System.StringComparison.OrdinalIgnoreCase);
 	}
 
 	public static bool HasAllDesiredTraitsPresent(CustomerRequestDef request, IReadOnlyDictionary<string, int> producedTraits)

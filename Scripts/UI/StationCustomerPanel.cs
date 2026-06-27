@@ -23,17 +23,27 @@ public partial class StationCustomerPanel : Control
 	[Signal]
 	public delegate void PotionSoldEventHandler(string itemId, bool success);
 	[Signal]
+	public delegate void PotionSelectedForServingEventHandler(string itemId);
+	[Signal]
 	public delegate void InteractionShownEventHandler(string interactionId);
 	[Signal]
 	public delegate void DialogueResolvedEventHandler();
 	[Signal]
 	public delegate void PlotConversationStartedEventHandler();
+	[Signal]
+	public delegate void MotherPostServeDialogueResolvedEventHandler();
 
 	private const float CustomerSlideSeconds = 0.28f;
 	private const float CustomerSlideDistance = 420.0f;
 	private const float CustomerImageHeight = 104.0f;
 	private const float DialogueMinimumHeight = 76.0f;
 	private const float SelectedPotionFitMinimumHeight = 154.0f;
+	private const string OpeningMotherInteractionId = "customer_requests_opening_gravekeepers_balm";
+	private const string MotherSpeakerName = "Mother";
+	private const string MotherPostServeQuestionOption = "Are you going to tell me what's wrong?";
+	private const string MotherPostServeQuestionResponse = "I told you not to worry about it. Everything is fine";
+	private const string MotherPostServeRestOption = "It's okay Ma. Here you need to get back to bed and rest.";
+	private const string MotherPostServeRestResponse = "Thank you dear.";
 	private const string FailedServeConsequenceText = "Filler consequence text: this potion may disappoint the customer and affect future outcomes.";
 	private const string RefuseConsequenceText = "Filler consequence text: refusing a customer may affect future outcomes.";
 
@@ -45,6 +55,7 @@ public partial class StationCustomerPanel : Control
 	private readonly List<CustomerInteractionDef> _customers = new();
 	private readonly List<Button> _dialogueOptionButtons = new();
 	private readonly List<DialogueOption> _visibleDialogueOptions = new();
+	private readonly List<MotherPostServeDialogueOption> _motherPostServeDialogueOptions = new();
 
 	private GameState _gameState = default!;
 	private ItemCatalogService _itemCatalog = default!;
@@ -86,6 +97,7 @@ public partial class StationCustomerPanel : Control
 	private string _requestReturnDialogueNodeId = string.Empty;
 	private bool _sellingMode;
 	private bool _isResolvingCustomer;
+	private bool _isShowingMotherPostServeDialogue;
 	private Tween? _slideTween;
 	private static readonly Color SeenDialogueOptionModulate = new(0.58f, 0.58f, 0.58f, 1.0f);
 	private static readonly Color DefaultButtonModulate = new(1.0f, 1.0f, 1.0f, 1.0f);
@@ -214,6 +226,27 @@ public partial class StationCustomerPanel : Control
 		return _potionInventoryRow?.GetVisiblePotionSlot(itemId);
 	}
 
+	public Control? GetServingDropBox()
+	{
+		return _servingDropBox;
+	}
+
+	public Button? GetServeButton()
+	{
+		return _serveButton;
+	}
+
+	public void ShowTutorialMotherLine(string text)
+	{
+		if (string.IsNullOrWhiteSpace(text))
+			return;
+
+		_dialoguePresenter?.AddHistoryLine(new NarrativeTextLine(
+			MotherSpeakerName,
+			text,
+			allowMarkup: false));
+	}
+
 	public void RefreshSlotLayoutSettings()
 	{
 		_potionInventoryRow?.RefreshSlotLayoutSettings();
@@ -254,35 +287,6 @@ public partial class StationCustomerPanel : Control
 		var vbox = new VBoxContainer { Name = "VBox", MouseFilter = MouseFilterEnum.Ignore };
 		vbox.AddThemeConstantOverride("separation", 6);
 		margin.AddChild(vbox);
-
-		_title = new Label
-		{
-			Name = "Title",
-			Text = "No customer",
-			HorizontalAlignment = HorizontalAlignment.Center
-		};
-		_title.AddThemeFontSizeOverride("font_size", 22);
-		vbox.AddChild(_title);
-
-		_customerImageFrame = new Control
-		{
-			Name = "CustomerImageFrame",
-			CustomMinimumSize = new Vector2(0.0f, CustomerImageHeight),
-			ClipContents = true,
-			MouseFilter = MouseFilterEnum.Ignore
-		};
-		vbox.AddChild(_customerImageFrame);
-
-		_customerImage = new TextureRect
-		{
-			Name = "CustomerImage",
-			Position = Vector2.Zero,
-			Size = new Vector2(360.0f, CustomerImageHeight),
-			MouseFilter = MouseFilterEnum.Ignore,
-			ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
-			StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered
-		};
-		_customerImageFrame.AddChild(_customerImage);
 
 		_dialogue = new RichTextLabel
 		{
@@ -339,6 +343,35 @@ public partial class StationCustomerPanel : Control
 			MouseFilter = MouseFilterEnum.Stop
 		};
 		vbox.AddChild(_fitCheck);
+
+		_title = new Label
+		{
+			Name = "Title",
+			Text = "No customer",
+			HorizontalAlignment = HorizontalAlignment.Center
+		};
+		_title.AddThemeFontSizeOverride("font_size", 22);
+		vbox.AddChild(_title);
+
+		_customerImageFrame = new Control
+		{
+			Name = "CustomerImageFrame",
+			CustomMinimumSize = new Vector2(0.0f, CustomerImageHeight),
+			ClipContents = true,
+			MouseFilter = MouseFilterEnum.Ignore
+		};
+		vbox.AddChild(_customerImageFrame);
+
+		_customerImage = new TextureRect
+		{
+			Name = "CustomerImage",
+			Position = Vector2.Zero,
+			Size = new Vector2(360.0f, CustomerImageHeight),
+			MouseFilter = MouseFilterEnum.Ignore,
+			ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+			StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered
+		};
+		_customerImageFrame.AddChild(_customerImage);
 
 		_servingTitle = new Label { Name = "ServingTitle", Text = "Serving Slot" };
 		vbox.AddChild(_servingTitle);
@@ -565,10 +598,12 @@ public partial class StationCustomerPanel : Control
 	{
 		_dialoguePresenter?.Clear();
 		_visibleDialogueOptions.Clear();
+		_motherPostServeDialogueOptions.Clear();
 		_dialogueSession = null;
 		_customerDialogueAdapter = null;
 		_requestReturnDialogueNodeId = string.Empty;
 		_sellingMode = false;
+		_isShowingMotherPostServeDialogue = false;
 		if (_dialogueOptionsContainer is not null)
 			_dialogueOptionsContainer.Visible = false;
 		foreach (var button in _dialogueOptionButtons)
@@ -740,7 +775,7 @@ public partial class StationCustomerPanel : Control
 
 	private void OnDialogueGuiInput(InputEvent @event)
 	{
-		if (!HasActiveDialogueInteraction())
+		if (!HasActiveDialogueInteraction() && !_isShowingMotherPostServeDialogue)
 			return;
 		if (@event is not InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true })
 			return;
@@ -859,6 +894,9 @@ public partial class StationCustomerPanel : Control
 
 	private bool TrySelectDialogueOption(int optionIndex)
 	{
+		if (_isShowingMotherPostServeDialogue)
+			return TrySelectMotherPostServeDialogueOption(optionIndex);
+
 		if (!HasActiveDialogueInteraction())
 			return false;
 
@@ -1031,6 +1069,105 @@ public partial class StationCustomerPanel : Control
 				: DefaultButtonModulate;
 	}
 
+	private bool TryBeginMotherPostServeDialogue(CustomerInteractionDef interaction, bool saleSucceeded)
+	{
+		if (!saleSucceeded || !IsOpeningMotherInteraction(interaction))
+			return false;
+
+		_isShowingMotherPostServeDialogue = true;
+		_motherPostServeDialogueOptions.Clear();
+		_motherPostServeDialogueOptions.Add(new MotherPostServeDialogueOption(
+			MotherPostServeQuestionOption,
+			MotherPostServeQuestionResponse));
+		_motherPostServeDialogueOptions.Add(new MotherPostServeDialogueOption(
+			MotherPostServeRestOption,
+			MotherPostServeRestResponse));
+
+		_dialoguePresenter?.Clear();
+		_visibleDialogueOptions.Clear();
+		_dialogueSession = null;
+		_customerDialogueAdapter = null;
+		_requestReturnDialogueNodeId = string.Empty;
+		_sellingMode = false;
+		_outcomeLabel.Text = string.Empty;
+		SetDialoguePresentationState();
+
+		_dialoguePresenter?.QueueLine(new NarrativeTextLine(
+			MotherSpeakerName,
+			$"Thank you so much {GetPlayerNameForMotherDialogue()}.",
+			allowMarkup: false));
+		PlayQueuedDialogueLines(ShowMotherPostServeDialogueOptions);
+		return true;
+	}
+
+	private void ShowMotherPostServeDialogueOptions()
+	{
+		if (!_isShowingMotherPostServeDialogue)
+			return;
+
+		_dialogueOptionsContainer.Visible = true;
+		SetServingControlsVisible(false);
+		SetServingControlsEnabled(false);
+
+		for (var index = 0; index < _dialogueOptionButtons.Count; index += 1)
+			SetMotherPostServeDialogueOptionButton(_dialogueOptionButtons[index], index);
+	}
+
+	private void SetMotherPostServeDialogueOptionButton(Button button, int optionIndex)
+	{
+		if (optionIndex < 0 || optionIndex >= _motherPostServeDialogueOptions.Count)
+		{
+			button.Visible = false;
+			button.Disabled = true;
+			return;
+		}
+
+		var option = _motherPostServeDialogueOptions[optionIndex];
+		button.Text = option.Label;
+		button.Visible = true;
+		button.Disabled = false;
+		button.Modulate = DefaultButtonModulate;
+	}
+
+	private bool TrySelectMotherPostServeDialogueOption(int optionIndex)
+	{
+		if (optionIndex < 0 || optionIndex >= _motherPostServeDialogueOptions.Count)
+			return true;
+
+		var option = _motherPostServeDialogueOptions[optionIndex];
+		SetDialoguePresentationState();
+		QueuePlayerLine(option.Label);
+		_dialoguePresenter?.QueueLine(new NarrativeTextLine(
+			MotherSpeakerName,
+			option.ResponseText,
+			allowMarkup: false));
+		PlayQueuedDialogueLines(FinishMotherPostServeDialogue);
+		return true;
+	}
+
+	private void FinishMotherPostServeDialogue()
+	{
+		if (!_isShowingMotherPostServeDialogue)
+			return;
+
+		_isShowingMotherPostServeDialogue = false;
+		_motherPostServeDialogueOptions.Clear();
+		EmitSignal(SignalName.MotherPostServeDialogueResolved);
+		BeginResolveActiveCustomer();
+	}
+
+	private string GetPlayerNameForMotherDialogue()
+	{
+		return string.IsNullOrWhiteSpace(_gameState.PlayerName)
+			? "there"
+			: _gameState.PlayerName.Trim();
+	}
+
+	private static bool IsOpeningMotherInteraction(CustomerInteractionDef interaction)
+	{
+		return string.Equals(interaction.Id, OpeningMotherInteractionId, StringComparison.OrdinalIgnoreCase);
+	}
+
 	private void SetSellingModeState()
 	{
 		_dialogueOptionsContainer.Visible = false;
@@ -1127,6 +1264,7 @@ public partial class StationCustomerPanel : Control
 		_selectedPotionResult = brewResult;
 		_servingDropLabel.Text = BuildSelectedPotionLabel(itemId);
 		RefreshSelectedPotionComparison();
+		EmitSignal(SignalName.PotionSelectedForServing, itemId);
 	}
 
 	private string BuildSelectedPotionLabel(string itemId)
@@ -1178,7 +1316,8 @@ public partial class StationCustomerPanel : Control
 		_fitCheck.Text = StationCustomerPotionPresentation.BuildRequestFitText(
 			request,
 			brewResult,
-			potionIngredients);
+			potionIngredients,
+			potionItemId);
 	}
 
 	private void ClearSelectedPotion()
@@ -1312,6 +1451,9 @@ public partial class StationCustomerPanel : Control
 			brewResult.FinalScore,
 			brewResult.Grade);
 		EmitSignal(SignalName.PotionSold, itemId, saleResult.IsSuccess);
+		if (TryBeginMotherPostServeDialogue(interaction, saleResult.IsSuccess))
+			return;
+
 		BeginResolveActiveCustomer();
 	}
 
@@ -1373,6 +1515,18 @@ public partial class StationCustomerPanel : Control
 
 		if (_customers.Count == 0)
 			EmitSignal(SignalName.CustomerQueueEmptied);
+	}
+
+	private sealed class MotherPostServeDialogueOption
+	{
+		public MotherPostServeDialogueOption(string label, string responseText)
+		{
+			Label = label;
+			ResponseText = responseText;
+		}
+
+		public string Label { get; }
+		public string ResponseText { get; }
 	}
 
 	private enum ConfirmationKind

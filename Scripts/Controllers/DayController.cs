@@ -1,6 +1,7 @@
 using System;
 using Godot;
 using OccultShop.Autoload;
+using OccultShop.Infrastructure;
 using OccultShop.Systems;
 
 namespace OccultShop.Controllers;
@@ -8,6 +9,8 @@ namespace OccultShop.Controllers;
 public partial class DayController : Node
 {
 	private const int MaxCustomersPerShopDay = 3;
+	private const string OpeningMotherInteractionId = "customer_requests_opening_gravekeepers_balm";
+	private const string OpeningMotherPotionItemId = "potion_gravekeepers_balm";
 
 	[Export] public NodePath CustomerEventControllerPath = default!;
 	[Export] public NodePath StationCustomerPanelPath = default!;
@@ -15,6 +18,7 @@ public partial class DayController : Node
 	[Export] public NodePath DaySummaryPanelPath = default!;
 	[Export] public NodePath DataDbPath = new(AutoloadNodePaths.DataDb);
 	[Export] public NodePath GameStatePath = new(AutoloadNodePaths.GameState);
+	[Export] public NodePath SceneTransitionPath = new(AutoloadNodePaths.SceneTransition);
 
 	private CustomerEventController _customerEventController = default!;
 	private UI.StationCustomerPanel _stationCustomerPanel = default!;
@@ -23,9 +27,12 @@ public partial class DayController : Node
 	private readonly ShopDayStats _shopDayStats = new();
 	private DataDb _dataDb = default!;
 	private GameState _gameState = default!;
+	private SceneTransition? _sceneTransition;
 	private int _customersArrived;
 	private bool _closeShopAfterCurrentCustomer;
 	private bool _isShopDayReadyToEnd;
+	private bool _openingMotherServeSucceededForCutscene;
+	private bool _tenYearsLaterCutsceneTransitionStarted;
 
 	public bool IsShopOpen { get; private set; }
 	public bool IsShopDayReadyToEnd => _isShopDayReadyToEnd;
@@ -55,11 +62,16 @@ public partial class DayController : Node
 
 		_dataDb = dataDb;
 		_gameState = gameState;
+		_sceneTransition = GetNodeOrNull<SceneTransition>(SceneTransitionPath);
+		if (_sceneTransition is null)
+			GD.PushError($"DayController: SceneTransition was not found at '{SceneTransitionPath}'.");
 
 		_stationCustomerPanel.SaleResolved += OnStationCustomerSaleResolved;
+		_stationCustomerPanel.PotionSold += OnStationPotionSold;
 		_stationCustomerPanel.CustomerSkipped += OnStationCustomerSkipped;
 		_stationCustomerPanel.CustomerResolved += OnStationCustomerResolved;
 		_stationCustomerPanel.CustomerQueueEmptied += OnStationCustomerQueueEmptied;
+		_stationCustomerPanel.MotherPostServeDialogueResolved += OnMotherPostServeDialogueResolved;
 		_daySummaryPanel.ContinuePressed += OnSummaryContinuePressed;
 		_daySummaryPanel.HidePanel();
 		Callable.From(RestoreShopDayState).CallDeferred();
@@ -70,9 +82,11 @@ public partial class DayController : Node
 		if (_stationCustomerPanel != null)
 		{
 			_stationCustomerPanel.SaleResolved -= OnStationCustomerSaleResolved;
+			_stationCustomerPanel.PotionSold -= OnStationPotionSold;
 			_stationCustomerPanel.CustomerSkipped -= OnStationCustomerSkipped;
 			_stationCustomerPanel.CustomerResolved -= OnStationCustomerResolved;
 			_stationCustomerPanel.CustomerQueueEmptied -= OnStationCustomerQueueEmptied;
+			_stationCustomerPanel.MotherPostServeDialogueResolved -= OnMotherPostServeDialogueResolved;
 		}
 		if (_daySummaryPanel != null)
 			_daySummaryPanel.ContinuePressed -= OnSummaryContinuePressed;
@@ -91,6 +105,8 @@ public partial class DayController : Node
 		_isShopDayReadyToEnd = false;
 		IsShopOpen = true;
 		_gameState.BeginShopDayState();
+		_openingMotherServeSucceededForCutscene = false;
+		_tenYearsLaterCutsceneTransitionStarted = false;
 		EmitShopStateChanged();
 		_customerEventController.BeginShopDay();
 
@@ -104,6 +120,31 @@ public partial class DayController : Node
 	public void ForceCloseShopAfterCurrentCustomerForTutorial()
 	{
 		if (!IsShopOpen)
+			return;
+
+		RequestCloseShopAfterCurrentCustomer();
+	}
+
+	public void CloseShopDayForStoryCutscene()
+	{
+		if (!IsShopOpen && !_gameState.IsShopDayOpen)
+			return;
+
+		IsShopOpen = false;
+		_customersArrived = 0;
+		_closeShopAfterCurrentCustomer = false;
+		_isShopDayReadyToEnd = false;
+		_openingMotherServeSucceededForCutscene = false;
+		_stationCustomerPanel.ClearCustomers();
+		_brewPanel.HidePanel();
+		_daySummaryPanel.HidePanel();
+		_gameState.CloseShopDayState();
+		EmitShopStateChanged();
+	}
+
+	private void RequestCloseShopAfterCurrentCustomer()
+	{
+		if (_closeShopAfterCurrentCustomer && _gameState.CloseShopAfterCurrentCustomer)
 			return;
 
 		_closeShopAfterCurrentCustomer = true;
@@ -173,6 +214,27 @@ public partial class DayController : Node
 
 		_gameState.RecordShopDaySale(success, goldDelta, dreadDelta);
 		EmitShopStateChanged();
+	}
+
+	private void OnStationPotionSold(string itemId, bool success)
+	{
+		if (!IsShopOpen)
+			return;
+		if (!string.Equals(_gameState.ActiveCustomerInteractionId, OpeningMotherInteractionId, StringComparison.OrdinalIgnoreCase))
+			return;
+
+		_openingMotherServeSucceededForCutscene =
+			success &&
+			string.Equals(itemId, OpeningMotherPotionItemId, StringComparison.OrdinalIgnoreCase);
+		RequestCloseShopAfterCurrentCustomer();
+	}
+
+	private void OnMotherPostServeDialogueResolved()
+	{
+		if (!ShouldStartTenYearsLaterCutscene())
+			return;
+
+		StartTenYearsLaterCutscene();
 	}
 
 	private void OnStationCustomerSkipped()
@@ -258,6 +320,7 @@ public partial class DayController : Node
 		_customersArrived = 0;
 		_closeShopAfterCurrentCustomer = false;
 		_isShopDayReadyToEnd = false;
+		_openingMotherServeSucceededForCutscene = false;
 		_stationCustomerPanel.ClearCustomers();
 		_brewPanel.HidePanel();
 		_daySummaryPanel.ShowSummary(
@@ -290,6 +353,28 @@ public partial class DayController : Node
 		return _closeShopAfterCurrentCustomer;
 	}
 
+	private bool ShouldStartTenYearsLaterCutscene()
+	{
+		return _openingMotherServeSucceededForCutscene &&
+			!_tenYearsLaterCutsceneTransitionStarted &&
+			!_gameState.HasStoryFlag(GameState.TenYearsLaterCutsceneStartedStoryFlag) &&
+			!_gameState.HasStoryFlag(GameState.TenYearsLaterCutsceneCompletedStoryFlag);
+	}
+
+	private void StartTenYearsLaterCutscene()
+	{
+		if (_sceneTransition is null)
+		{
+			GD.PushError("DayController: SceneTransition is missing; cannot start the ten years later cutscene.");
+			return;
+		}
+
+		_tenYearsLaterCutsceneTransitionStarted = true;
+		_openingMotherServeSucceededForCutscene = false;
+		CloseShopDayForStoryCutscene();
+		_sceneTransition.ChangeSceneWithFade(ScenePaths.TenYearsLaterCutscene);
+	}
+
 	private void MarkShopDayReadyToEnd()
 	{
 		if (_isShopDayReadyToEnd)
@@ -316,6 +401,12 @@ public partial class DayController : Node
 
 		if (!IsShopOpen)
 		{
+			if (ShouldAutoStartOpeningShopDay())
+			{
+				StartShopDay();
+				return;
+			}
+
 			_brewPanel.HidePanel();
 			EmitShopStateChanged();
 			return;
@@ -369,6 +460,15 @@ public partial class DayController : Node
 
 		GD.PushError($"DayController: Active customer interaction '{interactionId}' was not found in authored data.");
 		return false;
+	}
+
+	private bool ShouldAutoStartOpeningShopDay()
+	{
+		return _gameState.Day == 1 &&
+			_gameState.HasStoryFlag(GameState.IntroCutsceneCompletedStoryFlag) &&
+			_gameState.HasStoryFlag(GameState.NewGameOpeningCustomerPendingStoryFlag) &&
+			string.IsNullOrWhiteSpace(_gameState.ActiveCustomerInteractionId) &&
+			_gameState.ActiveCustomerRequest is null;
 	}
 
 	private sealed class ShopDayStats

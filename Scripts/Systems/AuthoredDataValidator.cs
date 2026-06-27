@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Godot;
+using OccultShop.Autoload;
 using OccultShop.Models;
 
 namespace OccultShop.Systems;
@@ -14,6 +16,7 @@ public static class AuthoredDataValidator
 	private const int HighPreparationTraitMin = 5;
 	private const int HighPreparationTraitMax = 6;
 	private const int MaxRiskChanceValue = 10;
+	private static readonly Regex StoryStateIdPattern = new("^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$", RegexOptions.Compiled);
 
 	private static readonly HashSet<string> KnownIngredientEffectKinds = new(StringComparer.OrdinalIgnoreCase)
 	{
@@ -431,23 +434,25 @@ public static class AuthoredDataValidator
 	{
 		var knownTraitIds = BuildKnownTraitIds(items);
 		var knownRiskIds = BuildKnownRiskIds(items);
+		var knownStoryCharacterIds = BuildKnownStoryCharacterIds(customerInteractions);
 		foreach (var interaction in customerInteractions)
 		{
 			var context = $"Customer interaction '{interaction.Id}'";
-			ValidateRequirements(items, interaction.Requires, $"{context} requirements");
+			ValidateStoryStateId(interaction.StoryCharacterId, $"{context} story character id");
+			ValidateRequirements(items, interaction.Requires, $"{context} requirements", knownStoryCharacterIds);
 			ValidateTraitRanges(interaction.DesiredTraits, knownTraitIds, $"{context} desired traits");
 			ValidateTraitRanges(interaction.BadTraits, knownTraitIds, knownRiskIds, $"{context} bad traits");
 			ValidateTraitThresholds(interaction.RequiredMinTraits, knownTraitIds, $"{context} required minimum traits");
 			ValidateTraitThresholds(interaction.RequiredMaxTraits, knownTraitIds, $"{context} required maximum traits");
 			ValidateIngredientAmounts(items, interaction.RequiredIngredientAmounts, $"{context} required ingredient amounts");
-			ValidateEffects(items, rules, interaction.OnArrivalEffects, $"{context} arrival effects");
-			ValidateEffects(items, rules, interaction.OnSuccessEffects, $"{context} success effects");
-			ValidateEffects(items, rules, interaction.OnFailureEffects, $"{context} failure effects");
-			ValidateEffects(items, rules, interaction.OnSkipEffects, $"{context} skip effects");
-			ValidateEffects(items, rules, interaction.OnPotionRefusedEffects, $"{context} potion refused effects");
+			ValidateEffects(items, rules, interaction.OnArrivalEffects, $"{context} arrival effects", knownStoryCharacterIds);
+			ValidateEffects(items, rules, interaction.OnSuccessEffects, $"{context} success effects", knownStoryCharacterIds);
+			ValidateEffects(items, rules, interaction.OnFailureEffects, $"{context} failure effects", knownStoryCharacterIds);
+			ValidateEffects(items, rules, interaction.OnSkipEffects, $"{context} skip effects", knownStoryCharacterIds);
+			ValidateEffects(items, rules, interaction.OnPotionRefusedEffects, $"{context} potion refused effects", knownStoryCharacterIds);
 			ValidateCharacterImageKeys(interaction);
-			ValidatePotionResponses(items, rules, interaction);
-			ValidateDialogueTree(items, rules, interaction);
+			ValidatePotionResponses(items, rules, interaction, knownStoryCharacterIds);
+			ValidateDialogueTree(items, rules, interaction, knownStoryCharacterIds);
 		}
 	}
 
@@ -576,6 +581,18 @@ public static class AuthoredDataValidator
 		return knownRiskIds;
 	}
 
+	private static HashSet<string> BuildKnownStoryCharacterIds(IReadOnlyList<CustomerInteractionDef> customerInteractions)
+	{
+		var knownStoryCharacterIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+		foreach (var interaction in customerInteractions)
+		{
+			if (!string.IsNullOrWhiteSpace(interaction.StoryCharacterId))
+				knownStoryCharacterIds.Add(interaction.StoryCharacterId.Trim());
+		}
+
+		return knownStoryCharacterIds;
+	}
+
 	private static void ValidateTraitRanges(
 		IReadOnlyDictionary<string, CustomerTraitRangeDef>? ranges,
 		HashSet<string> knownTraitIds,
@@ -656,7 +673,8 @@ public static class AuthoredDataValidator
 	private static void ValidateDialogueTree(
 		IReadOnlyDictionary<string, ItemDef> items,
 		IReadOnlyDictionary<string, RuleDef> rules,
-		CustomerInteractionDef interaction)
+		CustomerInteractionDef interaction,
+		HashSet<string> knownStoryCharacterIds)
 	{
 		if (interaction.DialogueNodes.Count == 0)
 		{
@@ -694,8 +712,8 @@ public static class AuthoredDataValidator
 				if (!string.IsNullOrWhiteSpace(option.Id) && !optionIds.Add(option.Id))
 					PushDataWarning($"{optionContext} duplicates a dialogue option id used elsewhere in this interaction.");
 
-				ValidateRequirements(items, option.Requires, $"{optionContext} requirements");
-				ValidateEffects(items, rules, option.Effects, $"{optionContext} effects");
+				ValidateRequirements(items, option.Requires, $"{optionContext} requirements", knownStoryCharacterIds);
+				ValidateEffects(items, rules, option.Effects, $"{optionContext} effects", knownStoryCharacterIds);
 
 				if (!option.EndsInteraction &&
 					!string.IsNullOrWhiteSpace(option.NextNodeId) &&
@@ -729,7 +747,8 @@ public static class AuthoredDataValidator
 	private static void ValidatePotionResponses(
 		IReadOnlyDictionary<string, ItemDef> items,
 		IReadOnlyDictionary<string, RuleDef> rules,
-		CustomerInteractionDef interaction)
+		CustomerInteractionDef interaction,
+		HashSet<string> knownStoryCharacterIds)
 	{
 		foreach (var response in interaction.PotionResponses)
 		{
@@ -749,7 +768,7 @@ public static class AuthoredDataValidator
 			if (response.MaxMatchedBadTraits is int maxMatchedBadTraits && maxMatchedBadTraits < 0)
 				PushDataWarning($"{responseContext} has a negative maxMatchedBadTraits.");
 
-			ValidateEffects(items, rules, response.Effects, $"{responseContext} effects");
+			ValidateEffects(items, rules, response.Effects, $"{responseContext} effects", knownStoryCharacterIds);
 		}
 	}
 
@@ -757,7 +776,8 @@ public static class AuthoredDataValidator
 		IReadOnlyDictionary<string, ItemDef> items,
 		IReadOnlyDictionary<string, RuleDef> rules,
 		IEnumerable<EffectDef> effects,
-		string context)
+		string context,
+		HashSet<string>? knownStoryCharacterIds = null)
 	{
 		var effectIndex = 0;
 		foreach (var effect in effects)
@@ -767,6 +787,12 @@ public static class AuthoredDataValidator
 
 			if (!string.IsNullOrWhiteSpace(effect.AddRule))
 				ValidateKnownRuleReference(rules, effect.AddRule, $"{effectContext} add rule");
+
+			ValidateStoryFlagName(effect.AddStoryFlag, $"{effectContext} add story flag");
+			ValidateStoryFlagName(effect.RemoveStoryFlag, $"{effectContext} remove story flag");
+			ValidateStoryScore(effect.SetReputation, $"{effectContext} set reputation");
+			ValidateQuestStatusEffect(effect, effectContext);
+			ValidateRelationshipEffect(effect, effectContext, knownStoryCharacterIds);
 
 			if (!string.IsNullOrWhiteSpace(effect.AddItemId))
 				ValidateKnownItemReference(items, effect.AddItemId, $"{effectContext} add item");
@@ -788,13 +814,150 @@ public static class AuthoredDataValidator
 	private static void ValidateRequirements(
 		IReadOnlyDictionary<string, ItemDef> items,
 		RequirementsDef? requirements,
-		string context)
+		string context,
+		HashSet<string>? knownStoryCharacterIds = null)
 	{
 		if (requirements is null)
 			return;
 
 		if (!string.IsNullOrWhiteSpace(requirements.HasItemId))
 			ValidateKnownItemReference(items, requirements.HasItemId, $"{context} required item");
+
+		ValidateStoryFlagName(requirements.HasStoryFlag, $"{context} required story flag");
+		ValidateStoryFlagName(requirements.MissingStoryFlag, $"{context} missing story flag");
+		ValidateStoryScore(requirements.ReputationMin, $"{context} reputation minimum");
+		ValidateStoryScore(requirements.ReputationMax, $"{context} reputation maximum");
+		if (requirements.ReputationMin is int reputationMin &&
+			requirements.ReputationMax is int reputationMax &&
+			reputationMin > reputationMax)
+		{
+			PushDataWarning($"{context} has reputation minimum greater than maximum.");
+		}
+
+		ValidateQuestRequirement(requirements, context);
+		ValidateRelationshipRequirement(requirements, context, knownStoryCharacterIds);
+	}
+
+	private static void ValidateQuestRequirement(RequirementsDef requirements, string context)
+	{
+		if (string.IsNullOrWhiteSpace(requirements.QuestId) &&
+			string.IsNullOrWhiteSpace(requirements.QuestStatus))
+		{
+			return;
+		}
+
+		ValidateStoryStateId(requirements.QuestId, $"{context} quest id");
+		if (string.IsNullOrWhiteSpace(requirements.QuestId))
+			PushDataWarning($"{context} defines a quest status without a quest id.");
+		if (string.IsNullOrWhiteSpace(requirements.QuestStatus))
+			PushDataWarning($"{context} defines a quest id without a quest status.");
+		else if (!Enum.TryParse<QuestStatus>(requirements.QuestStatus.Trim(), ignoreCase: true, out _))
+			PushDataWarning($"{context} references unknown quest status '{requirements.QuestStatus}'.");
+	}
+
+	private static void ValidateRelationshipRequirement(
+		RequirementsDef requirements,
+		string context,
+		HashSet<string>? knownStoryCharacterIds)
+	{
+		if (requirements.RelationshipMin is null &&
+			requirements.RelationshipMax is null &&
+			string.IsNullOrWhiteSpace(requirements.RelationshipCharacterId))
+		{
+			return;
+		}
+
+		ValidateStoryStateId(requirements.RelationshipCharacterId, $"{context} relationship character id");
+		ValidateKnownStoryCharacterReference(requirements.RelationshipCharacterId, $"{context} relationship character", knownStoryCharacterIds);
+		ValidateStoryScore(requirements.RelationshipMin, $"{context} relationship minimum");
+		ValidateStoryScore(requirements.RelationshipMax, $"{context} relationship maximum");
+		if (requirements.RelationshipMin is int relationshipMin &&
+			requirements.RelationshipMax is int relationshipMax &&
+			relationshipMin > relationshipMax)
+		{
+			PushDataWarning($"{context} has relationship minimum greater than maximum.");
+		}
+
+		if ((requirements.RelationshipMin is not null || requirements.RelationshipMax is not null) &&
+			string.IsNullOrWhiteSpace(requirements.RelationshipCharacterId))
+		{
+			PushDataWarning($"{context} defines a relationship range without a relationship character id.");
+		}
+	}
+
+	private static void ValidateQuestStatusEffect(EffectDef effect, string context)
+	{
+		if (string.IsNullOrWhiteSpace(effect.QuestId) &&
+			string.IsNullOrWhiteSpace(effect.SetQuestStatus))
+		{
+			return;
+		}
+
+		ValidateStoryStateId(effect.QuestId, $"{context} quest id");
+		if (string.IsNullOrWhiteSpace(effect.QuestId))
+			PushDataWarning($"{context} sets a quest status without a quest id.");
+		if (string.IsNullOrWhiteSpace(effect.SetQuestStatus))
+			PushDataWarning($"{context} defines a quest id without a set quest status.");
+		else if (!Enum.TryParse<QuestStatus>(effect.SetQuestStatus.Trim(), ignoreCase: true, out _))
+			PushDataWarning($"{context} sets unknown quest status '{effect.SetQuestStatus}'.");
+	}
+
+	private static void ValidateRelationshipEffect(
+		EffectDef effect,
+		string context,
+		HashSet<string>? knownStoryCharacterIds)
+	{
+		if (effect.AddRelationship is null &&
+			effect.SetRelationship is null &&
+			string.IsNullOrWhiteSpace(effect.RelationshipCharacterId))
+		{
+			return;
+		}
+
+		ValidateStoryStateId(effect.RelationshipCharacterId, $"{context} relationship character id");
+		ValidateKnownStoryCharacterReference(effect.RelationshipCharacterId, $"{context} relationship character", knownStoryCharacterIds);
+		ValidateStoryScore(effect.SetRelationship, $"{context} set relationship");
+		if ((effect.AddRelationship is not null || effect.SetRelationship is not null) &&
+			string.IsNullOrWhiteSpace(effect.RelationshipCharacterId))
+		{
+			PushDataWarning($"{context} changes relationship without a relationship character id.");
+		}
+	}
+
+	private static void ValidateStoryFlagName(string? storyFlag, string context)
+	{
+		ValidateStoryStateId(storyFlag, context);
+	}
+
+	private static void ValidateStoryStateId(string? value, string context)
+	{
+		if (string.IsNullOrWhiteSpace(value))
+			return;
+
+		var trimmedValue = value.Trim();
+		if (!StoryStateIdPattern.IsMatch(trimmedValue))
+			PushDataWarning($"{context} '{trimmedValue}' should use lower_snake_case letters and numbers.");
+	}
+
+	private static void ValidateStoryScore(int? value, string context)
+	{
+		if (value is null)
+			return;
+		if (value < GameState.MinStoryScore || value > GameState.MaxStoryScore)
+			PushDataWarning($"{context} should be between {GameState.MinStoryScore} and {GameState.MaxStoryScore}.");
+	}
+
+	private static void ValidateKnownStoryCharacterReference(
+		string? storyCharacterId,
+		string context,
+		HashSet<string>? knownStoryCharacterIds)
+	{
+		if (string.IsNullOrWhiteSpace(storyCharacterId) || knownStoryCharacterIds is null)
+			return;
+
+		var normalizedCharacterId = storyCharacterId.Trim();
+		if (!knownStoryCharacterIds.Contains(normalizedCharacterId))
+			PushDataWarning($"{context} references unknown story character '{normalizedCharacterId}'.");
 	}
 
 	private static void ValidateIngredientReference(IReadOnlyDictionary<string, ItemDef> items, string ingredientId, string context)

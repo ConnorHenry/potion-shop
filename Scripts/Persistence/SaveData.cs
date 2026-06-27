@@ -15,9 +15,11 @@ public sealed class SaveFileData
 
 public sealed class GameStateSnapshot
 {
+	public string PlayerName { get; set; } = "";
 	public int Day { get; set; } = 1;
 	public int Gold { get; set; } = 0;
 	public int Dread { get; set; } = 0;
+	public int OverallReputation { get; set; } = 50;
 	public TutorialStatus? TutorialStatus { get; set; }
 	public int TutorialStepIndex { get; set; }
 	public bool TutorialRequested { get; set; }
@@ -30,6 +32,8 @@ public sealed class GameStateSnapshot
 	public List<IngredientPortionDef> QueuedBrewIngredients { get; set; } = new();
 	public List<string> ActiveRules { get; set; } = new();
 	public List<string> StoryFlags { get; set; } = new();
+	public Dictionary<string, int> RelationshipScores { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+	public Dictionary<string, string> QuestStates { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 	public List<string> KnownPotions { get; set; } = new();
 	public List<string> KnownPotionOrder { get; set; } = new();
 	public List<string> KnownIngredients { get; set; } = new();

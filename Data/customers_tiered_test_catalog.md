@@ -32,7 +32,7 @@ For requests with three desired traits, the customer sale rules require at least
 | Customer ID | Desired Traits | Risk Limits | Notes |
 | --- | --- | --- | --- |
 | `plot_bridget_visit_1` | None | None | Legacy-gated Bridget welcome scene with happy/sad portrait keys. |
-| `customer_requests_opening_gravekeepers_balm` | Cleanse 4, Mend 4, Soothe 4 | None | Deterministic first shop customer for new games; solvable with starting raw Mint, Gorse, and Thyme. |
+| `customer_requests_opening_gravekeepers_balm` | None | Exact Minor Healing Potion | Deterministic first shop customer for new games; Mother asks for the renamed tutorial potion brewed from starting raw Mint, Gorse, and Thyme. |
 | `customer_requests_opening_silver_focus_tonic` | Courage 8, Vigor 3, Clarity 2 | None | Deterministic second shop customer for new games; arrival grants Comfrey, Willow, and Yarrow. |
 | `customer_requests_opening_clean_vigor_tonic` | Cleanse 7, Soothe 4, Vigor 3 | None | Deterministic third shop customer for new games; arrival restocks Mint, Gorse, Thyme, Comfrey, Willow, and Yarrow to at least 5 each. |
 | `customer_requests_day_two_charmed_focus_tonic` | Courage 8, Charm 4, Vigor 3 | None | Deterministic first customer on day 2. |

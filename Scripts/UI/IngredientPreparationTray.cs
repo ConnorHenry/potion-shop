@@ -9,6 +9,12 @@ namespace OccultShop.UI;
 
 public partial class IngredientPreparationTray : Control
 {
+	[Signal]
+	public delegate void IngredientSelectedEventHandler(string itemId);
+
+	[Signal]
+	public delegate void IngredientPreparedEventHandler(string ingredientId, string preparationId, string preparedItemId);
+
 	private const string DefaultIngredientName = "Drop raw ingredient";
 	private const string DefaultStatusText = "Select a preparation.";
 	private const string MissingPreviewText = "Unavailable";
@@ -158,8 +164,23 @@ public partial class IngredientPreparationTray : Control
 		_ingredientIcon.Texture = UiIconLoader.LoadIcon(item.IconPath);
 		_ingredientName.Text = item.Name;
 		SetStatus(DefaultStatusText);
+		// Let tutorial locks advance before refreshing buttons so the selected ingredient can enable Raw immediately.
+		EmitSignal(SignalName.IngredientSelected, itemId);
 		Refresh();
 		return true;
+	}
+
+	public Control? GetPreparationDropBox()
+	{
+		return _ingredientDropBox;
+	}
+
+	public Button? GetPreparationButton(string preparationId)
+	{
+		var normalizedPreparationId = IngredientPreparationCatalog.NormalizePreparationId(preparationId);
+		return _preparationButtonsById.TryGetValue(normalizedPreparationId, out var button)
+			? button
+			: null;
 	}
 
 	private void OnIngredientDropBoxGuiInput(InputEvent @event)
@@ -388,6 +409,7 @@ public partial class IngredientPreparationTray : Control
 		SetStatus(failedBoiling
 			? $"{preparedIngredient.Name} spoiled and added to brew."
 			: $"{preparedIngredient.Name} added to brew.");
+		EmitSignal(SignalName.IngredientPrepared, baseIngredient.Id, preparationId, preparedIngredient.Id);
 		ClearSelection(returnIngredient: false);
 	}
 
@@ -452,7 +474,11 @@ public partial class IngredientPreparationTray : Control
 				continue;
 
 			var preparationEnabled = _gameState.IsIngredientPreparationMethodEnabled(option.Id);
-			button.Disabled = !hasSelection || !preparationEnabled;
+			var isRawPreparation = string.Equals(
+				option.Id,
+				IngredientPreparationCatalog.RawPreparationId,
+				StringComparison.OrdinalIgnoreCase);
+			button.Disabled = isRawPreparation ? false : !hasSelection || !preparationEnabled;
 			button.TooltipText = preparationEnabled
 				? $"Prepare as {option.DisplayName}."
 				: $"{option.DisplayName} preparation is disabled.";

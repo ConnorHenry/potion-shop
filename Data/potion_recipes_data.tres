@@ -32,7 +32,7 @@ Entries = [{
 "ingredientId": "thyme",
 "preparation": "raw"
 }],
-"name": "Gravekeeper's Balm",
+"name": "Minor Healing Potion",
 "traits": ["soothe", "mend", "cleanse"]
 }, {
 "id": "silver_focus_tonic",

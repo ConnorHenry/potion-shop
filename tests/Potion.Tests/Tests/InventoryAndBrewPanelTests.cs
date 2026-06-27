@@ -566,12 +566,12 @@ internal static class InventoryAndBrewPanelTests
             tray.Contains("[color=#6ED775]{traitName} +{trait.Value}[/color]") &&
             tray.Contains("[color=#F0544F]{riskName} +{risk.Value}[/color]") &&
             !tray.Contains("Risk: {"));
-        AssertTrue("IngredientPreparationTray disables preparation buttons through GameState method locks",
+        AssertTrue("IngredientPreparationTray keeps Raw enabled while non-Raw buttons respect GameState method locks",
             tray.Contains("_preparationButtonsById") &&
             tray.Contains("_gameState.Changed += Refresh") &&
             tray.Contains("_gameState.Changed -= Refresh") &&
             tray.Contains("_gameState.IsIngredientPreparationMethodEnabled(option.Id)") &&
-            tray.Contains("button.Disabled = !hasSelection || !preparationEnabled") &&
+            tray.Contains("button.Disabled = isRawPreparation ? false : !hasSelection || !preparationEnabled") &&
             tray.Contains("if (!_gameState.IsIngredientPreparationMethodEnabled(preparationId))"));
         AssertTrue("Game UI keeps the compact preparation tray with room for preview labels under buttons",
             scene.Contains("custom_minimum_size = Vector2(430, 330)") &&

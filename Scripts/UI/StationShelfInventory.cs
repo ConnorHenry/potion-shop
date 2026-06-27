@@ -190,6 +190,24 @@ public partial class StationShelfInventory : Control
 		Refresh();
 	}
 
+	public Control? GetVisibleIngredientSlot(string itemId)
+	{
+		if (string.IsNullOrWhiteSpace(itemId) || _ingredientSlots is null)
+			return null;
+
+		foreach (var child in _ingredientSlots.GetChildren())
+		{
+			if (child is not InventoryItemSlot slot)
+				continue;
+			if (!slot.Visible)
+				continue;
+			if (string.Equals(slot.ItemId, itemId, System.StringComparison.OrdinalIgnoreCase))
+				return slot;
+		}
+
+		return null;
+	}
+
 	private List<ShelfStack> BuildVisibleIngredientStacks(bool refreshTraitOptions)
 	{
 		var ingredientStacks = BuildShelfStacks(includeIngredients: true);

@@ -1,0 +1,90 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" uid="uid://ca6uxywoqqueu" path="res://Scripts/UI/IntroCutscene.cs" id="1_intro"]
+[ext_resource type="Script" uid="uid://d4p8umh8qyw2a" path="res://Scripts/UI/PersistentHudVisibility.cs" id="2_hud_visibility"]
+
+[node name="IntroCutscene" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_intro")
+
+[node name="PersistentHudVisibility" type="Node" parent="."]
+script = ExtResource("2_hud_visibility")
+HudVisible = false
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.025, 0.023, 0.03, 1)
+
+[node name="Root" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Margin" type="MarginContainer" parent="Root"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 96.0
+offset_top = 72.0
+offset_right = -96.0
+offset_bottom = -72.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="VBox" type="VBoxContainer" parent="Root/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 18
+alignment = 1
+
+[node name="Conversation" type="RichTextLabel" parent="Root/Margin/VBox"]
+custom_minimum_size = Vector2(0, 430)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+mouse_filter = 2
+bbcode_enabled = true
+theme_override_colors/default_color = Color(0.92, 0.89, 0.8, 1)
+theme_override_font_sizes/normal_font_size = 24
+theme_override_font_sizes/bold_font_size = 24
+text = ""
+fit_content = false
+scroll_active = false
+autowrap_mode = 3
+
+[node name="Options" type="VBoxContainer" parent="Root/Margin/VBox"]
+visible = false
+custom_minimum_size = Vector2(0, 104)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 10
+
+[node name="OptionOne" type="Button" parent="Root/Margin/VBox/Options"]
+custom_minimum_size = Vector2(0, 46)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Is everything okay?"
+
+[node name="OptionTwo" type="Button" parent="Root/Margin/VBox/Options"]
+custom_minimum_size = Vector2(0, 46)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "The sun isn't even up yet."
+
+[node name="RainPlayer" type="AudioStreamPlayer" parent="."]

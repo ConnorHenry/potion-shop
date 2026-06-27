@@ -21,14 +21,18 @@ internal static class CustomerFlowTests
         runner.Run("Shop day waits for End Day before showing summary", TestShopDayWaitsForEndDayBeforeSummary);
         runner.Run("Active customer request is owned by station panel", TestActiveCustomerRequestKeepsShopFrontCustomerClickable);
         runner.Run("Active customer request persists across scene reloads", TestActiveCustomerRequestPersistsAcrossSceneReloads);
+        runner.Run("Opening mother customer starts after intro", TestOpeningMotherCustomerStartsAfterIntro);
         runner.Run("Forced customer fallback resolves legacy ids deterministically", TestForcedCustomerFallbackResolvesLegacyIdsDeterministically);
         runner.Run("Customer events respect scheduling and story outcomes", TestCustomerEventSchedulingAndStoryOutcomes);
         runner.Run("Customer trait thresholds are enforced", TestCustomerTraitThresholdsAreEnforced);
         runner.Run("Customer trait ranges are enforced", TestCustomerTraitRangesAreEnforced);
+        runner.Run("Customer exact potion requirements are enforced", TestCustomerExactPotionRequirementsAreEnforced);
         runner.Run("Active customer catalog includes trait threshold requests", TestActiveCustomerCatalogIncludesTraitThresholdRequests);
         runner.Run("Tiered customer data is an early bounded trait catalog", TestTieredCustomerDataIsEarlyFlexibleTraitCatalog);
         runner.Run("Customer dialogue markup converts safe syntax", TestCustomerDialogueMarkupConvertsSafeSyntax);
         runner.Run("Story customer dialogue trees support selling mode", TestStoryCustomerDialogueTreesSupportSellingMode);
+        runner.Run("Customer outcomes update reputation and relationships", TestCustomerOutcomesUpdateStoryState);
+        runner.Run("Dialogue tree editor addon is registered", TestDialogueTreeEditorAddonIsRegistered);
         runner.Run("StationCustomerPanel renders dialogue node text as narration", TestCustomerPanelRendersDialogueNodeTextAsNarration);
         runner.Run("Customer dialogue uses narrative text presenter", TestCustomerDialogueUsesNarrativeTextPresenter);
         runner.Run("StationCustomerPanel exposes station potion sale slots", TestCustomerPanelShowsDraggablePotionSaleSlots);
@@ -241,6 +245,39 @@ internal static class CustomerFlowTests
         AssertTrue("Explicit customer clearing still clears active request state",
             stationCustomerPanel.Contains("public void ClearCustomers()") &&
             stationCustomerPanel.Contains("ShowEmptyCustomerPresentation(clearActiveRequest: true);"));
+    }
+
+    private static void TestOpeningMotherCustomerStartsAfterIntro()
+    {
+        var gameState = ReadProjectFile("Scripts/Autoload/GameState.cs");
+        var introCutscene = ReadProjectFile("Scripts/UI/IntroCutscene.cs");
+        var dayController = ReadProjectFile("Scripts/Controllers/DayController.cs");
+        var tieredCustomers = ReadProjectFile("Data/customers_tiered_test_data.tres");
+        var recipes = ReadProjectFile("Data/potion_recipes_data.tres");
+
+        AssertTrue("Intro cutscene records completion before entering the main scene",
+            gameState.Contains("IntroCutsceneCompletedStoryFlag = \"intro_cutscene_completed\"") &&
+            gameState.Contains("public void RecordIntroCutsceneCompleted()") &&
+            introCutscene.Contains("_gameState.RecordIntroCutsceneCompleted();"));
+        AssertTrue("DayController auto-starts only the pending opening shop day after the intro",
+            dayController.Contains("ShouldAutoStartOpeningShopDay()") &&
+            dayController.Contains("_gameState.HasStoryFlag(GameState.IntroCutsceneCompletedStoryFlag)") &&
+            dayController.Contains("_gameState.HasStoryFlag(GameState.NewGameOpeningCustomerPendingStoryFlag)") &&
+            dayController.Contains("StartShopDay();"));
+        AssertTrue("Opening customer is Mother with a blank desired trait request and exact potion requirement",
+            tieredCustomers.Contains("\"id\": \"customer_requests_opening_gravekeepers_balm\"") &&
+            tieredCustomers.Contains("\"speaker\": \"Mother\"") &&
+            tieredCustomers.Contains("I'm feeling a bit frail today and can't reach the ingredients on top of the shelf. Could you reach for them and brew me a Minor Healing potion please?") &&
+            tieredCustomers.Contains("\"desiredTraits\": {}") &&
+            tieredCustomers.Contains("\"requiredPotionItemId\": \"potion_gravekeepers_balm\"") &&
+            tieredCustomers.Contains("\"requiredPotionDisplayName\": \"Minor Healing Potion\"") &&
+            tieredCustomers.Contains("res://Assets/Characters/mother_placeholder.svg"));
+        AssertTrue("Minor Healing Potion rewords the current Mint, Gorse, and Thyme tutorial recipe",
+            recipes.Contains("\"id\": \"gravekeepers_balm\"") &&
+            recipes.Contains("\"ingredientIds\": [\"mint\", \"gorse\", \"thyme\"]") &&
+            recipes.Contains("\"name\": \"Minor Healing Potion\""));
+        AssertTrue("Mother placeholder portrait asset exists",
+            ReadProjectFile("Assets/Characters/mother_placeholder.svg").Contains(">mother<"));
     }
 
     private static void TestForcedCustomerFallbackResolvesLegacyIdsDeterministically()
@@ -477,6 +514,33 @@ internal static class CustomerFlowTests
             !CustomerSaleRules.IsRequestSatisfiedByPotion(request, confusedResult, true));
     }
 
+    private static void TestCustomerExactPotionRequirementsAreEnforced()
+    {
+        var request = new CustomerRequestDef
+        {
+            RequiredPotionItemId = "potion_gravekeepers_balm",
+            RequiredPotionDisplayName = "Minor Healing Potion"
+        };
+        var result = new PotionResult
+        {
+            Traits = new Dictionary<string, int>()
+        };
+
+        AssertTrue("Exact required potion succeeds",
+            CustomerSaleRules.IsRequestSatisfiedByPotion("potion_gravekeepers_balm", request, result, true));
+        AssertTrue("Different potion fails exact requirement",
+            !CustomerSaleRules.IsRequestSatisfiedByPotion("potion_sleep_draught", request, result, true));
+
+        var comparison = CustomerDialogueTextFormatter.BuildCustomerPotionRequestComparisonText(
+            request,
+            result.Traits,
+            result.Risks,
+            null,
+            "potion_sleep_draught");
+        AssertTrue("Exact potion requirement is visible in customer comparison",
+            comparison.Contains("[color=#E64040]No match[/color] Required potion: Minor Healing Potion"));
+    }
+
     private static void TestActiveCustomerCatalogIncludesTraitThresholdRequests()
     {
         var customerDef = ReadProjectFile("Scripts/Models/CustomerInteractionDef.cs");
@@ -498,6 +562,12 @@ internal static class CustomerFlowTests
         AssertTrue("Customer requests can hide authored request details",
             customerDef.Contains("HideRequestDetails") &&
             formatter.Contains("HiddenRequestText"));
+        AssertTrue("Customer requests can require an exact potion item without desired traits",
+            customerDef.Contains("RequiredPotionItemId") &&
+            customerDef.Contains("RequiredPotionDisplayName") &&
+            dataDb.Contains("RequiredPotionItemId = ReadString(entry, \"requiredPotionItemId\")") &&
+            saleRules.Contains("IsRequiredPotionSatisfied") &&
+            formatter.Contains("AddRequiredPotionComparisonLine"));
         AssertTrue("DataDb parses desired and bad trait ranges",
             dataDb.Contains("ReadTraitRangeDictionary(entry, \"desiredTraits\", legacyIntIsMinimum: true)") &&
             dataDb.Contains("ReadTraitRangeDictionary(entry, \"badTraits\", legacyIntIsMinimum: false)"));
@@ -550,6 +620,7 @@ internal static class CustomerFlowTests
     {
         var tieredCustomers = ReadProjectFile("Data/customers_tiered_test_data.tres");
         var catalog = ReadProjectFile("Data/customers_tiered_test_catalog.md");
+        var interactions = ReadAuthoredCustomerInteractions("Data/customers_tiered_test_data.tres");
 
         var dayOneGateCount = CountOccurrences(tieredCustomers, "\"dayMin\": 1");
         var dayTwoGateCount = CountOccurrences(tieredCustomers, "\"dayExact\": 2");
@@ -580,15 +651,16 @@ internal static class CustomerFlowTests
             tieredCustomers.Contains("\"insomnia\""));
         AssertTrue("Tiered customer data includes the deterministic opening request",
             tieredCustomers.Contains("\"id\": \"customer_requests_opening_gravekeepers_balm\"") &&
-            tieredCustomers.Contains("\"cleanse\": { \"min\": 4, \"max\": 4 }") &&
-            tieredCustomers.Contains("\"mend\": { \"min\": 4, \"max\": 4 }") &&
-            tieredCustomers.Contains("\"soothe\": { \"min\": 4, \"max\": 4 }") &&
+            tieredCustomers.Contains("\"title\": \"Mother\"") &&
+            tieredCustomers.Contains("\"desiredTraits\": {}") &&
+            tieredCustomers.Contains("\"requiredPotionItemId\": \"potion_gravekeepers_balm\"") &&
+            tieredCustomers.Contains("\"requiredPotionDisplayName\": \"Minor Healing Potion\"") &&
             catalog.Contains("Deterministic first shop customer"));
         AssertTrue("Tiered customer data includes the deterministic second request and arrival grant",
             tieredCustomers.Contains("\"id\": \"customer_requests_opening_silver_focus_tonic\"") &&
-            tieredCustomers.Contains("\"clarity\": { \"min\": 4, \"max\": 4 }") &&
-            tieredCustomers.Contains("\"courage\": { \"min\": 3, \"max\": 3 }") &&
-            tieredCustomers.Contains("\"vigor\": { \"min\": 3, \"max\": 3 }") &&
+            HasDesiredTraitRange(interactions, "customer_requests_opening_silver_focus_tonic", "clarity", 4, 4) &&
+            HasDesiredTraitRange(interactions, "customer_requests_opening_silver_focus_tonic", "courage", 3, 3) &&
+            HasDesiredTraitRange(interactions, "customer_requests_opening_silver_focus_tonic", "vigor", 3, 3) &&
             tieredCustomers.Contains("\"onArrivalEffects\"") &&
             tieredCustomers.Contains("\"addItemId\": \"comfrey\"") &&
             tieredCustomers.Contains("\"addItemId\": \"willow\"") &&
@@ -596,9 +668,9 @@ internal static class CustomerFlowTests
             catalog.Contains("Deterministic second shop customer"));
         AssertTrue("Tiered customer data includes the deterministic third request and restock grant",
             tieredCustomers.Contains("\"id\": \"customer_requests_opening_clean_vigor_tonic\"") &&
-            tieredCustomers.Contains("\"cleanse\": { \"min\": 4, \"max\": 4 }") &&
-            tieredCustomers.Contains("\"soothe\": { \"min\": 4, \"max\": 4 }") &&
-            tieredCustomers.Contains("\"vigor\": { \"min\": 3, \"max\": 3 }") &&
+            HasDesiredTraitRange(interactions, "customer_requests_opening_clean_vigor_tonic", "cleanse", 4, 4) &&
+            HasDesiredTraitRange(interactions, "customer_requests_opening_clean_vigor_tonic", "soothe", 4, 4) &&
+            HasDesiredTraitRange(interactions, "customer_requests_opening_clean_vigor_tonic", "vigor", 3, 3) &&
             tieredCustomers.Contains("\"restockItemId\": \"mint\"") &&
             tieredCustomers.Contains("\"restockItemId\": \"gorse\"") &&
             tieredCustomers.Contains("\"restockItemId\": \"thyme\"") &&
@@ -611,9 +683,9 @@ internal static class CustomerFlowTests
             tieredCustomers.Contains("\"id\": \"customer_requests_day_two_charmed_focus_tonic\"") &&
             tieredCustomers.Contains("\"dayExact\": 2") &&
             tieredCustomers.Contains("\"hasStoryFlag\": \"day_two_first_customer_pending\"") &&
-            tieredCustomers.Contains("\"charm\": { \"min\": 4, \"max\": 4 }") &&
-            tieredCustomers.Contains("\"courage\": { \"min\": 3, \"max\": 3 }") &&
-            tieredCustomers.Contains("\"vigor\": { \"min\": 3, \"max\": 3 }") &&
+            HasDesiredTraitRange(interactions, "customer_requests_day_two_charmed_focus_tonic", "charm", 4, 4) &&
+            HasDesiredTraitRange(interactions, "customer_requests_day_two_charmed_focus_tonic", "courage", 3, 3) &&
+            HasDesiredTraitRange(interactions, "customer_requests_day_two_charmed_focus_tonic", "vigor", 3, 3) &&
             catalog.Contains("Deterministic first customer on day 2"));
         AssertTrue("Tiered customer data includes the hidden deterministic day-two second request",
             tieredCustomers.Contains("\"id\": \"customer_requests_day_two_crowded_head_tonic\"") &&
@@ -621,20 +693,20 @@ internal static class CustomerFlowTests
             tieredCustomers.Contains("\"dayExact\": 2") &&
             tieredCustomers.Contains("\"hasStoryFlag\": \"day_two_second_customer_pending\"") &&
             tieredCustomers.Contains("\"hideRequestDetails\": true") &&
-            tieredCustomers.Contains("\"cleanse\": { \"min\": 7, \"max\": 7 }") &&
-            tieredCustomers.Contains("\"soothe\": { \"min\": 5, \"max\": 5 }") &&
-            tieredCustomers.Contains("\"clarity\": { \"min\": 4, \"max\": 4 }") &&
+            HasDesiredTraitRange(interactions, "customer_requests_day_two_crowded_head_tonic", "cleanse", 7, 7) &&
+            HasDesiredTraitRange(interactions, "customer_requests_day_two_crowded_head_tonic", "soothe", 5, 5) &&
+            HasDesiredTraitRange(interactions, "customer_requests_day_two_crowded_head_tonic", "clarity", 4, 4) &&
             CountOccurrences(tieredCustomers, "\"enableIngredientPreparationMethodId\": \"boiled\"") >= 2 &&
             catalog.Contains("Enables Boiled prep method when served") &&
             catalog.Contains("desired request details display as `?????`"));
         AssertTrue("Tiered customer data includes the deterministic day-two third rest memory clarity request",
             tieredCustomers.Contains("\"id\": \"customer_requests_day_two_rest_memory_clarity\"") &&
             tieredCustomers.Contains("\"hasStoryFlag\": \"day_two_third_customer_pending\"") &&
-            tieredCustomers.Contains("\"rest\": { \"min\": 5 }") &&
-            tieredCustomers.Contains("\"memory\": { \"min\": 5 }") &&
-            tieredCustomers.Contains("\"clarity\": { \"min\": 4 }") &&
-            tieredCustomers.Contains("\"melancholy\": { \"max\": 0 }") &&
-            tieredCustomers.Contains("\"insomnia\": { \"max\": 0 }") &&
+            HasDesiredTraitRange(interactions, "customer_requests_day_two_rest_memory_clarity", "rest", 5, null) &&
+            HasDesiredTraitRange(interactions, "customer_requests_day_two_rest_memory_clarity", "memory", 5, null) &&
+            HasDesiredTraitRange(interactions, "customer_requests_day_two_rest_memory_clarity", "clarity", 4, null) &&
+            HasBadTraitRange(interactions, "customer_requests_day_two_rest_memory_clarity", "melancholy", null, 0) &&
+            HasBadTraitRange(interactions, "customer_requests_day_two_rest_memory_clarity", "insomnia", null, 0) &&
             catalog.Contains("Deterministic third customer on day 2"));
         AssertTrue("Tiered customer data omits old unsupported traits and risks",
             !tieredCustomers.Contains("\"confusion\"") &&
@@ -875,6 +947,78 @@ internal static class CustomerFlowTests
             stationCustomerPanel.Contains("CustomerDialogueTextFormatter.CustomerSpeakerName"));
     }
 
+    private static void TestCustomerOutcomesUpdateStoryState()
+    {
+        var saleService = ReadProjectFile("Scripts/Systems/CustomerSaleService.cs");
+
+        AssertTrue("Customer sale service defines automatic reputation deltas",
+            saleService.Contains("SuccessReputationChange = 2") &&
+            saleService.Contains("FailureReputationChange = -3") &&
+            saleService.Contains("RefusalReputationChange = -1"));
+        AssertTrue("Story customer sale service defines automatic relationship deltas",
+            saleService.Contains("StoryCustomerSuccessRelationshipChange = 5") &&
+            saleService.Contains("StoryCustomerFailureRelationshipChange = -5") &&
+            saleService.Contains("StoryCustomerRefusalRelationshipChange = -2"));
+        AssertTrue("Sales apply automatic outcome changes before authored effects",
+            saleService.Contains("ApplyAutomaticSaleOutcome(interaction, isSuccess);") &&
+            saleService.IndexOf("ApplyAutomaticSaleOutcome(interaction, isSuccess);", StringComparison.Ordinal) <
+            saleService.IndexOf("ApplyOutcomeEffects(isSuccess ? interaction.OnSuccessEffects : interaction.OnFailureEffects);", StringComparison.Ordinal));
+        AssertTrue("Refusals apply the milder automatic outcome changes",
+            saleService.Contains("ApplyAutomaticRefusalOutcome(interaction);") &&
+            saleService.Contains("_gameState.AddReputation(RefusalReputationChange)") &&
+            saleService.Contains("_gameState.AddRelationship(interaction.StoryCharacterId, StoryCustomerRefusalRelationshipChange)"));
+    }
+
+    private static void TestDialogueTreeEditorAddonIsRegistered()
+    {
+        var project = ReadProjectFile("project.godot");
+        var plugin = ReadProjectFile("addons/dialogue_tree_editor/plugin.gd");
+        var dock = ReadProjectFile("addons/dialogue_tree_editor/dialogue_tree_editor_dock.gd");
+
+        AssertTrue("Dialogue tree editor plugin is enabled",
+            project.Contains("res://addons/dialogue_tree_editor/plugin.cfg"));
+        AssertTrue("Dialogue tree editor is installed as an editor dock",
+            plugin.Contains("extends EditorPlugin") &&
+            plugin.Contains("add_control_to_dock") &&
+            plugin.Contains("remove_control_from_docks"));
+        AssertTrue("Dialogue tree editor loads the authored customer resource",
+            dock.Contains("AUTHORED_DATA_PATH") &&
+            dock.Contains("CustomerInteractionsPath") &&
+            dock.Contains("ResourceSaver.save(_customer_resource, _customer_path)"));
+        AssertTrue("Dialogue tree editor exposes graph editing and story-state authoring",
+            dock.Contains("GraphEdit") &&
+            dock.Contains("connection_request") &&
+            dock.Contains("reputationMin") &&
+            dock.Contains("questStatus") &&
+            dock.Contains("relationshipCharacterId") &&
+            dock.Contains("hasStoryFlag"));
+        AssertTrue("Dialogue tree editor shows selected interactions instead of a blank graph",
+            dock.Contains("_selected_summary_label") &&
+            dock.Contains("No dialogue tree") &&
+            dock.Contains("Add first node") &&
+            dock.Contains("Selected %s."));
+        AssertTrue("Dialogue tree editor uses a narrow tabbed layout for bottom docks",
+            dock.Contains("custom_minimum_size = Vector2(360.0, 280.0)") &&
+            dock.Contains("_root.anchor_right = 1.0") &&
+            dock.Contains("_root.anchor_bottom = 1.0") &&
+            dock.Contains("TabContainer.new()") &&
+            dock.Contains("interactions_panel.name = \"Interactions\"") &&
+            dock.Contains("graph_panel.name = \"Graph\"") &&
+            dock.Contains("inspector_panel.name = \"Inspector\""));
+        AssertTrue("Dialogue tree editor graph defaults to a readable floating-dock scale",
+            dock.Contains("GRAPH_READABLE_ZOOM := 1.5") &&
+            dock.Contains("GRAPH_MIN_VISIBLE_HEIGHT := 420.0") &&
+            dock.Contains("_graph.zoom = GRAPH_READABLE_ZOOM") &&
+            dock.Contains("_graph.show_zoom_label = true") &&
+            dock.Contains("call_deferred(\"_apply_graph_readability\")") &&
+            dock.Contains("option_button.custom_minimum_size = Vector2(280.0, 34.0)"));
+        AssertTrue("Dialogue tree editor exposes option creation from the graph tab",
+            dock.Contains("graph_actions.add_child(_make_button(\"Add Option\", _add_option_to_selected_node))") &&
+            dock.Contains("add_option_button.text = \"Add option\"") &&
+            dock.Contains("add_option_button.pressed.connect(_add_option_to_node.bind(node_id))") &&
+            dock.Contains("Select a node before adding an option."));
+    }
+
     private static void TestCustomerDialogueUsesNarrativeTextPresenter()
     {
         var stationCustomerPanel = ReadProjectFile("Scripts/UI/StationCustomerPanel.cs");
@@ -1098,6 +1242,49 @@ internal static class CustomerFlowTests
             interactionId,
             "customer_requests_day_two_rest_memory_clarity",
             StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool HasDesiredTraitRange(
+        IReadOnlyList<CustomerInteractionDef> interactions,
+        string interactionId,
+        string traitId,
+        int? min,
+        int? max)
+    {
+        return HasTraitRange(interactions, interactionId, traitId, min, max, useBadTraits: false);
+    }
+
+    private static bool HasBadTraitRange(
+        IReadOnlyList<CustomerInteractionDef> interactions,
+        string interactionId,
+        string traitId,
+        int? min,
+        int? max)
+    {
+        return HasTraitRange(interactions, interactionId, traitId, min, max, useBadTraits: true);
+    }
+
+    private static bool HasTraitRange(
+        IReadOnlyList<CustomerInteractionDef> interactions,
+        string interactionId,
+        string traitId,
+        int? min,
+        int? max,
+        bool useBadTraits)
+    {
+        foreach (var interaction in interactions)
+        {
+            if (!string.Equals(interaction.Id, interactionId, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var ranges = useBadTraits ? interaction.BadTraits : interaction.DesiredTraits;
+            if (!ranges.TryGetValue(traitId, out var range) || range is null)
+                return false;
+
+            return range.Min == min && range.Max == max;
+        }
+
+        return false;
     }
 
     private static List<CustomerInteractionDef> ReadAuthoredCustomerInteractions(string projectPath)

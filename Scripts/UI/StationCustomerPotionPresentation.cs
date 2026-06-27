@@ -19,13 +19,15 @@ public static class StationCustomerPotionPresentation
 	public static string BuildRequestFitText(
 		CustomerRequestDef request,
 		PotionResult? brewResult,
-		IReadOnlyList<IngredientPortionDef>? potionIngredients)
+		IReadOnlyList<IngredientPortionDef>? potionIngredients,
+		string potionItemId = "")
 	{
 		return CustomerDialogueTextFormatter.BuildCustomerPotionRequestComparisonText(
 			request,
 			brewResult?.Traits,
 			brewResult?.Risks,
-			potionIngredients);
+			potionIngredients,
+			potionItemId);
 	}
 
 	public static string BuildHiddenRequestFitText()

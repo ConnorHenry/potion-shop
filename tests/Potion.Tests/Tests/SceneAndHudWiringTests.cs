@@ -16,7 +16,12 @@ internal static class SceneAndHudWiringTests
     {
         runner.Run("UI classes exist and keep expected base types", TestUiClassPresenceAndBaseTypes);
         runner.Run("Main menu exposes start and load flows", TestMainMenuLoadFlow);
+        runner.Run("Main menu collects player name before new game", TestMainMenuPlayerNameFlow);
+        runner.Run("Intro cutscene runs after confirmed new game", TestIntroCutsceneNewGameFlow);
+        runner.Run("Ten years later cutscene routes to juniper gathering", TestTenYearsLaterCutsceneFlow);
+        runner.Run("Woman in green cutscene runs after story juniper gathering", TestWomanInGreenCutsceneFlow);
         runner.Run("Load menu scene is wired for saved game browsing", TestLoadGameMenuScene);
+        runner.Run("Dialogue test scene exercises branching story state", TestDialogueTestScene);
         runner.Run("Game UI omits the removed inventory panel", TestGameUiOmitsInventoryPanel);
         runner.Run("Station customer panel uses authored customer image paths", TestCustomerCloseupUsesSplitArt);
         runner.Run("Potion brewing station is the primary game view", TestShopFloorShelfOpensPotionBrewingStation);
@@ -53,6 +58,7 @@ internal static class SceneAndHudWiringTests
             ["OccultShop.UI.Hud"] = "Control",
             ["OccultShop.UI.CalendarPanel"] = "PanelContainer",
             ["OccultShop.UI.LoadGameMenu"] = "Control",
+            ["OccultShop.UI.DialogueTestScene"] = "Control",
             ["OccultShop.UI.InventoryItemSlot"] = "Button",
             ["OccultShop.UI.StationShelfInventory"] = "Control",
             ["OccultShop.UI.StationItemDetailPanel"] = "Control",
@@ -61,6 +67,10 @@ internal static class SceneAndHudWiringTests
             ["OccultShop.UI.Map"] = "Control",
             ["OccultShop.UI.ForestGathering"] = "Control",
             ["OccultShop.UI.JuniperGathering"] = "Control",
+            ["OccultShop.UI.IntroCutscene"] = "Control",
+            ["OccultShop.UI.TenYearsLaterCutscene"] = "Control",
+            ["OccultShop.UI.WomanInGreenCutscene"] = "Control",
+            ["OccultShop.Autoload.SceneTransition"] = "CanvasLayer",
             ["MainMenu"] = "Control"
         };
 
@@ -100,15 +110,276 @@ internal static class SceneAndHudWiringTests
         var source = ReadProjectFile("Scripts/UI/LoadGameMenu.cs");
         var scene = ReadProjectFile("Scenes/UI/LoadGameMenu.tscn");
         var scenePaths = ReadProjectFile("Scripts/Infrastructure/ScenePaths.cs");
+        var saveSummary = ReadProjectFile("Scripts/Persistence/SaveGameSummary.cs");
 
         AssertTrue("LoadGameMenu reads save summaries", source.Contains("GetSavedGames()"));
         AssertTrue("LoadGameMenu loads selected save", source.Contains("LoadGame(save.FilePath)"));
         AssertTrue("LoadGameMenu deletes selected save", source.Contains("DeleteSaveGame(save.FilePath)"));
         AssertTrue("LoadGameMenu returns to main menu", source.Contains("ScenePaths.MainMenu") && scenePaths.Contains("res://MainMenu.tscn"));
         AssertTrue("LoadGameMenu exposes a delete button", source.Contains("Text = \"Delete\""));
+        AssertTrue("LoadGameMenu save rows use display text with player name",
+            source.Contains("save.BuildDisplayText()") &&
+            saveSummary.Contains("PlayerName") &&
+            saveSummary.Contains("Unnamed Player"));
         AssertTrue("LoadGameMenu scene exposes a save list", scene.Contains("SaveList"));
         AssertTrue("LoadGameMenu scene exposes empty state", scene.Contains("No saved games found."));
         AssertTrue("LoadGameMenu scene exposes back button", scene.Contains("BackButton"));
+    }
+
+    private static void TestMainMenuPlayerNameFlow()
+    {
+        var source = ReadProjectFile("Scripts/UI/MainMenu.cs");
+        var scene = ReadProjectFile("MainMenu.tscn");
+
+        AssertTrue("MainMenu exposes player name popup node paths",
+            source.Contains("NewGameNamePopupPath") &&
+            source.Contains("PlayerNameInputPath") &&
+            source.Contains("PlayerNamePreviewLabelPath") &&
+            source.Contains("KeyboardRowsPath") &&
+            source.Contains("NameConfirmPopupPath"));
+        AssertTrue("MainMenu scene contains player name popup controls",
+            scene.Contains("[node name=\"NewGameNamePopup\"") &&
+            scene.Contains("[node name=\"NameInput\" type=\"LineEdit\"") &&
+            scene.Contains("[node name=\"Preview\" type=\"Label\"") &&
+            scene.Contains("[node name=\"KeyboardRows\" type=\"VBoxContainer\"") &&
+            scene.Contains("[node name=\"NameConfirmPopup\""));
+        AssertTrue("MainMenu tutorial choices open name entry before starting",
+            source.Contains("ShowPlayerNamePrompt(startTutorial: true)") &&
+            source.Contains("ShowPlayerNamePrompt(startTutorial: false)") &&
+            source.Contains("_saveGameManager.StartNewGame(startTutorial, playerName);"));
+        AssertTrue("MainMenu accepts physical keyboard typing and Enter submission",
+            source.Contains("_playerNameInput.TextChanged += OnPlayerNameChanged;") &&
+            source.Contains("_playerNameInput.TextSubmitted += OnPlayerNameSubmitted;") &&
+            source.Contains("TryShowNameConfirmation();"));
+        AssertTrue("MainMenu builds QWERTY on-screen keyboard",
+            source.Contains("\"QWERTYUIOP\"") &&
+            source.Contains("\"ASDFGHJKL\"") &&
+            source.Contains("\"ZXCVBNM\"") &&
+            source.Contains("AddKeyboardButton(commandRow, \"Space\"") &&
+            source.Contains("AddKeyboardButton(commandRow, \"Backspace\"") &&
+            source.Contains("AddKeyboardButton(commandRow, \"Clear\"") &&
+            source.Contains("AddKeyboardButton(commandRow, \"Confirm\""));
+        AssertTrue("MainMenu updates live name preview",
+            source.Contains("UpdatePlayerNamePreview") &&
+            source.Contains("_playerNamePreviewLabel.Text") &&
+            source.Contains("Your name: {normalizedName}"));
+        AssertTrue("MainMenu validates player names conservatively",
+            source.Contains("PlayerNameMaxLength = 20") &&
+            source.Contains("TryValidatePlayerName") &&
+            source.Contains("char.IsLetterOrDigit(character)") &&
+            source.Contains("character == ' '") &&
+            source.Contains("character == '-'") &&
+            source.Contains("apostrophes"));
+        AssertTrue("MainMenu asks for final name confirmation",
+            source.Contains("NameConfirmMessageLabelPath") &&
+            source.Contains("Start game as") &&
+            source.Contains("OnNameConfirmAccepted"));
+        AssertTrue("MainMenu scene line edit limits names to 20 characters",
+            scene.Contains("max_length = 20"));
+    }
+
+    private static void TestIntroCutsceneNewGameFlow()
+    {
+        var mainMenu = ReadProjectFile("Scripts/UI/MainMenu.cs");
+        var project = ReadProjectFile("project.godot");
+        var autoloadNodePaths = ReadProjectFile("Scripts/Autoload/AutoloadNodePaths.cs");
+        var scenePaths = ReadProjectFile("Scripts/Infrastructure/ScenePaths.cs");
+        var introSource = ReadProjectFile("Scripts/UI/IntroCutscene.cs");
+        var introScene = ReadProjectFile("Scenes/UI/IntroCutscene.tscn");
+        var transitionSource = ReadProjectFile("Scripts/Autoload/SceneTransition.cs");
+
+        var startNewGameIndex = mainMenu.IndexOf("private void StartNewGame(bool startTutorial, string playerName)", StringComparison.Ordinal);
+        var startNewGameBlock = startNewGameIndex >= 0
+            ? mainMenu.Substring(startNewGameIndex, Math.Min(520, mainMenu.Length - startNewGameIndex))
+            : string.Empty;
+        var continueGameIndex = mainMenu.IndexOf("private void ContinueGame()", StringComparison.Ordinal);
+        var continueGameBlock = continueGameIndex >= 0
+            ? mainMenu.Substring(continueGameIndex, Math.Min(420, mainMenu.Length - continueGameIndex))
+            : string.Empty;
+
+        AssertTrue("ScenePaths exposes the intro cutscene scene",
+            scenePaths.Contains("IntroCutscene") &&
+            scenePaths.Contains("res://Scenes/UI/IntroCutscene.tscn"));
+        AssertTrue("Confirmed new games route through the intro cutscene after saving tutorial choice and name",
+            startNewGameBlock.Contains("_saveGameManager.StartNewGame(startTutorial, playerName);") &&
+            startNewGameBlock.Contains("ScenePaths.IntroCutscene") &&
+            !startNewGameBlock.Contains("ScenePaths.Main"));
+        AssertTrue("Continue/load fallback still enters the main scene directly",
+            continueGameBlock.Contains("LoadLatestGameIfExists()") &&
+            continueGameBlock.Contains("StartNewGame();") &&
+            continueGameBlock.Contains("ScenePaths.Main"));
+        AssertTrue("Intro cutscene scene hides the persistent HUD",
+            introScene.Contains("res://Scripts/UI/PersistentHudVisibility.cs") &&
+            introScene.Contains("HudVisible = false"));
+        AssertTrue("Intro cutscene scene exposes text, options, and rain player nodes",
+            introScene.Contains("res://Scripts/UI/IntroCutscene.cs") &&
+            introScene.Contains("[node name=\"Conversation\" type=\"RichTextLabel\"") &&
+            introScene.Contains("[node name=\"Options\" type=\"VBoxContainer\"") &&
+            introScene.Contains("[node name=\"OptionOne\" type=\"Button\"") &&
+            introScene.Contains("[node name=\"OptionTwo\" type=\"Button\"") &&
+            introScene.Contains("[node name=\"RainPlayer\" type=\"AudioStreamPlayer\""));
+        AssertTrue("Intro cutscene uses the reusable dialogue and animated text runtime",
+            introSource.Contains("NarrativeTextPresenter") &&
+            introSource.Contains("DialogueSession") &&
+            introSource.Contains("DialogueNarrativeLineBuilder.BuildNarrativeLines") &&
+            introSource.Contains("AdvanceQueuedPresentation()"));
+        AssertTrue("Intro cutscene contains the requested opening text and player choices",
+            introSource.Contains("Hey, hey wake up {playerName}.") &&
+            introSource.Contains("Your mother stands hunched over beside your bed, lit by only a candle. That and the sound of rain are the only senses you take in.") &&
+            introSource.Contains("Is everything okay?") &&
+            introSource.Contains("The sun isn't even up yet."));
+        AssertTrue("Intro cutscene contains both requested mother responses",
+            introSource.Contains("Yes, worry not, everything's fine. I just need your help with something.") &&
+            introSource.Contains("I know dear but I just need your help with something."));
+        AssertTrue("Intro cutscene records the selected player option before mother responds",
+            introSource.Contains("QueuePlayerLine(option.Label);") &&
+            introSource.Contains("QueueDialogueLines(option.ResponseLines, option.ResponseText, MotherSpeakerName);"));
+        AssertTrue("Intro rain plays locally and always starts during the scene",
+            introSource.Contains("res://Assets/Audio/rain-sounds.mp3") &&
+            introSource.Contains("_rainPlayer.Stream = stream;") &&
+            introSource.Contains("_rainPlayer.Play();") &&
+            !introSource.Contains("ambient_sounds_enabled") &&
+            !introSource.Contains("SetAmbientPlaybackAllowed"));
+        AssertTrue("Intro cutscene waits for a final click before entering the main scene",
+            introSource.Contains("AwaitingFinalClick") &&
+            introSource.Contains("TransitionToMainScene();") &&
+            introSource.Contains("ChangeSceneWithFade(ScenePaths.Main)") &&
+            !introSource.Contains("GetTree().ChangeSceneToFile(ScenePaths.Main)"));
+        AssertTrue("Scene transition autoload is wired for cross-scene fades",
+            project.Contains("SceneTransition=\"*res://Scripts/Autoload/SceneTransition.cs\"") &&
+            autoloadNodePaths.Contains("SceneTransition = \"/root/SceneTransition\"") &&
+            introSource.Contains("SceneTransitionPath = new(AutoloadNodePaths.SceneTransition)") &&
+            introSource.Contains("NodeLookup.TryGetRequiredNode<SceneTransition>"));
+        AssertTrue("Scene transition fades out, changes scene, then fades in",
+            transitionSource.Contains("TweenProperty(_fadeOverlay, \"modulate:a\"") &&
+            transitionSource.Contains("OnFadeOutFinished") &&
+            transitionSource.Contains("GetTree().ChangeSceneToFile(_pendingScenePath)") &&
+            transitionSource.Contains("StartFade(HiddenAlpha, FinishTransition)") &&
+            transitionSource.Contains("TransitionLayer = 8192"));
+    }
+
+    private static void TestDialogueTestScene()
+    {
+        var source = ReadProjectFile("Scripts/UI/DialogueTestScene.cs");
+        var scene = ReadProjectFile("Scenes/UI/DialogueTestScene.tscn");
+
+        AssertTrue("Dialogue test scene uses the neutral dialogue runtime",
+            source.Contains("DialogueSession") &&
+            source.Contains("DialogueGraph") &&
+            source.Contains("IsOptionVisible"));
+        AssertTrue("Dialogue test scene models the requested story state controls",
+            source.Contains("StartingStoryScore = 50") &&
+            source.Contains("QuestStatus.NotStarted") &&
+            source.Contains("QuestStatus.InProgress") &&
+            source.Contains("TrustFlagId") &&
+            source.Contains("Math.Clamp"));
+        AssertTrue("Dialogue test scene keeps seen options visible",
+            source.Contains("_seenOptionIds") &&
+            source.Contains("[seen]") &&
+            source.Contains("Seen choices stay visible"));
+        AssertTrue("Dialogue test scene is wired as a standalone UI scene",
+            scene.Contains("res://Scripts/UI/DialogueTestScene.cs") &&
+            scene.Contains("PersistentHudVisibility") &&
+            scene.Contains("HudVisible = false") &&
+            scene.Contains("Dialogue Test Scene") &&
+            scene.Contains("Reputation +5") &&
+            scene.Contains("Quest InProgress"));
+    }
+
+    private static void TestTenYearsLaterCutsceneFlow()
+    {
+        var scenePaths = ReadProjectFile("Scripts/Infrastructure/ScenePaths.cs");
+        var source = ReadProjectFile("Scripts/UI/TenYearsLaterCutscene.cs");
+        var scene = ReadProjectFile("Scenes/UI/TenYearsLaterCutscene.tscn");
+        var gameState = ReadProjectFile("Scripts/Autoload/GameState.cs");
+
+        AssertTrue("ScenePaths exposes the ten years later cutscene scene",
+            scenePaths.Contains("TenYearsLaterCutscene") &&
+            scenePaths.Contains("res://Scenes/UI/TenYearsLaterCutscene.tscn"));
+        AssertTrue("Ten years later cutscene scene hides the persistent HUD",
+            scene.Contains("res://Scripts/UI/PersistentHudVisibility.cs") &&
+            scene.Contains("HudVisible = false"));
+        AssertTrue("Ten years later cutscene scene exposes title, dialogue, and two choices",
+            scene.Contains("res://Scripts/UI/TenYearsLaterCutscene.cs") &&
+            scene.Contains("[node name=\"Title\" type=\"Label\"") &&
+            scene.Contains("text = \"10 Years Later\"") &&
+            scene.Contains("[node name=\"Conversation\" type=\"RichTextLabel\"") &&
+            scene.Contains("[node name=\"Options\" type=\"VBoxContainer\"") &&
+            scene.Contains("[node name=\"OptionOne\" type=\"Button\"") &&
+            scene.Contains("[node name=\"OptionTwo\" type=\"Button\""));
+        AssertTrue("Ten years later cutscene uses dark-screen dialogue runtime",
+            source.Contains("NarrativeTextPresenter") &&
+            source.Contains("DialogueSession") &&
+            source.Contains("DialogueNarrativeLineBuilder.BuildNarrativeLines") &&
+            source.Contains("TweenProperty(_title, \"modulate:a\"") &&
+            scene.Contains("Color(0.0, 0.0, 0.0, 1)"));
+        AssertTrue("Ten years later cutscene contains the requested text and choices",
+            source.Contains("10 Years Later") &&
+            source.Contains("Mother is brewing in the kitchen.") &&
+            source.Contains("Come on {playerName}, we need to go juniper picking") &&
+            source.Contains("Really?? Fun!") &&
+            source.Contains("You've never let me come juniper picking before?"));
+        AssertTrue("Ten years later cutscene records the selected player option without a mother response",
+            source.Contains("QueuePlayerLine(option.Label);") &&
+            source.Contains("PlayQueuedDialogueLines(TransitionToJuniperGathering)") &&
+            !source.Contains("QueueDialogueLines(option.ResponseLines"));
+        AssertTrue("Ten years later cutscene auto-saves at start and completion",
+            source.Contains("RecordTenYearsLaterCutsceneStarted();") &&
+            source.Contains("TryAutoSave(\"starting the ten years later cutscene\")") &&
+            source.Contains("RecordTenYearsLaterCutsceneCompleted();") &&
+            source.Contains("TryAutoSave(\"completing the ten years later cutscene\")") &&
+            gameState.Contains("TenYearsLaterCutsceneStartedStoryFlag") &&
+            gameState.Contains("TenYearsLaterCutsceneCompletedStoryFlag"));
+        AssertTrue("Ten years later cutscene fades to juniper gathering",
+            source.Contains("SceneTransitionPath = new(AutoloadNodePaths.SceneTransition)") &&
+            source.Contains("ChangeSceneWithFade(ScenePaths.JuniperGathering)") &&
+            !source.Contains("GetTree().ChangeSceneToFile(ScenePaths.JuniperGathering)"));
+    }
+
+    private static void TestWomanInGreenCutsceneFlow()
+    {
+        var scenePaths = ReadProjectFile("Scripts/Infrastructure/ScenePaths.cs");
+        var source = ReadProjectFile("Scripts/UI/WomanInGreenCutscene.cs");
+        var scene = ReadProjectFile("Scenes/UI/WomanInGreenCutscene.tscn");
+        var gameState = ReadProjectFile("Scripts/Autoload/GameState.cs");
+        var juniper = ReadProjectFile("Scripts/UI/JuniperGathering.cs");
+
+        AssertTrue("ScenePaths exposes the woman in green cutscene scene",
+            scenePaths.Contains("WomanInGreenCutscene") &&
+            scenePaths.Contains("res://Scenes/UI/WomanInGreenCutscene.tscn"));
+        AssertTrue("Woman in green cutscene scene hides the persistent HUD",
+            scene.Contains("res://Scripts/UI/PersistentHudVisibility.cs") &&
+            scene.Contains("HudVisible = false"));
+        AssertTrue("Woman in green cutscene scene exposes a dark narrative surface",
+            scene.Contains("res://Scripts/UI/WomanInGreenCutscene.cs") &&
+            scene.Contains("Color(0.0, 0.0, 0.0, 1)") &&
+            scene.Contains("[node name=\"Conversation\" type=\"RichTextLabel\""));
+        AssertTrue("Woman in green cutscene contains the requested river text",
+            source.Contains("After picking the juniper berries, you both walk home.") &&
+            source.Contains("By the river, you saw the woman in green.") &&
+            source.Contains("washing a pale coat against the stones") &&
+            source.Contains("Your mother's fingers closed around your wrist.") &&
+            source.Contains("\\\"Do not speak to her.\\\"") &&
+            source.Contains("You had never heard fear in your mother's voice before.") &&
+            source.Contains("neither of you spoke until the shop lamps were lit again."));
+        AssertTrue("Woman in green cutscene auto-saves at start and completion",
+            source.Contains("RecordWomanInGreenCutsceneStarted();") &&
+            source.Contains("TryAutoSave(\"starting the woman in green cutscene\")") &&
+            source.Contains("RecordWomanInGreenCutsceneCompleted();") &&
+            source.Contains("TryAutoSave(\"completing the woman in green cutscene\")") &&
+            gameState.Contains("WomanInGreenCutsceneStartedStoryFlag") &&
+            gameState.Contains("WomanInGreenCutsceneCompletedStoryFlag"));
+        AssertTrue("Woman in green cutscene fades back to Main",
+            source.Contains("SceneTransitionPath = new(AutoloadNodePaths.SceneTransition)") &&
+            source.Contains("ChangeSceneWithFade(ScenePaths.Main)") &&
+            !source.Contains("GetTree().ChangeSceneToFile(ScenePaths.Main)"));
+        AssertTrue("Juniper gathering only routes story completion into the woman in green cutscene once",
+            juniper.Contains("ShouldShowWomanInGreenCutscene()") &&
+            juniper.Contains("TenYearsLaterCutsceneCompletedStoryFlag") &&
+            juniper.Contains("WomanInGreenCutsceneStartedStoryFlag") &&
+            juniper.Contains("WomanInGreenCutsceneCompletedStoryFlag") &&
+            juniper.Contains("ChangeSceneWithFade(ScenePaths.WomanInGreenCutscene)") &&
+            juniper.Contains("GetTree().ChangeSceneToFile(ScenePaths.Main)"));
     }
 
     private static void TestGameUiOmitsInventoryPanel()
@@ -1209,7 +1480,9 @@ internal static class SceneAndHudWiringTests
             gathering.Contains("private void CommitGatheredRewards()") &&
             gathering.Contains("if (_rewardsCommitted)") &&
             gathering.Contains("_gameState.AddItem(TargetItemId, rewardQuantity)") &&
-            gathering.Contains("GetTree().ChangeSceneToFile(ScenePaths.Main)"));
+            gathering.Contains("GetTree().ChangeSceneToFile(ScenePaths.Main)") &&
+            gathering.Contains("ShouldShowWomanInGreenCutscene()") &&
+            gathering.Contains("ScenePaths.WomanInGreenCutscene"));
         AssertTrue("HUD blocks navigation while either gathering scene is active",
             hud.Contains("GetTree().CurrentScene is ForestGathering or JuniperGathering") &&
             hud.Contains("_settingsButton.Disabled = navigationBlocked") &&

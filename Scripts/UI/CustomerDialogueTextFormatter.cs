@@ -42,6 +42,8 @@ public static class CustomerDialogueTextFormatter
 			return HiddenRequestText;
 
 		var lines = new List<string>();
+		AddRequiredPotionRequestLine(lines, request);
+
 		var desiredTraitText = FormatTraitListWithMatches(
 			request.DesiredTraits,
 			producedTraits,
@@ -75,6 +77,7 @@ public static class CustomerDialogueTextFormatter
 			return HiddenRequestText;
 
 		var lines = new List<string>();
+		AddRequiredPotionChecklistLine(lines, request);
 		AddDesiredTraitChecklistLines(lines, request.DesiredTraits, producedTraits);
 		AddRequiredMinTraitChecklistLines(lines, request.RequiredMinTraits, producedTraits);
 		AddBadTraitChecklistLines(lines, request.BadTraits, producedTraits, possibleRisks);
@@ -90,7 +93,8 @@ public static class CustomerDialogueTextFormatter
 		CustomerRequestDef request,
 		IReadOnlyDictionary<string, int>? producedTraits,
 		IReadOnlyDictionary<string, int>? producedRisks,
-		IReadOnlyList<IngredientPortionDef>? potionIngredients)
+		IReadOnlyList<IngredientPortionDef>? potionIngredients,
+		string potionItemId = "")
 	{
 		if (request is null)
 			return "No active request.";
@@ -98,6 +102,7 @@ public static class CustomerDialogueTextFormatter
 			return HiddenRequestText;
 
 		var lines = new List<string>();
+		AddRequiredPotionComparisonLine(lines, request, potionItemId);
 		AddDesiredTraitComparisonLines(lines, request.DesiredTraits, producedTraits);
 		AddRequiredMinTraitComparisonLines(lines, request.RequiredMinTraits, producedTraits);
 		AddBadTraitComparisonLines(lines, request.BadTraits, producedTraits, producedRisks);
@@ -338,6 +343,42 @@ public static class CustomerDialogueTextFormatter
 			var text = $"{desired.Key} {producedValue} / {FormatTraitRange(desired.Value)}";
 			lines.Add(FormatChecklistLine(status, text));
 		}
+	}
+
+	private static void AddRequiredPotionRequestLine(List<string> lines, CustomerRequestDef request)
+	{
+		if (string.IsNullOrWhiteSpace(request.RequiredPotionItemId))
+			return;
+
+		lines.Add($"Potion: {EscapeBbCodeText(GetRequiredPotionDisplayName(request))}");
+	}
+
+	private static void AddRequiredPotionChecklistLine(List<string> lines, CustomerRequestDef request)
+	{
+		if (string.IsNullOrWhiteSpace(request.RequiredPotionItemId))
+			return;
+
+		lines.Add(FormatChecklistLine(ChecklistStatus.Missing, $"Brew {GetRequiredPotionDisplayName(request)}"));
+	}
+
+	private static void AddRequiredPotionComparisonLine(
+		List<string> lines,
+		CustomerRequestDef request,
+		string potionItemId)
+	{
+		if (string.IsNullOrWhiteSpace(request.RequiredPotionItemId))
+			return;
+
+		lines.Add(FormatBinaryComparisonLine(
+			CustomerSaleRules.IsRequiredPotionSatisfied(potionItemId, request.RequiredPotionItemId),
+			$"Required potion: {GetRequiredPotionDisplayName(request)}"));
+	}
+
+	private static string GetRequiredPotionDisplayName(CustomerRequestDef request)
+	{
+		return string.IsNullOrWhiteSpace(request.RequiredPotionDisplayName)
+			? request.RequiredPotionItemId.Trim()
+			: request.RequiredPotionDisplayName.Trim();
 	}
 
 	private static void AddRequiredMinTraitChecklistLines(

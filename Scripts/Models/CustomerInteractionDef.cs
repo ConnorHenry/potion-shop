@@ -28,6 +28,8 @@ public sealed class CustomerInteractionDef
     public Dictionary<string, CustomerTraitRangeDef> DesiredTraits { get; set; } = new();
     [JsonConverter(typeof(BadTraitRangeDictionaryJsonConverter))]
     public Dictionary<string, CustomerTraitRangeDef> BadTraits { get; set; } = new();
+    public string RequiredPotionItemId { get; set; } = "";
+    public string RequiredPotionDisplayName { get; set; } = "";
     public Dictionary<string, int> RequiredMinTraits { get; set; } = new();
     public Dictionary<string, int> RequiredMaxTraits { get; set; } = new();
     public List<IngredientPortionDef> RequiredIngredientAmounts { get; set; } = new();
@@ -73,6 +75,8 @@ public sealed class CustomerInteractionDef
             HideRequestDetails = HideRequestDetails,
             DesiredTraits = CustomerTraitRangeDef.CloneDictionary(DesiredTraits),
             BadTraits = CustomerTraitRangeDef.CloneDictionary(BadTraits),
+            RequiredPotionItemId = RequiredPotionItemId,
+            RequiredPotionDisplayName = RequiredPotionDisplayName,
             RequiredMinTraits = new Dictionary<string, int>(RequiredMinTraits),
             RequiredMaxTraits = new Dictionary<string, int>(RequiredMaxTraits),
             RequiredIngredientAmounts = RequiredIngredientAmounts.Select(x => x.Clone()).ToList()
@@ -343,6 +347,10 @@ public sealed class CustomerRequestDef
     // Example: "drowsiness": { max: 1 }, "confusion": { max: 0 }
     [JsonConverter(typeof(BadTraitRangeDictionaryJsonConverter))]
     public Dictionary<string, CustomerTraitRangeDef> BadTraits { get; set; } = new();
+
+    // Exact potion item required by name-driven requests.
+    public string RequiredPotionItemId { get; set; } = "";
+    public string RequiredPotionDisplayName { get; set; } = "";
 
     // Hard trait thresholds that must be met by the final potion.
     // Example: "mend": 9 means Mend must be >= 9.

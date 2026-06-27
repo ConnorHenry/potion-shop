@@ -23,6 +23,7 @@ GameState="*res://Scripts/Autoload/GameState.cs"
 SaveGameManager="*res://Scripts/Autoload/SaveGameManager.cs"
 ImGuiRoot="*res://addons/imgui-godot/data/ImGuiRoot.tscn"
 PersistentHud="*res://Scripts/Autoload/PersistentHud.cs"
+SceneTransition="*res://Scripts/Autoload/SceneTransition.cs"
 
 [display]
 
@@ -36,4 +37,4 @@ project/assembly_name="OccultShop"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/imgui-godot/plugin.cfg", "res://addons/inventory_slot_layout_editor/plugin.cfg")
+enabled=PackedStringArray("res://addons/dialogue_tree_editor/plugin.cfg", "res://addons/imgui-godot/plugin.cfg", "res://addons/inventory_slot_layout_editor/plugin.cfg")

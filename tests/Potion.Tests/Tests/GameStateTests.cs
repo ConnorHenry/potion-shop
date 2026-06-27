@@ -20,6 +20,7 @@ internal static class GameStateTests
         runner.Run("GameState starts new games with only Raw prep enabled", TestNewGameIngredientPreparationMethodLocks);
         runner.Run("GameState exposes runtime debug boil skip flag", TestRuntimeDebugBoilSkipFlag);
         runner.Run("GameState can forget book records for debug toggles", TestBookRecordsCanBeForgottenForDebugToggles);
+        runner.Run("GameState tracks reputation relationships and quest states", TestStoryStateTracking);
     }
 
     private static void TestStartingInventorySeedsOnlyTutorialRecipeItems()
@@ -134,6 +135,48 @@ internal static class GameStateTests
             gameStateSource.Contains("public void SetDebugSkipBoilingMiniGame(bool enabled)") &&
             gameStateSource.Contains("DebugSkipBoilingMiniGame = enabled;") &&
             !saveDataSource.Contains("DebugSkipBoilingMiniGame"));
+    }
+
+    private static void TestStoryStateTracking()
+    {
+        var gameStateSource = ReadProjectFile("Scripts/Autoload/GameState.cs");
+        var saveDataSource = ReadProjectFile("Scripts/Persistence/SaveData.cs");
+        var requirementsSource = ReadProjectFile("Scripts/Models/RequirementsDef.cs");
+        var effectSource = ReadProjectFile("Scripts/Models/EffectDef.cs");
+        var requirementsSystem = ReadProjectFile("Scripts/Systems/Requirements.cs");
+        var effectApplier = ReadProjectFile("Scripts/Systems/EffectApplier.cs");
+
+        AssertTrue("GameState starts global reputation at neutral 50",
+            gameStateSource.Contains("StartingOverallReputation = 50") &&
+            gameStateSource.Contains("OverallReputation = StartingOverallReputation"));
+        AssertTrue("GameState clamps story scores to 0..100",
+            gameStateSource.Contains("MinStoryScore = 0") &&
+            gameStateSource.Contains("MaxStoryScore = 100") &&
+            gameStateSource.Contains("ClampStoryScore"));
+        AssertTrue("GameState tracks relationships and quest states",
+            gameStateSource.Contains("RelationshipScores") &&
+            gameStateSource.Contains("QuestStates") &&
+            gameStateSource.Contains("DefaultRelationshipScore = 50") &&
+            gameStateSource.Contains("QuestStatus.NotStarted"));
+        AssertTrue("Save data persists story state",
+            saveDataSource.Contains("OverallReputation") &&
+            saveDataSource.Contains("RelationshipScores") &&
+            saveDataSource.Contains("QuestStates"));
+        AssertTrue("Authored requirements expose story gates",
+            requirementsSource.Contains("ReputationMin") &&
+            requirementsSource.Contains("QuestId") &&
+            requirementsSource.Contains("QuestStatus") &&
+            requirementsSource.Contains("RelationshipCharacterId") &&
+            requirementsSystem.Contains("state.OverallReputation") &&
+            requirementsSystem.Contains("state.IsQuestStatus") &&
+            requirementsSystem.Contains("state.GetRelationshipScore"));
+        AssertTrue("Authored effects expose story mutations",
+            effectSource.Contains("AddReputation") &&
+            effectSource.Contains("SetQuestStatus") &&
+            effectSource.Contains("AddRelationship") &&
+            effectApplier.Contains("state.AddReputation") &&
+            effectApplier.Contains("state.SetQuestStatus") &&
+            effectApplier.Contains("state.AddRelationship"));
     }
 
     private static void TestNewGameIngredientPreparationMethodLocks()

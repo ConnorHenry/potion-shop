@@ -1,0 +1,100 @@
+[gd_scene load_steps=3 format=3 uid="uid://bekfjyr3d7xy0"]
+
+[ext_resource type="Script" uid="uid://dgoq4knfgnqq7" path="res://Scripts/UI/DialogueTestScene.cs" id="1_dialogue_test"]
+[ext_resource type="Script" uid="uid://ceakky6r2bi" path="res://Scripts/UI/PersistentHudVisibility.cs" id="2_hud_visibility"]
+
+[node name="DialogueTestScene" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_dialogue_test")
+
+[node name="PersistentHudVisibility" type="Node" parent="."]
+script = ExtResource("2_hud_visibility")
+HudVisible = false
+
+[node name="CenterContainer" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Panel" type="PanelContainer" parent="CenterContainer"]
+custom_minimum_size = Vector2(900, 660)
+layout_mode = 2
+
+[node name="Margin" type="MarginContainer" parent="CenterContainer/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 18
+
+[node name="VBox" type="VBoxContainer" parent="CenterContainer/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="CenterContainer/Panel/Margin/VBox"]
+layout_mode = 2
+text = "Dialogue Test Scene"
+horizontal_alignment = 1
+
+[node name="State" type="Label" parent="CenterContainer/Panel/Margin/VBox"]
+layout_mode = 2
+text = "Reputation: 50/100    Relationship: 50/100    Quest: NotStarted    Flag test_customer_trust: unset"
+horizontal_alignment = 1
+
+[node name="Conversation" type="RichTextLabel" parent="CenterContainer/Panel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 360)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Options" type="VBoxContainer" parent="CenterContainer/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Controls" type="GridContainer" parent="CenterContainer/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 8
+columns = 4
+
+[node name="Reset" type="Button" parent="CenterContainer/Panel/Margin/VBox/Controls"]
+custom_minimum_size = Vector2(150, 36)
+layout_mode = 2
+text = "Reset"
+
+[node name="ReputationUp" type="Button" parent="CenterContainer/Panel/Margin/VBox/Controls"]
+custom_minimum_size = Vector2(150, 36)
+layout_mode = 2
+text = "Reputation +5"
+
+[node name="ReputationDown" type="Button" parent="CenterContainer/Panel/Margin/VBox/Controls"]
+custom_minimum_size = Vector2(150, 36)
+layout_mode = 2
+text = "Reputation -5"
+
+[node name="RelationshipUp" type="Button" parent="CenterContainer/Panel/Margin/VBox/Controls"]
+custom_minimum_size = Vector2(150, 36)
+layout_mode = 2
+text = "Relationship +5"
+
+[node name="RelationshipDown" type="Button" parent="CenterContainer/Panel/Margin/VBox/Controls"]
+custom_minimum_size = Vector2(150, 36)
+layout_mode = 2
+text = "Relationship -5"
+
+[node name="Trust" type="Button" parent="CenterContainer/Panel/Margin/VBox/Controls"]
+custom_minimum_size = Vector2(150, 36)
+layout_mode = 2
+text = "Toggle Trust"
+
+[node name="Quest" type="Button" parent="CenterContainer/Panel/Margin/VBox/Controls"]
+custom_minimum_size = Vector2(150, 36)
+layout_mode = 2
+text = "Quest InProgress"

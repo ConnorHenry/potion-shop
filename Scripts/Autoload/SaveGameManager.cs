@@ -206,14 +206,20 @@ public partial class SaveGameManager : Node
 
 	public void StartNewGame(bool startTutorial)
 	{
-		StartNewGameWithTutorialState(tutorialRequested: startTutorial, tutorialSkipped: !startTutorial);
+		StartNewGame(startTutorial, string.Empty);
 	}
 
-	private void StartNewGameWithTutorialState(bool tutorialRequested, bool tutorialSkipped)
+	public void StartNewGame(bool startTutorial, string playerName)
+	{
+		StartNewGameWithTutorialState(tutorialRequested: startTutorial, tutorialSkipped: !startTutorial, playerName);
+	}
+
+	private void StartNewGameWithTutorialState(bool tutorialRequested, bool tutorialSkipped, string playerName = "")
 	{
 		_activeSaveFilePath = null;
 		_runtimeContentDb.ClearRuntimeItems();
 		_gameState.ResetForNewGame();
+		_gameState.SetPlayerName(playerName);
 
 		if (tutorialRequested)
 		{
@@ -273,6 +279,7 @@ public partial class SaveGameManager : Node
 		summary.FilePath = userPath;
 		summary.FileName = Path.GetFileName(absolutePath);
 		summary.SavedAtUtc = saveData.SavedAtUtc;
+		summary.PlayerName = saveData.GameState.PlayerName;
 		summary.Day = saveData.GameState.Day;
 		summary.Gold = saveData.GameState.Gold;
 		summary.Dread = saveData.GameState.Dread;

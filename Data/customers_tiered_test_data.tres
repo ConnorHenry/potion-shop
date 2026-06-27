@@ -1,800 +1,880 @@
-[gd_resource type="Resource" script_class="AuthoredCustomerInteractionsResource" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="AuthoredCustomerInteractionsResource" load_steps=2 format=3 uid="uid://buu8yw62hyv58"]
 
-[ext_resource type="Script" path="res://Scripts/Models/AuthoredCustomerInteractionsResource.cs" id="1"]
+[ext_resource type="Script" uid="uid://gp5hcw7omn7s" path="res://Scripts/Models/AuthoredCustomerInteractionsResource.cs" id="1"]
 
 [resource]
 script = ExtResource("1")
-Entries = [
-  {
-    "id": "plot_bridget_visit_1",
-    "title": "Bridget",
-    "text": "Bridget welcomes you to the village and recognizes that you carry The Knowledge.",
-    "lines": [
-      {
-        "text": "An old woman waits near the door, shawl pinned tight against the damp air.",
-        "characterImageKey": "happy"
-      },
-      {
-        "speaker": "Bridget",
-        "text": "'You're the new one, then. Welcome to the village, my dear.'",
-        "characterImageKey": "happy"
-      }
-    ],
-    "characterImagePath": "res://Assets/Characters/old_rural_woman_sprite_happy.png",
-    "characterImagePaths": {
-      "happy": "res://Assets/Characters/old_rural_woman_sprite_happy.png",
-      "sad": "res://Assets/Characters/old_rural_woman_sprite_sad.png"
-    },
-    "pool": "plot",
-    "difficulty": 1,
-    "storyCharacterId": "bridget",
-    "visitId": "visit_1",
-    "dialogueStartNodeId": "intro",
-    "requires": {
-      "dayMin": 1,
-      "hasStoryFlag": "bridget_welcome_pending"
-    },
-    "weight": 2,
-    "desiredTraits": {},
-    "badTraits": {},
-    "dialogueNodes": [
-      {
-        "id": "intro",
-        "lines": [
-          {
-            "text": "She smiles as though she has known your family name longer than you have.",
-            "characterImageKey": "happy"
-          },
-          {
-            "speaker": "Bridget",
-            "text": "'Bridget, that's me. If you need bread, gossip, or the name of a good thatcher, you come and find me.'",
-            "characterImageKey": "happy"
-          },
-          {
-            "text": "Her smile softens, and her eyes settle on your hands.",
-            "characterImageKey": "sad"
-          },
-          {
-            "speaker": "Bridget",
-            "text": "'And I know you have {i|The Knowledge}. In Ireland, that's what some call knowing the old properties of things: brewing, healing, and the uses hidden in leaf and root.'",
-            "characterImageKey": "sad"
-          }
-        ],
-        "options": [
-          {
-            "id": "intro_ask_knowledge",
-            "label": "How did you know?",
-            "responseLines": [
-              {
-                "text": "Bridget gives a small, knowing shrug.",
-                "characterImageKey": "happy"
-              },
-              {
-                "speaker": "Bridget",
-                "text": "'You look at herbs the way a mason looks at stone. A body learns to notice.'",
-                "characterImageKey": "happy"
-              }
-            ],
-            "nextNodeId": "hub"
-          },
-          {
-            "id": "intro_ask_village",
-            "label": "Tell me about the village.",
-            "responseLines": [
-              {
-                "text": "She glances back toward the rain-slick lane.",
-                "characterImageKey": "happy"
-              },
-              {
-                "speaker": "Bridget",
-                "text": "'Small enough to hear every kettle boil, large enough to keep secrets badly. You'll do fine if you listen before you answer.'",
-                "characterImageKey": "happy"
-              }
-            ],
-            "nextNodeId": "hub"
-          },
-          {
-            "id": "intro_accept",
-            "label": "Thank you, Bridget.",
-            "responseLines": [
-              {
-                "text": "Bridget pats your arm once, gentle but firm.",
-                "characterImageKey": "happy"
-              },
-              {
-                "speaker": "Bridget",
-                "text": "'There's a welcome here for you. Mind you use that Knowledge kindly.'",
-                "characterImageKey": "happy"
-              }
-            ],
-            "endsInteraction": true,
-            "effects": [
-              {
-                "addStoryFlag": "bridget_welcomed_player"
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "id": "hub",
-        "lines": [
-          {
-            "text": "Bridget waits, patient as a hearthstone.",
-            "characterImageKey": "happy"
-          }
-        ],
-        "options": [
-          {
-            "id": "hub_ask_knowledge",
-            "label": "What does The Knowledge mean?",
-            "responseLines": [
-              {
-                "text": "The warmth leaves Bridget's face for a moment.",
-                "characterImageKey": "sad"
-              },
-              {
-                "speaker": "Bridget",
-                "text": "'It means you know what helps, and what harms. Healing is part of it, but restraint is the greater part.'",
-                "characterImageKey": "sad"
-              }
-            ],
-            "nextNodeId": "hub"
-          },
-          {
-            "id": "hub_goodbye",
-            "label": "I'll remember that.",
-            "responseLines": [
-              {
-                "text": "Bridget's smile returns.",
-                "characterImageKey": "happy"
-              },
-              {
-                "speaker": "Bridget",
-                "text": "'Good. Then the village and yourself are off to a fair start.'",
-                "characterImageKey": "happy"
-              }
-            ],
-            "endsInteraction": true,
-            "effects": [
-              {
-                "addStoryFlag": "bridget_welcomed_player"
-              }
-            ]
-          }
-        ]
-      }
-    ]
-  },
-  {
-    "id": "customer_requests_opening_gravekeepers_balm",
-    "title": "First Customer",
-    "text": "A customer asks for a simple balanced balm: Cleanse +4, Mend +4, and Soothe +4.",
-    "lines": [
-      {
-        "speaker": "Customer",
-        "text": "'I need something clean, mending, and gentle. Cleanse +4, Mend +4, and Soothe +4, if you can.'"
-      }
-    ],
-    "characterImagePath": "res://art/placeholder_head_outline.svg",
-    "pool": "plot",
-    "difficulty": 1,
-    "storyCharacterId": "opening_customer",
-    "visitId": "visit_1",
-    "requires": {
-      "dayMin": 1
-    },
-    "weight": 1,
-    "desiredTraits": {
-      "cleanse": { "min": 4, "max": 4 },
-      "mend": { "min": 4, "max": 4 },
-      "soothe": { "min": 4, "max": 4 }
-    },
-    "badTraits": {}
-  },
-  {
-    "id": "customer_requests_opening_silver_focus_tonic",
-    "title": "Second Customer",
-    "text": "A customer asks for a bright, steady tonic: Courage 8, Vigor 3, and Clarity 2.",
-    "lines": [
-      {
-        "speaker": "Customer",
-        "text": "'I need a tonic with courage, enough vigor to keep me standing, and just a little clarity. Courage 8, Vigor 3, and Clarity 2.'"
-      }
-    ],
-    "characterImagePath": "res://art/placeholder_head_outline.svg",
-    "pool": "plot",
-    "difficulty": 1,
-    "storyCharacterId": "opening_customer",
-    "visitId": "visit_2",
-    "requires": {
-      "dayMin": 1,
-      "hasStoryFlag": "new_game_second_customer_pending"
-    },
-    "weight": 1,
-    "desiredTraits": {
-      "clarity": { "min": 4, "max": 4 },
-      "courage": { "min": 3, "max": 3 },
-      "vigor": { "min": 3, "max": 3 }
-    },
-    "badTraits": {},
-    "onArrivalEffects": [
-      {
-        "addItemId": "comfrey",
-        "addItemQty": 1
-      },
-      {
-        "addItemId": "willow",
-        "addItemQty": 1
-      },
-      {
-        "addItemId": "yarrow",
-        "addItemQty": 1
-      }
-    ]
-  },
-  {
-    "id": "customer_requests_opening_clean_vigor_tonic",
-    "title": "Third Customer",
-    "text": "A customer asks for a sharp tonic: Cleanse 7, Soothe 4, and Vigor 3.",
-    "lines": [
-      {
-        "speaker": "Customer",
-        "text": "'I need something clean and bracing, but not harsh. Cleanse 7, Soothe 4, and Vigor 3.'"
-      }
-    ],
-    "characterImagePath": "res://art/placeholder_head_outline.svg",
-    "pool": "plot",
-    "difficulty": 1,
-    "storyCharacterId": "opening_customer",
-    "visitId": "visit_3",
-    "requires": {
-      "dayMin": 1,
-      "hasStoryFlag": "new_game_third_customer_pending"
-    },
-    "weight": 1,
-    "desiredTraits": {
-      "cleanse": { "min": 4, "max": 4 },
-      "soothe": { "min": 4, "max": 4 },
-      "vigor": { "min": 3, "max": 3 }
-    },
-    "badTraits": {},
-    "onArrivalEffects": [
-      {
-        "restockItemId": "mint",
-        "restockItemQty": 5
-      },
-      {
-        "restockItemId": "gorse",
-        "restockItemQty": 5
-      },
-      {
-        "restockItemId": "thyme",
-        "restockItemQty": 5
-      },
-      {
-        "restockItemId": "comfrey",
-        "restockItemQty": 5
-      },
-      {
-        "restockItemId": "willow",
-        "restockItemQty": 5
-      },
-      {
-        "restockItemId": "yarrow",
-        "restockItemQty": 5
-      }
-    ]
-  },
-  {
-    "id": "customer_requests_day_two_charmed_focus_tonic",
-    "title": "Day Two First Customer",
-    "text": "A customer asks for a precise tonic: Courage 8, Charm 4, and Vigor 3.",
-    "lines": [
-      {
-        "speaker": "Customer",
-        "text": "'I need courage enough to hold steady, a measured charm, and enough vigor to keep pace. Courage 8, Charm 4, and Vigor 3.'"
-      }
-    ],
-    "characterImagePath": "res://art/placeholder_head_outline.svg",
-    "pool": "plot",
-    "difficulty": 2,
-    "storyCharacterId": "day_two_customer",
-    "visitId": "visit_1",
-    "requires": {
-      "dayExact": 2,
-      "hasStoryFlag": "day_two_first_customer_pending"
-    },
-    "weight": 1,
-    "desiredTraits": {
-      "charm": { "min": 4, "max": 4 },
-      "courage": { "min": 3, "max": 3 },
-      "vigor": { "min": 3, "max": 3 }
-    },
-    "badTraits": {}
-  },
-  {
-    "id": "customer_requests_day_two_crowded_head_tonic",
-    "title": "Day Two Second Customer",
-    "text": "Please help me. My head feels crowded, my stomach feels off, and I can't focus.",
-    "lines": [
-      {
-        "speaker": "Customer",
-        "text": "'Please help me. My head feels crowded, my stomach feels off, and I can't focus.'"
-      }
-    ],
-    "characterImagePath": "res://art/placeholder_head_outline.svg",
-    "pool": "plot",
-    "difficulty": 2,
-    "storyCharacterId": "day_two_customer",
-    "visitId": "visit_2",
-    "requires": {
-      "dayExact": 2,
-      "hasStoryFlag": "day_two_second_customer_pending"
-    },
-    "weight": 1,
-    "hideRequestDetails": true,
-    "desiredTraits": {
-      "cleanse": { "min": 7, "max": 7 },
-      "soothe": { "min": 5, "max": 5 },
-      "clarity": { "min": 4, "max": 4 }
-    },
-    "badTraits": {},
-    "onSuccessEffects": [
-      {
-        "enableIngredientPreparationMethodId": "boiled"
-      }
-    ],
-    "onFailureEffects": [
-      {
-        "enableIngredientPreparationMethodId": "boiled"
-      }
-    ]
-  },
-  {
-    "id": "customer_requests_day_two_rest_memory_clarity",
-    "title": "Day Two Third Customer",
-    "text": "A customer asks for a potion with Rest 5, Memory 5, and Clarity 4, with no insomnia or melancholy.",
-    "lines": [
-      {
-        "speaker": "Customer",
-        "text": "'I need rest, memory, and clarity. Rest 5, Memory 5, Clarity 4. No insomnia, no melancholy.'"
-      }
-    ],
-    "characterImagePath": "res://art/placeholder_head_outline.svg",
-    "pool": "plot",
-    "difficulty": 2,
-    "storyCharacterId": "day_two_customer",
-    "visitId": "visit_3",
-    "requires": {
-      "dayExact": 2,
-      "hasStoryFlag": "day_two_third_customer_pending"
-    },
-    "weight": 1,
-    "desiredTraits": {
-      "rest": { "min": 5 },
-      "memory": { "min": 5 },
-      "clarity": { "min": 4 }
-    },
-    "badTraits": {
-      "melancholy": { "max": 0 },
-      "insomnia": { "max": 0 }
-    }
-  },
-  {
-    "id": "plot_line_demo_visit_1",
-    "title": "Mrs Vale",
-    "text": "Mrs Vale needs a draught that steadies her nerves and keeps her thoughts clear, with no sleepy or mournful edge.",
-    "lines": [
-      {
-        "text": "A woman in a rain-dark cloak waits until the shop is quiet."
-      },
-      {
-        "speaker": "Mrs Vale",
-        "text": "'I need my hands still and my mind sharper than fear.'"
-      }
-    ],
-    "characterImagePath": "res://art/placeholder_head_outline.svg",
-    "pool": "plot",
-    "difficulty": 2,
-    "storyCharacterId": "mrs_vale",
-    "visitId": "visit_1",
-    "dialogueStartNodeId": "intro",
-    "requires": {
-      "dayMin": 1
-    },
-    "weight": 1,
-    "desiredTraits": {
-      "soothe": { "min": 3, "max": 6 },
-      "clarity": { "min": 3, "max": 6 },
-      "courage": { "min": 2, "max": 5 }
-    },
-    "badTraits": {
-      "drowsiness": { "max": 0 },
-      "melancholy": { "max": 1 }
-    },
-    "potionRefusedLines": [
-      {
-        "text": "Mrs Vale tucks her gloves back into her sleeve."
-      },
-      {
-        "speaker": "Mrs Vale",
-        "text": "'Then I will try to keep steady without it.'"
-      }
-    ],
-    "onPotionRefusedEffects": [
-      {
-        "addStoryFlag": "mrs_vale_refused_potion"
-      }
-    ],
-    "onSuccessEffects": [
-      {
-        "addStoryFlag": "mrs_vale_helped"
-      }
-    ],
-    "onFailureEffects": [
-      {
-        "addStoryFlag": "mrs_vale_given_bad_potion"
-      }
-    ],
-    "potionResponses": [
-      {
-        "id": "clean_success",
-        "success": true,
-        "minMatchedDesiredTraits": 2,
-        "maxMatchedBadTraits": 0,
-        "lines": [
-          {
-            "text": "Mrs Vale tests the cork with one thumb, then lets out a slow breath."
-          },
-          {
-            "speaker": "Mrs Vale",
-            "text": "'Yes. Steady enough for the hand, clear enough for the work.'"
-          }
-        ]
-      },
-      {
-        "id": "clouded_failure",
-        "success": false,
-        "lines": [
-          {
-            "text": "The mixture clouds against the glass."
-          },
-          {
-            "speaker": "Mrs Vale",
-            "text": "'No. This would make the room tilt, and I need it still.'"
-          }
-        ]
-      }
-    ],
-    "dialogueNodes": [
-      {
-        "id": "intro",
-        "lines": [
-          {
-            "text": "Rain ticks against the counter glass as Mrs Vale removes a folded note."
-          },
-          {
-            "speaker": "Mrs Vale",
-            "text": "'I was told you can quiet a person without dulling them.'"
-          }
-        ],
-        "options": [
-          {
-            "id": "intro_work",
-            "label": "What work requires that?",
-            "responseLines": [
-              {
-                "text": "She looks toward the shop window before answering."
-              },
-              {
-                "speaker": "Mrs Vale",
-                "text": "'Copying a will before dawn. One wrong word and a dead man's house goes to war.'"
-              }
-            ],
-            "nextNodeId": "hub"
-          },
-          {
-            "id": "intro_fear",
-            "label": "What are you afraid of?",
-            "responseLines": [
-              {
-                "text": "The note trembles once in her hand."
-              },
-              {
-                "speaker": "Mrs Vale",
-                "text": "'That I will see the wrong name and write it anyway.'"
-              }
-            ],
-            "nextNodeId": "hub"
-          },
-          {
-            "id": "intro_request",
-            "label": "What should the potion do?",
-            "responseLines": [
-              {
-                "speaker": "Mrs Vale",
-                "text": "'Soothe the hand, clear the eye, and lend me courage if the brew can bear it. No drowsiness; barely any melancholy.'"
-              }
-            ],
-            "revealsRequest": true,
-            "returnNodeId": "hub"
-          },
-          {
-            "id": "intro_end",
-            "label": "I cannot help tonight.",
-            "responseLines": [
-              {
-                "text": "Mrs Vale folds the note along its old crease."
-              },
-              {
-                "speaker": "Mrs Vale",
-                "text": "'Then I will find a steadier hand elsewhere.'"
-              }
-            ],
-            "endsInteraction": true,
-            "effects": [
-              {
-                "addStoryFlag": "mrs_vale_dismissed"
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "id": "hub",
-        "lines": [
-          {
-            "text": "Mrs Vale keeps the folded note pressed flat beneath her palm."
-          }
-        ],
-        "options": [
-          {
-            "id": "hub_note",
-            "label": "Tell me about the note.",
-            "responseLines": [
-              {
-                "speaker": "Mrs Vale",
-                "text": "'It names people who have waited years to hate each other properly.'"
-              }
-            ],
-            "nextNodeId": "hub"
-          },
-          {
-            "id": "hub_request",
-            "label": "Repeat the potion request.",
-            "responseLines": [
-              {
-                "speaker": "Mrs Vale",
-                "text": "'Soothe, clarity, courage if possible. No drowsiness, and only the faintest melancholy.'"
-              }
-            ],
-            "revealsRequest": true,
-            "returnNodeId": "hub"
-          },
-          {
-            "id": "hub_leave",
-            "label": "That is enough.",
-            "responseLines": [
-              {
-                "speaker": "Mrs Vale",
-                "text": "'Then let us not waste the hour.'"
-              }
-            ],
-            "endsInteraction": true
-          }
-        ]
-      }
-    ]
-  },
-  {
-    "id": "customer_requests_counterfeit_calm",
-    "title": "Counterfeit Calm",
-    "text": "A document forger needs a draught that steadies their hand without making the ink swim. Calm and clarity matter most, with cleansing welcome as long as the brew stays awake and untainted.",
-    "characterImagePath": "res://art/placeholder_head_outline.svg",
-    "pool": "early",
-    "difficulty": 2,
-    "requires": {
-      "dayMin": 1
-    },
-    "weight": 8,
-    "desiredTraits": {
-      "calm": { "min": 3, "max": 6 },
-      "clarity": { "min": 3, "max": 6 },
-      "cleanse": { "min": 2, "max": 5 }
-    },
-    "badTraits": {
-      "drowsiness": { "max": 0 },
-      "corruption": { "max": 0 }
-    }
-  },
-  {
-    "id": "customer_requests_clean_blade_rinse",
-    "title": "Clean Blade Rinse",
-    "text": "A barber brings a nicked silver razor wrapped in cloth. They need cleansing strength, then either soothing or clarity to keep their hand steady.",
-    "characterImagePath": "res://art/placeholder_head_outline.svg",
-    "pool": "early",
-    "difficulty": 2,
-    "requires": {
-      "dayMin": 1
-    },
-    "weight": 8,
-    "desiredTraits": {
-      "cleanse": { "min": 4, "max": 7 },
-      "soothe": { "min": 3, "max": 6 },
-      "clarity": { "min": 2, "max": 5 }
-    },
-    "badTraits": {
-      "drowsiness": { "max": 0 },
-      "corruption": { "max": 0 }
-    }
-  },
-  {
-    "id": "customer_requests_soft_dream_tonic",
-    "title": "Soft Dream Tonic",
-    "text": "A childminder asks for kinder dreams without a heavy sleep. Dream and calm are ideal, and a little soothe can soften the edges.",
-    "characterImagePath": "res://art/placeholder_head_outline.svg",
-    "pool": "early",
-    "difficulty": 2,
-    "requires": {
-      "dayMin": 1
-    },
-    "weight": 8,
-    "desiredTraits": {
-      "dream": { "min": 4, "max": 7 },
-      "calm": { "min": 3, "max": 6 },
-      "soothe": { "min": 2, "max": 5 }
-    },
-    "badTraits": {
-      "drowsiness": { "max": 0 },
-      "melancholy": { "max": 1 }
-    }
-  },
-  {
-    "id": "customer_requests_grave_stitch_poultice",
-    "title": "Grave Stitch Poultice",
-    "text": "A surgeon wants a poultice that closes dead-cold wounds. Mending is the heart of it, with soothing or cleansing support to keep the mixture from turning bleak.",
-    "characterImagePath": "res://art/placeholder_head_outline.svg",
-    "pool": "early",
-    "difficulty": 3,
-    "requires": {
-      "dayMin": 1
-    },
-    "weight": 7,
-    "desiredTraits": {
-      "mend": { "min": 4, "max": 7 },
-      "soothe": { "min": 3, "max": 6 },
-      "cleanse": { "min": 3, "max": 6 }
-    },
-    "badTraits": {
-      "melancholy": { "max": 1 },
-      "corruption": { "max": 0 }
-    }
-  },
-  {
-    "id": "customer_requests_stage_door_spark",
-    "title": "Stage Door Spark",
-    "text": "A stage performer wants charm that carries them through the curtain call. Vigor or calm can support the brew, but corruption would sour the room.",
-    "characterImagePath": "res://art/placeholder_head_outline.svg",
-    "pool": "early",
-    "difficulty": 3,
-    "requires": {
-      "dayMin": 1
-    },
-    "weight": 7,
-    "desiredTraits": {
-      "charm": { "min": 4, "max": 7 },
-      "vigor": { "min": 3, "max": 6 },
-      "calm": { "min": 2, "max": 5 }
-    },
-    "badTraits": {
-      "corruption": { "max": 0 },
-      "insomnia": { "max": 1 }
-    }
-  },
-  {
-    "id": "customer_requests_bitter_wake_cure",
-    "title": "Bitter Wake Cure",
-    "text": "A watchman needs to stay awake after a poisoned supper. Vigor helps them stand, while cleansing or clarity shakes off the fog.",
-    "characterImagePath": "res://art/placeholder_head_outline.svg",
-    "pool": "early",
-    "difficulty": 3,
-    "requires": {
-      "dayMin": 1
-    },
-    "weight": 7,
-    "desiredTraits": {
-      "vigor": { "min": 3, "max": 6 },
-      "cleanse": { "min": 3, "max": 6 },
-      "clarity": { "min": 2, "max": 5 }
-    },
-    "badTraits": {
-      "insomnia": { "max": 1 },
-      "drowsiness": { "max": 0 }
-    }
-  },
-  {
-    "id": "customer_requests_quiet_courage_draught",
-    "title": "Quiet Courage Draught",
-    "text": "A witness needs courage without panic. A clear head or steady calm can carry the courage, but the potion cannot be corrupting.",
-    "characterImagePath": "res://art/placeholder_head_outline.svg",
-    "pool": "early",
-    "difficulty": 3,
-    "requires": {
-      "dayMin": 1
-    },
-    "weight": 7,
-    "desiredTraits": {
-      "courage": { "min": 4, "max": 7 },
-      "clarity": { "min": 3, "max": 6 },
-      "calm": { "min": 2, "max": 5 }
-    },
-    "badTraits": {
-      "melancholy": { "max": 1 },
-      "corruption": { "max": 0 }
-    }
-  },
-  {
-    "id": "customer_requests_restless_fever_draught",
-    "title": "Restless Fever Draught",
-    "text": "A feverish courier needs real rest without being knocked flat. Rest is the goal, with cleansing or soothing support to keep the fever from clinging.",
-    "characterImagePath": "res://art/placeholder_head_outline.svg",
-    "pool": "early",
-    "difficulty": 3,
-    "requires": {
-      "dayMin": 1
-    },
-    "weight": 7,
-    "desiredTraits": {
-      "rest": { "min": 4, "max": 7 },
-      "cleanse": { "min": 3, "max": 6 },
-      "soothe": { "min": 2, "max": 5 }
-    },
-    "badTraits": {
-      "corruption": { "max": 0 },
-      "drowsiness": { "max": 1 }
-    }
-  },
-  {
-    "id": "customer_requests_silver_invitation",
-    "title": "Silver Invitation",
-    "text": "A diplomat needs charm with a clear head. Courage is useful at the table, but corruption would make the invitation dangerous.",
-    "characterImagePath": "res://art/placeholder_head_outline.svg",
-    "pool": "early",
-    "difficulty": 3,
-    "requires": {
-      "dayMin": 1
-    },
-    "weight": 7,
-    "desiredTraits": {
-      "charm": { "min": 4, "max": 7 },
-      "clarity": { "min": 3, "max": 6 },
-      "courage": { "min": 2, "max": 5 }
-    },
-    "badTraits": {
-      "corruption": { "max": 0 },
-      "melancholy": { "max": 1 }
-    }
-  },
-  {
-    "id": "customer_requests_lantern_wash",
-    "title": "Lantern Wash",
-    "text": "A lamplighter wants a wash for a haunted lens. Soothe and cleanse are the obvious answers, though courage can hold the line if the mixture stays awake.",
-    "characterImagePath": "res://art/placeholder_head_outline.svg",
-    "pool": "early",
-    "difficulty": 3,
-    "requires": {
-      "dayMin": 1
-    },
-    "weight": 7,
-    "desiredTraits": {
-      "soothe": { "min": 3, "max": 6 },
-      "cleanse": { "min": 3, "max": 6 },
-      "courage": { "min": 2, "max": 5 }
-    },
-    "badTraits": {
-      "drowsiness": { "max": 0 },
-      "melancholy": { "max": 1 }
-    }
-  }
-]
+Entries = [{
+"badTraits": {},
+"characterImagePath": "res://Assets/Characters/old_rural_woman_sprite_happy.png",
+"characterImagePaths": {
+"happy": "res://Assets/Characters/old_rural_woman_sprite_happy.png",
+"sad": "res://Assets/Characters/old_rural_woman_sprite_sad.png"
+},
+"desiredTraits": {},
+"dialogueNodes": [{
+"id": "intro",
+"lines": [{
+"characterImageKey": "happy",
+"text": "She smiles as though she has known your family name longer than you have."
+}, {
+"characterImageKey": "happy",
+"speaker": "Bridget",
+"text": "'Bridget, that's me. If you need bread, gossip, or the name of a good thatcher, you come and find me.'"
+}, {
+"characterImageKey": "sad",
+"text": "Her smile softens, and her eyes settle on your hands."
+}, {
+"characterImageKey": "sad",
+"speaker": "Bridget",
+"text": "'And I know you have {i|The Knowledge}. In Ireland, that's what some call knowing the old properties of things: brewing, healing, and the uses hidden in leaf and root.'"
+}],
+"options": [{
+"id": "intro_ask_knowledge",
+"label": "How did you know?",
+"nextNodeId": "hub",
+"responseLines": [{
+"characterImageKey": "happy",
+"text": "Bridget gives a small, knowing shrug."
+}, {
+"characterImageKey": "happy",
+"speaker": "Bridget",
+"text": "'You look at herbs the way a mason looks at stone. A body learns to notice.'"
+}]
+}, {
+"id": "intro_ask_village",
+"label": "Tell me about the village.",
+"nextNodeId": "hub",
+"responseLines": [{
+"characterImageKey": "happy",
+"text": "She glances back toward the rain-slick lane."
+}, {
+"characterImageKey": "happy",
+"speaker": "Bridget",
+"text": "'Small enough to hear every kettle boil, large enough to keep secrets badly. You'll do fine if you listen before you answer.'"
+}]
+}, {
+"effects": [{
+"addStoryFlag": "bridget_welcomed_player"
+}],
+"endsInteraction": true,
+"id": "intro_accept",
+"label": "Thank you, Bridget.",
+"responseLines": [{
+"characterImageKey": "happy",
+"text": "Bridget pats your arm once, gentle but firm."
+}, {
+"characterImageKey": "happy",
+"speaker": "Bridget",
+"text": "'There's a welcome here for you. Mind you use that Knowledge kindly.'"
+}]
+}, {
+"endsInteraction": true,
+"id": "intro_attack",
+"label": "Attack",
+"responseLines": []
+}]
+}, {
+"id": "hub",
+"lines": [{
+"characterImageKey": "happy",
+"text": "Bridget waits, patient as a hearthstone."
+}],
+"options": [{
+"id": "hub_ask_knowledge",
+"label": "What does The Knowledge mean?",
+"nextNodeId": "hub",
+"responseLines": [{
+"characterImageKey": "sad",
+"text": "The warmth leaves Bridget's face for a moment."
+}, {
+"characterImageKey": "sad",
+"speaker": "Bridget",
+"text": "'It means you know what helps, and what harms. Healing is part of it, but restraint is the greater part.'"
+}]
+}, {
+"effects": [{
+"addStoryFlag": "bridget_welcomed_player"
+}],
+"endsInteraction": true,
+"id": "hub_goodbye",
+"label": "I'll remember that.",
+"responseLines": [{
+"characterImageKey": "happy",
+"text": "Bridget's smile returns."
+}, {
+"characterImageKey": "happy",
+"speaker": "Bridget",
+"text": "'Good. Then the village and yourself are off to a fair start.'"
+}]
+}]
+}],
+"dialogueStartNodeId": "intro",
+"difficulty": 1,
+"id": "plot_bridget_visit_1",
+"lines": [{
+"characterImageKey": "happy",
+"text": "An old woman waits near the door, shawl pinned tight against the damp air."
+}, {
+"characterImageKey": "happy",
+"speaker": "Bridget",
+"text": "'You're the new one, then. Welcome to the village, my dear.'"
+}],
+"pool": "plot",
+"requires": {
+"dayMin": 1,
+"hasStoryFlag": "bridget_welcome_pending"
+},
+"storyCharacterId": "bridget",
+"text": "Bridget welcomes you to the village and recognizes that you carry The Knowledge.",
+"title": "Bridget",
+"visitId": "visit_1",
+"weight": 2
+}, {
+"badTraits": {},
+"characterImagePath": "res://Assets/Characters/mother_placeholder.svg",
+"desiredTraits": {},
+"dialogueNodes": [],
+"difficulty": 1,
+"id": "customer_requests_opening_gravekeepers_balm",
+"lines": [{
+"speaker": "Mother",
+"text": "I'm feeling a bit frail today and can't reach the ingredients on top of the shelf. Could you reach for them and brew me a Minor Healing potion please?"
+}],
+"pool": "plot",
+"requires": {
+"dayMin": 1
+},
+"requiredPotionDisplayName": "Minor Healing Potion",
+"requiredPotionItemId": "potion_gravekeepers_balm",
+"storyCharacterId": "mother",
+"text": "Mother asks you to brew a Minor Healing potion.",
+"title": "Mother",
+"visitId": "visit_1",
+"weight": 1
+}, {
+"badTraits": {},
+"characterImagePath": "res://art/placeholder_head_outline.svg",
+"desiredTraits": {
+"clarity": {
+"max": 4,
+"min": 4
+},
+"courage": {
+"max": 3,
+"min": 3
+},
+"vigor": {
+"max": 3,
+"min": 3
+}
+},
+"dialogueNodes": [],
+"difficulty": 1,
+"id": "customer_requests_opening_silver_focus_tonic",
+"lines": [{
+"speaker": "Customer",
+"text": "'I need a tonic with courage, enough vigor to keep me standing, and just a little clarity. Courage 8, Vigor 3, and Clarity 2.'"
+}],
+"onArrivalEffects": [{
+"addItemId": "comfrey",
+"addItemQty": 1
+}, {
+"addItemId": "willow",
+"addItemQty": 1
+}, {
+"addItemId": "yarrow",
+"addItemQty": 1
+}],
+"pool": "plot",
+"requires": {
+"dayMin": 1,
+"hasStoryFlag": "new_game_second_customer_pending"
+},
+"storyCharacterId": "opening_customer",
+"text": "A customer asks for a bright, steady tonic: Courage 8, Vigor 3, and Clarity 2.",
+"title": "Second Customer",
+"visitId": "visit_2",
+"weight": 1
+}, {
+"badTraits": {},
+"characterImagePath": "res://art/placeholder_head_outline.svg",
+"desiredTraits": {
+"cleanse": {
+"max": 4,
+"min": 4
+},
+"soothe": {
+"max": 4,
+"min": 4
+},
+"vigor": {
+"max": 3,
+"min": 3
+}
+},
+"dialogueNodes": [],
+"difficulty": 1,
+"id": "customer_requests_opening_clean_vigor_tonic",
+"lines": [{
+"speaker": "Customer",
+"text": "'I need something clean and bracing, but not harsh. Cleanse 7, Soothe 4, and Vigor 3.'"
+}],
+"onArrivalEffects": [{
+"restockItemId": "mint",
+"restockItemQty": 5
+}, {
+"restockItemId": "gorse",
+"restockItemQty": 5
+}, {
+"restockItemId": "thyme",
+"restockItemQty": 5
+}, {
+"restockItemId": "comfrey",
+"restockItemQty": 5
+}, {
+"restockItemId": "willow",
+"restockItemQty": 5
+}, {
+"restockItemId": "yarrow",
+"restockItemQty": 5
+}],
+"pool": "plot",
+"requires": {
+"dayMin": 1,
+"hasStoryFlag": "new_game_third_customer_pending"
+},
+"storyCharacterId": "opening_customer",
+"text": "A customer asks for a sharp tonic: Cleanse 7, Soothe 4, and Vigor 3.",
+"title": "Third Customer",
+"visitId": "visit_3",
+"weight": 1
+}, {
+"badTraits": {},
+"characterImagePath": "res://art/placeholder_head_outline.svg",
+"desiredTraits": {
+"charm": {
+"max": 4,
+"min": 4
+},
+"courage": {
+"max": 3,
+"min": 3
+},
+"vigor": {
+"max": 3,
+"min": 3
+}
+},
+"dialogueNodes": [],
+"difficulty": 2,
+"id": "customer_requests_day_two_charmed_focus_tonic",
+"lines": [{
+"speaker": "Customer",
+"text": "'I need courage enough to hold steady, a measured charm, and enough vigor to keep pace. Courage 8, Charm 4, and Vigor 3.'"
+}],
+"pool": "plot",
+"requires": {
+"dayExact": 2,
+"hasStoryFlag": "day_two_first_customer_pending"
+},
+"storyCharacterId": "day_two_customer",
+"text": "A customer asks for a precise tonic: Courage 8, Charm 4, and Vigor 3.",
+"title": "Day Two First Customer",
+"visitId": "visit_1",
+"weight": 1
+}, {
+"badTraits": {},
+"characterImagePath": "res://art/placeholder_head_outline.svg",
+"desiredTraits": {
+"clarity": {
+"max": 4,
+"min": 4
+},
+"cleanse": {
+"max": 7,
+"min": 7
+},
+"soothe": {
+"max": 5,
+"min": 5
+}
+},
+"dialogueNodes": [],
+"difficulty": 2,
+"hideRequestDetails": true,
+"id": "customer_requests_day_two_crowded_head_tonic",
+"lines": [{
+"speaker": "Customer",
+"text": "'Please help me. My head feels crowded, my stomach feels off, and I can't focus.'"
+}],
+"onFailureEffects": [{
+"enableIngredientPreparationMethodId": "boiled"
+}],
+"onSuccessEffects": [{
+"enableIngredientPreparationMethodId": "boiled"
+}],
+"pool": "plot",
+"requires": {
+"dayExact": 2,
+"hasStoryFlag": "day_two_second_customer_pending"
+},
+"storyCharacterId": "day_two_customer",
+"text": "Please help me. My head feels crowded, my stomach feels off, and I can't focus.",
+"title": "Day Two Second Customer",
+"visitId": "visit_2",
+"weight": 1
+}, {
+"badTraits": {
+"insomnia": {
+"max": 0
+},
+"melancholy": {
+"max": 0
+}
+},
+"characterImagePath": "res://art/placeholder_head_outline.svg",
+"desiredTraits": {
+"clarity": {
+"min": 4
+},
+"memory": {
+"min": 5
+},
+"rest": {
+"min": 5
+}
+},
+"dialogueNodes": [],
+"difficulty": 2,
+"id": "customer_requests_day_two_rest_memory_clarity",
+"lines": [{
+"speaker": "Customer",
+"text": "'I need rest, memory, and clarity. Rest 5, Memory 5, Clarity 4. No insomnia, no melancholy.'"
+}],
+"pool": "plot",
+"requires": {
+"dayExact": 2,
+"hasStoryFlag": "day_two_third_customer_pending"
+},
+"storyCharacterId": "day_two_customer",
+"text": "A customer asks for a potion with Rest 5, Memory 5, and Clarity 4, with no insomnia or melancholy.",
+"title": "Day Two Third Customer",
+"visitId": "visit_3",
+"weight": 1
+}, {
+"badTraits": {
+"drowsiness": {
+"max": 0
+},
+"melancholy": {
+"max": 1
+}
+},
+"characterImagePath": "res://art/placeholder_head_outline.svg",
+"desiredTraits": {
+"clarity": {
+"max": 6,
+"min": 3
+},
+"courage": {
+"max": 5,
+"min": 2
+},
+"soothe": {
+"max": 6,
+"min": 3
+}
+},
+"dialogueNodes": [{
+"id": "intro",
+"lines": [{
+"text": "Rain ticks against the counter glass as Mrs Vale removes a folded note."
+}, {
+"speaker": "Mrs Vale",
+"text": "'I was told you can quiet a person without dulling them.'"
+}],
+"options": [{
+"id": "intro_work",
+"label": "What work requires that?",
+"nextNodeId": "hub",
+"responseLines": [{
+"text": "She looks toward the shop window before answering."
+}, {
+"speaker": "Mrs Vale",
+"text": "'Copying a will before dawn. One wrong word and a dead man's house goes to war.'"
+}]
+}, {
+"id": "intro_fear",
+"label": "What are you afraid of?",
+"nextNodeId": "hub",
+"responseLines": [{
+"text": "The note trembles once in her hand."
+}, {
+"speaker": "Mrs Vale",
+"text": "'That I will see the wrong name and write it anyway.'"
+}]
+}, {
+"id": "intro_request",
+"label": "What should the potion do?",
+"responseLines": [{
+"speaker": "Mrs Vale",
+"text": "'Soothe the hand, clear the eye, and lend me courage if the brew can bear it. No drowsiness; barely any melancholy.'"
+}],
+"returnNodeId": "hub",
+"revealsRequest": true
+}, {
+"effects": [{
+"addStoryFlag": "mrs_vale_dismissed"
+}],
+"endsInteraction": true,
+"id": "intro_end",
+"label": "I cannot help tonight.",
+"responseLines": [{
+"text": "Mrs Vale folds the note along its old crease."
+}, {
+"speaker": "Mrs Vale",
+"text": "'Then I will find a steadier hand elsewhere.'"
+}]
+}]
+}, {
+"id": "hub",
+"lines": [{
+"text": "Mrs Vale keeps the folded note pressed flat beneath her palm."
+}],
+"options": [{
+"id": "hub_note",
+"label": "Tell me about the note.",
+"nextNodeId": "hub",
+"responseLines": [{
+"speaker": "Mrs Vale",
+"text": "'It names people who have waited years to hate each other properly.'"
+}]
+}, {
+"id": "hub_request",
+"label": "Repeat the potion request.",
+"responseLines": [{
+"speaker": "Mrs Vale",
+"text": "'Soothe, clarity, courage if possible. No drowsiness, and only the faintest melancholy.'"
+}],
+"returnNodeId": "hub",
+"revealsRequest": true
+}, {
+"endsInteraction": true,
+"id": "hub_leave",
+"label": "That is enough.",
+"responseLines": [{
+"speaker": "Mrs Vale",
+"text": "'Then let us not waste the hour.'"
+}]
+}]
+}],
+"dialogueStartNodeId": "intro",
+"difficulty": 2,
+"id": "plot_line_demo_visit_1",
+"lines": [{
+"text": "A woman in a rain-dark cloak waits until the shop is quiet."
+}, {
+"speaker": "Mrs Vale",
+"text": "'I need my hands still and my mind sharper than fear.'"
+}],
+"onFailureEffects": [{
+"addStoryFlag": "mrs_vale_given_bad_potion"
+}],
+"onPotionRefusedEffects": [{
+"addStoryFlag": "mrs_vale_refused_potion"
+}],
+"onSuccessEffects": [{
+"addStoryFlag": "mrs_vale_helped"
+}],
+"pool": "plot",
+"potionRefusedLines": [{
+"text": "Mrs Vale tucks her gloves back into her sleeve."
+}, {
+"speaker": "Mrs Vale",
+"text": "'Then I will try to keep steady without it.'"
+}],
+"potionResponses": [{
+"id": "clean_success",
+"lines": [{
+"text": "Mrs Vale tests the cork with one thumb, then lets out a slow breath."
+}, {
+"speaker": "Mrs Vale",
+"text": "'Yes. Steady enough for the hand, clear enough for the work.'"
+}],
+"maxMatchedBadTraits": 0,
+"minMatchedDesiredTraits": 2,
+"success": true
+}, {
+"id": "clouded_failure",
+"lines": [{
+"text": "The mixture clouds against the glass."
+}, {
+"speaker": "Mrs Vale",
+"text": "'No. This would make the room tilt, and I need it still.'"
+}],
+"success": false
+}],
+"requires": {
+"dayMin": 1
+},
+"storyCharacterId": "mrs_vale",
+"text": "Mrs Vale needs a draught that steadies her nerves and keeps her thoughts clear, with no sleepy or mournful edge.",
+"title": "Mrs Vale",
+"visitId": "visit_1",
+"weight": 1
+}, {
+"badTraits": {
+"corruption": {
+"max": 0
+},
+"drowsiness": {
+"max": 0
+}
+},
+"characterImagePath": "res://art/placeholder_head_outline.svg",
+"desiredTraits": {
+"calm": {
+"max": 6,
+"min": 3
+},
+"clarity": {
+"max": 6,
+"min": 3
+},
+"cleanse": {
+"max": 5,
+"min": 2
+}
+},
+"dialogueNodes": [],
+"difficulty": 2,
+"id": "customer_requests_counterfeit_calm",
+"pool": "early",
+"requires": {
+"dayMin": 1
+},
+"text": "A document forger needs a draught that steadies their hand without making the ink swim. Calm and clarity matter most, with cleansing welcome as long as the brew stays awake and untainted.",
+"title": "Counterfeit Calm",
+"weight": 8
+}, {
+"badTraits": {
+"corruption": {
+"max": 0
+},
+"drowsiness": {
+"max": 0
+}
+},
+"characterImagePath": "res://art/placeholder_head_outline.svg",
+"desiredTraits": {
+"clarity": {
+"max": 5,
+"min": 2
+},
+"cleanse": {
+"max": 7,
+"min": 4
+},
+"soothe": {
+"max": 6,
+"min": 3
+}
+},
+"dialogueNodes": [],
+"difficulty": 2,
+"id": "customer_requests_clean_blade_rinse",
+"pool": "early",
+"requires": {
+"dayMin": 1
+},
+"text": "A barber brings a nicked silver razor wrapped in cloth. They need cleansing strength, then either soothing or clarity to keep their hand steady.",
+"title": "Clean Blade Rinse",
+"weight": 8
+}, {
+"badTraits": {
+"drowsiness": {
+"max": 0
+},
+"melancholy": {
+"max": 1
+}
+},
+"characterImagePath": "res://art/placeholder_head_outline.svg",
+"desiredTraits": {
+"calm": {
+"max": 6,
+"min": 3
+},
+"dream": {
+"max": 7,
+"min": 4
+},
+"soothe": {
+"max": 5,
+"min": 2
+}
+},
+"dialogueNodes": [],
+"difficulty": 2,
+"id": "customer_requests_soft_dream_tonic",
+"pool": "early",
+"requires": {
+"dayMin": 1
+},
+"text": "A childminder asks for kinder dreams without a heavy sleep. Dream and calm are ideal, and a little soothe can soften the edges.",
+"title": "Soft Dream Tonic",
+"weight": 8
+}, {
+"badTraits": {
+"corruption": {
+"max": 0
+},
+"melancholy": {
+"max": 1
+}
+},
+"characterImagePath": "res://art/placeholder_head_outline.svg",
+"desiredTraits": {
+"cleanse": {
+"max": 6,
+"min": 3
+},
+"mend": {
+"max": 7,
+"min": 4
+},
+"soothe": {
+"max": 6,
+"min": 3
+}
+},
+"dialogueNodes": [],
+"difficulty": 3,
+"id": "customer_requests_grave_stitch_poultice",
+"pool": "early",
+"requires": {
+"dayMin": 1
+},
+"text": "A surgeon wants a poultice that closes dead-cold wounds. Mending is the heart of it, with soothing or cleansing support to keep the mixture from turning bleak.",
+"title": "Grave Stitch Poultice",
+"weight": 7
+}, {
+"badTraits": {
+"corruption": {
+"max": 0
+},
+"insomnia": {
+"max": 1
+}
+},
+"characterImagePath": "res://art/placeholder_head_outline.svg",
+"desiredTraits": {
+"calm": {
+"max": 5,
+"min": 2
+},
+"charm": {
+"max": 7,
+"min": 4
+},
+"vigor": {
+"max": 6,
+"min": 3
+}
+},
+"dialogueNodes": [],
+"difficulty": 3,
+"id": "customer_requests_stage_door_spark",
+"pool": "early",
+"requires": {
+"dayMin": 1
+},
+"text": "A stage performer wants charm that carries them through the curtain call. Vigor or calm can support the brew, but corruption would sour the room.",
+"title": "Stage Door Spark",
+"weight": 7
+}, {
+"badTraits": {
+"drowsiness": {
+"max": 0
+},
+"insomnia": {
+"max": 1
+}
+},
+"characterImagePath": "res://art/placeholder_head_outline.svg",
+"desiredTraits": {
+"clarity": {
+"max": 5,
+"min": 2
+},
+"cleanse": {
+"max": 6,
+"min": 3
+},
+"vigor": {
+"max": 6,
+"min": 3
+}
+},
+"dialogueNodes": [],
+"difficulty": 3,
+"id": "customer_requests_bitter_wake_cure",
+"pool": "early",
+"requires": {
+"dayMin": 1
+},
+"text": "A watchman needs to stay awake after a poisoned supper. Vigor helps them stand, while cleansing or clarity shakes off the fog.",
+"title": "Bitter Wake Cure",
+"weight": 7
+}, {
+"badTraits": {
+"corruption": {
+"max": 0
+},
+"melancholy": {
+"max": 1
+}
+},
+"characterImagePath": "res://art/placeholder_head_outline.svg",
+"desiredTraits": {
+"calm": {
+"max": 5,
+"min": 2
+},
+"clarity": {
+"max": 6,
+"min": 3
+},
+"courage": {
+"max": 7,
+"min": 4
+}
+},
+"dialogueNodes": [],
+"difficulty": 3,
+"id": "customer_requests_quiet_courage_draught",
+"pool": "early",
+"requires": {
+"dayMin": 1
+},
+"text": "A witness needs courage without panic. A clear head or steady calm can carry the courage, but the potion cannot be corrupting.",
+"title": "Quiet Courage Draught",
+"weight": 7
+}, {
+"badTraits": {
+"corruption": {
+"max": 0
+},
+"drowsiness": {
+"max": 1
+}
+},
+"characterImagePath": "res://art/placeholder_head_outline.svg",
+"desiredTraits": {
+"cleanse": {
+"max": 6,
+"min": 3
+},
+"rest": {
+"max": 7,
+"min": 4
+},
+"soothe": {
+"max": 5,
+"min": 2
+}
+},
+"dialogueNodes": [],
+"difficulty": 3,
+"id": "customer_requests_restless_fever_draught",
+"pool": "early",
+"requires": {
+"dayMin": 1
+},
+"text": "A feverish courier needs real rest without being knocked flat. Rest is the goal, with cleansing or soothing support to keep the fever from clinging.",
+"title": "Restless Fever Draught",
+"weight": 7
+}, {
+"badTraits": {
+"corruption": {
+"max": 0
+},
+"melancholy": {
+"max": 1
+}
+},
+"characterImagePath": "res://art/placeholder_head_outline.svg",
+"desiredTraits": {
+"charm": {
+"max": 7,
+"min": 4
+},
+"clarity": {
+"max": 6,
+"min": 3
+},
+"courage": {
+"max": 5,
+"min": 2
+}
+},
+"dialogueNodes": [],
+"difficulty": 3,
+"id": "customer_requests_silver_invitation",
+"pool": "early",
+"requires": {
+"dayMin": 1
+},
+"text": "A diplomat needs charm with a clear head. Courage is useful at the table, but corruption would make the invitation dangerous.",
+"title": "Silver Invitation",
+"weight": 7
+}, {
+"badTraits": {
+"drowsiness": {
+"max": 0
+},
+"melancholy": {
+"max": 1
+}
+},
+"characterImagePath": "res://art/placeholder_head_outline.svg",
+"desiredTraits": {
+"cleanse": {
+"max": 6,
+"min": 3
+},
+"courage": {
+"max": 5,
+"min": 2
+},
+"soothe": {
+"max": 6,
+"min": 3
+}
+},
+"dialogueNodes": [],
+"difficulty": 3,
+"id": "customer_requests_lantern_wash",
+"pool": "early",
+"requires": {
+"dayMin": 1
+},
+"text": "A lamplighter wants a wash for a haunted lens. Soothe and cleanse are the obvious answers, though courage can hold the line if the mixture stays awake.",
+"title": "Lantern Wash",
+"weight": 7
+}, {
+"badTraits": {},
+"desiredTraits": {},
+"dialogueNodes": [{
+"id": "intro",
+"lines": [],
+"options": []
+}],
+"dialogueStartNodeId": "intro",
+"difficulty": 1,
+"id": "opening",
+"pool": "plot",
+"text": "fgfbg",
+"title": "Opening Dialog"
+}]

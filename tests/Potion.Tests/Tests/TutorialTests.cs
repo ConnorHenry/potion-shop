@@ -19,9 +19,8 @@ internal static class TutorialTests
         runner.Run("Main scene wires tutorial controller", TestMainSceneWiresTutorialController);
         runner.Run("Tutorial overlay scene wiring stays intact", TestTutorialOverlaySceneWiring);
         runner.Run("Tutorial architecture extraction stays intact", TestTutorialArchitectureExtraction);
-        runner.Run("Tutorial next-customer inventory seed stays curated", TestTutorialNextCustomerInventorySeedIsCurated);
-        runner.Run("Tutorial next-customer step accepts tiered customer ids", TestTutorialNextCustomerStepAcceptsTieredCustomerIds);
-        runner.Run("Tutorial sale review feedback uses request wording", TestTutorialSaleReviewFeedbackUsesRequestWording);
+        runner.Run("Tutorial Mother post-serve dialogue replaces next customer", TestTutorialMotherPostServeDialogueReplacesNextCustomer);
+        runner.Run("Tutorial raw prep button stays enabled", TestTutorialRawPrepButtonStaysEnabled);
         runner.Run("Tutorial overlay keeps one dimming strategy", TestTutorialOverlayUsesDynamicCutoutsOnly);
     }
 
@@ -47,6 +46,15 @@ internal static class TutorialTests
 
         AssertTrue("SetTutorialStep exists", source.Contains("public void SetTutorialStep(int step)"));
         AssertTrue("SetTutorialStep clamps to zero or above", source.Contains("_tutorialProgressState.SetStep(step)") && tutorialProgressState.Contains("Math.Max(0, step)"));
+        AssertTrue("GameState tracks ten years later cutscene start and completion",
+            source.Contains("TenYearsLaterCutsceneStartedStoryFlag = \"ten_years_later_cutscene_started\"") &&
+            source.Contains("TenYearsLaterCutsceneCompletedStoryFlag = \"ten_years_later_cutscene_completed\"") &&
+            source.Contains("RecordTenYearsLaterCutsceneStarted()") &&
+            source.Contains("RecordTenYearsLaterCutsceneCompleted()") &&
+            source.Contains("WomanInGreenCutsceneStartedStoryFlag = \"woman_in_green_cutscene_started\"") &&
+            source.Contains("WomanInGreenCutsceneCompletedStoryFlag = \"woman_in_green_cutscene_completed\"") &&
+            source.Contains("RecordWomanInGreenCutsceneStarted()") &&
+            source.Contains("RecordWomanInGreenCutsceneCompleted()"));
     }
 
     private static void TestTutorialSnapshotRoundTrip()
@@ -82,6 +90,8 @@ internal static class TutorialTests
         AssertTrue("Main scene includes TutorialController node", source.Contains("[node name=\"TutorialController\" type=\"Node\" parent=\".\"]"));
         AssertTrue("TutorialController wires overlay path", source.Contains("TutorialOverlayPath = NodePath(\"../CanvasLayer/TutorialOverlay\")"));
         AssertTrue("TutorialController wires HUD path", source.Contains("HudPath = NodePath(\"/root/PersistentHud/Hud\")"));
+        AssertTrue("TutorialController wires station shelf path", source.Contains("StationShelfInventoryPath = NodePath(\"../CanvasLayer/PotionBrewingStationView/StationShelfInventory\")"));
+        AssertTrue("TutorialController wires ingredient preparation tray path", source.Contains("IngredientPreparationTrayPath = NodePath(\"../CanvasLayer/PotionBrewingStationView/IngredientPreparationTray\")"));
         AssertTrue("TutorialController wires day summary panel path", source.Contains("DaySummaryPanelPath = NodePath(\"../CanvasLayer/DaySummaryPanel\")"));
         AssertTrue("TutorialController wires DayController path", source.Contains("DayControllerPath = NodePath(\"../DayController\")"));
     }
@@ -107,6 +117,10 @@ internal static class TutorialTests
         var presenter = ReadProjectFile("Scripts/Tutorial/Presentation/TutorialOverlayPresenter.cs");
         var interactionGate = ReadProjectFile("Scripts/Tutorial/Presentation/TutorialInteractionGate.cs");
         var brewPanel = ReadProjectFile("Scripts/UI/BrewPanel.cs");
+        var stationShelf = ReadProjectFile("Scripts/UI/StationShelfInventory.cs");
+        var preparationTray = ReadProjectFile("Scripts/UI/IngredientPreparationTray.cs");
+        var stationCustomerPanel = ReadProjectFile("Scripts/UI/StationCustomerPanel.cs");
+        var dayControllerSource = ReadProjectFile("Scripts/Controllers/DayController.cs");
 
         AssertTrue("TutorialController uses extracted state machine", controller.Contains("private TutorialStateMachine _stateMachine"));
         AssertTrue("TutorialController uses extracted overlay presenter", controller.Contains("private TutorialOverlayPresenter _overlayPresenter"));
@@ -124,25 +138,91 @@ internal static class TutorialTests
         AssertTrue("TutorialController caches HUD date control for tutorial highlighting", controller.Contains("HudDateControlPath = new(\"Content/Status/Day\")") && controller.Contains("_hudDateControl = GetOptionalHudControl(HudDateControlPath"));
         AssertTrue("TutorialController does not cache a HUD shop timer label", !controller.Contains("HudShopTimerLabelPath") && !controller.Contains("_hudShopTimerLabel"));
         AssertTrue("TutorialController starts with the brewing station view already available", !controller.Contains("OpenBrewPanelButtonPath") && !controller.Contains("_openBrewPanelButton"));
-        AssertTrue("TutorialController highlights ingredient queue steps with the brew panel", controller.Contains("ShowIngredientQueueStep(stepContent, _tutorialContent.MintId)") && controller.Contains("ShowForTargets(") && controller.Contains("FocusTutorialBrewPanel()"));
-        AssertTrue("TutorialController routes the sale review popup through the station customer panel", controller.Contains("ShowForTarget(") && controller.Contains("_stationCustomerPanel,") && controller.Contains("BuildSaleResultBody("));
-        AssertTrue("TutorialController seeds the next-customer tutorial inventory", controller.Contains("SeedNextCustomerTutorialInventory()"));
+        AssertTrue("TutorialController points ingredient steps from shelf to preparation tray",
+            controller.Contains("ShowIngredientSelectionStep(stepContent, _tutorialContent.MintId") &&
+            controller.Contains("FocusIngredientShelfSlot(itemId)") &&
+            controller.Contains("FocusPreparationDropBox()") &&
+            controller.Contains("ShowForTargetsWithArrow(stepContent, ingredientTarget, preparationTarget)"));
+        AssertTrue("TutorialController points Raw preparation steps at the Raw button",
+            controller.Contains("ShowRawPreparationStep(stepContent") &&
+            controller.Contains("FocusRawPreparationButton()") &&
+            controller.Contains("IngredientPreparationCatalog.RawPreparationId"));
+        AssertTrue("TutorialController points brewed potion serving through the serving slot and Serve button",
+            controller.Contains("ShowServingDropStep(stepContent)") &&
+            controller.Contains("ShowServeButtonStep(stepContent)") &&
+            controller.Contains("FocusServingDropBox()") &&
+            controller.Contains("GetServeButton()"));
+        AssertTrue("TutorialController adds Mother lines to the customer panel",
+            controller.Contains("ShowMotherLineForStep") &&
+            controller.Contains("Let's start with the Mint.") &&
+            controller.Contains("Great job {GetPlayerNameForMotherLine()}. Now bring it over here."));
+        AssertTrue("TutorialController routes the post-serve beat through Mother dialogue in the station customer panel",
+            controller.Contains("MotherPostServeDialogueResolved += OnMotherPostServeDialogueResolved") &&
+            controller.Contains("EvaluateMotherPostServeDialogueResolved(CurrentStep())") &&
+            controller.Contains("TutorialStepId.PostServeMotherDialogue") &&
+            controller.Contains("ForceNextCustomerInteraction(string.Empty)") &&
+            !controller.Contains("ForceNextCustomerInteraction(_tutorialContent.AmbiguousTutorialCustomerId)"));
+        AssertTrue("DayController sends successful opening Mother completion into the time skip cutscene",
+            dayControllerSource.Contains("MotherPostServeDialogueResolved += OnMotherPostServeDialogueResolved") &&
+            dayControllerSource.Contains("OpeningMotherPotionItemId = \"potion_gravekeepers_balm\"") &&
+            dayControllerSource.Contains("TenYearsLaterCutsceneStartedStoryFlag") &&
+            dayControllerSource.Contains("TenYearsLaterCutsceneCompletedStoryFlag") &&
+            dayControllerSource.Contains("CloseShopDayForStoryCutscene()") &&
+            dayControllerSource.Contains("ChangeSceneWithFade(ScenePaths.TenYearsLaterCutscene)"));
+        AssertTrue("TutorialController advances if the tutorial customer is already active after the intro",
+            controller.Contains("_gameState.ActiveCustomerRequest?.Id ?? string.Empty") &&
+            controller.Contains("EvaluateCustomerInteractionShown("));
         AssertTrue("TutorialController highlights status step with a combined HUD rect", controller.Contains("ShowForHighlightRect(stepContent, statusHighlightRect)"));
         AssertTrue("TutorialController builds a combined status highlight rectangle", controller.Contains("TryGetStatusHighlightRect(out var statusHighlightRect)"));
-        AssertTrue("TutorialController marks the final tutorial customer before the final ingredient step", controller.Contains("AddTwoMoreSleepIngredients") && controller.Contains("ForceCloseShopAfterCurrentCustomerForTutorial()"));
+        AssertTrue("TutorialController requests shop close before Mother resolves so no next customer enters",
+            controller.Contains("TutorialStepId.PostServeMotherDialogue") &&
+            controller.Contains("ForceCloseShopAfterCurrentCustomerForTutorial()"));
         AssertTrue("TutorialController listens for day summary continue", controller.Contains("_daySummaryPanel.ContinuePressed += OnDaySummaryContinuePressed;"));
         AssertTrue("TutorialController highlights the day summary panel", controller.Contains("case TutorialStepId.DaySummary") && controller.Contains("_overlayPresenter.ShowForTarget(stepContent, _daySummaryPanel)"));
         AssertTrue("TutorialController allows the day summary continue button", controller.Contains("TutorialStepId.DaySummary => new BaseButton?[] { _daySummaryPanel?.GetContinueButton() }"));
-        AssertTrue("TutorialController includes station customer and day summary panels in button locks", controller.Contains("new Node?[] { _hud, _brewPanel, _stationCustomerPanel, _daySummaryPanel }"));
-        AssertTrue("TutorialOverlayPresenter supports direct highlight rectangles", presenter.Contains("ShowForHighlightRect("));
+        AssertTrue("TutorialController includes shelf, prep tray, station customer, and day summary panels in button locks",
+            controller.Contains("new Node?[] { _hud, _brewPanel, _stationShelfInventory, _ingredientPreparationTray, _stationCustomerPanel, _daySummaryPanel }"));
+        AssertTrue("TutorialOverlayPresenter supports direct highlight rectangles and arrows",
+            presenter.Contains("ShowForHighlightRect(") &&
+            presenter.Contains("ShowForTargetsWithArrow("));
 
         AssertTrue("TutorialStateMachine is a pure class", stateMachine.Contains("public sealed class TutorialStateMachine"));
         AssertTrue("TutorialStateMachine clamps tutorial step", stateMachine.Contains("public TutorialStepId ClampStep(int rawStep)"));
+        AssertTrue("TutorialStateMachine advances opening potion through selected and raw-prepared ingredient events",
+            stateMachine.Contains("EvaluateIngredientSelected(") &&
+            stateMachine.Contains("EvaluateIngredientPrepared(") &&
+            stateMachine.Contains("TutorialStepId.PrepareMintRaw") &&
+            stateMachine.Contains("TutorialStepId.PrepareGorseRaw") &&
+            stateMachine.Contains("TutorialStepId.PrepareThymeRaw"));
+        AssertTrue("TutorialStateMachine moves the Serve click into the post-serve Mother dialogue",
+            stateMachine.Contains("EvaluatePotionSelectedForServing(") &&
+            stateMachine.Contains("TutorialStepId.ConfirmServe") &&
+            stateMachine.Contains("TutorialTransition.To(TutorialStepId.PostServeMotherDialogue)"));
+        AssertTrue("TutorialStateMachine completes after the post-serve Mother dialogue resolves",
+            stateMachine.Contains("EvaluateMotherPostServeDialogueResolved(") &&
+            stateMachine.Contains("step == TutorialStepId.PostServeMotherDialogue") &&
+            stateMachine.Contains("TutorialTransition.Complete()"));
         AssertTrue("TutorialStateMachine removed the timer-driven close shop prompt", !stateMachine.Contains("EvaluateCloseShopPrompt("));
         AssertTrue("TutorialStateMachine advances from the final customer to day summary when the shop closes", stateMachine.Contains("step == TutorialStepId.AddTwoMoreSleepIngredients || step == TutorialStepId.CloseShop") && stateMachine.Contains("TutorialTransition.To(TutorialStepId.DaySummary)"));
         AssertTrue("TutorialStateMachine completes after continuing from the day summary", stateMachine.Contains("EvaluateDaySummaryContinued(") && stateMachine.Contains("step == TutorialStepId.DaySummary"));
-        AssertTrue("DayController exposes a tutorial-only close-after-current-customer helper", ReadProjectFile("Scripts/Controllers/DayController.cs").Contains("public void ForceCloseShopAfterCurrentCustomerForTutorial()"));
+        AssertTrue("DayController exposes a tutorial-only close-after-current-customer helper", dayControllerSource.Contains("public void ForceCloseShopAfterCurrentCustomerForTutorial()"));
+        AssertTrue("DayController can close the shop for the story cutscene without a summary",
+            dayControllerSource.Contains("public void CloseShopDayForStoryCutscene()") &&
+            dayControllerSource.Contains("_daySummaryPanel.HidePanel();") &&
+            dayControllerSource.Contains("_gameState.CloseShopDayState();"));
         AssertTrue("TutorialContentResource exists", tutorialContent.Contains("public partial class TutorialContentResource : Resource"));
+        AssertTrue("TutorialContentResource uses the opening Mother customer and Minor Healing Potion copy",
+            tutorialContent.Contains("TutorialCustomerId { get; set; } = \"customer_requests_opening_gravekeepers_balm\"") &&
+            tutorialContent.Contains("Minor Healing Potion") &&
+            !tutorialContent.Contains("Gravekeeper's Balm"));
+        AssertTrue("TutorialContentResource teaches preparation tray and Raw prep before brewing",
+            tutorialContent.Contains("Right click or drag an ingredient to the preparation tray.") &&
+            tutorialContent.Contains("Ingredients can be prepared in different ways. For this potion, choose Raw.") &&
+            tutorialContent.Contains("StepId = (int)TutorialStepId.ConfirmServe"));
+        AssertTrue("TutorialContentResource includes the post-serve Mother dialogue step without overlay locking",
+            tutorialContent.Contains("StepId = (int)TutorialStepId.PostServeMotherDialogue") &&
+            tutorialContent.Contains("Answer Mother in the customer dialog box.") &&
+            tutorialContent.Contains("LockOtherButtons = false"));
         AssertTrue("TutorialContentResource includes the close shop step copy", tutorialContent.Contains("StepId = (int)TutorialStepId.CloseShop"));
         AssertTrue("TutorialContentResource tells the player to close the shop without night events", tutorialContent.Contains("Close the shop to end the day.") && !tutorialContent.Contains("It is night time."));
         AssertTrue("TutorialContentResource includes the day summary step copy", tutorialContent.Contains("StepId = (int)TutorialStepId.DaySummary") && tutorialContent.Contains("Click Continue to start the next day."));
@@ -152,57 +232,118 @@ internal static class TutorialTests
         AssertTrue("Tutorial interaction gate exists", interactionGate.Contains("public sealed class TutorialInteractionGate"));
         AssertTrue("Tutorial interaction gate restores previous button state before reapplying", interactionGate.Contains("Restore();"));
         AssertTrue("BrewPanel exposes its brew button for tutorial locks", brewPanel.Contains("public Button? GetBrewButton()"));
+        AssertTrue("Station shelf exposes visible ingredient slots for tutorial arrows", stationShelf.Contains("public Control? GetVisibleIngredientSlot(string itemId)"));
+        AssertTrue("Ingredient preparation tray exposes selection, preparation, and Raw button hooks",
+            preparationTray.Contains("IngredientSelectedEventHandler") &&
+            preparationTray.Contains("IngredientPreparedEventHandler") &&
+            preparationTray.Contains("public Button? GetPreparationButton(string preparationId)"));
+        AssertTrue("Station customer panel exposes serving hooks and Mother tutorial lines",
+            stationCustomerPanel.Contains("PotionSelectedForServingEventHandler") &&
+            stationCustomerPanel.Contains("public Control? GetServingDropBox()") &&
+            stationCustomerPanel.Contains("public Button? GetServeButton()") &&
+            stationCustomerPanel.Contains("ShowTutorialMotherLine") &&
+            stationCustomerPanel.Contains("MotherPostServeDialogueResolvedEventHandler"));
     }
 
-    private static void TestTutorialNextCustomerInventorySeedIsCurated()
-    {
-        var source = ReadProjectFile("Scripts/Autoload/GameState.cs");
-
-        AssertTrue("GameState defines a curated next-customer tutorial inventory",
-            source.Contains("private static readonly (string ItemId, int Quantity)[] NextCustomerTutorialInventory"));
-        AssertTrue("Next-customer inventory includes the rest trait ingredient",
-            source.Contains("(\"elder\", 1)"));
-        AssertTrue("Next-customer inventory includes the calm trait ingredient",
-            source.Contains("(\"heather\", 1)"));
-        AssertTrue("Next-customer inventory includes the dreams trait ingredient",
-            source.Contains("(\"rosemary\", 1)"));
-        AssertTrue("Next-customer inventory is seeded through a dedicated helper",
-            source.Contains("public void SeedNextCustomerTutorialInventory()"));
-        AssertTrue("Next-customer inventory clears the inventory before seeding",
-            source.Contains("_inventoryState.Clear();"));
-        AssertTrue("Next-customer inventory seeds exactly the curated ingredient list",
-            source.Contains("foreach (var (itemId, qty) in NextCustomerTutorialInventory)"));
-    }
-
-    private static void TestTutorialNextCustomerStepAcceptsTieredCustomerIds()
-    {
-        var stateMachine = ReadProjectFile("Scripts/Tutorial/TutorialStateMachine.cs");
-
-        AssertTrue("Next-customer transition uses customer interaction matching",
-            stateMachine.Contains("EvaluateCustomerInteractionShown") &&
-            stateMachine.Contains("IsCustomerInteractionMatch(interactionId, _ambiguousCustomerId)"));
-        AssertTrue("Next-customer active request fallback uses customer interaction matching",
-            stateMachine.Contains("EvaluateAmbiguousCustomerState") &&
-            stateMachine.Contains("IsCustomerInteractionMatch(activeCustomerRequestId ?? string.Empty, _ambiguousCustomerId)"));
-        AssertTrue("Tutorial customer matching accepts tiered suffix ids for legacy tutorial ids",
-            stateMachine.Contains("NormalizeLegacyCustomerRequestId") &&
-            stateMachine.Contains("const string legacyPrefix = \"customer_requests_\"") &&
-            stateMachine.Contains("actualInteractionId.EndsWith(\"_\" + normalizedExpectedId, StringComparison.OrdinalIgnoreCase)"));
-    }
-
-    private static void TestTutorialSaleReviewFeedbackUsesRequestWording()
+    private static void TestTutorialMotherPostServeDialogueReplacesNextCustomer()
     {
         var controller = ReadProjectFile("Scripts/Controllers/TutorialController.cs");
+        var stateMachine = ReadProjectFile("Scripts/Tutorial/TutorialStateMachine.cs");
+        var stepIds = ReadProjectFile("Scripts/Tutorial/TutorialStepId.cs");
         var tutorialContent = ReadProjectFile("Scripts/Tutorial/TutorialContentResource.cs");
+        var stationCustomerPanel = ReadProjectFile("Scripts/UI/StationCustomerPanel.cs");
+        var dayController = ReadProjectFile("Scripts/Controllers/DayController.cs");
+        var scenePaths = ReadProjectFile("Scripts/Infrastructure/ScenePaths.cs");
+        var cutscene = ReadProjectFile("Scripts/UI/TenYearsLaterCutscene.cs");
+        var womanInGreenCutscene = ReadProjectFile("Scripts/UI/WomanInGreenCutscene.cs");
+        var juniperGathering = ReadProjectFile("Scripts/UI/JuniperGathering.cs");
 
-        AssertTrue("Sale review step is titled as a review", tutorialContent.Contains("Title = \"Sale Review\""));
-        AssertTrue("Sale review step keeps a continue button label", tutorialContent.Contains("NextButtonText = \"Continue\""));
-        AssertTrue("TutorialContentResource exposes request-only sale feedback", tutorialContent.Contains("public string BuildSaleResultBody(bool saleSucceeded)"));
-        AssertTrue("TutorialContentResource explains success in customer-request terms", tutorialContent.Contains("You used the ingredients the customer wanted."));
-        AssertTrue("TutorialContentResource explains failure in customer-request terms", tutorialContent.Contains("You need to read the customer request more carefully next time."));
-        AssertTrue("TutorialContentResource no longer references score values", !tutorialContent.Contains("finalScore") && !tutorialContent.Contains("grade"));
-        AssertTrue("Close shop step is titled explicitly", tutorialContent.Contains("Title = \"Close the Shop\""));
-        AssertTrue("TutorialController uses the request-only sale feedback builder", controller.Contains("BuildSaleResultBody(_lastTutorialSaleSucceeded)"));
+        AssertTrue("Tutorial defines an explicit post-serve Mother dialogue step",
+            stepIds.Contains("PostServeMotherDialogue = 22") &&
+            tutorialContent.Contains("StepId = (int)TutorialStepId.PostServeMotherDialogue") &&
+            tutorialContent.Contains("Answer Mother in the customer dialog box."));
+        AssertTrue("Tutorial state machine moves from serving Mother into the Mother dialogue",
+            stateMachine.Contains("TutorialTransition.To(TutorialStepId.PostServeMotherDialogue)") &&
+            stateMachine.Contains("EvaluateMotherPostServeDialogueResolved(") &&
+            stateMachine.Contains("step == TutorialStepId.PostServeMotherDialogue") &&
+            stateMachine.Contains("TutorialTransition.Complete()"));
+        AssertTrue("Day controller replaces the post-serve completion with the ten years later cutscene",
+            dayController.Contains("ShouldStartTenYearsLaterCutscene()") &&
+            dayController.Contains("_openingMotherServeSucceededForCutscene") &&
+            dayController.Contains("OpeningMotherPotionItemId = \"potion_gravekeepers_balm\"") &&
+            dayController.Contains("CloseShopDayForStoryCutscene()") &&
+            dayController.Contains("ChangeSceneWithFade(ScenePaths.TenYearsLaterCutscene)") &&
+            scenePaths.Contains("res://Scenes/UI/TenYearsLaterCutscene.tscn"));
+        AssertTrue("Tutorial no longer drives the ambiguous next-customer branch",
+            !controller.Contains("SeedNextCustomerTutorialInventory()") &&
+            !controller.Contains("ForceNextCustomerInteraction(_tutorialContent.AmbiguousTutorialCustomerId)") &&
+            !stateMachine.Contains("IsCustomerInteractionMatch(interactionId, _ambiguousCustomerId)") &&
+            !stateMachine.Contains("IsCustomerInteractionMatch(activeCustomerRequestId ?? string.Empty, _ambiguousCustomerId)"));
+        AssertTrue("Station customer panel owns the requested Mother post-serve dialogue copy",
+            stationCustomerPanel.Contains("MotherPostServeDialogueResolvedEventHandler") &&
+            stationCustomerPanel.Contains("Thank you so much {GetPlayerNameForMotherDialogue()}.") &&
+            stationCustomerPanel.Contains("Are you going to tell me what's wrong?") &&
+            stationCustomerPanel.Contains("It's okay Ma. Here you need to get back to bed and rest.") &&
+            stationCustomerPanel.Contains("I told you not to worry about it. Everything is fine") &&
+            stationCustomerPanel.Contains("Thank you dear."));
+        AssertTrue("Station customer panel delays resolving Mother until the post-serve dialogue finishes",
+            stationCustomerPanel.Contains("TryBeginMotherPostServeDialogue(interaction, saleResult.IsSuccess)") &&
+            stationCustomerPanel.Contains("FinishMotherPostServeDialogue") &&
+            stationCustomerPanel.Contains("EmitSignal(SignalName.MotherPostServeDialogueResolved)") &&
+            stationCustomerPanel.Contains("BeginResolveActiveCustomer();"));
+        AssertTrue("DayController closes the shop after opening Mother so no next customer enters",
+            dayController.Contains("_stationCustomerPanel.PotionSold += OnStationPotionSold;") &&
+            dayController.Contains("OpeningMotherInteractionId = \"customer_requests_opening_gravekeepers_balm\"") &&
+            dayController.Contains("_gameState.ActiveCustomerInteractionId") &&
+            dayController.Contains("RequestCloseShopAfterCurrentCustomer();") &&
+            dayController.Contains("CloseShopDayForStoryCutscene()"));
+        AssertTrue("Ten years later cutscene owns the requested bridge into juniper picking",
+            cutscene.Contains("10 Years Later") &&
+            cutscene.Contains("Mother is brewing in the kitchen.") &&
+            cutscene.Contains("Really?? Fun!") &&
+            cutscene.Contains("You've never let me come juniper picking before?") &&
+            cutscene.Contains("RecordTenYearsLaterCutsceneStarted();") &&
+            cutscene.Contains("RecordTenYearsLaterCutsceneCompleted();") &&
+            cutscene.Contains("ChangeSceneWithFade(ScenePaths.JuniperGathering)"));
+        AssertTrue("Juniper gathering bridges the time-skip path into the woman in green cutscene",
+            juniperGathering.Contains("ShouldShowWomanInGreenCutscene()") &&
+            juniperGathering.Contains("TenYearsLaterCutsceneCompletedStoryFlag") &&
+            juniperGathering.Contains("WomanInGreenCutsceneCompletedStoryFlag") &&
+            juniperGathering.Contains("ChangeSceneWithFade(ScenePaths.WomanInGreenCutscene)"));
+        AssertTrue("Woman in green cutscene owns the requested post-picking story beat",
+            womanInGreenCutscene.Contains("After picking the juniper berries, you both walk home.") &&
+            womanInGreenCutscene.Contains("By the river, you saw the woman in green.") &&
+            womanInGreenCutscene.Contains("\\\"Do not speak to her.\\\"") &&
+            womanInGreenCutscene.Contains("RecordWomanInGreenCutsceneStarted();") &&
+            womanInGreenCutscene.Contains("RecordWomanInGreenCutsceneCompleted();") &&
+            womanInGreenCutscene.Contains("ChangeSceneWithFade(ScenePaths.Main)"));
+    }
+
+    private static void TestTutorialRawPrepButtonStaysEnabled()
+    {
+        var controller = ReadProjectFile("Scripts/Controllers/TutorialController.cs");
+        var preparationTray = ReadProjectFile("Scripts/UI/IngredientPreparationTray.cs").Replace("\r\n", "\n");
+        var methodStart = preparationTray.IndexOf("public bool TrySelectIngredientFromInventory(string itemId)", StringComparison.Ordinal);
+        var methodEnd = preparationTray.IndexOf("\n\tpublic Control? GetPreparationDropBox()", methodStart, StringComparison.Ordinal);
+        var methodBody = methodStart >= 0 && methodEnd > methodStart
+            ? preparationTray[methodStart..methodEnd]
+            : string.Empty;
+
+        var statusIndex = methodBody.IndexOf("SetStatus(DefaultStatusText);", StringComparison.Ordinal);
+        var emitIndex = methodBody.IndexOf("EmitSignal(SignalName.IngredientSelected, itemId);", StringComparison.Ordinal);
+        var refreshIndex = methodBody.IndexOf("Refresh();", emitIndex >= 0 ? emitIndex : 0, StringComparison.Ordinal);
+
+        AssertTrue("IngredientPreparationTray refreshes preparation buttons after tutorial selection locks advance",
+            statusIndex >= 0 &&
+            emitIndex > statusIndex &&
+            refreshIndex > emitIndex);
+        AssertTrue("IngredientPreparationTray never disables the Raw preparation button",
+            preparationTray.Contains("IngredientPreparationCatalog.RawPreparationId") &&
+            preparationTray.Contains("button.Disabled = isRawPreparation ? false : !hasSelection || !preparationEnabled;"));
+        AssertTrue("TutorialController keeps Raw enabled through tutorial button locks",
+            controller.Contains("BuildAllowedButtonsWithRawPreparation(allowedButtons)") &&
+            controller.Contains("KeepRawPreparationButtonEnabled();") &&
+            controller.Contains("rawButton.Disabled = false;"));
     }
 
     private static void TestTutorialOverlayUsesDynamicCutoutsOnly()

@@ -1,5 +1,6 @@
 using Godot;
 using OccultShop.Autoload;
+using OccultShop.Systems;
 using OccultShop.Tutorial;
 using OccultShop.Tutorial.Presentation;
 using OccultShop.UI;
@@ -11,6 +12,8 @@ public partial class TutorialController : Node
 	[Export] public NodePath TutorialOverlayPath = default!;
 	[Export] public NodePath HudPath = default!;
 	[Export] public NodePath BrewPanelPath = default!;
+	[Export] public NodePath StationShelfInventoryPath = default!;
+	[Export] public NodePath IngredientPreparationTrayPath = default!;
 	[Export] public NodePath StationCustomerPanelPath = default!;
 	[Export] public NodePath DaySummaryPanelPath = default!;
 	[Export] public NodePath DayControllerPath = default!;
@@ -33,6 +36,8 @@ public partial class TutorialController : Node
 	private Control? _hudDateControl;
 	private BrewPanel? _brewPanel;
 	private Control? _brewPanelFrame;
+	private StationShelfInventory? _stationShelfInventory;
+	private IngredientPreparationTray? _ingredientPreparationTray;
 	private StationCustomerPanel? _stationCustomerPanel;
 	private DaySummaryPanel? _daySummaryPanel;
 	private DayController? _dayController;
@@ -42,6 +47,7 @@ public partial class TutorialController : Node
 
 	private bool _isRunning;
 	private bool _lastTutorialSaleSucceeded;
+	private TutorialStepId? _lastMotherLineStep;
 
 	public override void _Ready()
 	{
@@ -53,6 +59,8 @@ public partial class TutorialController : Node
 		_hud = GetOptionalControl(HudPath, nameof(HudPath));
 		_brewPanel = GetOptionalNode<BrewPanel>(BrewPanelPath, nameof(BrewPanelPath));
 		_brewPanelFrame = GetOptionalBrewPanelControl(BrewPanelFramePath, nameof(BrewPanelFramePath));
+		_stationShelfInventory = GetOptionalNode<StationShelfInventory>(StationShelfInventoryPath, nameof(StationShelfInventoryPath));
+		_ingredientPreparationTray = GetOptionalNode<IngredientPreparationTray>(IngredientPreparationTrayPath, nameof(IngredientPreparationTrayPath));
 		_stationCustomerPanel = GetOptionalNode<StationCustomerPanel>(StationCustomerPanelPath, nameof(StationCustomerPanelPath));
 		_daySummaryPanel = GetOptionalNode<DaySummaryPanel>(DaySummaryPanelPath, nameof(DaySummaryPanelPath));
 		_dayController = GetOptionalNode<DayController>(DayControllerPath, nameof(DayControllerPath));
@@ -72,6 +80,11 @@ public partial class TutorialController : Node
 			_brewPanel.IngredientQueued += OnIngredientQueued;
 			_brewPanel.PotionBrewed += OnPotionBrewed;
 		}
+		if (_ingredientPreparationTray is not null)
+		{
+			_ingredientPreparationTray.IngredientSelected += OnIngredientSelectedForPreparation;
+			_ingredientPreparationTray.IngredientPrepared += OnIngredientPrepared;
+		}
 		if (_dayController is not null)
 			_dayController.ShopStateChanged += OnShopStateChanged;
 		if (_daySummaryPanel is not null)
@@ -79,8 +92,10 @@ public partial class TutorialController : Node
 		if (_stationCustomerPanel is not null)
 		{
 			_stationCustomerPanel.PotionSold += OnPotionSold;
+			_stationCustomerPanel.PotionSelectedForServing += OnPotionSelectedForServing;
 			_stationCustomerPanel.SaleResultClosed += OnSaleResultClosed;
 			_stationCustomerPanel.InteractionShown += OnCustomerInteractionShown;
+			_stationCustomerPanel.MotherPostServeDialogueResolved += OnMotherPostServeDialogueResolved;
 		}
 
 		_overlayPresenter.Hide();
@@ -101,6 +116,11 @@ public partial class TutorialController : Node
 			_brewPanel.IngredientQueued -= OnIngredientQueued;
 			_brewPanel.PotionBrewed -= OnPotionBrewed;
 		}
+		if (_ingredientPreparationTray is not null)
+		{
+			_ingredientPreparationTray.IngredientSelected -= OnIngredientSelectedForPreparation;
+			_ingredientPreparationTray.IngredientPrepared -= OnIngredientPrepared;
+		}
 		if (_dayController is not null)
 			_dayController.ShopStateChanged -= OnShopStateChanged;
 		if (_daySummaryPanel is not null)
@@ -108,8 +128,10 @@ public partial class TutorialController : Node
 		if (_stationCustomerPanel is not null)
 		{
 			_stationCustomerPanel.PotionSold -= OnPotionSold;
+			_stationCustomerPanel.PotionSelectedForServing -= OnPotionSelectedForServing;
 			_stationCustomerPanel.SaleResultClosed -= OnSaleResultClosed;
 			_stationCustomerPanel.InteractionShown -= OnCustomerInteractionShown;
+			_stationCustomerPanel.MotherPostServeDialogueResolved -= OnMotherPostServeDialogueResolved;
 		}
 	}
 
@@ -119,6 +141,7 @@ public partial class TutorialController : Node
 			return;
 
 		_isRunning = true;
+		_lastMotherLineStep = null;
 		ResetLastTutorialSaleFeedback();
 		ShowStep(CurrentStep());
 	}
@@ -141,6 +164,7 @@ public partial class TutorialController : Node
 		_overlayPresenter.Hide();
 		_interactionGate.Restore();
 		ResetLastTutorialSaleFeedback();
+		_lastMotherLineStep = null;
 		_gameState.SkipTutorial();
 	}
 
@@ -152,12 +176,36 @@ public partial class TutorialController : Node
 		ApplyTransition(_stateMachine.EvaluateIngredientQueued(CurrentStep(), itemId, queuedCount));
 	}
 
+	private void OnIngredientSelectedForPreparation(string itemId)
+	{
+		if (!_isRunning)
+			return;
+
+		ApplyTransition(_stateMachine.EvaluateIngredientSelected(CurrentStep(), itemId));
+	}
+
+	private void OnIngredientPrepared(string ingredientId, string preparationId, string preparedItemId)
+	{
+		if (!_isRunning)
+			return;
+
+		ApplyTransition(_stateMachine.EvaluateIngredientPrepared(CurrentStep(), ingredientId, preparationId));
+	}
+
 	private void OnPotionBrewed(string potionItemId)
 	{
 		if (!_isRunning)
 			return;
 
 		ApplyTransition(_stateMachine.EvaluatePotionBrewed(CurrentStep(), potionItemId));
+	}
+
+	private void OnPotionSelectedForServing(string itemId)
+	{
+		if (!_isRunning)
+			return;
+
+		ApplyTransition(_stateMachine.EvaluatePotionSelectedForServing(CurrentStep(), itemId));
 	}
 
 	private void OnShopStateChanged()
@@ -176,13 +224,22 @@ public partial class TutorialController : Node
 
 		var currentStep = CurrentStep();
 		var transition = _stateMachine.EvaluatePotionSold(currentStep, itemId);
-		if (transition.HasNextStep && transition.NextStep == TutorialStepId.SaleResult)
+		if (transition.HasNextStep && transition.NextStep == TutorialStepId.PostServeMotherDialogue)
 		{
 			_lastTutorialSaleSucceeded = success;
-			_customerEventController?.ForceNextCustomerInteraction(_tutorialContent.AmbiguousTutorialCustomerId);
+			_customerEventController?.ForceNextCustomerInteraction(string.Empty);
+			_dayController?.ForceCloseShopAfterCurrentCustomerForTutorial();
 		}
 
 		ApplyTransition(transition);
+	}
+
+	private void OnMotherPostServeDialogueResolved()
+	{
+		if (!_isRunning)
+			return;
+
+		ApplyTransition(_stateMachine.EvaluateMotherPostServeDialogueResolved(CurrentStep()));
 	}
 
 	private void OnSaleResultClosed()
@@ -250,16 +307,25 @@ public partial class TutorialController : Node
 
 	private void CompleteTutorial()
 	{
+		FinishTutorialRuntimeState();
+		_gameState.CompleteTutorial();
+	}
+
+	private void FinishTutorialRuntimeState()
+	{
 		_customerEventController?.ForceNextCustomerInteraction(string.Empty);
 		_isRunning = false;
 		_overlayPresenter.Hide();
 		_interactionGate.Restore();
 		ResetLastTutorialSaleFeedback();
-		_gameState.CompleteTutorial();
+		_lastMotherLineStep = null;
 	}
 
 	private void ShowStep(TutorialStepId step)
 	{
+		if (step == TutorialStepId.OpenBrewPanel)
+			EnsureOpeningTutorialCustomer();
+
 		var brewPanelTransition = _stateMachine.EvaluateOpenBrewPanelState(step, _brewPanel is not null && _brewPanel.Visible);
 		if (brewPanelTransition.HasNextStep || brewPanelTransition.ShouldComplete)
 		{
@@ -269,7 +335,18 @@ public partial class TutorialController : Node
 
 		if (step == TutorialStepId.StartDay)
 		{
-			_customerEventController?.ForceNextCustomerInteraction(_tutorialContent.TutorialCustomerId);
+			var activeCustomerTransition = _stateMachine.EvaluateCustomerInteractionShown(
+				step,
+				_gameState.ActiveCustomerRequest?.Id ?? string.Empty);
+			if (activeCustomerTransition.HasNextStep || activeCustomerTransition.ShouldComplete)
+			{
+				ApplyTransition(activeCustomerTransition);
+				return;
+			}
+
+			if (_dayController is null || !_dayController.IsShopOpen)
+				_customerEventController?.ForceNextCustomerInteraction(_tutorialContent.TutorialCustomerId);
+
 			var shopStateTransition = _stateMachine.EvaluateShopStateChanged(step, _dayController is not null && _dayController.IsShopOpen);
 			if (shopStateTransition.HasNextStep || shopStateTransition.ShouldComplete)
 			{
@@ -277,6 +354,9 @@ public partial class TutorialController : Node
 				return;
 			}
 		}
+
+		if (IsOpeningPotionStep(step))
+			EnsureOpeningTutorialCustomer();
 
 		var stepContent = _tutorialContent.GetStepContent(step);
 		UpdateTutorialButtonLock(stepContent, GetAllowedButtonsForStep(step));
@@ -300,22 +380,37 @@ public partial class TutorialController : Node
 				_overlayPresenter.ShowForTarget(stepContent, _brewPanelFrame ?? _brewPanel);
 				break;
 			case TutorialStepId.QueueMint:
-				ShowIngredientQueueStep(stepContent, _tutorialContent.MintId);
+				ShowIngredientSelectionStep(stepContent, _tutorialContent.MintId, "Let's start with the Mint.");
+				break;
+			case TutorialStepId.PrepareMintRaw:
+				ShowRawPreparationStep(stepContent, "Ingredients can be prepared a few different ways. Use Raw for this potion.");
 				break;
 			case TutorialStepId.QueueGorse:
-				ShowIngredientQueueStep(stepContent, _tutorialContent.GorseId);
+				ShowIngredientSelectionStep(stepContent, _tutorialContent.GorseId, "Next, the Gorse.");
+				break;
+			case TutorialStepId.PrepareGorseRaw:
+				ShowRawPreparationStep(stepContent, "Keep the Gorse Raw as well.");
 				break;
 			case TutorialStepId.QueueThyme:
-				ShowIngredientQueueStep(stepContent, _tutorialContent.ThymeId);
+				ShowIngredientSelectionStep(stepContent, _tutorialContent.ThymeId, "Finally, the Thyme.");
+				break;
+			case TutorialStepId.PrepareThymeRaw:
+				ShowRawPreparationStep(stepContent, "Raw again, then the brew will be ready.");
 				break;
 			case TutorialStepId.BrewPotion:
-				_overlayPresenter.ShowForTarget(stepContent, _brewPanelFrame ?? _brewPanel);
+				ShowBrewStep(stepContent);
 				break;
 			case TutorialStepId.StartDay:
 				_overlayPresenter.ShowForTarget(stepContent, _startDayButton);
 				break;
 			case TutorialStepId.SellPotion:
-				_overlayPresenter.ShowForTargets(stepContent, null, FocusTutorialPotionInventorySlot(), _stationCustomerPanel);
+				ShowServingDropStep(stepContent);
+				break;
+			case TutorialStepId.ConfirmServe:
+				ShowServeButtonStep(stepContent);
+				break;
+			case TutorialStepId.PostServeMotherDialogue:
+				_overlayPresenter.Hide();
 				break;
 			case TutorialStepId.SaleResult:
 				_overlayPresenter.ShowForTarget(
@@ -324,13 +419,11 @@ public partial class TutorialController : Node
 					_tutorialContent.BuildSaleResultBody(_lastTutorialSaleSucceeded));
 				break;
 			case TutorialStepId.NextCustomer:
-				_gameState.SeedNextCustomerTutorialInventory();
-				_customerEventController?.ForceNextCustomerInteraction(_tutorialContent.AmbiguousTutorialCustomerId);
-				Callable.From(AdvanceIfAmbiguousCustomerIsActive).CallDeferred();
-				_overlayPresenter.ShowForTarget(stepContent, _stationCustomerPanel);
+				_customerEventController?.ForceNextCustomerInteraction(string.Empty);
+				_overlayPresenter.Hide();
 				break;
 			case TutorialStepId.AmbiguousCustomer:
-				_overlayPresenter.ShowForTarget(stepContent, _stationCustomerPanel);
+				_overlayPresenter.Hide();
 				break;
 			case TutorialStepId.AddTwoMoreSleepIngredients:
 				_overlayPresenter.ShowMessage(stepContent);
@@ -344,18 +437,81 @@ public partial class TutorialController : Node
 		}
 	}
 
-	private void ShowIngredientQueueStep(TutorialStepContentResource stepContent, string itemId)
+	private void ShowIngredientSelectionStep(TutorialStepContentResource stepContent, string itemId, string motherLine)
 	{
 		var expectedStep = CurrentStep();
+		ShowMotherLineForStep(expectedStep, motherLine);
 		Callable.From(() =>
 		{
 			if (!_isRunning || CurrentStep() != expectedStep)
 				return;
 
-			_overlayPresenter.ShowForTargets(
+			var ingredientTarget = FocusIngredientShelfSlot(itemId) ?? _stationShelfInventory;
+			var preparationTarget = FocusPreparationDropBox() ?? _ingredientPreparationTray;
+			_overlayPresenter.ShowForTargetsWithArrow(stepContent, ingredientTarget, preparationTarget);
+		}).CallDeferred();
+	}
+
+	private void ShowRawPreparationStep(TutorialStepContentResource stepContent, string motherLine)
+	{
+		var expectedStep = CurrentStep();
+		ShowMotherLineForStep(expectedStep, motherLine);
+		Callable.From(() =>
+		{
+			if (!_isRunning || CurrentStep() != expectedStep)
+				return;
+
+			var preparationTarget = FocusPreparationDropBox() ?? _ingredientPreparationTray;
+			Control? rawButton = FocusRawPreparationButton() ?? (Control?)_ingredientPreparationTray;
+			_overlayPresenter.ShowForTargetsWithArrow(stepContent, preparationTarget, rawButton);
+		}).CallDeferred();
+	}
+
+	private void ShowBrewStep(TutorialStepContentResource stepContent)
+	{
+		var expectedStep = CurrentStep();
+		ShowMotherLineForStep(expectedStep, "That's everything. Brew it now.");
+		Callable.From(() =>
+		{
+			if (!_isRunning || CurrentStep() != expectedStep)
+				return;
+
+			_overlayPresenter.ShowForTargetsWithArrow(
 				stepContent,
-				null,
-				FocusTutorialBrewPanel());
+				FocusTutorialBrewPanel(),
+				_brewPanel?.GetBrewButton());
+		}).CallDeferred();
+	}
+
+	private void ShowServingDropStep(TutorialStepContentResource stepContent)
+	{
+		var expectedStep = CurrentStep();
+		ShowMotherLineForStep(expectedStep, BuildGreatJobMotherLine());
+		Callable.From(() =>
+		{
+			if (!_isRunning || CurrentStep() != expectedStep)
+				return;
+
+			_overlayPresenter.ShowForTargetsWithArrow(
+				stepContent,
+				FocusTutorialPotionInventorySlot(),
+				FocusServingDropBox());
+		}).CallDeferred();
+	}
+
+	private void ShowServeButtonStep(TutorialStepContentResource stepContent)
+	{
+		var expectedStep = CurrentStep();
+		ShowMotherLineForStep(expectedStep, "Now click Serve so I can take it.");
+		Callable.From(() =>
+		{
+			if (!_isRunning || CurrentStep() != expectedStep)
+				return;
+
+			_overlayPresenter.ShowForTargetsWithArrow(
+				stepContent,
+				FocusServingDropBox(),
+				_stationCustomerPanel?.GetServeButton());
 		}).CallDeferred();
 	}
 
@@ -370,6 +526,73 @@ public partial class TutorialController : Node
 			return null;
 
 		return _stationCustomerPanel.GetVisiblePotionSlot(_tutorialContent.TutorialPotionId);
+	}
+
+	private Control? FocusIngredientShelfSlot(string itemId)
+	{
+		return _stationShelfInventory?.GetVisibleIngredientSlot(itemId);
+	}
+
+	private Control? FocusPreparationDropBox()
+	{
+		return _ingredientPreparationTray?.GetPreparationDropBox();
+	}
+
+	private Button? FocusRawPreparationButton()
+	{
+		return _ingredientPreparationTray?.GetPreparationButton(IngredientPreparationCatalog.RawPreparationId);
+	}
+
+	private Control? FocusServingDropBox()
+	{
+		return _stationCustomerPanel?.GetServingDropBox();
+	}
+
+	private void EnsureOpeningTutorialCustomer()
+	{
+		if (_stationCustomerPanel is not null && _stationCustomerPanel.HasActiveInteraction)
+			return;
+
+		if (_dayController is null || _customerEventController is null)
+			return;
+
+		_customerEventController.ForceNextCustomerInteraction(_tutorialContent.TutorialCustomerId);
+		if (!_dayController.IsShopOpen)
+			_dayController.StartShopDay();
+	}
+
+	private static bool IsOpeningPotionStep(TutorialStepId step)
+	{
+		return step is TutorialStepId.QueueMint
+			or TutorialStepId.PrepareMintRaw
+			or TutorialStepId.QueueGorse
+			or TutorialStepId.PrepareGorseRaw
+			or TutorialStepId.QueueThyme
+			or TutorialStepId.PrepareThymeRaw
+			or TutorialStepId.BrewPotion
+			or TutorialStepId.SellPotion
+			or TutorialStepId.ConfirmServe;
+	}
+
+	private void ShowMotherLineForStep(TutorialStepId step, string line)
+	{
+		if (_lastMotherLineStep == step)
+			return;
+
+		_stationCustomerPanel?.ShowTutorialMotherLine(line);
+		_lastMotherLineStep = step;
+	}
+
+	private string BuildGreatJobMotherLine()
+	{
+		return $"Great job {GetPlayerNameForMotherLine()}. Now bring it over here.";
+	}
+
+	private string GetPlayerNameForMotherLine()
+	{
+		return string.IsNullOrWhiteSpace(_gameState.PlayerName)
+			? "there"
+			: _gameState.PlayerName.Trim();
 	}
 
 	private bool TryGetStatusHighlightRect(out Rect2 highlightRect)
@@ -413,12 +636,33 @@ public partial class TutorialController : Node
 		if (!stepContent.LockOtherButtons)
 		{
 			_interactionGate.Restore();
+			KeepRawPreparationButtonEnabled();
 			return;
 		}
 
 		_interactionGate.Apply(
-			new Node?[] { _hud, _brewPanel, _stationCustomerPanel, _daySummaryPanel },
-			allowedButtons);
+			new Node?[] { _hud, _brewPanel, _stationShelfInventory, _ingredientPreparationTray, _stationCustomerPanel, _daySummaryPanel },
+			BuildAllowedButtonsWithRawPreparation(allowedButtons));
+		KeepRawPreparationButtonEnabled();
+	}
+
+	private BaseButton?[] BuildAllowedButtonsWithRawPreparation(BaseButton?[] allowedButtons)
+	{
+		var rawButton = FocusRawPreparationButton();
+		if (rawButton is null)
+			return allowedButtons;
+
+		var allowedButtonsWithRaw = new BaseButton?[allowedButtons.Length + 1];
+		allowedButtons.CopyTo(allowedButtonsWithRaw, 0);
+		allowedButtonsWithRaw[^1] = rawButton;
+		return allowedButtonsWithRaw;
+	}
+
+	private void KeepRawPreparationButtonEnabled()
+	{
+		var rawButton = FocusRawPreparationButton();
+		if (rawButton is not null)
+			rawButton.Disabled = false;
 	}
 
 	private BaseButton?[] GetAllowedButtonsForStep(TutorialStepId step)
@@ -426,12 +670,17 @@ public partial class TutorialController : Node
 		return step switch
 		{
 			TutorialStepId.OpenBrewPanel => new BaseButton?[] { _settingsButton },
-			TutorialStepId.QueueMint => new BaseButton?[] { },
-			TutorialStepId.QueueGorse => new BaseButton?[] { },
-			TutorialStepId.QueueThyme => new BaseButton?[] { },
+			TutorialStepId.QueueMint => new BaseButton?[] { GetAllowedButton(FocusIngredientShelfSlot(_tutorialContent.MintId)) },
+			TutorialStepId.PrepareMintRaw => new BaseButton?[] { FocusRawPreparationButton() },
+			TutorialStepId.QueueGorse => new BaseButton?[] { GetAllowedButton(FocusIngredientShelfSlot(_tutorialContent.GorseId)) },
+			TutorialStepId.PrepareGorseRaw => new BaseButton?[] { FocusRawPreparationButton() },
+			TutorialStepId.QueueThyme => new BaseButton?[] { GetAllowedButton(FocusIngredientShelfSlot(_tutorialContent.ThymeId)) },
+			TutorialStepId.PrepareThymeRaw => new BaseButton?[] { FocusRawPreparationButton() },
 			TutorialStepId.BrewPotion => new BaseButton?[] { _brewPanel?.GetBrewButton() },
 			TutorialStepId.StartDay => new BaseButton?[] { _startDayButton },
 			TutorialStepId.SellPotion => new BaseButton?[] { GetAllowedButton(FocusTutorialPotionInventorySlot()) },
+			TutorialStepId.ConfirmServe => new BaseButton?[] { _stationCustomerPanel?.GetServeButton() },
+			TutorialStepId.PostServeMotherDialogue => new BaseButton?[] { },
 			TutorialStepId.NextCustomer => new BaseButton?[] { },
 			TutorialStepId.CloseShop => new BaseButton?[] { },
 			TutorialStepId.DaySummary => new BaseButton?[] { _daySummaryPanel?.GetContinueButton() },

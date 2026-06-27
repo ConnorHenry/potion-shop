@@ -20,6 +20,7 @@ internal static class PersistenceTests
         runner.Run("Prepared ingredient metadata survives item conversion", TestPreparedIngredientMetadataPersists);
         runner.Run("ItemDef price converter accepts price fields", TestItemDefPriceConverterSupportsPriceFields);
         runner.Run("Customer request trait ranges support legacy JSON", TestCustomerRequestTraitRangeJsonCompatibility);
+        runner.Run("Player name survives persistence and save summaries", TestPlayerNamePersistence);
         runner.Run("SaveGameManager stores saves in a dedicated directory", TestSaveGameManagerUsesSaveDirectory);
         runner.Run("Persistence boundary stays separated", TestPersistenceBoundaryIsDocumented);
     }
@@ -221,6 +222,34 @@ internal static class PersistenceTests
         AssertTrue("SaveGameManager generates separate save files", source.Contains("BuildUniqueSaveFilePath"));
         AssertTrue("SaveGameManager remembers the active save file", source.Contains("_activeSaveFilePath"));
         AssertTrue("SaveGameManager overwrites the active save file", source.Contains("string.IsNullOrWhiteSpace(_activeSaveFilePath)"));
+    }
+
+    private static void TestPlayerNamePersistence()
+    {
+        var gameState = ReadProjectFile("Scripts/Autoload/GameState.cs");
+        var saveData = ReadProjectFile("Scripts/Persistence/SaveData.cs");
+        var saveManager = ReadProjectFile("Scripts/Autoload/SaveGameManager.cs");
+        var saveSummary = ReadProjectFile("Scripts/Persistence/SaveGameSummary.cs");
+
+        AssertTrue("GameState exposes player name",
+            gameState.Contains("public string PlayerName { get; private set; }"));
+        AssertTrue("GameState resets and sets player name explicitly",
+            gameState.Contains("PlayerName = \"\";") &&
+            gameState.Contains("public void SetPlayerName(string playerName)") &&
+            gameState.Contains("playerName.Trim()"));
+        AssertTrue("GameState snapshot exports and restores player name",
+            gameState.Contains("PlayerName = PlayerName") &&
+            gameState.Contains("SetPlayerName(snapshot.PlayerName, emitChanged: false)") &&
+            saveData.Contains("public string PlayerName { get; set; } = \"\";"));
+        AssertTrue("SaveGameManager accepts player name during new game",
+            saveManager.Contains("StartNewGame(bool startTutorial, string playerName)") &&
+            saveManager.Contains("_gameState.SetPlayerName(playerName);"));
+        AssertTrue("SaveGameManager copies player name to summaries",
+            saveManager.Contains("summary.PlayerName = saveData.GameState.PlayerName"));
+        AssertTrue("Save summary display includes player name",
+            saveSummary.Contains("public string PlayerName { get; set; } = \"\";") &&
+            saveSummary.Contains("PlayerName.Trim()") &&
+            saveSummary.Contains("Unnamed Player"));
     }
 
     private static void TestPersistenceBoundaryIsDocumented()

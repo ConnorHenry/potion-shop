@@ -1,4 +1,5 @@
 using System;
+using OccultShop.Systems;
 
 namespace OccultShop.Tutorial;
 
@@ -31,8 +32,14 @@ public sealed class TutorialStateMachine
 		if (rawStep >= (int)TutorialStepId.InspectElder && rawStep <= (int)TutorialStepId.AddElderToBrew)
 			return TutorialStepId.AddTwoMoreSleepIngredients;
 
-		if (rawStep >= (int)TutorialStepId.DaySummary)
+		if (rawStep >= (int)TutorialStepId.PrepareMintRaw && rawStep <= (int)TutorialStepId.ConfirmServe)
+			return (TutorialStepId)rawStep;
+
+		if (rawStep >= (int)TutorialStepId.DaySummary && rawStep < (int)TutorialStepId.PrepareMintRaw)
 			return TutorialStepId.DaySummary;
+
+		if (rawStep >= (int)TutorialStepId.PostServeMotherDialogue)
+			return TutorialStepId.PostServeMotherDialogue;
 
 		return (TutorialStepId)rawStep;
 	}
@@ -43,8 +50,8 @@ public sealed class TutorialStateMachine
 		{
 			TutorialStepId.Welcome => TutorialTransition.To(TutorialStepId.Status),
 			TutorialStepId.Status => TutorialTransition.To(TutorialStepId.OpenBrewPanel),
-			TutorialStepId.SaleResult => TutorialTransition.To(TutorialStepId.NextCustomer),
-			TutorialStepId.AmbiguousCustomer => TutorialTransition.To(TutorialStepId.AddTwoMoreSleepIngredients),
+			TutorialStepId.SaleResult => TutorialTransition.Complete(),
+			TutorialStepId.AmbiguousCustomer => TutorialTransition.Complete(),
 			_ => TutorialTransition.None
 		};
 	}
@@ -63,10 +70,42 @@ public sealed class TutorialStateMachine
 		return TutorialTransition.None;
 	}
 
+	public TutorialTransition EvaluateIngredientSelected(TutorialStepId step, string itemId)
+	{
+		if (step == TutorialStepId.QueueMint && IsItem(itemId, _mintId))
+			return TutorialTransition.To(TutorialStepId.PrepareMintRaw);
+
+		if (step == TutorialStepId.QueueGorse && IsItem(itemId, _gorseId))
+			return TutorialTransition.To(TutorialStepId.PrepareGorseRaw);
+
+		if (step == TutorialStepId.QueueThyme && IsItem(itemId, _thymeId))
+			return TutorialTransition.To(TutorialStepId.PrepareThymeRaw);
+
+		return TutorialTransition.None;
+	}
+
+	public TutorialTransition EvaluateIngredientPrepared(TutorialStepId step, string ingredientId, string preparationId)
+	{
+		var normalizedPreparationId = IngredientPreparationCatalog.NormalizePreparationId(preparationId);
+		if (!IsItem(normalizedPreparationId, IngredientPreparationCatalog.RawPreparationId))
+			return TutorialTransition.None;
+
+		if (step == TutorialStepId.PrepareMintRaw && IsItem(ingredientId, _mintId))
+			return TutorialTransition.To(TutorialStepId.QueueGorse);
+
+		if (step == TutorialStepId.PrepareGorseRaw && IsItem(ingredientId, _gorseId))
+			return TutorialTransition.To(TutorialStepId.QueueThyme);
+
+		if (step == TutorialStepId.PrepareThymeRaw && IsItem(ingredientId, _thymeId))
+			return TutorialTransition.To(TutorialStepId.BrewPotion);
+
+		return TutorialTransition.None;
+	}
+
 	public TutorialTransition EvaluatePotionBrewed(TutorialStepId step, string potionItemId)
 	{
 		if (step == TutorialStepId.BrewPotion && IsItem(potionItemId, _tutorialPotionId))
-			return TutorialTransition.To(TutorialStepId.StartDay);
+			return TutorialTransition.To(TutorialStepId.SellPotion);
 
 		return TutorialTransition.None;
 	}
@@ -89,8 +128,24 @@ public sealed class TutorialStateMachine
 
 	public TutorialTransition EvaluatePotionSold(TutorialStepId step, string itemId)
 	{
+		if (step == TutorialStepId.ConfirmServe && IsItem(itemId, _tutorialPotionId))
+			return TutorialTransition.To(TutorialStepId.PostServeMotherDialogue);
+
+		return TutorialTransition.None;
+	}
+
+	public TutorialTransition EvaluateMotherPostServeDialogueResolved(TutorialStepId step)
+	{
+		if (step == TutorialStepId.PostServeMotherDialogue)
+			return TutorialTransition.Complete();
+
+		return TutorialTransition.None;
+	}
+
+	public TutorialTransition EvaluatePotionSelectedForServing(TutorialStepId step, string itemId)
+	{
 		if (step == TutorialStepId.SellPotion && IsItem(itemId, _tutorialPotionId))
-			return TutorialTransition.To(TutorialStepId.SaleResult);
+			return TutorialTransition.To(TutorialStepId.ConfirmServe);
 
 		return TutorialTransition.None;
 	}
@@ -99,9 +154,6 @@ public sealed class TutorialStateMachine
 	{
 		if (step == TutorialStepId.StartDay && IsCustomerInteractionMatch(interactionId, _tutorialCustomerId))
 			return TutorialTransition.To(TutorialStepId.SellPotion);
-
-		if (step == TutorialStepId.NextCustomer && IsCustomerInteractionMatch(interactionId, _ambiguousCustomerId))
-			return TutorialTransition.To(TutorialStepId.AmbiguousCustomer);
 
 		return TutorialTransition.None;
 	}
@@ -116,9 +168,6 @@ public sealed class TutorialStateMachine
 
 	public TutorialTransition EvaluateAmbiguousCustomerState(TutorialStepId step, string? activeCustomerRequestId)
 	{
-		if (step == TutorialStepId.NextCustomer && IsCustomerInteractionMatch(activeCustomerRequestId ?? string.Empty, _ambiguousCustomerId))
-			return TutorialTransition.To(TutorialStepId.AmbiguousCustomer);
-
 		return TutorialTransition.None;
 	}
 

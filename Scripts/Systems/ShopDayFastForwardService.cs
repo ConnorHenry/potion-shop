@@ -192,9 +192,16 @@ public static class ShopDayFastForwardService
 	{
 		return left.AddGold == right.AddGold &&
 			left.AddDread == right.AddDread &&
+			left.AddReputation == right.AddReputation &&
+			left.SetReputation == right.SetReputation &&
 			StringValuesMatch(left.AddRule, right.AddRule) &&
 			StringValuesMatch(left.AddStoryFlag, right.AddStoryFlag) &&
 			StringValuesMatch(left.RemoveStoryFlag, right.RemoveStoryFlag) &&
+			StringValuesMatch(left.QuestId, right.QuestId) &&
+			StringValuesMatch(left.SetQuestStatus, right.SetQuestStatus) &&
+			StringValuesMatch(left.RelationshipCharacterId, right.RelationshipCharacterId) &&
+			left.AddRelationship == right.AddRelationship &&
+			left.SetRelationship == right.SetRelationship &&
 			StringValuesMatch(left.AddItemId, right.AddItemId) &&
 			left.AddItemQty == right.AddItemQty &&
 			StringValuesMatch(left.RestockItemId, right.RestockItemId) &&

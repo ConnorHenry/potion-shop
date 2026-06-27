@@ -1,4 +1,4 @@
-[gd_scene load_steps=36 format=3 uid="uid://4hripc13we86"]
+[gd_scene load_steps=37 format=3 uid="uid://4hripc13we86"]
 
 [ext_resource type="Script" uid="uid://bygqfctik8rwk" path="res://Scripts/UI/BrewPanel.cs" id="9_em5ve"]
 [ext_resource type="Texture2D" uid="uid://bcf48ilgrbmxp" path="res://Assets/Art/BrewingStationBright/brewing_station_background2.png" id="9_jopkj"]
@@ -30,6 +30,7 @@
 [ext_resource type="Script" uid="uid://fr081tqi5wx8" path="res://Scripts/UI/StationCustomerPanel.cs" id="53_station_customer"]
 [ext_resource type="Script" uid="uid://dm0gx0ctlle7o" path="res://Scripts/UI/StationBookController.cs" id="54_station_book"]
 [ext_resource type="PackedScene" uid="uid://d1p1ircme3kck" path="res://Scenes/UI/BoilingMiniGameWindow.tscn" id="55_boil_game"]
+[ext_resource type="PackedScene" uid="uid://dux1kpmnsmdmo" path="res://Scenes/UI/TutorialOverlay.tscn" id="56_tutorial_overlay"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_brew_panel_band"]
 bg_color = Color(0.070588, 0.035294, 0.094118, 0.18)
@@ -1201,6 +1202,8 @@ fit_content = true
 [node name="Continue" type="Button" parent="DaySummaryPanel/Panel/Margin/VBox"]
 layout_mode = 2
 text = "Continue to Night"
+
+[node name="TutorialOverlay" parent="." instance=ExtResource("56_tutorial_overlay")]
 
 [node name="BookOverlayLayer" type="CanvasLayer" parent="."]
 layer = 4096

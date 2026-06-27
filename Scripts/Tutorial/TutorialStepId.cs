@@ -19,5 +19,10 @@ public enum TutorialStepId
 	AddElderToBrew = 14,
 	AddTwoMoreSleepIngredients = 15,
 	CloseShop = 16,
-	DaySummary = 17
+	DaySummary = 17,
+	PrepareMintRaw = 18,
+	PrepareGorseRaw = 19,
+	PrepareThymeRaw = 20,
+	ConfirmServe = 21,
+	PostServeMotherDialogue = 22
 }

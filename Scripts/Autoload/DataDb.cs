@@ -377,6 +377,8 @@ public partial class DataDb : Node
 				HideRequestDetails = ReadBool(entry, "hideRequestDetails"),
 				DesiredTraits = ReadTraitRangeDictionary(entry, "desiredTraits", legacyIntIsMinimum: true),
 				BadTraits = ReadTraitRangeDictionary(entry, "badTraits", legacyIntIsMinimum: false),
+				RequiredPotionItemId = ReadString(entry, "requiredPotionItemId"),
+				RequiredPotionDisplayName = ReadString(entry, "requiredPotionDisplayName"),
 				RequiredMinTraits = ReadStringIntDictionary(entry, "requiredMinTraits"),
 				RequiredMaxTraits = ReadStringIntDictionary(entry, "requiredMaxTraits"),
 				RequiredIngredientAmounts = ParseIngredientPortions(ReadArray(entry, "requiredIngredientAmounts")),
@@ -595,9 +597,16 @@ public partial class DataDb : Node
 			{
 				AddGold = ReadNullableInt(entry, "addGold"),
 				AddDread = ReadNullableInt(entry, "addDread"),
+				AddReputation = ReadNullableInt(entry, "addReputation"),
+				SetReputation = ReadNullableInt(entry, "setReputation"),
 				AddRule = ReadNullableString(entry, "addRule"),
 				AddStoryFlag = ReadNullableString(entry, "addStoryFlag"),
 				RemoveStoryFlag = ReadNullableString(entry, "removeStoryFlag"),
+				QuestId = ReadNullableString(entry, "questId"),
+				SetQuestStatus = ReadNullableString(entry, "setQuestStatus"),
+				RelationshipCharacterId = ReadNullableString(entry, "relationshipCharacterId"),
+				AddRelationship = ReadNullableInt(entry, "addRelationship"),
+				SetRelationship = ReadNullableInt(entry, "setRelationship"),
 				AddItemId = ReadNullableString(entry, "addItemId"),
 				AddItemQty = ReadNullableInt(entry, "addItemQty"),
 				RestockItemId = ReadNullableString(entry, "restockItemId"),
@@ -624,25 +633,39 @@ public partial class DataDb : Node
 			GoldMin = ReadNullableInt(entry, "goldMin"),
 			DreadMin = ReadNullableInt(entry, "dreadMin"),
 			DreadMax = ReadNullableInt(entry, "dreadMax"),
+			ReputationMin = ReadNullableInt(entry, "reputationMin"),
+			ReputationMax = ReadNullableInt(entry, "reputationMax"),
 			DayMin = ReadNullableInt(entry, "dayMin"),
 			DayMax = ReadNullableInt(entry, "dayMax"),
 			DayExact = ReadNullableInt(entry, "dayExact"),
 			HasItemId = ReadNullableString(entry, "hasItemId"),
 			HasItemQty = ReadNullableInt(entry, "hasItemQty"),
 			HasStoryFlag = ReadNullableString(entry, "hasStoryFlag"),
-			MissingStoryFlag = ReadNullableString(entry, "missingStoryFlag")
+			MissingStoryFlag = ReadNullableString(entry, "missingStoryFlag"),
+			QuestId = ReadNullableString(entry, "questId"),
+			QuestStatus = ReadNullableString(entry, "questStatus"),
+			RelationshipCharacterId = ReadNullableString(entry, "relationshipCharacterId"),
+			RelationshipMin = ReadNullableInt(entry, "relationshipMin"),
+			RelationshipMax = ReadNullableInt(entry, "relationshipMax")
 		};
 
 		if (requirements.GoldMin is null &&
 			requirements.DreadMin is null &&
 			requirements.DreadMax is null &&
+			requirements.ReputationMin is null &&
+			requirements.ReputationMax is null &&
 			requirements.DayMin is null &&
 			requirements.DayMax is null &&
 			requirements.DayExact is null &&
 			string.IsNullOrWhiteSpace(requirements.HasItemId) &&
 			requirements.HasItemQty is null &&
 			string.IsNullOrWhiteSpace(requirements.HasStoryFlag) &&
-			string.IsNullOrWhiteSpace(requirements.MissingStoryFlag))
+			string.IsNullOrWhiteSpace(requirements.MissingStoryFlag) &&
+			string.IsNullOrWhiteSpace(requirements.QuestId) &&
+			string.IsNullOrWhiteSpace(requirements.QuestStatus) &&
+			string.IsNullOrWhiteSpace(requirements.RelationshipCharacterId) &&
+			requirements.RelationshipMin is null &&
+			requirements.RelationshipMax is null)
 		{
 			return null;
 		}
